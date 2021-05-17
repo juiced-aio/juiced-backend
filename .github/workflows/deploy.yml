@@ -11,6 +11,7 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
+      - run: echo "Creating Mac and Windows build files at dist/$GITHUB_REF"
       - name: Generate build files
         uses: thatisuday/go-cross-build@v1
         with:
@@ -19,6 +20,8 @@ jobs:
             name: 'backend'
             compress: 'false'
             dest: 'dist/$GITHUB_REF'
+      - run: echo '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
+      - run: echo "Uploading Mac build file to identity server"
       - name: Upload Mac release
         id: upload-mac
         uses: JantHsueh/upload-file-action@master
@@ -26,6 +29,7 @@ jobs:
           url: https://identity.juicedbot.io/juiced/mac
           forms: '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
           fileForms: '{"file":"dist/$GITHUB_REF/backend-darwin-amd64"}'
+      - run: echo "Uploading Windows build file to identity server"
       - name: Upload Win release
         id: upload-win
         uses: JantHsueh/upload-file-action@master
