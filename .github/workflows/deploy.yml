@@ -11,7 +11,8 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
-      - run: echo "Creating Mac and Windows build files at dist/$GITHUB_REF"
+      - name: Display information 1
+        run: echo "Creating Mac and Windows build files at dist/$GITHUB_REF"
       - name: Generate build files
         uses: thatisuday/go-cross-build@v1
         with:
@@ -20,8 +21,10 @@ jobs:
             name: 'backend'
             compress: 'false'
             dest: 'dist/$GITHUB_REF'
-      - run: echo '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
-      - run: echo "Uploading Mac build file to identity server"
+      - name: Display information 2
+        run: echo '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
+      - name: Display information 3
+        run: echo "Uploading Mac build file to identity server"
       - name: Upload Mac release
         id: upload-mac
         uses: JantHsueh/upload-file-action@master
