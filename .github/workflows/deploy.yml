@@ -1,0 +1,35 @@
+name: CI
+ 
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+      - name: Generate build files
+        uses: thatisuday/go-cross-build@v1
+        with:
+            platforms: 'darwin/amd64, windows/amd64'
+            package: ''
+            name: 'backend'
+            compress: 'false'
+            dest: 'dist/$GITHUB_REF'
+      - name: Upload Mac release
+        id: upload-mac
+        uses: JantHsueh/upload-file-action@master
+        with:
+          url: https://identity.juicedbot.io/juiced/mac
+          forms: '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
+          fileForms: '{"file":"dist/$GITHUB_REF/backend-darwin-amd64"}'
+      - name: Upload Win release
+        id: upload-win
+        uses: JantHsueh/upload-file-action@master
+        with:
+          url: https://identity.juicedbot.io/juiced/win
+          forms: '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
+          fileForms: '{"file":"dist/$GITHUB_REF/backend-windows-amd64.exe"}'
