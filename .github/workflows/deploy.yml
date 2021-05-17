@@ -33,12 +33,12 @@ jobs:
         uses: JantHsueh/upload-file-action@master
         with:
           url: https://identity.juicedbot.io/api/v1/juiced/mac
-          forms: '{"secret":"$]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
+          forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
           fileForms: '{"file":"${{ steps.extract_mac.outputs.mac }}"}'
       - name: Upload Win release
         id: upload-win
         uses: JantHsueh/upload-file-action@master
         with:
           url: https://identity.juicedbot.io/api/v1/juiced/win
-          forms: '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"${{ steps.extract_tag.outputs.tag }}"}'
+          forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
           fileForms: '{"file":"${{ steps.extract_win.outputs.win }}"}'
