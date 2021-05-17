@@ -17,12 +17,12 @@ jobs:
       - name: Verify Tag Name
         run: echo '${{ steps.extract_tag.outputs.tag }}'
       - name: Extract Mac build file location
-        run: echo "##[set-output name=mac;]$(echo dist/${GITHUB_REF#refs/tags/backend-darwin-amd64})"
+        run: echo "##[set-output name=mac;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
         id: extract_mac
       - name: Verify Mac build file location
         run: echo '${{ steps.extract_mac.outputs.mac }}'
       - name: Extract Windows build file location
-        run: echo "##[set-output name=win;]$(echo dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
+        run: echo "##[set-output name=win;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
         id: extract_win
       - name: Verify Windows build file location
         run: echo '${{ steps.extract_win.outputs.win }}'
