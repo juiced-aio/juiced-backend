@@ -22,7 +22,7 @@ jobs:
             compress: 'false'
             dest: 'dist/$GITHUB_REF'
       - name: Display information 2
-        run: echo format('{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"{0}"}', $GITHUB_REF)
+        run: echo ${{ format('{{"secret":"${{{{ secrets.GOLANG_UPLOAD_HEADER }}}}","version":"{0}"}', $GITHUB_REF) }}
       - name: Display information 3
         run: echo "Uploading Mac build file to identity server"
       - name: Upload Mac release
@@ -30,7 +30,7 @@ jobs:
         uses: JantHsueh/upload-file-action@master
         with:
           url: https://identity.juicedbot.io/juiced/mac
-          forms: format('{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"{0}"}', $GITHUB_REF)
+          forms: ${{ format('{{"secret":"${{{{ secrets.GOLANG_UPLOAD_HEADER }}}}","version":"{0}"}', $GITHUB_REF) }}
           fileForms: '{"file":"dist/$GITHUB_REF/backend-darwin-amd64"}'
       - run: echo "Uploading Windows build file to identity server"
       - name: Upload Win release
@@ -38,5 +38,5 @@ jobs:
         uses: JantHsueh/upload-file-action@master
         with:
           url: https://identity.juicedbot.io/juiced/win
-          forms: format('{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"{0}"}', $GITHUB_REF)
+          forms: ${{ format('{{"secret":"${{{{ secrets.GOLANG_UPLOAD_HEADER }}}}","version":"{0}"}', $GITHUB_REF) }}
           fileForms: '{"file":"dist/$GITHUB_REF/backend-windows-amd64.exe"}'
