@@ -1,0 +1,109 @@
+package enums
+
+// MonitorStatus is a list of possible statuses that a Monitor can have
+type MonitorStatus string
+
+// Idle --> WaitingForProductData --> WaitingForInStock* --> SendingProductInfoToTasks --> WaitingForOutOfStock --> WaitingForInStock --> ...
+const (
+	MonitorIdle               MonitorStatus = "Idle"
+	WaitingForProductData     MonitorStatus = "Searching"
+	WaitingForInStock         MonitorStatus = "Out of stock"
+	SendingProductInfoToTasks MonitorStatus = "Sending to tasks"
+	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
+)
+
+type MonitorEventType string
+
+const (
+	MonitorStart  MonitorEventType = "MonitorStart"
+	MonitorUpdate MonitorEventType = "MonitorUpdate"
+	MonitorStop   MonitorEventType = "MonitorStop"
+)
+
+// TaskStatus is a list of possible statuses that a Task can have
+type TaskStatus string
+
+// Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
+const (
+	TaskIdle            TaskStatus = "Idle"
+	LoggingIn           TaskStatus = "Logging in"
+	WaitingForMonitor   TaskStatus = "Waiting for monitor"
+	AddingToCart        TaskStatus = "Adding to cart"
+	GettingCartInfo     TaskStatus = "Getting cart info"
+	SettingCartInfo     TaskStatus = "Setting cart info"
+	GettingShippingInfo TaskStatus = "Getting shipping info"
+	SettingShippingInfo TaskStatus = "Setting shipping info"
+	GettingBillingInfo  TaskStatus = "Getting billing info"
+	SettingBillingInfo  TaskStatus = "Setting billing info"
+	GettingOrderInfo    TaskStatus = "Getting order info"
+	SettingOrderInfo    TaskStatus = "Setting order info"
+	CheckingOut         TaskStatus = "Checking out"
+	CheckedOut          TaskStatus = "Checked out!"
+	CheckoutFailed      TaskStatus = "Checkout failed"
+)
+
+type TaskEventType string
+
+const (
+	TaskStart    TaskEventType = "TaskStart"
+	TaskUpdate   TaskEventType = "TaskUpdate"
+	TaskStop     TaskEventType = "TaskStop"
+	TaskComplete TaskEventType = "TaskComplete"
+)
+
+// Retailer is a list of possible websites that Tasks and Monitors can run for
+type Retailer string
+
+// Choose one per Task/Monitor
+const (
+	Target      Retailer = "Target"
+	Walmart     Retailer = "Walmart"
+	BestBuy     Retailer = "BestBuy"
+	GameStop    Retailer = "GameStop"
+	Amazon      Retailer = "Amazon"
+	HotWheels   Retailer = "HotWheels"
+	Shopify     Retailer = "Shopify"
+	BigCartel   Retailer = "BigCartel"
+	SquareSpace Retailer = "SquareSpace"
+)
+
+// MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)
+type MonitorType string
+
+const (
+	SKUMonitor     MonitorType = "SKU_MONITOR"
+	URLMonitor     MonitorType = "URL_MONITOR"
+	KeywordMonitor MonitorType = "KEYWORD_MONITOR"
+)
+
+// LoginType is used to choose which login method to use (headless browser / requests)
+type LoginType string
+
+const (
+	LoginTypeBROWSER  LoginType = "BROWSER"
+	LoginTypeREQUESTS LoginType = "REQUESTS"
+)
+
+// ShippingType is used to choose which shipping address to use (stored in account / profile)
+type ShippingType string
+
+const (
+	ShippingTypeSAVED ShippingType = "SAVED"
+	ShippingTypeNEW   ShippingType = "NEW"
+)
+
+// PaymentType is used to choose which payment info to use (stored in account / profile)
+type PaymentType string
+
+const (
+	PaymentTypeSAVED PaymentType = "SAVED"
+	PaymentTypeNEW   PaymentType = "NEW"
+)
+
+// CheckoutType is used to choose how the user will receive the item (shipping / pickup)
+type CheckoutType string
+
+const (
+	CheckoutTypeSHIP   CheckoutType = "SHIP"
+	CheckoutTypePICKUP CheckoutType = "PICKUP"
+)

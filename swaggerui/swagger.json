@@ -1,0 +1,907 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "http"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "description": "Package main",
+    "version": "0.0.1"
+  },
+  "host": "localhost:10000",
+  "basePath": "/",
+  "paths": {
+    "/api/profile": {
+      "get": {
+        "description": "Returns a list of all Profiles",
+        "tags": [
+          "Profile"
+        ],
+        "operationId": "GetAllProfilesEndpoint",
+        "responses": {
+          "200": {
+            "description": "Profile response",
+            "schema": {
+              "$ref": "#/responses/ProfileResponseSwagger"
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a Profile in the database",
+        "tags": [
+          "Profile"
+        ],
+        "operationId": "CreateProfileEndpoint",
+        "parameters": [
+          {
+            "description": "Profile details",
+            "name": "ProfileDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateProfileRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile response",
+            "schema": {
+              "$ref": "#/responses/ProfileResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/group": {
+      "get": {
+        "description": "Returns a list of all ProfileGroups",
+        "tags": [
+          "ProfileGroup"
+        ],
+        "operationId": "GetAllProfileGroupsEndpoint",
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a ProfileGroup in the database",
+        "tags": [
+          "ProfileGroup"
+        ],
+        "operationId": "CreateProfileGroupEndpoint",
+        "parameters": [
+          {
+            "description": "ProfileGroup details",
+            "name": "ProfileGroupDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateProfileGroupRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/group/{GroupID}": {
+      "get": {
+        "tags": [
+          "ProfileGroup"
+        ],
+        "summary": "Returns the ProfileGroup with GroupID {GroupID}.",
+        "operationId": "GetProfileGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProfileGroup to retrieve",
+            "name": "GroupID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ProfileGroup"
+        ],
+        "summary": "Updates and returns the ProfileGroup with GroupID {GroupID}.",
+        "operationId": "UpdateProfileGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProfileGroup to update",
+            "name": "GroupID",
+            "in": "path"
+          },
+          {
+            "description": "New name to update ProfileGroup with",
+            "name": "Name",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateProfileGroupRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ProfileGroup"
+        ],
+        "summary": "Deletes and returns the ProfileGroup with GroupID {GroupID}.",
+        "operationId": "RemoveProfileGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProfileGroup to retrieve",
+            "name": "GroupID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/group/{GroupID}/add": {
+      "post": {
+        "tags": [
+          "ProfileGroup"
+        ],
+        "summary": "Adds Profiles to the ProfileGroup with GroupID {GroupID} and returns the updated ProfileGroup.",
+        "operationId": "AddProfilesToGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProfileGroup to add to",
+            "name": "GroupID",
+            "in": "path"
+          },
+          {
+            "description": "Profile IDs to add to the ProfileGroup",
+            "name": "ProfileIDs",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/ProfileIDList"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/group/{GroupID}/clone": {
+      "post": {
+        "tags": [
+          "ProfileGroup"
+        ],
+        "summary": "Clones the ProfileGroup with GroupID {GroupID} and returns the clone.",
+        "operationId": "CloneProfileGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProfileGroup to clone",
+            "name": "GroupID",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/group/{GroupID}/remove": {
+      "post": {
+        "tags": [
+          "ProfileGroup"
+        ],
+        "summary": "Removes Profiles from the ProfileGroup with GroupID {GroupID} and returns the updated ProfileGroup.",
+        "operationId": "RemoveProfilesFromGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProfileGroup to add to",
+            "name": "GroupID",
+            "in": "path"
+          },
+          {
+            "description": "Profile IDs to add to the ProfileGroup",
+            "name": "ProfileIDs",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/ProfileIDList"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProfileGroup response",
+            "schema": {
+              "$ref": "#/responses/ProfileGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/{ID}": {
+      "get": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Returns the Profile with ID {ID}.",
+        "operationId": "GetProfileEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Profile to retrieve",
+            "name": "ID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile response",
+            "schema": {
+              "$ref": "#/responses/ProfileResponseSwagger"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Updates and returns the Profile with ID {ID}.",
+        "operationId": "UpdateProfileEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Profile to update",
+            "name": "ID",
+            "in": "path"
+          },
+          {
+            "description": "Details to update Profile with",
+            "name": "ProfileDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateProfileRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile response",
+            "schema": {
+              "$ref": "#/responses/ProfileResponseSwagger"
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Deletes and returns the Profile with ID {ID}.",
+        "operationId": "RemoveProfileEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Profile to retrieve",
+            "name": "ID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile response",
+            "schema": {
+              "$ref": "#/responses/ProfileResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/profile/{ID}/clone": {
+      "post": {
+        "tags": [
+          "Profile"
+        ],
+        "summary": "Clones the Profile with ID {ID} and returns the clone.",
+        "operationId": "CloneProfileEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Profile to clone",
+            "name": "ID",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Profile response",
+            "schema": {
+              "$ref": "#/responses/ProfileResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/proxy/group": {
+      "get": {
+        "description": "Returns a list of all ProxyGroups",
+        "tags": [
+          "ProxyGroup"
+        ],
+        "operationId": "GetAllProxyGroupsEndpoint",
+        "responses": {
+          "200": {
+            "description": "ProxyGroup response",
+            "schema": {
+              "$ref": "#/responses/ProxyGroupResponseSwagger"
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a ProxyGroup in the database",
+        "tags": [
+          "ProxyGroup"
+        ],
+        "operationId": "CreateProxyGroupEndpoint",
+        "parameters": [
+          {
+            "description": "ProxyGroup details",
+            "name": "ProxyGroupDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateProxyGroupRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProxyGroup response",
+            "schema": {
+              "$ref": "#/responses/ProxyGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/proxy/group/{GroupID}": {
+      "get": {
+        "tags": [
+          "ProxyGroup"
+        ],
+        "summary": "Returns the ProxyGroup with GroupID {GroupID}.",
+        "operationId": "GetProxyGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProxyGroup to retrieve",
+            "name": "GroupID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProxyGroup response",
+            "schema": {
+              "$ref": "#/responses/ProxyGroupResponseSwagger"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "ProxyGroup"
+        ],
+        "summary": "Updates and returns the ProxyGroup with GroupID {GroupID}.",
+        "operationId": "UpdateProxyGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProxyGroup to update",
+            "name": "GroupID",
+            "in": "path"
+          },
+          {
+            "description": "Details to update ProxyGroup with",
+            "name": "ProxyGroupDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateProxyGroupRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProxyGroup response",
+            "schema": {
+              "$ref": "#/responses/ProxyGroupResponseSwagger"
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "ProxyGroup"
+        ],
+        "summary": "Deletes and returns the ProxyGroup with GroupID {GroupID}.",
+        "operationId": "DeleteProxyGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProxyGroup to retrieve",
+            "name": "GroupID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProxyGroup response",
+            "schema": {
+              "$ref": "#/responses/ProxyGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/proxy/group/{GroupID}/clone": {
+      "post": {
+        "tags": [
+          "ProxyGroup"
+        ],
+        "summary": "Clones the ProxyGroup with GroupID {GroupID} and returns the clone.",
+        "operationId": "CloneProxyGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of ProxyGroup to clone",
+            "name": "GroupID",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ProxyGroup response",
+            "schema": {
+              "$ref": "#/responses/ProxyGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task": {
+      "get": {
+        "description": "Returns a list of all Tasks",
+        "tags": [
+          "Task"
+        ],
+        "operationId": "GetAllTasksEndpoint",
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/group": {
+      "get": {
+        "description": "Returns a list of all TaskGroups",
+        "tags": [
+          "TaskGroup"
+        ],
+        "operationId": "GetAllTaskGroupsEndpoint",
+        "responses": {
+          "200": {
+            "description": "TaskGroups response",
+            "schema": {
+              "$ref": "#/responses/TaskGroupsResponseSwagger"
+            }
+          }
+        }
+      },
+      "post": {
+        "description": "Creates a TaskGroup in the database",
+        "tags": [
+          "TaskGroup"
+        ],
+        "operationId": "CreateTaskGroupEndpoint",
+        "parameters": [
+          {
+            "description": "TaskGroup details",
+            "name": "TaskGroupDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateTaskGroupRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TaskGroup response",
+            "schema": {
+              "$ref": "#/responses/TaskGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/group/{GroupID}": {
+      "get": {
+        "tags": [
+          "TaskGroup"
+        ],
+        "summary": "Returns the TaskGroups with GroupID {GroupID}.",
+        "operationId": "GetTaskGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of TaskGroups to retrieve",
+            "name": "GroupID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TaskGroups response",
+            "schema": {
+              "$ref": "#/responses/TaskGroupsResponseSwagger"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TaskGroup"
+        ],
+        "summary": "Updates and returns the TaskGroup with GroupID {GroupID}.",
+        "operationId": "UpdateTaskGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of TaskGroup to update",
+            "name": "GroupID",
+            "in": "path"
+          },
+          {
+            "description": "Details to update TaskGroup with",
+            "name": "TaskGroupDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateTaskGroupRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TaskGroup response",
+            "schema": {
+              "$ref": "#/responses/TaskGroupResponseSwagger"
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "TaskGroup"
+        ],
+        "summary": "Deletes and returns the TaskGroup with GroupID {GroupID}.",
+        "operationId": "DeleteTaskGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of TaskGroup to retrieve",
+            "name": "GroupID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TaskGroup response",
+            "schema": {
+              "$ref": "#/responses/TaskGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/group/{GroupID}/clone": {
+      "post": {
+        "tags": [
+          "TaskGroup"
+        ],
+        "summary": "Clones the TaskGroup with GroupID {GroupID} and returns the clone.",
+        "operationId": "CloneTaskGroupEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of TaskGroup to clone",
+            "name": "GroupID",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "TaskGroup response",
+            "schema": {
+              "$ref": "#/responses/TaskGroupResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/group/{GroupID}/removeTasks": {
+      "post": {
+        "tags": [
+          "TaskGroup"
+        ],
+        "summary": "Deletes Tasks from the group with GroupID {GroupID}.",
+        "operationId": "RemoveTasksEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "GroupID of Tasks to remove",
+            "name": "GroupID",
+            "in": "path",
+            "required": true
+          },
+          {
+            "description": "IDs of Tasks to remove from Group",
+            "name": "TaskIDs",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateTaskRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/{GroupID}": {
+      "post": {
+        "description": "Creates a Task in the database",
+        "tags": [
+          "Task"
+        ],
+        "operationId": "CreateTaskEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of TaskGroup to add task to",
+            "name": "GroupID",
+            "in": "path"
+          },
+          {
+            "description": "Task details",
+            "name": "TaskDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateTaskRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/{ID}": {
+      "get": {
+        "tags": [
+          "Task"
+        ],
+        "summary": "Returns the Task with ID {ID}.",
+        "operationId": "GetTaskEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Task to retrieve",
+            "name": "ID",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Task"
+        ],
+        "summary": "Updates and returns the Task with ID {ID}.",
+        "operationId": "UpdateTaskEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Task to update",
+            "name": "ID",
+            "in": "path"
+          },
+          {
+            "description": "Details to update Task with",
+            "name": "TaskDetails",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/models/CreateOrUpdateTaskRequest"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/{ID}/clone": {
+      "post": {
+        "tags": [
+          "Task"
+        ],
+        "summary": "Clones the Task with ID {ID} and returns the clone.",
+        "operationId": "CloneTaskEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Task to clone",
+            "name": "ID",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/{ID}/start": {
+      "post": {
+        "description": "Starts a Task",
+        "tags": [
+          "Task"
+        ],
+        "operationId": "StartTaskEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Task to start",
+            "name": "ID",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      }
+    },
+    "/api/task/{ID}/stop": {
+      "post": {
+        "description": "Stops a Task",
+        "tags": [
+          "Task"
+        ],
+        "operationId": "StopTaskEndpoint",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "ID of Task to stop",
+            "name": "ID",
+            "in": "path"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task response",
+            "schema": {
+              "$ref": "#/responses/TaskResponseSwagger"
+            }
+          }
+        }
+      }
+    }
+  }
+}
