@@ -36,8 +36,8 @@ func Authenticate(userInfo entities.UserInfo) (AuthenticationResult, error) {
 	authenticateResponse := AuthenticateResponse{}
 	encryptedAuthenticateResponse := EncryptedAuthenticateResponse{}
 
-	// endpoint := "https://identity.juicedbot.io/api/v1/juiced/a"
-	endpoint := "http://127.0.0.1:5000/api/v1/juiced/a"
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/a"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/a"
 
 	hwid, err := machineid.ProtectedID("juiced")
 	if err != nil {
@@ -164,8 +164,8 @@ func Activate(email, password, deviceName string) (ActivateResponse, ActivationR
 	activateResponse := ActivateResponse{}
 	encryptedActivateResponse := EncryptedActivateResponse{}
 
-	// endpoint := "https://identity.juicedbot.io/api/v1/juiced/ac"
-	endpoint := "http://127.0.0.1:5000/api/v1/juiced/ac"
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/ac"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/ac"
 
 	hwid, err := machineid.ProtectedID("juiced")
 	if err != nil {
@@ -345,8 +345,8 @@ func Refresh(userInfo entities.UserInfo) (entities.UserInfo, RefreshResult, erro
 	refreshResponse := RefreshTokenResponse{}
 	encryptedRefreshResponse := EncryptedRefreshTokenResponse{}
 
-	// endpoint := "https://identity.juicedbot.io/api/v1/juiced/r"
-	endpoint := "http://127.0.0.1:5000/api/v1/juiced/r"
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/r"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/r"
 
 	hwid, err := machineid.ProtectedID("juiced")
 	if err != nil {
@@ -499,11 +499,11 @@ func DecryptRefreshResponse(response EncryptedRefreshTokenResponse, timestamp in
 }
 
 func DownloadBackend() (*http.Response, error) {
-	// endpoint := "https://identity.juicedbot.io/api/v1/juiced/m"
-	endpoint := "http://127.0.0.1:5000/api/v1/juiced/m"
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/m"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/m"
 	if runtime.GOOS == "windows" {
-		// endpoint = "https://identity.juicedbot.io/api/v1/juiced/w"
-		endpoint = "http://127.0.0.1:5000/api/v1/juiced/w"
+		endpoint = "https://identity.juicedbot.io/api/v1/juiced/w"
+		// endpoint = "http://127.0.0.1:5000/api/v1/juiced/w"
 	}
 
 	userInfo, err := queries.GetUserInfo()
