@@ -11,6 +11,15 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
+      - name: Extract Tag Name
+        run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
+        id: extract_tag
+      - name: Extract Mac build file location
+        run: echo "##[set-output name=mac;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
+        id: extract_mac
+      - name: Extract Windows build file location
+        run: echo "##[set-output name=win;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
+        id: extract_win
       - name: Generate build files
         uses: thatisuday/go-cross-build@v1
         with:
@@ -18,18 +27,18 @@ jobs:
             package: ''
             name: 'backend'
             compress: 'false'
-            dest: 'dist/$GITHUB_REF'
+            dest: 'dist/${{ steps.extract_tag.outputs.tag }}'
       - name: Upload Mac release
         id: upload-mac
         uses: JantHsueh/upload-file-action@master
         with:
-          url: https://identity.juicedbot.io/juiced/mac
-          forms: '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
-          fileForms: '{"file":"dist/$GITHUB_REF/backend-darwin-amd64"}'
+          url: https://identity.juicedbot.io/api/v1/juiced/mac
+          forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
+          fileForms: '{"file":"${{ steps.extract_mac.outputs.mac }}"}'
       - name: Upload Win release
         id: upload-win
         uses: JantHsueh/upload-file-action@master
         with:
-          url: https://identity.juicedbot.io/juiced/win
-          forms: '{"secret":"${{ secrets.GOLANG_UPLOAD_HEADER }}","version":"$GITHUB_REF"}'
-          fileForms: '{"file":"dist/$GITHUB_REF/backend-windows-amd64.exe"}'
+          url: https://identity.juicedbot.io/api/v1/juiced/win
+          forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
+          fileForms: '{"file":"${{ steps.extract_win.outputs.win }}"}'
