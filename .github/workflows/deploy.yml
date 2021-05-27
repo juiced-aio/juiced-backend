@@ -19,18 +19,18 @@ jobs:
       - name: Extract Mac build file location
         run: echo "##[set-output name=mac;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
         id: extract_mac
+      - name: Extract Mac M1 build file location
+        run: echo "##[set-output name=mac_m1;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
+        id: extract_mac_m1
       - name: Extract Windows build file location
         run: echo "##[set-output name=win;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
         id: extract_win
-      - name: Generate Mac build files
-#         uses: thatisuday/go-cross-build@v1
-#         with:
-#             platforms: 'darwin/amd64, windows/amd64'
-#             package: ''
-#             name: 'backend'
-#             compress: 'false'
-#             dest: 'dist/${{ steps.extract_tag.outputs.tag }}'
-        run: /usr/local/go/bin/go build -buildmode exe -o /github/workspace/dist/v0.0.4/backend-darwin-amd64 .
+      - name: Generate Mac Intel build files
+        run: env GOOS=darwin GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-amd64 .
+      - name: Generate Mac M1 build files
+        run: env GOOS=darwin GOARCH=arm go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-arm .
+      - name: Generate Win build files
+        run: env GOOS=windows GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-windows-amd64.exe .
       - name: Upload Mac release
         id: upload-mac
         uses: JantHsueh/upload-file-action@master
@@ -38,6 +38,13 @@ jobs:
           url: https://identity.juicedbot.io/api/v1/juiced/mac
           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
           fileForms: '{"file":"${{ steps.extract_mac.outputs.mac }}"}'
+#       - name: Upload Mac M1 release
+#         id: upload-mac-m1
+#         uses: JantHsueh/upload-file-action@master
+#         with:
+#           url: https://identity.juicedbot.io/api/v1/juiced/macm1
+#           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
+#           fileForms: '{"file":"${{ steps.extract_mac_m1.outputs.mac_m1 }}"}'
       - name: Upload Win release
         id: upload-win
         uses: JantHsueh/upload-file-action@master
