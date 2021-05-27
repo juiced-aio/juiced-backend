@@ -42,7 +42,7 @@ var database *sqlx.DB
 // InitDatabase initializes the database singleton
 func InitDatabase() error {
 	var err error
-	configPath := configdir.LocalConfig("Juiced")
+	configPath := configdir.LocalConfig("juiced")
 	err = configdir.MakePath(configPath)
 	if err != nil {
 		return err

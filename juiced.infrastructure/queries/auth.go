@@ -1,6 +1,8 @@
 package queries
 
 import (
+	"errors"
+
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 )
@@ -11,6 +13,9 @@ func GetUserInfo() (int, entities.UserInfo, error) {
 	numRows := 0
 
 	database := common.GetDatabase()
+	if database == nil {
+		return numRows, userInfo, errors.New("database not initialized")
+	}
 
 	rows, err := database.Queryx("SELECT * FROM userInfo")
 	if err != nil {

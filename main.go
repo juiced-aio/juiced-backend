@@ -56,7 +56,7 @@ func Heartbeat(eventBus *events.EventBus, userInfo entities.UserInfo) {
 	lastChecked := time.Now()
 	var err error
 	for {
-		if time.Since(lastChecked).Seconds() > 15 {
+		if time.Since(lastChecked).Seconds() > 60 {
 			userInfo, err = util.Heartbeat(userInfo, 0)
 			if err != nil {
 				eventBus.PublishCloseEvent()

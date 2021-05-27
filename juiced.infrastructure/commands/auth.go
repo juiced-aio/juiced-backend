@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"errors"
+
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
@@ -12,6 +14,9 @@ import (
 // SetUserInfo set the user's UserInfo in the SQL Database
 func SetUserInfo(userInfo entities.UserInfo) error {
 	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
 
 	numRows, existingUserInfo, err := queries.GetUserInfo()
 	userInfoInsert := `
