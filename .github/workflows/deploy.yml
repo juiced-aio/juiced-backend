@@ -37,8 +37,10 @@ jobs:
           dest: build
           targets: windows/amd64,darwin/amd64
           buildmode: exe
-      - name: ls
-        run: ls
+      - name: ls build
+        run: ls build
+      - name: ls build 2
+        run: ls /github/workspace/build
 #       - name: Generate Mac M1 build files
 #         run: sudo env GOOS=darwin GOARCH=arm64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-arm .
 #       - name: Generate Win build files
@@ -49,7 +51,7 @@ jobs:
 #         with:
 #           url: https://identity.juicedbot.io/api/v1/juiced/mac
 #           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-#           fileForms: '{"file":"${{ /github/workspace/backend-darwin-amd64 }}"}'
+#           fileForms: '{"file":"${{ /github/workspace/build/backend-darwin-10.12 }}"}'
 #       - name: Upload Mac M1 release
 #         id: upload-mac-m1
 #         uses: JantHsueh/upload-file-action@master
@@ -63,4 +65,4 @@ jobs:
 #         with:
 #           url: https://identity.juicedbot.io/api/v1/juiced/win
 #           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-#           fileForms: '{"file":"${{ steps.extract_win.outputs.win }}"}'
+#           fileForms: '{"file":"${{ build/ }}"}'
