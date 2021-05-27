@@ -30,11 +30,11 @@ jobs:
         run: echo "##[set-output name=win;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
         id: extract_win
       - name: Generate Mac Intel build files
-        run: sudo env GOOS=darwin GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-amd64 .
+        run: sudo env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-amd64 .
 #       - name: Generate Mac M1 build files
 #         run: sudo env GOOS=darwin GOARCH=arm64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-arm .
       - name: Generate Win build files
-        run: sudo env GOOS=windows GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-windows-amd64.exe .
+        run: sudo env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-windows-amd64.exe .
       - name: Upload Mac Intel release
         id: upload-mac
         uses: JantHsueh/upload-file-action@master
