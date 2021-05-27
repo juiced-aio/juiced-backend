@@ -45,6 +45,7 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	clients[conn] = true
+	events.GetEventBus().PublishConnectEvent()
 
 	for {
 		mt, message, err := conn.ReadMessage()

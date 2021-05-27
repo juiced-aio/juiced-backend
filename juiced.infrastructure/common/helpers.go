@@ -2,9 +2,11 @@ package common
 
 import (
 	"math/rand"
+	"path/filepath"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/kirsle/configdir"
 	_ "github.com/mattn/go-sqlite3"
 )
 
@@ -13,6 +15,7 @@ var runes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
 var schema = `
 	CREATE TABLE IF NOT EXISTS userInfo (
+		ID INTEGER,
 		email TEXT,
 		licenseKey TEXT,
 		deviceName TEXT,
@@ -34,13 +37,27 @@ func RandID(n int) string {
 	return string(b)
 }
 
-// ConnectToDatabase returns a database object
-func ConnectToDatabase() (*sqlx.DB, error) {
-	database, err := sqlx.Connect("sqlite3", "./juiced.db")
+var database *sqlx.DB
+
+// InitDatabase initializes the database singleton
+func InitDatabase() error {
+	var err error
+	configPath := configdir.LocalConfig("Juiced")
+	err = configdir.MakePath(configPath)
 	if err != nil {
-		return database, err
+		return err
+	}
+	filename := filepath.Join(configPath, "juiced.db")
+	database, err = sqlx.Connect("sqlite3", filename)
+	if err != nil {
+		return err
 	}
 
 	_, err = database.Exec(schema)
-	return database, err
+	return err
+}
+
+// GetDatabase retrieves the database connection
+func GetDatabase() *sqlx.DB {
+	return database
 }

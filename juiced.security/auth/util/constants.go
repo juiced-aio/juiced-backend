@@ -6,12 +6,6 @@ const AUTHENTICATION_ENCRYPTION_KEY = "4CD9DA145AD79FC817DCD3A63D50285F"
 // AUTHENTICATION_DECRYPTION_KEY is the encryption key used to decrypt the fields and values for the response from POST /juiced/a
 const AUTHENTICATION_DECRYPTION_KEY = "42618E27E9EB15456AB219A8BD336C5F"
 
-// ACTIVATION_ENCRYPTION_KEY is the encryption key used to encrypt the fields and values for the request to POST /juiced/ac
-const ACTIVATION_ENCRYPTION_KEY = "5EAD4B42F2E35643BC5A1C13844AD3BA"
-
-// ACTIVATION_DECRYPTION_KEY is the encryption key used to decrypt the fields and values for the response from POST /juiced/ac
-const ACTIVATION_DECRYPTION_KEY = "395FA0BD77B72E3FA0D52BCFB89799FA"
-
 // DEACTIVATION_ENCRYPTION_KEY is the encryption key used to encrypt the fields and values for the request to POST /juiced/d
 const DEACTIVATION_ENCRYPTION_KEY = "52DB549C1EF7EEBEE55B855C114CD1SM"
 
@@ -23,9 +17,6 @@ const REFRESH_ENCRYPTION_KEY = "D4C891366401815C008987157D364BF2"
 
 // REFRESH_DECRYPTION_KEY is the encryption key used to decrypt the fields and values for the response from POST /juiced/r
 const REFRESH_DECRYPTION_KEY = "CB13AA963AA17352E765AAD59C0B3A5B"
-
-// DOWNLOAD_ENCRYPTION_KEY is the encryption key used to encrypt the fields and values for the response from POST /juiced/m and POST /juiced/w
-const DOWNLOAD_ENCRYPTION_KEY = "C943BF22740C933456A563EA9544DEB2"
 
 // PX_ENCRYPTION_KEY is the encryption key used to encrypt the fields and values for the request to POST /juiced/p
 const PX_ENCRYPTION_KEY = "241406D242D9C1AA458C8271D1347E30"

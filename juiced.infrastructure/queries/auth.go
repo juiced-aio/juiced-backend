@@ -6,24 +6,23 @@ import (
 )
 
 // GetUserInfo returns the user's UserInfo from the SQL database
-func GetUserInfo() (entities.UserInfo, error) {
+func GetUserInfo() (int, entities.UserInfo, error) {
 	userInfo := entities.UserInfo{}
+	numRows := 0
 
-	database, err := common.ConnectToDatabase()
-	if err != nil {
-		return userInfo, err
-	}
+	database := common.GetDatabase()
 
 	rows, err := database.Queryx("SELECT * FROM userInfo")
 	if err != nil {
-		return userInfo, err
+		return numRows, userInfo, err
 	}
 	defer rows.Close()
 	for rows.Next() {
+		numRows += 1
 		err = rows.StructScan(&userInfo)
 		if err != nil {
-			return userInfo, err
+			return numRows, userInfo, err
 		}
 	}
-	return userInfo, err
+	return numRows, userInfo, err
 }
