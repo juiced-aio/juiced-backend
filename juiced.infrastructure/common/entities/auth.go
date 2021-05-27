@@ -6,6 +6,7 @@ import (
 
 // UserInfo is a class that details about a user's authentication
 type UserInfo struct {
+	ID               string `db:"ID"`
 	Email            string `json:"cABQyJDDb6" db:"email"`
 	LicenseKey       string `json:"q5izDieCbb" db:"licenseKey"`
 	DeviceName       string `json:"deviceName" db:"deviceName"`

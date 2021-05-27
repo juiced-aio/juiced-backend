@@ -5,3 +5,6 @@ type AuthEvent struct{}
 
 // CloseEvent is used to notify the frontend to close
 type CloseEvent struct{}
+
+// ConnectEventType
+type ConnectEvent struct{}

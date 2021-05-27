@@ -4,6 +4,7 @@ import (
 	"time"
 
 	api "backend.juicedbot.io/m/v2/juiced.api"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/stores"
@@ -13,9 +14,31 @@ import (
 )
 
 func main() {
+	// Initalize the event bus
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
-	userInfo, err := queries.GetUserInfo()
+
+	// Start the websocket server
+	go ws.StartWebsocketServer(eventBus)
+
+	// Wait for the client to connect to the websocket server
+	channel := make(chan events.Event)
+	eventBus.Subscribe(channel)
+	for {
+		event := <-channel
+		if event.EventType == events.ConnectEventType {
+			break
+		}
+	}
+
+	// Initalize the database
+	err := common.InitDatabase()
+	if err != nil {
+		eventBus.PublishCloseEvent()
+	}
+
+	// Get the user's info
+	_, userInfo, err := queries.GetUserInfo()
 	if err != nil {
 		eventBus.PublishCloseEvent()
 	} else {
@@ -24,7 +47,6 @@ func main() {
 		stores.InitMonitorStore(eventBus)
 		stores.InitCaptchaStore(eventBus)
 		go api.StartServer()
-		go ws.StartWebsocketServer(eventBus)
 	}
 	for {
 	}
@@ -34,7 +56,7 @@ func Heartbeat(eventBus *events.EventBus, userInfo entities.UserInfo) {
 	lastChecked := time.Now()
 	var err error
 	for {
-		if time.Since(lastChecked).Seconds() > 60 {
+		if time.Since(lastChecked).Seconds() > 15 {
 			userInfo, err = util.Heartbeat(userInfo, 0)
 			if err != nil {
 				eventBus.PublishCloseEvent()

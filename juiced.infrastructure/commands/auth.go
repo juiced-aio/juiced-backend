@@ -11,12 +11,9 @@ import (
 
 // SetUserInfo set the user's UserInfo in the SQL Database
 func SetUserInfo(userInfo entities.UserInfo) error {
-	database, err := common.ConnectToDatabase()
-	if err != nil {
-		return err
-	}
+	database := common.GetDatabase()
 
-	existingUserInfo, err := queries.GetUserInfo()
+	numRows, existingUserInfo, err := queries.GetUserInfo()
 	userInfoInsert := `
 		UPDATE userInfo
 		SET email = ?,
@@ -28,15 +25,14 @@ func SetUserInfo(userInfo entities.UserInfo) error {
 			activationToken = ?,
 			refreshToken = ?,
 			expiresAt = ?
-		WHERE email = ?
+		WHERE ID = 0
 		`
 
-	if existingUserInfo.Email == "" || err != nil {
-		_, err = database.Exec(userInfoInsert,
+	if numRows > 0 && (existingUserInfo.Email == "" || err != nil) {
+		_, err := database.Exec(userInfoInsert,
 			userInfo.Email, userInfo.LicenseKey, userInfo.DeviceName,
 			userInfo.DiscordID, userInfo.DiscordUsername, userInfo.DiscordAvatarURL,
-			userInfo.ActivationToken, userInfo.RefreshToken, userInfo.ExpiresAt,
-			existingUserInfo.Email)
+			userInfo.ActivationToken, userInfo.RefreshToken, userInfo.ExpiresAt)
 		if err == nil {
 			return nil
 		}
@@ -44,10 +40,10 @@ func SetUserInfo(userInfo entities.UserInfo) error {
 
 	userInfoInsert = `
 		INSERT INTO userInfo (
-			email, licenseKey, deviceName,
+			ID, email, licenseKey, deviceName,
 			discordID, discordUsername, discordAvatarURL, 
 			activationToken, refreshToken, expiresAt
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		) VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err = database.Exec(userInfoInsert,
 		userInfo.Email, userInfo.LicenseKey, userInfo.DeviceName,

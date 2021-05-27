@@ -36,6 +36,24 @@ func (eb *EventBus) Subscribe(ch EventChannel) {
 	eb.RM.Unlock()
 }
 
+// PublishConnectEvent publishes a ConnectEvent
+func (eb *EventBus) PublishConnectEvent() {
+	eb.RM.RLock()
+	defer func() {
+		recover()
+	}()
+	// Will panic if any channel is closed
+	go func(event Event, channels EventChannelSlice) {
+		for _, ch := range channels {
+			ch <- event
+		}
+	}(Event{
+		EventType:    ConnectEventType,
+		ConnectEvent: ConnectEvent{},
+	}, eb.Subscribers)
+	eb.RM.RUnlock()
+}
+
 // PublishAuthEvent publishes an AuthEvent
 func (eb *EventBus) PublishAuthEvent() {
 	eb.RM.RLock()
