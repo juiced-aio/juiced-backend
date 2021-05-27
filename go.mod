@@ -5,7 +5,7 @@ go 1.16
 require (
 	github.com/IHaveNothingg/cclientwtf v0.0.0-20210503100226-25a4507da047
 	github.com/anaskhan96/soup v1.2.4
-	github.com/aws/aws-sdk-go v1.38.48 // indirect
+	github.com/aws/aws-sdk-go v1.38.49 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-rod/rod v0.99.1
