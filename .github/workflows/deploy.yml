@@ -35,34 +35,33 @@ jobs:
           xgo_version: latest
           go_version: latest
           dest: build
+          prefix: backend
           targets: windows/amd64,darwin/amd64
           buildmode: exe
+          v: true
+          x: true
       - name: ls build
-        run: ls build
+        run: ls -al build
       - name: ls build 2
-        run: ls /github/workspace/build
-#       - name: Generate Mac M1 build files
-#         run: sudo env GOOS=darwin GOARCH=arm64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-arm .
-#       - name: Generate Win build files
-#         run: sudo env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-windows-amd64.exe .
+        run: ls -al build/backend
 #       - name: Upload Mac Intel release
 #         id: upload-mac
 #         uses: JantHsueh/upload-file-action@master
 #         with:
 #           url: https://identity.juicedbot.io/api/v1/juiced/mac
 #           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-#           fileForms: '{"file":"${{ /github/workspace/build/backend-darwin-10.12 }}"}'
+#           fileForms: '{"file":"${{ build/backend/backend-darwin-10.12 }}"}'
 #       - name: Upload Mac M1 release
 #         id: upload-mac-m1
 #         uses: JantHsueh/upload-file-action@master
 #         with:
 #           url: https://identity.juicedbot.io/api/v1/juiced/macm1
 #           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-#           fileForms: '{"file":"${{ /github/workspace/backend-windows-amd64.exe }}"}'
+#           fileForms: '{"file":"${{  }}"}'
 #       - name: Upload Win release
 #         id: upload-win
 #         uses: JantHsueh/upload-file-action@master
 #         with:
 #           url: https://identity.juicedbot.io/api/v1/juiced/win
 #           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-#           fileForms: '{"file":"${{ build/ }}"}'
+#           fileForms: '{"file":"${{ build/backend/backend-windows-amd64.exe }}"}'
