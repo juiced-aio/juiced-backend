@@ -21,10 +21,10 @@ jobs:
         run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
         id: extract_tag
       - name: Extract Mac Intel build file location
-        run: echo "##[set-output name=mac;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
+        run: echo "##[set-output name=mac;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
         id: extract_mac
 #       - name: Extract Mac M1 build file location
-#         run: echo "##[set-output name=mac_m1;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
+#         run: echo "##[set-output name=mac_m1;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
 #         id: extract_mac_m1
       - name: Extract Windows build file location
         run: echo "##[set-output name=win;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
