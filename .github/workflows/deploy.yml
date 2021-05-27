@@ -20,39 +20,47 @@ jobs:
       - name: Extract Tag Name
         run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
         id: extract_tag
-      - name: Extract Mac Intel build file location
-        run: echo "##[set-output name=mac;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
-        id: extract_mac
+#       - name: Extract Mac Intel build file location
+#         run: echo "##[set-output name=mac;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
+#         id: extract_mac
 #       - name: Extract Mac M1 build file location
 #         run: echo "##[set-output name=mac_m1;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
 #         id: extract_mac_m1
-      - name: Extract Windows build file location
-        run: echo "##[set-output name=win;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
-        id: extract_win
-      - name: Generate Mac Intel build files
-        run: sudo env CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-amd64 .
+#       - name: Extract Windows build file location
+#         run: echo "##[set-output name=win;]$(echo /github/workspace/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
+#         id: extract_win
+      - name: Generate build files with xgo
+        uses: crazy-max/ghaction-xgo@v1
+        with:
+          xgo_version: latest
+          go_version: latest
+          dest: build
+          targets: windows/amd64,darwin/amd64
+          buildmode: exe
+      - name: ls
+        run: ls
 #       - name: Generate Mac M1 build files
 #         run: sudo env GOOS=darwin GOARCH=arm64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-arm .
-      - name: Generate Win build files
-        run: sudo env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-windows-amd64.exe .
-      - name: Upload Mac Intel release
-        id: upload-mac
-        uses: JantHsueh/upload-file-action@master
-        with:
-          url: https://identity.juicedbot.io/api/v1/juiced/mac
-          forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-          fileForms: '{"file":"${{ steps.extract_mac.outputs.mac }}"}'
+#       - name: Generate Win build files
+#         run: sudo env CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-windows-amd64.exe .
+#       - name: Upload Mac Intel release
+#         id: upload-mac
+#         uses: JantHsueh/upload-file-action@master
+#         with:
+#           url: https://identity.juicedbot.io/api/v1/juiced/mac
+#           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
+#           fileForms: '{"file":"${{ /github/workspace/backend-darwin-amd64 }}"}'
 #       - name: Upload Mac M1 release
 #         id: upload-mac-m1
 #         uses: JantHsueh/upload-file-action@master
 #         with:
 #           url: https://identity.juicedbot.io/api/v1/juiced/macm1
 #           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-#           fileForms: '{"file":"${{ steps.extract_mac_m1.outputs.mac_m1 }}"}'
-      - name: Upload Win release
-        id: upload-win
-        uses: JantHsueh/upload-file-action@master
-        with:
-          url: https://identity.juicedbot.io/api/v1/juiced/win
-          forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-          fileForms: '{"file":"${{ steps.extract_win.outputs.win }}"}'
+#           fileForms: '{"file":"${{ /github/workspace/backend-windows-amd64.exe }}"}'
+#       - name: Upload Win release
+#         id: upload-win
+#         uses: JantHsueh/upload-file-action@master
+#         with:
+#           url: https://identity.juicedbot.io/api/v1/juiced/win
+#           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
+#           fileForms: '{"file":"${{ steps.extract_win.outputs.win }}"}'
