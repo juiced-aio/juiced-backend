@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"time"
 
 	api "backend.juicedbot.io/m/v2/juiced.api"
@@ -35,12 +36,14 @@ func main() {
 		// Initalize the database
 		err := common.InitDatabase()
 		if err != nil {
+			log.Println(err.Error())
 			eventBus.PublishCloseEvent()
 		}
 
 		// Get the user's info
 		_, userInfo, err := queries.GetUserInfo()
 		if err != nil {
+			log.Println(err.Error())
 			eventBus.PublishCloseEvent()
 		} else {
 			go Heartbeat(eventBus, userInfo)
