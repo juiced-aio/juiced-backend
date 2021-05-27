@@ -1,7 +1,7 @@
 package queries
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 
 	"context"
 	"time"

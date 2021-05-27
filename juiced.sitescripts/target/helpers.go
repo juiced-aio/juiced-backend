@@ -3,7 +3,7 @@ package target
 import (
 	"net/http"
 
-	"backend.juicedbot.io/juiced.sitescripts/util"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 )
 
 // AddTargetHeaders adds Target-specific headers to the request

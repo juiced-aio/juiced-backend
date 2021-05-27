@@ -1,8 +1,8 @@
 package events
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
 
 	"sync"
 

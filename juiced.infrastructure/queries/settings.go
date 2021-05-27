@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

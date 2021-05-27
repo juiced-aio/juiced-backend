@@ -1,8 +1,8 @@
 package walmart
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
 )
 
 // Endpoints

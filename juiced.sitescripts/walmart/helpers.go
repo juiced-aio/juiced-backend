@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.sitescripts/util"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 
 	"github.com/anaskhan96/soup"
 )

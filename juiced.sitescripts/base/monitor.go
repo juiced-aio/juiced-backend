@@ -3,8 +3,8 @@ package base
 import (
 	"net/http"
 
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
 )
 
 type Monitor struct {
