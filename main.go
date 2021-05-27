@@ -21,33 +21,35 @@ func main() {
 	// Start the websocket server
 	go ws.StartWebsocketServer(eventBus)
 
-	// Wait for the client to connect to the websocket server
-	channel := make(chan events.Event)
-	eventBus.Subscribe(channel)
-	for {
-		event := <-channel
-		if event.EventType == events.ConnectEventType {
-			break
+	go func() {
+		// Wait for the client to connect to the websocket server
+		channel := make(chan events.Event)
+		eventBus.Subscribe(channel)
+		for {
+			event := <-channel
+			if event.EventType == events.ConnectEventType {
+				break
+			}
 		}
-	}
 
-	// Initalize the database
-	err := common.InitDatabase()
-	if err != nil {
-		eventBus.PublishCloseEvent()
-	}
+		// Initalize the database
+		err := common.InitDatabase()
+		if err != nil {
+			eventBus.PublishCloseEvent()
+		}
 
-	// Get the user's info
-	_, userInfo, err := queries.GetUserInfo()
-	if err != nil {
-		eventBus.PublishCloseEvent()
-	} else {
-		go Heartbeat(eventBus, userInfo)
-		go stores.InitTaskStore(eventBus)
-		stores.InitMonitorStore(eventBus)
-		stores.InitCaptchaStore(eventBus)
-		go api.StartServer()
-	}
+		// Get the user's info
+		_, userInfo, err := queries.GetUserInfo()
+		if err != nil {
+			eventBus.PublishCloseEvent()
+		} else {
+			go Heartbeat(eventBus, userInfo)
+			go stores.InitTaskStore(eventBus)
+			stores.InitMonitorStore(eventBus)
+			stores.InitCaptchaStore(eventBus)
+			go api.StartServer()
+		}
+	}()
 	for {
 	}
 }
