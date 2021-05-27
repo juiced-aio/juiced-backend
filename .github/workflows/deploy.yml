@@ -46,7 +46,7 @@ jobs:
         with:
           url: https://identity.juicedbot.io/api/v1/juiced/mac
           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-          fileForms: '{"file":"${{ build/backend-darwin-10.12-amd64 }}"}'
+          fileForms: '{"file":"build/backend-darwin-10.12-amd64"}'
 #       - name: Upload Mac M1 release
 #         id: upload-mac-m1
 #         uses: JantHsueh/upload-file-action@master
@@ -60,4 +60,4 @@ jobs:
         with:
           url: https://identity.juicedbot.io/api/v1/juiced/win
           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-          fileForms: '{"file":"${{ build/backend-windows-4.0-amd64.exe }}"}'
+          fileForms: '{"file":"build/backend-windows-4.0-amd64.exe"}'
