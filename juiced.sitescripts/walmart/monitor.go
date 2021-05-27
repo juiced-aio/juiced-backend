@@ -3,13 +3,14 @@ package walmart
 import (
 	"fmt"
 	"io/ioutil"
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/common/enums"
-	"juiced/juiced.infrastructure/common/events"
-	"juiced/juiced.sitescripts/base"
-	"juiced/juiced.sitescripts/util"
 	"strings"
 	"time"
+
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/anaskhan96/soup"
 )

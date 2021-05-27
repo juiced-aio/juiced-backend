@@ -6,8 +6,8 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 
-	"juiced/juiced.infrastructure/common/enums"
-	"juiced/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
 // Endpoints

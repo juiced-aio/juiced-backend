@@ -23,9 +23,9 @@ import (
 	"syscall"
 	"time"
 
-	"juiced/juiced.infrastructure/commands"
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/kirsle/configdir"

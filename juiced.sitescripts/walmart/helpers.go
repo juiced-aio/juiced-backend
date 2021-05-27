@@ -8,12 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"juiced/juiced.infrastructure/common/events"
-	"juiced/juiced.sitescripts/util"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/anaskhan96/soup"
 )

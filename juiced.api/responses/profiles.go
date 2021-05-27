@@ -1,7 +1,7 @@
 package responses
 
 import (
-	"juiced/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 )
 
 // ProfileGroupResponse is the response that any /api/profile/group request receives

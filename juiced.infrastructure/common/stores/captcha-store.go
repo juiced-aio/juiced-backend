@@ -2,9 +2,10 @@ package stores
 
 import (
 	"errors"
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/common/enums"
-	"juiced/juiced.infrastructure/common/events"
+
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	// Future sitescripts will be imported here
 )
 

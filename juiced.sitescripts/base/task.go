@@ -3,8 +3,8 @@ package base
 import (
 	"net/http"
 
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
 )
 
 type Task struct {

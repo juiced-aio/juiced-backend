@@ -1,8 +1,8 @@
 package queries
 
 import (
-	"juiced/juiced.infrastructure/common"
-	"juiced/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 )
 
 // GetUserInfo returns the user's UserInfo from the SQL database

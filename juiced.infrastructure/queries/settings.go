@@ -2,8 +2,9 @@ package queries
 
 import (
 	"context"
-	"juiced/juiced.infrastructure/common/entities"
 	"time"
+
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

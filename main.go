@@ -1,14 +1,15 @@
 package main
 
 import (
-	api "juiced/juiced.api"
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/common/events"
-	"juiced/juiced.infrastructure/common/stores"
-	"juiced/juiced.infrastructure/queries"
-	"juiced/juiced.security/auth/util"
-	ws "juiced/juiced.ws"
 	"time"
+
+	api "backend.juicedbot.io/juiced.api"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.security/auth/util"
+	ws "backend.juicedbot.io/juiced.ws"
 )
 
 func main() {

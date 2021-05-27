@@ -1,13 +1,14 @@
 package walmart
 
 import (
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/common/enums"
-	"juiced/juiced.infrastructure/common/events"
-	"juiced/juiced.sitescripts/base"
-	"juiced/juiced.sitescripts/util"
 	"log"
 	"time"
+
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task

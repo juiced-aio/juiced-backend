@@ -1,12 +1,12 @@
 package endpoints
 
 import (
-	"juiced/juiced.api/responses"
-	"juiced/juiced.infrastructure/commands"
-	"juiced/juiced.infrastructure/common"
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/common/errors"
-	"juiced/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.api/responses"
+	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/errors"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"encoding/json"
 	"io/ioutil"

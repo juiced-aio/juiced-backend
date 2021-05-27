@@ -5,13 +5,13 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"juiced/juiced.infrastructure/common/entities"
-	"juiced/juiced.infrastructure/common/enums"
-	"juiced/juiced.infrastructure/common/events"
-	"juiced/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 
-	"juiced/juiced.sitescripts/target"
-	"juiced/juiced.sitescripts/walmart"
+	"backend.juicedbot.io/juiced.sitescripts/target"
+	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
 )
 

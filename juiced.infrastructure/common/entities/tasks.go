@@ -5,7 +5,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"juiced/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // Task is a class that holds details about a single bot task

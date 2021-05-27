@@ -1,7 +1,7 @@
 package commands
 
 import (
-	"juiced/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 
 	"context"
 	"time"

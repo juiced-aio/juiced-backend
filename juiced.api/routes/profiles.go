@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"juiced/juiced.api/endpoints"
+	"backend.juicedbot.io/juiced.api/endpoints"
 
 	"github.com/gorilla/mux"
 )
