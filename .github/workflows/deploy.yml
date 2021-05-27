@@ -23,16 +23,16 @@ jobs:
       - name: Extract Mac Intel build file location
         run: echo "##[set-output name=mac;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
         id: extract_mac
-      - name: Extract Mac M1 build file location
-        run: echo "##[set-output name=mac_m1;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
-        id: extract_mac_m1
+#       - name: Extract Mac M1 build file location
+#         run: echo "##[set-output name=mac_m1;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
+#         id: extract_mac_m1
       - name: Extract Windows build file location
         run: echo "##[set-output name=win;]$(echo ./dist/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
         id: extract_win
       - name: Generate Mac Intel build files
         run: sudo env GOOS=darwin GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-amd64 .
-      - name: Generate Mac M1 build files
-        run: sudo env GOOS=darwin GOARCH=arm64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-arm .
+#       - name: Generate Mac M1 build files
+#         run: sudo env GOOS=darwin GOARCH=arm64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-darwin-arm .
       - name: Generate Win build files
         run: sudo env GOOS=windows GOARCH=amd64 go build -buildmode exe -o /github/workspace/dist/${{ steps.extract_tag.outputs.tag }}/backend-windows-amd64.exe .
       - name: Upload Mac Intel release
