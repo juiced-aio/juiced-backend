@@ -159,14 +159,13 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 	case enums.Target:
 		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
 			targetTask.Task.StopFlag = true
-			return true
 		}
+		return true
 	case enums.Walmart:
 		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
 			walmartTask.Task.StopFlag = true
-			return true
 		}
-		// Return true if the task doesn't exist
+		return true
 	case enums.Amazon:
 		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
 			amazonTask.Task.StopFlag = true
