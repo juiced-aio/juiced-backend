@@ -117,14 +117,14 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 	}
 
 	// Otherwise, start the Monitor
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+	// May panic (if it runs into a runtime error)
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
-		defer func() {
-			recover()
-			// TODO @silent: Let the UI know that a monitor failed
-		}()
-		// May panic (if it runs into a runtime error)
 		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 	case enums.Walmart:
 		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
