@@ -23,40 +23,6 @@ type ActivateRequest struct {
 	DeviceName string `json:"6C5yNgnr37"`
 }
 
-type ActivateResponse struct {
-	Success              bool                      `json:"BRdW40qYEd"`
-	LicensesToDeactivate []LicenseToDeactivateInfo `json:"izz9E9YoY4"`
-	Email                string                    `json:"CdpO887IuH"`
-	LicenseKey           string                    `json:"q5izDieCbb"`
-	DiscordID            string                    `json:"sQzlETuNin"`
-	DiscordUsername      string                    `json:"1x16bw24sz"`
-	DiscordAvatarURL     string                    `json:"9WMNTAhnxb"`
-	ActivationToken      string                    `json:"lUiFoCyvqa"`
-	RefreshToken         string                    `json:"qM3DKGrRJE"`
-	ExpiresAt            int64                     `json:"uYIvVc1ojh"`
-	ErrorMessage         string                    `json:"4gwjptUGmw"`
-}
-
-type EncryptedActivateResponse struct {
-	Success              string                    `json:"BRdW40qYEd"`
-	LicensesToDeactivate []LicenseToDeactivateInfo `json:"izz9E9YoY4"`
-	Email                string                    `json:"CdpO887IuH"`
-	LicenseKey           string                    `json:"q5izDieCbb"`
-	DiscordID            string                    `json:"sQzlETuNin"`
-	DiscordUsername      string                    `json:"1x16bw24sz"`
-	DiscordAvatarURL     string                    `json:"9WMNTAhnxb"`
-	ActivationToken      string                    `json:"lUiFoCyvqa"`
-	RefreshToken         string                    `json:"qM3DKGrRJE"`
-	ExpiresAt            string                    `json:"uYIvVc1ojh"`
-	ErrorMessage         string                    `json:"4gwjptUGmw"`
-}
-
-type LicenseToDeactivateInfo struct {
-	LicenseKey  string `json:"6IBEpoL8u6"`
-	LicenseType string `json:"mtAeKfQ8J8"`
-	DeviceName  string `json:"5YtIwrXOHR"`
-}
-
 type RefreshTokenRequest struct {
 	ActivationToken string `json:"ah93iyhisE"`
 	HWID            string `json:"5Q5M79ijzq"`
@@ -80,75 +46,92 @@ type EncryptedRefreshTokenResponse struct {
 	ErrorMessage    string `json:"bSqF23Iosy"`
 }
 
-type DownloadBackendRequest struct {
-	DiscordID       string `json:"DzNq85M9Sp"`
-	HWID            string `json:"1p669XAC1A"`
-	DeviceName      string `json:"nR4YugfUUW"`
-	ActivationToken string `json:"xh70lJzPxO"`
+type PXRequest struct {
+	ActivationToken string `json:"zWI5WK8e5p"`
+	HWID            string `json:"ExX0R7udUk"`
+	DeviceName      string `json:"CUXOK794sk"`
+	Proxy           string `json:"NvcUkcMcxD"`
+	Site            string `json:"4jRwi6R1q1"`
 }
 
-type AuthenticationResult = int
+type PXResponse struct {
+	Success       bool          `json:"XOjKVhpMBN"`
+	PXAPIResponse PXAPIResponse `json:"lJf19YVKtS"`
+	ErrorMessage  string        `json:"PhPbyDK8L5"`
+}
 
-const (
-	ERROR_AUTHENTICATE_HWID AuthenticationResult = iota
-	ERROR_AUTHENTICATE_CREATE_IV
-	ERROR_AUTHENTICATE_ENCRYPT_TIMESTAMP
-	ERROR_AUTHENTICATE_ENCRYPT_ACTIVATION_TOKEN
-	ERROR_AUTHENTICATE_ENCRYPT_HWID
-	ERROR_AUTHENTICATE_ENCRYPT_DEVICE_NAME
-	ERROR_AUTHENTICATE_ENCRYPT_HEADER_A
-	ERROR_AUTHENTICATE_ENCRYPT_HEADER_B
-	ERROR_AUTHENTICATE_ENCRYPT_HEADER_C
-	ERROR_AUTHENTICATE_ENCRYPT_HEADER_D
-	ERROR_AUTHENTICATE_ENCRYPT_HEADER_E
-	ERROR_AUTHENTICATE_REQUEST
-	ERROR_AUTHENTICATE_READ_BODY
-	ERROR_AUTHENTICATE_DECRYPT_RESPONSE
-	ERROR_AUTHENTICATE_TOKEN_EXPIRED
-	ERROR_AUTHENTICATE_FAILED
-	SUCCESS_AUTHENTICATE
-)
+type EncryptedPXResponse struct {
+	Success       string        `json:"XOjKVhpMBN"`
+	PXAPIResponse PXAPIResponse `json:"lJf19YVKtS"`
+	ErrorMessage  string        `json:"PhPbyDK8L5"`
+}
 
-type ActivationResult = int
+type PXAPIResponse struct {
+	SetID     string `json:"8ba6ptzbmw"`
+	UUID      string `json:"S0MYYSz60P"`
+	VID       string `json:"KjuYL7Ry1z"`
+	UserAgent string `json:"c7AN5ynLe0"`
+	PX3       string `json:"MUYKWy9bg6"`
+}
 
-const (
-	ERROR_ACTIVATE_HWID ActivationResult = iota
-	ERROR_ACTIVATE_CREATE_IV
-	ERROR_ACTIVATE_ENCRYPT_TIMESTAMP
-	ERROR_ACTIVATE_ENCRYPT_EMAIL
-	ERROR_ACTIVATE_ENCRYPT_PASSWORD
-	ERROR_ACTIVATE_ENCRYPT_HWID
-	ERROR_ACTIVATE_ENCRYPT_DEVICE_NAME
-	ERROR_ACTIVATE_REQUEST
-	ERROR_ACTIVATE_READ_BODY
-	ERROR_ACTIVATE_DECRYPT_RESPONSE
-	ERROR_ACTIVATE_FAILED
-	SUCCESS_ACTIVATE_ERROR_SET_USER_INFO
-	SUCCESS_ACTIVATE
-)
+type PXCapRequest struct {
+	ActivationToken string `json:"wpo2IdNvaw"`
+	HWID            string `json:"G4joAgkUe4"`
+	DeviceName      string `json:"onYGxGEsj6"`
+	Proxy           string `json:"uwwJXgoemC"`
+	Site            string `json:"CgrnU15JBS"`
+	SetID           string `json:"VSkzzFL5Nl"`
+	UUID            string `json:"lWi3ipz90O"`
+	VID             string `json:"3jEMiMn7XI"`
+	Token           string `json:"tUaaAXr2qB"`
+}
 
-type RefreshResult = int
+type PXCapResponse struct {
+	Success      bool   `json:"GI4pD8JN8x"`
+	PX3          string `json:"xaESu1lcdG"`
+	ErrorMessage string `json:"0CpDnUbWEK"`
+}
 
-const (
-	ERROR_REFRESH_HWID RefreshResult = iota
-	ERROR_REFRESH_CREATE_IV
-	ERROR_REFRESH_ENCRYPT_TIMESTAMP
-	ERROR_REFRESH_ENCRYPT_ACTIVATION_TOKEN
-	ERROR_REFRESH_ENCRYPT_REFRESH_TOKEN
-	ERROR_REFRESH_ENCRYPT_HWID
-	ERROR_REFRESH_ENCRYPT_DEVICE_NAME
-	ERROR_REFRESH_ENCRYPT_HEADER_A
-	ERROR_REFRESH_ENCRYPT_HEADER_B
-	ERROR_REFRESH_ENCRYPT_HEADER_C
-	ERROR_REFRESH_ENCRYPT_HEADER_D
-	ERROR_REFRESH_ENCRYPT_HEADER_E
-	ERROR_REFRESH_REQUEST
-	ERROR_REFRESH_READ_BODY
-	ERROR_REFRESH_DECRYPT_RESPONSE
-	ERROR_REFRESH_FAILED
-	SUCCESS_REFRESH_ERROR_SET_USER_INFO
-	SUCCESS_REFRESH
-)
+type EncryptedPXCapResponse struct {
+	Success      string `json:"GI4pD8JN8x"`
+	PX3          string `json:"xaESu1lcdG"`
+	ErrorMessage string `json:"0CpDnUbWEK"`
+}
+
+type AkamaiRequest struct {
+	ActivationToken string `json:"d4FmMviLeH"`
+	HWID            string `json:"UIzN2pmSS4"`
+	DeviceName      string `json:"QSyf9TPhgl"`
+	PageURL         string `json:"BU6AK4vBSN"`
+	SkipKact        string `json:"wqUSQ1OIb7"`
+	SkipMact        string `json:"FCrYYORzgf"`
+	OnBlur          string `json:"FIwDYyYcMF"`
+	OnFocus         string `json:"xuvNcrzBpb"`
+	Abck            string `json:"VihhvZ1c3w"`
+	SensorDataLink  string `json:"kSJHn8HCYF"`
+	Ver             string `json:"Di9bfAwAhv"`
+	FirstPost       string `json:"FhIOsSwtOZ"`
+	PixelID         string `json:"hC4JNGBKb4"`
+	PixelG          string `json:"Lq7pGfPGm7"`
+	JSON            string `json:"M9xdoAUOeE"`
+}
+
+type AkamaiResponse struct {
+	Success           bool              `json:"krZupQuo9w"`
+	AkamaiAPIResponse AkamaiAPIResponse `json:"xaESu1lcdG"`
+	ErrorMessage      string            `json:"p1Lq0L1U7f"`
+}
+
+type EncryptedAkamaiResponse struct {
+	Success           string            `json:"krZupQuo9w"`
+	AkamaiAPIResponse AkamaiAPIResponse `json:"xaESu1lcdG"`
+	ErrorMessage      string            `json:"p1Lq0L1U7f"`
+}
+
+type AkamaiAPIResponse struct {
+	SensorData string `json:"9QuV8IpkJQ"`
+	Pixel      string `json:"iqB8qihe20"`
+}
 
 type AuthErrorCode = int
 

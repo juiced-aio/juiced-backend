@@ -104,9 +104,9 @@ func MakeRequest(requestInfo *Request) (*http.Response, error) {
 	if requestInfo.Headers != nil {
 		request.Header = requestInfo.Headers
 	}
-	if requestInfo.RawHeaders != nil {
-		request.RawHeader = requestInfo.RawHeaders
-	}
+	// if requestInfo.RawHeaders != nil {
+	// 	request.RawHeader = requestInfo.RawHeaders
+	// }
 	if requestInfo.AddHeadersFunction != nil {
 		requestInfo.AddHeadersFunction(request, requestInfo.Referer)
 	}
