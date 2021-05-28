@@ -134,14 +134,14 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	}
 
 	// Otherwise, start the Task
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+	// May panic (if it runs into a runtime error)
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
-		defer func() {
-			recover()
-			// TODO @silent: Let the UI know that a task failed
-		}()
-		// May panic (if it runs into a runtime error)
 		go taskStore.TargetTasks[task.ID].RunTask()
 	case enums.Walmart:
 		go taskStore.WalmartTasks[task.ID].RunTask()
