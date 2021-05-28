@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
 
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/target"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -23,6 +24,7 @@ import (
 type TaskStore struct {
 	TargetTasks  map[primitive.ObjectID]*target.Task
 	WalmartTasks map[primitive.ObjectID]*walmart.Task
+	AmazonTasks  map[primitive.ObjectID]*amazon.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -82,6 +84,28 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.WalmartTasks[task.ID] = &walmartTask
+
+	case enums.Amazon:
+		// Check if task exists in store already
+		if _, ok := taskStore.TargetTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if task.AmazonTaskInfo.LoginType == "" || task.AmazonTaskInfo.Email == "" || task.AmazonTaskInfo.Password == "" {
+			return false
+		}
+		// Create task
+		amazonTask, err := amazon.CreateAmazonTask(task, profile, proxy, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.AmazonTasks[task.ID] = &amazonTask
+
 	}
 
 	return true
@@ -110,17 +134,19 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	}
 
 	// Otherwise, start the Task
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+	// May panic (if it runs into a runtime error)
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
-		defer func() {
-			recover()
-			// TODO @silent: Let the UI know that a task failed
-		}()
-		// May panic (if it runs into a runtime error)
 		go taskStore.TargetTasks[task.ID].RunTask()
 	case enums.Walmart:
 		go taskStore.WalmartTasks[task.ID].RunTask()
+	case enums.Amazon:
+		go taskStore.AmazonTasks[task.ID].RunTask()
 	}
 
 	return true
@@ -133,14 +159,18 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 	case enums.Target:
 		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
 			targetTask.Task.StopFlag = true
-			return true
 		}
+		return true
 	case enums.Walmart:
 		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
 			walmartTask.Task.StopFlag = true
-			return true
 		}
-		// Return true if the task doesn't exist
+		return true
+	case enums.Amazon:
+		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
+			amazonTask.Task.StopFlag = true
+		}
+		return true
 	}
 	return false
 }
@@ -150,8 +180,10 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		TargetTasks: make(map[primitive.ObjectID]*target.Task),
-		EventBus:    eventBus,
+		TargetTasks:  make(map[primitive.ObjectID]*target.Task),
+		WalmartTasks: make(map[primitive.ObjectID]*walmart.Task),
+		AmazonTasks:  make(map[primitive.ObjectID]*amazon.Task),
+		EventBus:     eventBus,
 	}
 	channel := make(chan events.Event)
 	eventBus.Subscribe(channel)
@@ -179,6 +211,23 @@ func InitTaskStore(eventBus *events.EventBus) {
 						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Sku
 					}
 					walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
+				}
+			case enums.Amazon:
+				inStock := event.ProductEvent.AmazonData.InStock
+				for _, amazonTask := range taskStore.AmazonTasks {
+					if amazonTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
+						amazonTask.TaskInfo.ASIN = inStock[rand.Intn(len(inStock))].ASIN
+						amazonTask.TaskInfo.OfferID = inStock[rand.Intn(len(inStock))].OfferID
+						amazonTask.TaskInfo.ItemName = inStock[rand.Intn(len(inStock))].ItemName
+						amazonTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
+						amazonTask.CheckoutInfo.AntiCsrf = inStock[rand.Intn(len(inStock))].AntiCsrf
+						amazonTask.CheckoutInfo.PID = inStock[rand.Intn(len(inStock))].PID
+						amazonTask.CheckoutInfo.RID = inStock[rand.Intn(len(inStock))].RID
+						amazonTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
+						amazonTask.CheckoutInfo.UA = inStock[rand.Intn(len(inStock))].UA
+						amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(inStock[rand.Intn(len(inStock))].MonitorType)
+
+					}
 				}
 			}
 		}

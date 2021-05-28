@@ -2,6 +2,7 @@ package entities
 
 import (
 	"encoding/json"
+	"net/http"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -21,6 +22,7 @@ type Task struct {
 	TaskDelay        int                `json:"taskDelay"`
 	TargetTaskInfo   TargetTaskInfo     `json:"targetTaskInfo"`
 	WalmartTaskInfo  WalmartTaskInfo    `json:"walmartTaskInfo"`
+	AmazonTaskInfo   AmazonTaskInfo     `json:"amazonTaskInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -34,6 +36,24 @@ type TargetTaskInfo struct {
 	Email        string             `json:"email"`
 	Password     string             `json:"password"`
 	PaymentType  enums.PaymentType  `json:"paymentType"`
+}
+type AmazonTaskInfo struct {
+	Email     string          `json:"email"`
+	Password  string          `json:"password"`
+	LoginType enums.LoginType `json:"loginType"`
+}
+
+type AmazonSingleMonitorInfo struct {
+	ASIN        string            `json:"asin"`
+	OFID        string            `json:"ofid"`
+	MaxPrice    int               `json:"maxPrice"`
+	MonitorType enums.MonitorType `json:"monitorType"`
+	Client      http.Client
+}
+
+// AmazonMonitorInfo is a class that holds Amazon-specific details for a single monitor
+type AmazonMonitorInfo struct {
+	Monitors []AmazonSingleMonitorInfo `json:"monitors"`
 }
 
 // SetID updates the Task's ID
@@ -86,6 +106,7 @@ type TaskGroup struct {
 	MonitorStatus       enums.MonitorStatus  `json:"status" bson:"status"`
 	TargetMonitorInfo   TargetMonitorInfo    `json:"targetMonitorInfo" bson:"targetMonitorInfo"`
 	WalmartMonitorInfo  WalmartMonitorInfo   `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
+	AmazonMonitorInfo   AmazonMonitorInfo    `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	TaskIDs             []primitive.ObjectID `json:"taskIDs" bson:"taskIDs"`
 	// Future sitescripts will have a field here
 }

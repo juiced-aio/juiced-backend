@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
 
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/target"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -19,6 +20,7 @@ import (
 type MonitorStore struct {
 	TargetMonitors  map[primitive.ObjectID]*target.Monitor
 	WalmartMonitors map[primitive.ObjectID]*walmart.Monitor
+	AmazonMonitors  map[primitive.ObjectID]*amazon.Monitor
 	EventBus        *events.EventBus
 }
 
@@ -76,6 +78,27 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 		// Add task to store
 		monitorStore.WalmartMonitors[monitor.GroupID] = &walmartMonitor
+	case enums.Amazon:
+
+		if _, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+			return true
+		}
+
+		if queryError {
+			return false
+		}
+
+		if len(monitor.AmazonMonitorInfo.Monitors) == 0 {
+			return false
+		}
+
+		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxy, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
+		if err != nil {
+			return false
+		}
+
+		monitorStore.AmazonMonitors[monitor.GroupID] = &amazonMonitor
+
 	}
 	return true
 }
@@ -94,19 +117,21 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 	}
 
 	// Otherwise, start the Monitor
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+	// May panic (if it runs into a runtime error)
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
-		defer func() {
-			recover()
-			// TODO @silent: Let the UI know that a monitor failed
-		}()
-		// May panic (if it runs into a runtime error)
 		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 	case enums.Walmart:
 		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
-	}
+	case enums.Amazon:
+		go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 
+	}
 	return true
 }
 
@@ -117,16 +142,20 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 	case enums.Target:
 		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
 			targetMonitor.Monitor.StopFlag = true
-			return true
 		}
 		// Return true if the task doesn't exist
 		return true
 	case enums.Walmart:
 		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
 			walmartMonitor.Monitor.StopFlag = true
-			return true
 		}
 		// Return true if the task doesn't exist
+		return true
+	case enums.Amazon:
+		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+			amazonMonitor.Monitor.StopFlag = true
+			return true
+		}
 		return true
 	}
 	return false
@@ -137,8 +166,10 @@ var monitorStore *MonitorStore
 // InitMonitorStore initializes the singleton instance of the Store
 func InitMonitorStore(eventBus *events.EventBus) {
 	monitorStore = &MonitorStore{
-		TargetMonitors: make(map[primitive.ObjectID]*target.Monitor),
-		EventBus:       eventBus,
+		TargetMonitors:  make(map[primitive.ObjectID]*target.Monitor),
+		WalmartMonitors: make(map[primitive.ObjectID]*walmart.Monitor),
+		AmazonMonitors:  make(map[primitive.ObjectID]*amazon.Monitor),
+		EventBus:        eventBus,
 	}
 }
 

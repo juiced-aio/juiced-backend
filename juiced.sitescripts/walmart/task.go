@@ -14,7 +14,7 @@ import (
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
 func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
 	walmartTask := Task{}
-	client, err := util.CreateClient()
+	client, err := util.CreateClient(proxy)
 	if err != nil {
 		return walmartTask, err
 	}
@@ -64,6 +64,8 @@ func (task *Task) RunTask() {
 
 	startTime := time.Now()
 
+	// @Tehnic: The endpoint that you are monitoring with automatically adds it to the cart so you should somehow pass the
+	// cookies/client to here and then completely cut out the AddToCart request, otherwise using a faster endpoint to monitor would be better.
 	// 2. AddToCart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	addedToCart := false
@@ -180,7 +182,7 @@ func (task *Task) AddToCart() bool {
 
 	addToCartResponse := AddToCartResponse{}
 
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -192,6 +194,8 @@ func (task *Task) AddToCart() bool {
 	if err != nil || addToCartResponse.Cart.ItemCount == 0 {
 		return false
 	}
+
+	defer resp.Body.Close()
 
 	return true
 }
@@ -210,7 +214,7 @@ func (task *Task) GetCartInfo() bool {
 		AffiliateInfo: "",
 	}
 
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                GetCartInfoEndpoint,
@@ -219,19 +223,23 @@ func (task *Task) GetCartInfo() bool {
 		RequestBodyStruct:  data,
 	})
 
+	defer resp.Body.Close()
+
 	return err == nil
 }
 
 // SetPCID sets the PCID cookie
 func (task *Task) SetPCID() bool {
 
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetPcidEndpoint,
 		AddHeadersFunction: AddWalmartHeaders,
 		Referer:            SetPcidReferer,
 	})
+
+	defer resp.Body.Close()
 
 	return err == nil
 }
@@ -253,7 +261,7 @@ func (task *Task) SetShippingInfo() bool {
 		ChangedFields:      []string{""},
 	}
 
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetShippingInfoEndpoint,
@@ -261,6 +269,8 @@ func (task *Task) SetShippingInfo() bool {
 		Referer:            SetShippingInfoReferer,
 		RequestBodyStruct:  data,
 	})
+
+	defer resp.Body.Close()
 
 	return err == nil
 }
@@ -292,7 +302,7 @@ func (task *Task) SetPaymentInfo() bool {
 		true,
 	}
 
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetPaymentInfoEndpoint,
@@ -300,6 +310,8 @@ func (task *Task) SetPaymentInfo() bool {
 		Referer:            SetPaymentInfoReferer,
 		RequestBodyStruct:  data,
 	})
+
+	defer resp.Body.Close()
 
 	return err == nil
 }
@@ -320,7 +332,7 @@ func (task *Task) PlaceOrder() bool {
 
 	placeOrderResponse := PlaceOrderResponse{}
 
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                PlaceOrderEndpoint,
@@ -329,6 +341,8 @@ func (task *Task) PlaceOrder() bool {
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &placeOrderResponse,
 	})
+
+	defer resp.Body.Close()
 
 	return err == nil
 }

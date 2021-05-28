@@ -14,7 +14,7 @@ import (
 // CreateTargetMonitor takes a TaskGroup entity and turns it into a Target Monitor
 func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, tcins []string, storeID string) (Monitor, error) {
 	targetMonitor := Monitor{}
-	client, err := util.CreateClient()
+	client, err := util.CreateClient(proxy)
 	if err != nil {
 		return targetMonitor, err
 	}
@@ -114,7 +114,7 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	getTCINStockResponse := GetTCINStockResponse{}
 
 	params := util.CreateParams(getTCINStockRequest)
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             monitor.Monitor.Client,
 		Method:             "GET",
 		URL:                GetTCINStockEndpoint + params,
@@ -126,17 +126,22 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 		return inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup
 	}
 
-	for _, product := range getTCINStockResponse.Data.ProductSummaries {
-		if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" {
-			inStockForShip = append(inStockForShip, product.TCIN)
-		} else {
-			outOfStockForShip = append(outOfStockForShip, product.TCIN)
-		}
-		for _, store := range product.Fulfillment.StoreOptions {
-			if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID {
-				inStockForPickup = append(inStockForPickup, product.TCIN)
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 200:
+		for _, product := range getTCINStockResponse.Data.ProductSummaries {
+			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" {
+				inStockForShip = append(inStockForShip, product.TCIN)
 			} else {
-				outOfStockForPickup = append(outOfStockForPickup, product.TCIN)
+				outOfStockForShip = append(outOfStockForShip, product.TCIN)
+			}
+			for _, store := range product.Fulfillment.StoreOptions {
+				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID {
+					inStockForPickup = append(inStockForPickup, product.TCIN)
+				} else {
+					outOfStockForPickup = append(outOfStockForPickup, product.TCIN)
+				}
 			}
 		}
 	}
