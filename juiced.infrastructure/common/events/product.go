@@ -20,6 +20,23 @@ type WalmartSingleStockData struct {
 	OfferID string `json:"offerID"`
 }
 
+type AmazonSingleStockData struct {
+	ASIN        string
+	OfferID     string
+	Price       int
+	ItemName    string
+	AntiCsrf    string
+	PID         string
+	RID         string
+	ImageURL    string
+	UA          string
+	MonitorType enums.MonitorType
+}
+
+type AmazonStockData struct {
+	InStock []AmazonSingleStockData
+}
+
 // ProductEvent is fired whenever a Monitor finds a product
 type ProductEvent struct {
 	DiscordWebhook string             `json:"discordWebhook"`
@@ -27,4 +44,5 @@ type ProductEvent struct {
 	MonitorID      primitive.ObjectID `json:"monitorID"`
 	TargetData     TargetStockData    `json:"targetStockData"`
 	WalmartData    WalmartStockData   `json:"walmartStockData"`
+	AmazonData     AmazonStockData    `json:"amazonStockData"`
 }

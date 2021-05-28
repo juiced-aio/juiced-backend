@@ -14,6 +14,7 @@ const (
 	RequestReadBodyError      ErrorType = "REQUEST_READ_BODY_ERROR"
 	RequestUnmarshalBodyError ErrorType = "REQUEST_UNMARSHAL_BODY_ERROR"
 	ShippingTypeError         ErrorType = "INVALID_SHIPPING_TYPE"
+	LoginDetailsError         ErrorType = "LOGIN_DETAILS_ERROR"
 )
 
 type AddHeadersFunction func(*http.Request, ...string)
@@ -24,6 +25,7 @@ type Request struct {
 	Method             string
 	URL                string
 	Headers            http.Header
+	RawHeaders         [][2]string
 	AddHeadersFunction AddHeadersFunction
 	Referer            string
 	Data               []byte

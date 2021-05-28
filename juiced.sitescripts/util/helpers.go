@@ -3,22 +3,28 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 	cclient "github.com/IHaveNothingg/cclientwtf"
 	tls "github.com/refraction-networking/utls"
 )
 
 // CreateClient creates an HTTP client
-func CreateClient() (http.Client, error) {
-	client, err := cclient.NewClient(tls.HelloChrome_83)
+func CreateClient(proxy entities.Proxy) (http.Client, error) {
+
+	client, err := cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy))
 	if err != nil {
 		return client, err
 	}
@@ -98,6 +104,9 @@ func MakeRequest(requestInfo *Request) (*http.Response, error) {
 	if requestInfo.Headers != nil {
 		request.Header = requestInfo.Headers
 	}
+	if requestInfo.RawHeaders != nil {
+		request.RawHeader = requestInfo.RawHeaders
+	}
 	if requestInfo.AddHeadersFunction != nil {
 		requestInfo.AddHeadersFunction(request, requestInfo.Referer)
 	}
@@ -111,7 +120,8 @@ func MakeRequest(requestInfo *Request) (*http.Response, error) {
 	if !ok {
 		return response, err
 	}
-	defer response.Body.Close()
+
+	//Removing defer resp.Body.Close() here because it was causing problems, now it's after every MakeRequest
 
 	body, err := ioutil.ReadAll(response.Body)
 	log.Println("RESPONSE BODY: " + string(body))
@@ -196,4 +206,81 @@ func TernaryOperator(condition bool, trueOutcome interface{}, falseOutcome inter
 		return trueOutcome
 	}
 	return falseOutcome
+}
+
+func ProxyCleaner(proxyDirty entities.Proxy) string {
+	if proxyDirty.Host == "" {
+		return ""
+	}
+	if proxyDirty.Username == "" && proxyDirty.Password == "" {
+		return fmt.Sprintf("http://%s:%s", proxyDirty.Host, proxyDirty.Port)
+	} else {
+		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
+	}
+
+}
+
+func FindInString(str string, start string, end string) (string, error) {
+	comp := regexp.MustCompile(fmt.Sprintf("%v(.*?)%v", start, end))
+	comp.MatchString(str)
+
+	o := comp.FindStringSubmatch(str)
+	if len(o) == 0 {
+		return "", errors.New("string not found")
+	}
+	parsed := o[1]
+	if parsed == "" {
+		return parsed, errors.New("string not found")
+	}
+
+	return parsed, nil
+
+}
+
+func RandomNumberInt(min int, max int) int64 {
+	rand.Seed(time.Now().UnixNano())
+	a := int64(rand.Intn(max-min) + min)
+	return a
+}
+
+func Randomizer(s string) string {
+	nums := RandomNumberInt(0, 100)
+	if nums < 50 {
+		return s
+	}
+	return ""
+
+}
+
+func InSlice(s []string, x string) bool {
+	for _, i := range s {
+		if i == x {
+			return true
+		}
+	}
+	return false
+}
+
+func RemoveFromSlice(s []string, x string) []string {
+	var position int
+	for i, r := range s {
+		if r == x {
+			position = i
+		}
+	}
+	s[position] = s[len(s)-1]
+
+	return s[:len(s)-1]
+}
+
+func ReadBody(resp *http.Response) string {
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+	newBody := strings.ReplaceAll(string(body), "\n", "")
+	newBody = strings.ReplaceAll(newBody, "\t", "")
+	return newBody
+
 }

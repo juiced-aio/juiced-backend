@@ -25,21 +25,22 @@ type TaskStatus string
 
 // Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
 const (
-	TaskIdle            TaskStatus = "Idle"
-	LoggingIn           TaskStatus = "Logging in"
-	WaitingForMonitor   TaskStatus = "Waiting for monitor"
-	AddingToCart        TaskStatus = "Adding to cart"
-	GettingCartInfo     TaskStatus = "Getting cart info"
-	SettingCartInfo     TaskStatus = "Setting cart info"
-	GettingShippingInfo TaskStatus = "Getting shipping info"
-	SettingShippingInfo TaskStatus = "Setting shipping info"
-	GettingBillingInfo  TaskStatus = "Getting billing info"
-	SettingBillingInfo  TaskStatus = "Setting billing info"
-	GettingOrderInfo    TaskStatus = "Getting order info"
-	SettingOrderInfo    TaskStatus = "Setting order info"
-	CheckingOut         TaskStatus = "Checking out"
-	CheckedOut          TaskStatus = "Checked out!"
-	CheckoutFailed      TaskStatus = "Checkout failed"
+	TaskIdle            TaskStatus    = "Idle"
+	LoggingIn           TaskStatus    = "Logging in"
+	UnableToFindProduct MonitorStatus = "Product not found"
+	WaitingForMonitor   TaskStatus    = "Waiting for monitor"
+	AddingToCart        TaskStatus    = "Adding to cart"
+	GettingCartInfo     TaskStatus    = "Getting cart info"
+	SettingCartInfo     TaskStatus    = "Setting cart info"
+	GettingShippingInfo TaskStatus    = "Getting shipping info"
+	SettingShippingInfo TaskStatus    = "Setting shipping info"
+	GettingBillingInfo  TaskStatus    = "Getting billing info"
+	SettingBillingInfo  TaskStatus    = "Setting billing info"
+	GettingOrderInfo    TaskStatus    = "Getting order info"
+	SettingOrderInfo    TaskStatus    = "Setting order info"
+	CheckingOut         TaskStatus    = "Checking out"
+	CheckedOut          TaskStatus    = "Checked out!"
+	CheckoutFailed      TaskStatus    = "Checkout failed"
 )
 
 type TaskEventType string
@@ -72,6 +73,8 @@ type MonitorType string
 
 const (
 	SKUMonitor     MonitorType = "SKU_MONITOR"
+	FastSKUMonitor MonitorType = "FAST_SKU_MONITOR"
+	SlowSKUMonitor MonitorType = "SLOW_SKU_MONITOR"
 	URLMonitor     MonitorType = "URL_MONITOR"
 	KeywordMonitor MonitorType = "KEYWORD_MONITOR"
 )

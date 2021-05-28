@@ -31,7 +31,7 @@ import (
 // CreateTargetTask takes a Task entity and turns it into a Target Task
 func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, paymentType enums.PaymentType) (Task, error) {
 	targetTask := Task{}
-	client, err := util.CreateClient()
+	client, err := util.CreateClient(proxy)
 	if err != nil {
 		return targetTask, err
 	}
@@ -279,7 +279,7 @@ func (task *Task) RefreshLogin() {
 		if task.AccountInfo.Refresh == 0 || time.Now().Unix() > task.AccountInfo.Refresh {
 			refreshLoginResponse := RefreshLoginResponse{}
 
-			_, err := util.MakeRequest(&util.Request{
+			resp, err := util.MakeRequest(&util.Request{
 				Client:             task.Task.Client,
 				Method:             "POST",
 				URL:                RefreshLoginEndpoint,
@@ -293,16 +293,23 @@ func (task *Task) RefreshLogin() {
 				break
 			}
 
-			claims := &LoginJWT{}
+			defer resp.Body.Close()
 
-			new(jwt.Parser).ParseUnverified(string(refreshLoginResponse.AccessToken), claims)
+			switch resp.StatusCode {
+			case 200:
+				claims := &LoginJWT{}
 
-			if err != nil || claims.Eid != task.AccountInfo.Email {
+				new(jwt.Parser).ParseUnverified(string(refreshLoginResponse.AccessToken), claims)
+
+				if err != nil || claims.Eid != task.AccountInfo.Email {
+					success = false
+					break
+				}
+
+				task.AccountInfo.Refresh = time.Now().Unix() + int64(refreshLoginResponse.ExpiresIn) - 300 // Refresh 5 mins before it expires, just in case
+			default:
 				success = false
-				break
 			}
-
-			task.AccountInfo.Refresh = time.Now().Unix() + int64(refreshLoginResponse.ExpiresIn) - 300 // Refresh 5 mins before it expires, just in case
 		}
 
 		if !success {
@@ -366,7 +373,7 @@ func (task *Task) AddToCart() bool {
 		return false
 	}
 	addToCartResponse := AddToCartResponse{}
-	_, err = util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -379,8 +386,16 @@ func (task *Task) AddToCart() bool {
 		return false
 	}
 
-	task.AccountInfo.CartID = addToCartResponse.CartID
-	return true
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 200:
+		task.AccountInfo.CartID = addToCartResponse.CartID
+		return true
+	default:
+		return false
+	}
+
 }
 
 // GetCartInfo returns the cart info needed for updating payment and placing an order
@@ -389,7 +404,7 @@ func (task *Task) GetCartInfo() bool {
 		CartType: "REGULAR",
 	}
 	getCartInfoResponse := GetCartInfoResponse{}
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                GetCartInfoEndpoint,
@@ -401,14 +416,23 @@ func (task *Task) GetCartInfo() bool {
 	if err != nil {
 		return false
 	}
-	task.AccountInfo.CartInfo = getCartInfoResponse
-	return true
+
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 200:
+		task.AccountInfo.CartInfo = getCartInfoResponse
+		return true
+	default:
+		return false
+	}
+
 }
 
 // SetShippingInfo sets the shipping address or does nothing if using a saved address
 func (task *Task) SetShippingInfo() bool {
 	setShippingInfoResponse := SetShippingInfoResponse{}
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
 		URL:                fmt.Sprintf(SetShippingInfoEndpoint, task.AccountInfo.CartInfo.Addresses[1].AddressID),
@@ -439,7 +463,15 @@ func (task *Task) SetShippingInfo() bool {
 		return err == nil
 	}
 
-	return true
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 200:
+		return true
+	default:
+		return false
+	}
+
 }
 
 // SetPaymentInfo sets the payment info to prepare for placing an order
@@ -486,7 +518,7 @@ func (task *Task) SetPaymentInfo() bool {
 		return false
 	}
 	setPaymentInfoResponse := SetPaymentInfoResponse{}
-	_, err = util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
 		URL:                endpoint,
@@ -499,10 +531,18 @@ func (task *Task) SetPaymentInfo() bool {
 		return false
 	}
 
+	defer resp.Body.Close()
+
 	// TODO: Handle various responses
 	log.Println(setPaymentInfoResponse)
 
-	return true
+	switch resp.StatusCode {
+	case 200:
+		return true
+	default:
+		return false
+	}
+
 }
 
 // PlaceOrder completes the checkout process
@@ -512,7 +552,7 @@ func (task *Task) PlaceOrder() bool {
 		ChannelID: 10,
 	}
 	placeOrderResponse := PlaceOrderResponse{}
-	_, err := util.MakeRequest(&util.Request{
+	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                PlaceOrderEndpoint,
@@ -525,8 +565,17 @@ func (task *Task) PlaceOrder() bool {
 		return false
 	}
 
+	defer resp.Body.Close()
+
 	// TODO: Handle various responses
 	log.Println(placeOrderResponse.Message)
+
+	switch resp.StatusCode {
+	case 200:
+		return true
+	default:
+		return false
+	}
 
 	return true
 }
