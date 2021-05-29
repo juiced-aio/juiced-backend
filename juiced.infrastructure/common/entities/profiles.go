@@ -74,7 +74,10 @@ type Profile struct {
 	PhoneNumber     string             `json:"phoneNumber"`
 	ShippingAddress Address            `json:"shippingAddress"`
 	BillingAddress  Address            `json:"billingAddress"`
-	CreditCard      Card               `json:"creditCard"`
+	// TODO @silent: Is there a shipping same as billing option on the frontend? If not we probably want one
+	// (Shipping same as billing)
+	SSAB       bool `json:"ssab"`
+	CreditCard Card `json:"creditCard"`
 }
 
 // SetID updates the Profile's ID

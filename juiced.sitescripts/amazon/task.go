@@ -94,7 +94,7 @@ func (task *Task) RunTask() {
 				return
 			}
 			addedToCart = task.AddToCart()
-			if !addedToCart && retries < task.TaskInfo.Retries {
+			if !addedToCart && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 			} else {
@@ -111,7 +111,7 @@ func (task *Task) RunTask() {
 				return
 			}
 			placedOrder = task.PlaceOrder()
-			if !placedOrder && retries < task.TaskInfo.Retries {
+			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 			} else {
@@ -129,7 +129,7 @@ func (task *Task) RunTask() {
 				return
 			}
 			placedOrder = task.PlaceOrder()
-			if !placedOrder && retries < task.TaskInfo.Retries {
+			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 			} else {

@@ -59,9 +59,9 @@ type Retailer string
 const (
 	Target      Retailer = "Target"
 	Walmart     Retailer = "Walmart"
+	Amazon      Retailer = "Amazon"
 	BestBuy     Retailer = "BestBuy"
 	GameStop    Retailer = "GameStop"
-	Amazon      Retailer = "Amazon"
 	HotWheels   Retailer = "HotWheels"
 	Shopify     Retailer = "Shopify"
 	BigCartel   Retailer = "BigCartel"
@@ -109,4 +109,12 @@ type CheckoutType string
 const (
 	CheckoutTypeSHIP   CheckoutType = "SHIP"
 	CheckoutTypePICKUP CheckoutType = "PICKUP"
+)
+
+// TaskType is used to choose how the task will checkout (account / guest)
+type TaskType string
+
+var (
+	TaskTypeAccount TaskType = "ACCOUNT"
+	TaskTypeGuest   TaskType = "GUEST"
 )

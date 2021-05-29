@@ -18,7 +18,7 @@ import (
 
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 	cclient "github.com/IHaveNothingg/cclientwtf"
-	tls "github.com/refraction-networking/utls"
+	tls "github.com/Titanium-ctrl/utls"
 )
 
 // CreateClient creates an HTTP client
@@ -252,6 +252,7 @@ func Randomizer(s string) string {
 
 }
 
+// Returns true if it finds the string x in the slice s
 func InSlice(s []string, x string) bool {
 	for _, i := range s {
 		if i == x {
@@ -261,12 +262,16 @@ func InSlice(s []string, x string) bool {
 	return false
 }
 
+// Removes the string x from the slice s
 func RemoveFromSlice(s []string, x string) []string {
 	var position int
 	for i, r := range s {
 		if r == x {
 			position = i
 		}
+	}
+	if position == 0 {
+		return s
 	}
 	s[position] = s[len(s)-1]
 
