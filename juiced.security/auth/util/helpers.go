@@ -17,6 +17,7 @@ import (
 
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/commands"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/mergermarket/go-pkcs7"
@@ -305,6 +306,181 @@ func DecryptRefreshResponse(response EncryptedRefreshTokenResponse, timestamp in
 	}
 
 	return refreshResponse, nil
+}
+
+func DiscordWebhook(success bool, content string, embeds []util.Embed, userInfo entities.UserInfo) (DiscordWebhookResult, error) {
+	discordWebhookResponse := DiscordWebhookResponse{}
+	encryptedDiscordWebhookResponse := EncryptedDiscordWebhookResponse{}
+
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/dw"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/dw"
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_HWID, err
+	}
+
+	bIV := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(bIV); err != nil {
+		return ERROR_DISCORD_WEBHOOK_CREATE_IV, err
+	}
+
+	key := DISCORD_WEBHOOK_ENCRYPTION_KEY
+
+	timestamp := time.Now().Unix()
+	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_TIMESTAMP, err
+	}
+
+	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
+
+	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_ACTIVATION_TOKEN, err
+	}
+	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HWID, err
+	}
+	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_DEVICE_NAME, err
+	}
+
+	encryptedSuccess, err := Aes256Encrypt(strconv.FormatBool(success), key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_SUCCESS, err
+	}
+	encryptedContent, err := Aes256Encrypt(content, key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_CONTENT, err
+	}
+
+	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_A, err
+	}
+	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[3:5], key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_B, err
+	}
+	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[5:12], key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_C, err
+	}
+	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[12:17], key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_E, err
+	}
+	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[17:], key)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_D, err
+	}
+
+	encryptedEmbeds := make([]Embed, 0)
+	for _, embed := range embeds {
+		encryptedTitle, err := Aes256Encrypt(embed.Title, key)
+		if err != nil {
+			return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_TITLE, err
+		}
+
+		encryptedFields := make([]Field, 0)
+		for _, field := range embed.Fields {
+			encryptedName, err := Aes256Encrypt(field.Name, key)
+			if err != nil {
+				return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_FIELD_NAME, err
+			}
+			encryptedValue, err := Aes256Encrypt(field.Value, key)
+			if err != nil {
+				return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_FIELD_VALUE, err
+			}
+			encryptedInline, err := Aes256Encrypt(strconv.FormatBool(field.Inline), key)
+			if err != nil {
+				return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_FIELD_INLINE, err
+			}
+
+			encryptedField := Field{
+				Name:   encryptedName,
+				Value:  encryptedValue,
+				Inline: encryptedInline,
+			}
+			encryptedFields = append(encryptedFields, encryptedField)
+		}
+
+		encryptedEmbed := Embed{
+			Title:  encryptedTitle,
+			Fields: encryptedFields,
+		}
+		encryptedEmbeds = append(encryptedEmbeds, encryptedEmbed)
+	}
+
+	discordWebhookRequest := DiscordWebhookRequest{
+		HWID:            encryptedHWID,
+		DeviceName:      encryptedDeviceName,
+		ActivationToken: encryptedActivationToken,
+		Success:         encryptedSuccess,
+		DiscordInformation: DiscordInformation{
+			Content: encryptedContent,
+			Embeds:  encryptedEmbeds,
+		},
+	}
+
+	data, _ := json.Marshal(discordWebhookRequest)
+	payload := bytes.NewBuffer(data)
+	request, _ := http.NewRequest("POST", endpoint, payload)
+	request.Header.Add("x-j-w", encryptedTimestamp)
+	request.Header.Add("x-j-a", encryptedHeaderA)
+	request.Header.Add("x-j-b", encryptedHeaderB)
+	request.Header.Add("x-j-c", encryptedHeaderC)
+	request.Header.Add("x-j-d", encryptedHeaderD)
+	request.Header.Add("x-j-e", encryptedHeaderE)
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_REQUEST, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_READ_BODY, err
+	}
+
+	json.Unmarshal(body, &encryptedDiscordWebhookResponse)
+
+	discordWebhookResponse, err = DecryptDiscordWebhookResponse(encryptedDiscordWebhookResponse, timestamp)
+	if err != nil {
+		return ERROR_DISCORD_WEBHOOK_DECRYPT_RESPONSE, err
+	}
+
+	if !discordWebhookResponse.Success {
+		return ERROR_DISCORD_WEBHOOK_FAILED, errors.New(discordWebhookResponse.ErrorMessage)
+	}
+
+	return SUCCESS_DISCORD_WEBHOOK, nil
+}
+
+func DecryptDiscordWebhookResponse(response EncryptedDiscordWebhookResponse, timestamp int64) (DiscordWebhookResponse, error) {
+	discordWebhookResponse := DiscordWebhookResponse{}
+
+	key := DISCORD_WEBHOOK_DECRYPTION_KEY
+
+	success, err := Aes256Decrypt(response.Success, key)
+	if err != nil {
+		return discordWebhookResponse, err
+	}
+	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	if err != nil {
+		return discordWebhookResponse, err
+	}
+
+	discordWebhookResponse = DiscordWebhookResponse{
+		Success:      success == "true",
+		ErrorMessage: errorMessage,
+	}
+
+	return discordWebhookResponse, nil
 }
 
 func PX(site, proxy string, userInfo entities.UserInfo) (PXAPIResponse, PXResult, error) {

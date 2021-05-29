@@ -46,6 +46,40 @@ type EncryptedRefreshTokenResponse struct {
 	ErrorMessage    string `json:"bSqF23Iosy"`
 }
 
+type DiscordWebhookRequest struct {
+	ActivationToken    string             `json:"xBwmRTJarL"`
+	HWID               string             `json:"2wpOd42ZuD"`
+	DeviceName         string             `json:"R7v60V37JA"`
+	Success            string             `json:"j9TH4ZtGPH"`
+	DiscordInformation DiscordInformation `json:"w2ohPULKJl"`
+}
+
+type DiscordInformation struct {
+	Content string  `json:"d3ZrADZzcP"`
+	Embeds  []Embed `json:"igBjO6n2bK"`
+}
+
+type Embed struct {
+	Title  string  `json:"UX3jllPu6d"`
+	Fields []Field `json:"U3QuXzM0Q5"`
+}
+
+type Field struct {
+	Name   string `json:"lJ5cmXdF3L"`
+	Value  string `json:"LsD8aRXXXl"`
+	Inline string `json:"H4dLDoqOuW"`
+}
+
+type DiscordWebhookResponse struct {
+	Success      bool   `json:"6sn25iGFzS"`
+	ErrorMessage string `json:"sMAsFnt7zJ"`
+}
+
+type EncryptedDiscordWebhookResponse struct {
+	Success      string `json:"6sn25iGFzS"`
+	ErrorMessage string `json:"sMAsFnt7zJ"`
+}
+
 type PXRequest struct {
 	ActivationToken string `json:"zWI5WK8e5p"`
 	HWID            string `json:"ExX0R7udUk"`
@@ -132,16 +166,3 @@ type AkamaiAPIResponse struct {
 	SensorData string `json:"9QuV8IpkJQ"`
 	Pixel      string `json:"iqB8qihe20"`
 }
-
-type AuthErrorCode = int
-
-const (
-	SUCCESS AuthErrorCode = iota
-	NO_STORED_INFO
-	ERROR_CONNECTING_TO_DATABASE
-	ERROR_AUTHENTICATING_EXISTING_INFO
-	ERROR_READING_REQUEST_BODY
-	ERROR_BEFORE_REQUEST
-	ERROR_DURING_REQUEST
-	ERROR_AFTER_REQUEST
-)
