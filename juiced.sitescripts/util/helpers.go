@@ -17,14 +17,14 @@ import (
 	"time"
 
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	cclient "github.com/IHaveNothingg/cclientwtf"
-	tls "github.com/refraction-networking/utls"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/client"
+	tls "github.com/Titanium-ctrl/utls"
 )
 
 // CreateClient creates an HTTP client
 func CreateClient(proxy entities.Proxy) (http.Client, error) {
 
-	client, err := cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy))
+	client, err := client.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy))
 	if err != nil {
 		return client, err
 	}
