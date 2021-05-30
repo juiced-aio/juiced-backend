@@ -18,7 +18,6 @@ import (
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 	"github.com/google/uuid"
-	"golang.org/x/net/http2"
 )
 
 // CreateBestbuyTask takes a Task entity and turns it into a Bestbuy Task
@@ -227,9 +226,7 @@ func (task *Task) NewAbck(abckClient *http.Client, location string) bool {
 		"pixelg":         {""},
 		"json":           {"true"},
 	}
-	client := http.Client{
-		Transport: &http2.Transport{},
-	}
+	client, _ := util.CreateClient()
 	resp, err = util.MakeRequest(&util.Request{
 		Client: client,
 		Method: "POST",

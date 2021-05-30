@@ -22,11 +22,20 @@ import (
 )
 
 // CreateClient creates an HTTP client
-func CreateClient(proxy entities.Proxy) (http.Client, error) {
+func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
+	var client http.Client
+	if len(proxy) > 0 {
+		client, err := cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy[0]))
+		if err != nil {
+			return client, err
+		}
+	} else {
+		client, err := cclient.NewClient(tls.HelloChrome_83)
+		if err != nil {
+			return client, err
 
-	client, err := cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy))
-	if err != nil {
-		return client, err
+		}
+
 	}
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
