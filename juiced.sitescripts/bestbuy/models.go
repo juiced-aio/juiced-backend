@@ -741,7 +741,7 @@ type ShipItems struct {
 	Giftmessageselected bool                `json:"giftMessageSelected"`
 }
 
-type SetShippingResponse struct {
+type UniversalOrderResponse struct {
 	ID       string `json:"id"`
 	Revision int    `json:"revision"`
 	Meta     struct {
@@ -787,11 +787,6 @@ type SetShippingResponse struct {
 			Shipping struct {
 				Iseligibleforsamedayscheduling bool `json:"isEligibleForSameDayScheduling"`
 			} `json:"shipping"`
-			Ispu struct {
-				Allitems struct {
-					Availability bool `json:"availability"`
-				} `json:"allItems"`
-			} `json:"ispu"`
 		} `json:"fulfillments"`
 		Applecareplusdisclaimer            string `json:"applecarePlusDisclaimer"`
 		Applecareplustheftdisclaimer       string `json:"applecarePlusTheftDisclaimer"`
@@ -815,39 +810,15 @@ type SetShippingResponse struct {
 						Cutofftime         string `json:"cutOffTime"`
 						Guaranteeddelivery bool   `json:"guaranteedDelivery"`
 						Name               string `json:"name"`
-						Dateindicator      string `json:"dateIndicator,omitempty"`
+						Dateindicator      string `json:"dateIndicator"`
 						Displaydatetype    string `json:"displayDateType"`
 						Customerlosgroupid string `json:"customerLosGroupId"`
-						Holidaymessage     bool   `json:"holidayMessage,omitempty"`
+						Holidaymessage     bool   `json:"holidayMessage"`
 					} `json:"availableLevelsOfService"`
 					Availableshiptolocationtypes []string `json:"availableShipToLocationTypes"`
 				} `json:"shipping"`
 				Instorepickup struct {
 					Agentpickup bool `json:"agentPickup"`
-					Store       struct {
-						ID      string `json:"id"`
-						Name    string `json:"name"`
-						Address struct {
-							Firstname      string `json:"firstName"`
-							Lastname       string `json:"lastName"`
-							Street         string `json:"street"`
-							City           string `json:"city"`
-							State          string `json:"state"`
-							Zipcode        string `json:"zipcode"`
-							Dayphonenumber string `json:"dayPhoneNumber"`
-						} `json:"address"`
-						Pickupdate          string   `json:"pickupDate"`
-						Holduntildate       string   `json:"holdUntilDate"`
-						Displaydatetype     string   `json:"displayDateType"`
-						Constrainedquantity bool     `json:"constrainedQuantity"`
-						Distance            float64  `json:"distance"`
-						Pickuptypes         []string `json:"pickupTypes"`
-						Hour                struct {
-							Date  string `json:"date"`
-							Open  string `json:"open"`
-							Close string `json:"close"`
-						} `json:"hour"`
-					} `json:"store"`
 					Nearbystore struct {
 						ID      string `json:"id"`
 						Name    string `json:"name"`
@@ -861,20 +832,11 @@ type SetShippingResponse struct {
 							Zipcode        string `json:"zipcode"`
 							Dayphonenumber string `json:"dayPhoneNumber"`
 						} `json:"address"`
-						Pickupdate          string   `json:"pickupDate"`
-						Holduntildate       string   `json:"holdUntilDate"`
-						Displaydatetype     string   `json:"displayDateType"`
-						Constrainedquantity bool     `json:"constrainedQuantity"`
-						Distance            float64  `json:"distance"`
-						Pickuptypes         []string `json:"pickupTypes"`
+						Constrainedquantity bool    `json:"constrainedQuantity"`
+						Distance            float64 `json:"distance"`
 					} `json:"nearbyStore"`
-					Maximumdistancechecked float64 `json:"maximumDistanceChecked"`
-					Numberofstoreschecked  int     `json:"numberOfStoresChecked"`
-					Pickupdate             string  `json:"pickupDate"`
-					Holduntildate          string  `json:"holdUntilDate"`
-					Availabletoday         bool    `json:"availableToday"`
-					Displaydatetype        string  `json:"displayDateType"`
-					Isnearby               bool    `json:"isNearby"`
+					Availabletoday bool `json:"availableToday"`
+					Isnearby       bool `json:"isNearby"`
 				} `json:"inStorePickup"`
 			} `json:"fulfillments"`
 			Fulfillmenteligibilities struct {
@@ -891,16 +853,13 @@ type SetShippingResponse struct {
 				Shippable            bool `json:"shippable"`
 			} `json:"fulfillmentEligibilities"`
 			Reservation struct {
-				Token          string `json:"token"`
-				Reservable     bool   `json:"reservable"`
-				Reserved       bool   `json:"reserved"`
-				Expirationtime string `json:"expirationTime"`
+				Reservable bool `json:"reservable"`
+				Reserved   bool `json:"reserved"`
 			} `json:"reservation"`
 			Geeksquadinstallationeligiblity string `json:"geekSquadInstallationEligiblity"`
 			Ishaulawayeligible              bool   `json:"isHaulAwayEligible"`
 			Hasrequiredaccessories          bool   `json:"hasRequiredAccessories"`
 			Storeclearance                  bool   `json:"storeClearance"`
-			Storeid                         string `json:"storeId"`
 			Skutype                         string `json:"skuType"`
 			Skusubtype                      string `json:"skuSubType"`
 			Price                           struct {
@@ -942,19 +901,6 @@ type SetShippingResponse struct {
 			Shipping struct {
 				Levelofservice             string `json:"levelOfService"`
 				Selectedcustomerlosgroupid string `json:"selectedCustomerLosGroupId"`
-				Address                    struct {
-					Firstname         string `json:"firstName"`
-					Lastname          string `json:"lastName"`
-					Street            string `json:"street"`
-					City              string `json:"city"`
-					State             string `json:"state"`
-					Zipcode           string `json:"zipcode"`
-					Country           string `json:"country"`
-					Dayphonenumber    string `json:"dayPhoneNumber"`
-					Type              string `json:"type"`
-					Override          bool   `json:"override"`
-					Iswishlistaddress bool   `json:"isWishListAddress"`
-				} `json:"address"`
 			} `json:"shipping"`
 		} `json:"selectedFulfillment"`
 		Creationtime                  string `json:"creationTime"`
@@ -981,27 +927,27 @@ type SetShippingResponse struct {
 		Iscvvrequired            bool `json:"isCvvRequired"`
 		Financing                struct {
 		} `json:"financing"`
-		Billingaddress struct {
-			Firstname         string `json:"firstName"`
-			Lastname          string `json:"lastName"`
-			Street            string `json:"street"`
-			City              string `json:"city"`
-			State             string `json:"state"`
-			Zipcode           string `json:"zipcode"`
-			Country           string `json:"country"`
-			Dayphonenumber    string `json:"dayPhoneNumber"`
-			Type              string `json:"type"`
-			Override          bool   `json:"override"`
-			Iswishlistaddress bool   `json:"isWishListAddress"`
-		} `json:"billingAddress"`
 	} `json:"paymentMethods"`
 	Emailaddress string `json:"emailAddress"`
 	Profileid    string `json:"profileId"`
 	Guestprofile bool   `json:"guestProfile"`
 	Guestorder   bool   `json:"guestOrder"`
-	Phonenumber  string `json:"phoneNumber"`
 	State        string `json:"state"`
-	Taxexempt    struct {
+	Errors       []struct {
+		Errorcode    string `json:"errorCode"`
+		Errormessage string `json:"errorMessage"`
+		Element      struct {
+			Type string `json:"type"`
+			ID   string `json:"id"`
+		} `json:"element"`
+		Metadata struct {
+			Type       string `json:"type"`
+			Lineitemid string `json:"lineItemId"`
+			Address    string `json:"address"`
+		} `json:"metadata"`
+		Monitoringcode string `json:"monitoringCode"`
+	} `json:"errors"`
+	Taxexempt struct {
 		Govpurchasecard  bool `json:"govPurchaseCard"`
 		Bbytaxexemptcard bool `json:"bbyTaxExemptCard"`
 	} `json:"taxExempt"`
@@ -1016,12 +962,11 @@ type SetShippingResponse struct {
 		Reactnativeeligible bool `json:"reactNativeEligible"`
 	} `json:"config"`
 	Preferences struct {
-		Supportedspecialpaymentmethods string  `json:"supportedSpecialPaymentMethods"`
-		Saleschannel                   string  `json:"salesChannel"`
-		Ordertotal                     float64 `json:"orderTotal"`
-		Skuid                          string  `json:"skuId"`
-		Orderapplepayeligible          bool    `json:"orderApplePayEligible"`
-		Paymentmethods                 []struct {
+		Saleschannel          string  `json:"salesChannel"`
+		Ordertotal            float64 `json:"orderTotal"`
+		Skuid                 string  `json:"skuId"`
+		Orderapplepayeligible bool    `json:"orderApplePayEligible"`
+		Paymentmethods        []struct {
 			Method string `json:"method"`
 		} `json:"paymentMethods"`
 	} `json:"preferences"`

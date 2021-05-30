@@ -830,7 +830,7 @@ func (task *Task) SetShippingInfo() bool {
 		return false
 	}
 
-	setShippingResponse := SetShippingResponse{}
+	setShippingResponse := UniversalOrderResponse{}
 
 	resp, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -865,6 +865,12 @@ func (task *Task) SetShippingInfo() bool {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
+		return false
+	}
+
+	switch setShippingResponse.Errors[0].Errorcode {
+	case "standardizationError":
+		fmt.Println("Bad shipping details")
 		return false
 	}
 
@@ -1167,6 +1173,7 @@ func (task *Task) PlaceOrder() bool {
 		Timezone:    "420",
 		Colordepth:  "24",
 	})
+	placeOrderResponse := UniversalOrderResponse{}
 	resp, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -1189,7 +1196,8 @@ func (task *Task) PlaceOrder() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:               data,
+		ResponseBodyStruct: &placeOrderResponse,
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
@@ -1211,6 +1219,12 @@ func (task *Task) PlaceOrder() bool {
 			}
 		}
 	default:
+		if len(placeOrderResponse.Errors) > 0 {
+			switch placeOrderResponse.Errors[0].Errorcode {
+			case "CC_AUTH_FAILURE":
+				fmt.Println("Card declined")
+			}
+		}
 		fmt.Println("Failed to Checkout")
 		success = false
 	}
