@@ -23,6 +23,7 @@ type Task struct {
 	TargetTaskInfo   TargetTaskInfo     `json:"targetTaskInfo"`
 	WalmartTaskInfo  WalmartTaskInfo    `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo     `json:"amazonTaskInfo"`
+	BestbuyTaskInfo  BestbuyTaskInfo    `json:"bestbuyTaskInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -43,17 +44,10 @@ type AmazonTaskInfo struct {
 	LoginType enums.LoginType `json:"loginType"`
 }
 
-type AmazonSingleMonitorInfo struct {
-	ASIN        string            `json:"asin"`
-	OFID        string            `json:"ofid"`
-	MaxPrice    int               `json:"maxPrice"`
-	MonitorType enums.MonitorType `json:"monitorType"`
-	Client      http.Client
-}
-
-// AmazonMonitorInfo is a class that holds Amazon-specific details for a single monitor
-type AmazonMonitorInfo struct {
-	Monitors []AmazonSingleMonitorInfo `json:"monitors"`
+type BestbuyTaskInfo struct {
+	Email    string         `json:"email"`
+	Password string         `json:"password"`
+	TaskType enums.TaskType `json:"taskType"`
 }
 
 // SetID updates the Task's ID
@@ -87,6 +81,9 @@ type TaskGroupWithTasks struct {
 	MonitorStatus       enums.MonitorStatus `json:"status" bson:"status"`
 	Tasks               []Task              `json:"tasks" bson:"tasks"`
 	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo" bson:"targetMonitorInfo"`
+	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
+	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
+	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -107,6 +104,7 @@ type TaskGroup struct {
 	TargetMonitorInfo   TargetMonitorInfo    `json:"targetMonitorInfo" bson:"targetMonitorInfo"`
 	WalmartMonitorInfo  WalmartMonitorInfo   `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo    `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
+	BestbuyMonitorInfo  BestbuyMonitorInfo   `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
 	TaskIDs             []primitive.ObjectID `json:"taskIDs" bson:"taskIDs"`
 	// Future sitescripts will have a field here
 }
@@ -120,7 +118,28 @@ type TargetMonitorInfo struct {
 
 type WalmartMonitorInfo struct {
 	MonitorType enums.MonitorType `json:"monitorType"`
-	SKUs        []string          `json:"tcins"`
+	SKUs        []string          `json:"skus"`
+}
+
+type AmazonSingleMonitorInfo struct {
+	ASIN        string            `json:"asin"`
+	OFID        string            `json:"ofid"`
+	MaxPrice    int               `json:"maxPrice"`
+	MonitorType enums.MonitorType `json:"monitorType"`
+	Client      http.Client
+}
+
+type AmazonMonitorInfo struct {
+	Monitors []AmazonSingleMonitorInfo `json:"monitors"`
+}
+
+type BestbuySingleMonitorInfo struct {
+	SKU      string `json:"skus"`
+	MaxPrice int    `json:"maxPrice"`
+}
+
+type BestbuyMonitorInfo struct {
+	Monitors []BestbuySingleMonitorInfo `json:"monitors"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup

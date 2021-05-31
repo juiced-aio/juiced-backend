@@ -290,7 +290,7 @@ func (task *Task) SetPaymentInfo() bool {
 			PostalCode:     task.Task.Profile.BillingAddress.ZipCode,
 			ExpiryMonth:    task.Task.Profile.CreditCard.ExpMonth,
 			ExpiryYear:     task.Task.Profile.CreditCard.ExpYear,
-			Email:          task.Task.Task.TargetTaskInfo.Email,
+			Email:          task.Task.Profile.Email,
 			Phone:          task.Task.Profile.PhoneNumber,
 			EncryptedPan:   task.CardInfo.EncryptedPan,
 			EncryptedCvv:   task.CardInfo.EncryptedCvv,

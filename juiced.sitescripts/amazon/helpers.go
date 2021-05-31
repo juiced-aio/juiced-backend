@@ -16,7 +16,7 @@ func (task *Task) CreateAmazonFields(success bool) []util.Field {
 	return []util.Field{
 		{
 			Name:   "Site:",
-			Value:  task.TaskInfo.Site,
+			Value:  "Amazon",
 			Inline: true,
 		},
 		{
@@ -39,7 +39,7 @@ func (task *Task) CreateAmazonFields(success bool) []util.Field {
 		},
 		{
 			Name:  "Proxy:",
-			Value: "||" + " " + task.TaskInfo.Proxy + " " + "||",
+			Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
 		},
 		{
 			Name:  "Offer Listing ID:",

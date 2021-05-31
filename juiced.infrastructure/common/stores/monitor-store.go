@@ -11,6 +11,7 @@ import (
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
 
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/amazon"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/bestbuy"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/target"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -21,6 +22,7 @@ type MonitorStore struct {
 	TargetMonitors  map[primitive.ObjectID]*target.Monitor
 	WalmartMonitors map[primitive.ObjectID]*walmart.Monitor
 	AmazonMonitors  map[primitive.ObjectID]*amazon.Monitor
+	BestbuyMonitors map[primitive.ObjectID]*bestbuy.Monitor
 	EventBus        *events.EventBus
 }
 
@@ -78,8 +80,8 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 		// Add task to store
 		monitorStore.WalmartMonitors[monitor.GroupID] = &walmartMonitor
-	case enums.Amazon:
 
+	case enums.Amazon:
 		if _, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
 			return true
 		}
@@ -98,6 +100,26 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 
 		monitorStore.AmazonMonitors[monitor.GroupID] = &amazonMonitor
+
+	case enums.BestBuy:
+		if _, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+			return true
+		}
+
+		if queryError {
+			return false
+		}
+
+		if len(monitor.BestbuyMonitorInfo.Monitors) == 0 {
+			return false
+		}
+
+		bestbuyMonitor, err := bestbuy.CreateBestbuyMonitor(monitor, proxy, monitorStore.EventBus, monitor.BestbuyMonitorInfo.Monitors)
+		if err != nil {
+			return false
+		}
+
+		monitorStore.BestbuyMonitors[monitor.GroupID] = &bestbuyMonitor
 
 	}
 	return true
@@ -130,6 +152,8 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
 	case enums.Amazon:
 		go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
+	case enums.BestBuy:
+		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 
 	}
 	return true
@@ -157,6 +181,12 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 			return true
 		}
 		return true
+	case enums.BestBuy:
+		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+			bestbuyMonitor.Monitor.StopFlag = true
+			return true
+		}
+		return true
 	}
 	return false
 }
@@ -169,6 +199,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 		TargetMonitors:  make(map[primitive.ObjectID]*target.Monitor),
 		WalmartMonitors: make(map[primitive.ObjectID]*walmart.Monitor),
 		AmazonMonitors:  make(map[primitive.ObjectID]*amazon.Monitor),
+		BestbuyMonitors: make(map[primitive.ObjectID]*bestbuy.Monitor),
 		EventBus:        eventBus,
 	}
 }

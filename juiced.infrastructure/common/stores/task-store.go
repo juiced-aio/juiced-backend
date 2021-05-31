@@ -11,6 +11,7 @@ import (
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
 
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/amazon"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/bestbuy"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/target"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -25,6 +26,7 @@ type TaskStore struct {
 	TargetTasks  map[primitive.ObjectID]*target.Task
 	WalmartTasks map[primitive.ObjectID]*walmart.Task
 	AmazonTasks  map[primitive.ObjectID]*amazon.Task
+	BestbuyTasks map[primitive.ObjectID]*bestbuy.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -87,7 +89,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 
 	case enums.Amazon:
 		// Check if task exists in store already
-		if _, ok := taskStore.TargetTasks[task.ID]; ok {
+		if _, ok := taskStore.AmazonTasks[task.ID]; ok {
 			return true
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -105,6 +107,27 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.AmazonTasks[task.ID] = &amazonTask
+
+	case enums.BestBuy:
+		// Check if task exists in store already
+		if _, ok := taskStore.BestbuyTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if task.BestbuyTaskInfo.TaskType == "" || task.BestbuyTaskInfo.Email == "" || task.BestbuyTaskInfo.Password == "" {
+			return false
+		}
+		// Create task
+		bestbuyTask, err := bestbuy.CreateBestbuyTask(task, profile, proxy, taskStore.EventBus, task.BestbuyTaskInfo.TaskType, task.BestbuyTaskInfo.Email, task.BestbuyTaskInfo.Password)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
 
 	}
 
@@ -147,6 +170,8 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 		go taskStore.WalmartTasks[task.ID].RunTask()
 	case enums.Amazon:
 		go taskStore.AmazonTasks[task.ID].RunTask()
+	case enums.BestBuy:
+		go taskStore.BestbuyTasks[task.ID].RunTask()
 	}
 
 	return true
@@ -171,6 +196,11 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 			amazonTask.Task.StopFlag = true
 		}
 		return true
+	case enums.BestBuy:
+		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
+			bestbuyTask.Task.StopFlag = true
+		}
+		return true
 	}
 	return false
 }
@@ -183,6 +213,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 		TargetTasks:  make(map[primitive.ObjectID]*target.Task),
 		WalmartTasks: make(map[primitive.ObjectID]*walmart.Task),
 		AmazonTasks:  make(map[primitive.ObjectID]*amazon.Task),
+		BestbuyTasks: make(map[primitive.ObjectID]*bestbuy.Task),
 		EventBus:     eventBus,
 	}
 	channel := make(chan events.Event)
@@ -209,8 +240,9 @@ func InitTaskStore(eventBus *events.EventBus) {
 				for _, walmartTask := range taskStore.WalmartTasks {
 					if walmartTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
 						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Sku
+						walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
-					walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
+
 				}
 			case enums.Amazon:
 				inStock := event.ProductEvent.AmazonData.InStock
@@ -227,6 +259,15 @@ func InitTaskStore(eventBus *events.EventBus) {
 						amazonTask.CheckoutInfo.UA = inStock[rand.Intn(len(inStock))].UA
 						amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(inStock[rand.Intn(len(inStock))].MonitorType)
 
+					}
+				}
+			case enums.BestBuy:
+				inStock := event.ProductEvent.BestbuyData.InStock
+				for _, bestbuyTask := range taskStore.BestbuyTasks {
+					if bestbuyTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
+						bestbuyTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
+						bestbuyTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
+						bestbuyTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
 			}

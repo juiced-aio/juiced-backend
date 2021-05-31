@@ -71,7 +71,7 @@ func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, ev
 		if needToStop {
 			return amazonMonitor, nil
 		}
-		becameGuest = amazonMonitor.GetSession()
+		becameGuest = amazonMonitor.BecomeGuest()
 		if !becameGuest {
 			time.Sleep(1000 * time.Millisecond)
 		}
@@ -195,7 +195,7 @@ func (monitor *Monitor) TurboMonitor(asin string) bool {
 		return false
 	case 503:
 		fmt.Println("Dogs of Amazon")
-		monitor.GetSession()
+		monitor.BecomeGuest()
 		return false
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
@@ -331,6 +331,8 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 
 	defer resp.Body.Close()
 
+	// It is impossible to know if the OfferID actually exists so it's up to the user here when running OfferID mode/Fast mode
+	monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
 	switch resp.StatusCode {
 	case 200:
 		var imageURL string
@@ -339,7 +341,6 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 
 		err := doc.Find("input", "name", "anti-csrftoken-a2z").Error
 		if err != nil {
-			monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
 			return false
 		}
 		antiCSRF := doc.Find("input", "name", "anti-csrftoken-a2z").Attrs()["value"]
@@ -387,7 +388,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 }
 
 // This becomes a guest basically to monitor amazon
-func (monitor *Monitor) GetSession() bool {
+func (monitor *Monitor) BecomeGuest() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",

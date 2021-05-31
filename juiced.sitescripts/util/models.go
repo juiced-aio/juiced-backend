@@ -8,6 +8,8 @@ import (
 type ErrorType string
 
 const (
+	EncryptionParsingError    ErrorType = "ENCRYPTION_PARSING_ERROR"
+	EncryptionEncryptingError ErrorType = "ENCRYPTION_ENCRYPTING_ERROR"
 	RequestMarshalBodyError   ErrorType = "REQUEST_MARSHAL_BODY_ERROR"
 	RequestCreateError        ErrorType = "REQUEST_CREATE_ERROR"
 	RequestDoError            ErrorType = "REQUEST_DO_ERROR"

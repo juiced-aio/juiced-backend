@@ -167,6 +167,18 @@ func (eb *EventBus) PublishProductEvent(retailer enums.Retailer, data interface{
 			return
 		}
 		event.ProductEvent.WalmartData = walmartData
+	case enums.Amazon:
+		amazonData, ok := data.(AmazonStockData)
+		if !ok {
+			return
+		}
+		event.ProductEvent.AmazonData = amazonData
+	case enums.BestBuy:
+		bestbuyData, ok := data.(BestbuyStockData)
+		if !ok {
+			return
+		}
+		event.ProductEvent.BestbuyData = bestbuyData
 	}
 	defer func() {
 		recover()
