@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
+	cclient "backend.juicedbot.io/m/v2/juiced.client/client"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	cclient "github.com/IHaveNothingg/cclientwtf"
 	tls "github.com/Titanium-ctrl/utls"
 )
 
