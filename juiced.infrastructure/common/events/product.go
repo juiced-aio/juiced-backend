@@ -46,6 +46,14 @@ type BestbuyStockData struct {
 	InStock []BestbuySingleStockData
 }
 
+type HottopicData struct {
+	Pid string
+}
+
+type HottopicStockData struct {
+	InStockForShip []string
+}
+
 // ProductEvent is fired whenever a Monitor finds a product
 type ProductEvent struct {
 	DiscordWebhook string             `json:"discordWebhook"`
@@ -55,4 +63,5 @@ type ProductEvent struct {
 	WalmartData    WalmartStockData   `json:"walmartStockData"`
 	AmazonData     AmazonStockData    `json:"amazonStockData"`
 	BestbuyData    BestbuyStockData   `json:"bestbuyStockData"`
+	HottopicData   HottopicStockData  `json:"HottopicStockData"`
 }

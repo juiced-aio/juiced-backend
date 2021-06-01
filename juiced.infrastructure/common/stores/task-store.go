@@ -12,6 +12,7 @@ import (
 
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/m/v2/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/target"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -23,10 +24,11 @@ import (
 
 // TaskStore stores information about running Tasks
 type TaskStore struct {
-	TargetTasks  map[primitive.ObjectID]*target.Task
-	WalmartTasks map[primitive.ObjectID]*walmart.Task
-	AmazonTasks  map[primitive.ObjectID]*amazon.Task
-	BestbuyTasks map[primitive.ObjectID]*bestbuy.Task
+	TargetTasks   map[primitive.ObjectID]*target.Task
+	WalmartTasks  map[primitive.ObjectID]*walmart.Task
+	AmazonTasks   map[primitive.ObjectID]*amazon.Task
+	BestbuyTasks  map[primitive.ObjectID]*bestbuy.Task
+	HottopicTasks map[primitive.ObjectID]*hottopic.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -128,9 +130,28 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
-
+	case enums.Hottopic:
+		// Check if task exists in store already
+		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		// No necessary fields atm
+		//if task.HottopicTaskInfo. == "" || task.HottopicTaskInfo.Email == "" || task.HottopicTaskInfo.Password == "" {
+		//	return false
+		//}
+		// Create task
+		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.HottopicTasks[task.ID] = &hottopicTask
 	}
-
 	return true
 }
 
@@ -172,8 +193,9 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 		go taskStore.AmazonTasks[task.ID].RunTask()
 	case enums.BestBuy:
 		go taskStore.BestbuyTasks[task.ID].RunTask()
+	case enums.Hottopic:
+		go taskStore.HottopicTasks[task.ID].RunTask()
 	}
-
 	return true
 }
 
@@ -201,6 +223,11 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 			bestbuyTask.Task.StopFlag = true
 		}
 		return true
+	case enums.Hottopic:
+		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
+			hottopicTask.Task.StopFlag = true
+		}
+		return true
 	}
 	return false
 }
@@ -210,11 +237,12 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		TargetTasks:  make(map[primitive.ObjectID]*target.Task),
-		WalmartTasks: make(map[primitive.ObjectID]*walmart.Task),
-		AmazonTasks:  make(map[primitive.ObjectID]*amazon.Task),
-		BestbuyTasks: make(map[primitive.ObjectID]*bestbuy.Task),
-		EventBus:     eventBus,
+		TargetTasks:   make(map[primitive.ObjectID]*target.Task),
+		WalmartTasks:  make(map[primitive.ObjectID]*walmart.Task),
+		AmazonTasks:   make(map[primitive.ObjectID]*amazon.Task),
+		BestbuyTasks:  make(map[primitive.ObjectID]*bestbuy.Task),
+		HottopicTasks: make(map[primitive.ObjectID]*hottopic.Task),
+		EventBus:      eventBus,
 	}
 	channel := make(chan events.Event)
 	eventBus.Subscribe(channel)
@@ -242,7 +270,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Sku
 						walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
-
 				}
 			case enums.Amazon:
 				inStock := event.ProductEvent.AmazonData.InStock
@@ -258,7 +285,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 						amazonTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
 						amazonTask.CheckoutInfo.UA = inStock[rand.Intn(len(inStock))].UA
 						amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(inStock[rand.Intn(len(inStock))].MonitorType)
-
 					}
 				}
 			case enums.BestBuy:
@@ -268,6 +294,13 @@ func InitTaskStore(eventBus *events.EventBus) {
 						bestbuyTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
 						bestbuyTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
 						bestbuyTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
+					}
+				}
+			case enums.Hottopic:
+				inStock := event.ProductEvent.HottopicData.InStockForShip
+				for _, hotTopicTask := range taskStore.HottopicTasks {
+					if hotTopicTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
+						hotTopicTask.Pid = inStock[rand.Intn(len(inStock))]
 					}
 				}
 			}

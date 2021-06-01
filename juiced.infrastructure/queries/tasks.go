@@ -122,6 +122,7 @@ func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWit
 		WalmartMonitorInfo:  taskGroup.WalmartMonitorInfo,
 		AmazonMonitorInfo:   taskGroup.AmazonMonitorInfo,
 		BestbuyMonitorInfo:  taskGroup.BestbuyMonitorInfo,
+		HottopicMonitorInfo: taskGroup.HottopicMonitorInfo,
 		Tasks:               []entities.Task{},
 	}
 	tasks := []entities.Task{}

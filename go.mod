@@ -23,5 +23,4 @@ require (
 	github.com/rs/cors v1.7.0
 	gitlab.com/yawning/utls.git v0.0.12-1 // indirect
 	go.mongodb.org/mongo-driver v1.5.2
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
 )
