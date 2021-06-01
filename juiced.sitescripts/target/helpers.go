@@ -1,8 +1,7 @@
 package target
 
 import (
-	"net/http"
-
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 )
 

@@ -9,11 +9,11 @@ import (
 	"encoding/pem"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 )
 
