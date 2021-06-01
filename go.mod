@@ -4,7 +4,6 @@ go 1.16
 
 require (
 	github.com/EDDYCJY/fake-useragent v0.2.0 // indirect
-	github.com/IHaveNothingg/cclientwtf v0.0.0-20210503100226-25a4507da047
 	github.com/PuerkitoBio/goquery v1.6.1 // indirect
 	github.com/Titanium-ctrl/utls v0.0.0-20210220142115-7c6ee6812971
 	github.com/anaskhan96/soup v1.2.4
@@ -23,5 +22,7 @@ require (
 	github.com/rs/cors v1.7.0
 	gitlab.com/yawning/utls.git v0.0.12-1 // indirect
 	go.mongodb.org/mongo-driver v1.5.2
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
+	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
 )

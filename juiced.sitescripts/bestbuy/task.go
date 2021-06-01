@@ -805,7 +805,7 @@ func (task *Task) SetShippingInfo() bool {
 							Country:             task.Task.Profile.ShippingAddress.CountryCode,
 							Savetoprofile:       false,
 							Street2:             strings.ToUpper(task.Task.Profile.ShippingAddress.Address2),
-							Useaddressasbilling: task.Task.Profile.SSAB,
+							Useaddressasbilling: false,
 							Middleinitial:       "",
 							Lastname:            task.Task.Profile.ShippingAddress.LastName,
 							Street:              strings.ToUpper(task.Task.Profile.ShippingAddress.Address1),
@@ -914,42 +914,23 @@ func (task *Task) SetShippingInfo() bool {
 func (task *Task) SetPaymentInfo() bool {
 	task.NewAbck(&task.Task.Client, BasePaymentEndpoint)
 
-	var billing Billingaddress
-	if task.Task.Profile.SSAB {
-		billing = Billingaddress{
-			Country:             task.Task.Profile.ShippingAddress.CountryCode,
-			Useaddressasbilling: true,
-			Middleinitial:       "",
-			Lastname:            task.Task.Profile.ShippingAddress.LastName,
-			Iswishlistaddress:   false,
-			City:                strings.ToUpper(task.Task.Profile.ShippingAddress.City),
-			State:               task.Task.Profile.ShippingAddress.StateCode,
-			Firstname:           task.Task.Profile.ShippingAddress.FirstName,
-			Addressline1:        strings.ToUpper(task.Task.Profile.ShippingAddress.Address1),
-			Addressline2:        strings.ToUpper(task.Task.Profile.ShippingAddress.Address2),
-			Dayphone:            task.Task.Profile.PhoneNumber,
-			Postalcode:          task.Task.Profile.ShippingAddress.ZipCode,
-			Standardized:        false,
-			Useroverridden:      false,
-		}
-	} else {
-		billing = Billingaddress{
-			Country:             task.Task.Profile.BillingAddress.CountryCode,
-			Useaddressasbilling: true,
-			Middleinitial:       "",
-			Lastname:            task.Task.Profile.BillingAddress.LastName,
-			Iswishlistaddress:   false,
-			City:                strings.ToUpper(task.Task.Profile.BillingAddress.City),
-			State:               task.Task.Profile.BillingAddress.StateCode,
-			Firstname:           task.Task.Profile.BillingAddress.FirstName,
-			Addressline1:        strings.ToUpper(task.Task.Profile.BillingAddress.Address1),
-			Addressline2:        strings.ToUpper(task.Task.Profile.BillingAddress.Address2),
-			Dayphone:            task.Task.Profile.PhoneNumber,
-			Postalcode:          task.Task.Profile.BillingAddress.ZipCode,
-			Standardized:        false,
-			Useroverridden:      false,
-		}
+	billing := Billingaddress{
+		Country:             task.Task.Profile.BillingAddress.CountryCode,
+		Useaddressasbilling: true,
+		Middleinitial:       "",
+		Lastname:            task.Task.Profile.BillingAddress.LastName,
+		Iswishlistaddress:   false,
+		City:                strings.ToUpper(task.Task.Profile.BillingAddress.City),
+		State:               task.Task.Profile.BillingAddress.StateCode,
+		Firstname:           task.Task.Profile.BillingAddress.FirstName,
+		Addressline1:        strings.ToUpper(task.Task.Profile.BillingAddress.Address1),
+		Addressline2:        strings.ToUpper(task.Task.Profile.BillingAddress.Address2),
+		Dayphone:            task.Task.Profile.PhoneNumber,
+		Postalcode:          task.Task.Profile.BillingAddress.ZipCode,
+		Standardized:        false,
+		Useroverridden:      false,
 	}
+
 	encryptedNumber := encrypt([]byte("00960001"+task.Task.Profile.CreditCard.CardNumber), paymentKey)
 	data, _ := json.Marshal(SetPaymentRequest{
 		Billingaddress: billing,
