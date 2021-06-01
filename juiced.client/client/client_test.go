@@ -5,11 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
 	"testing"
 	"time"
 
 	tls "github.com/Titanium-ctrl/utls"
+
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 )
 
 type JA3Response struct {

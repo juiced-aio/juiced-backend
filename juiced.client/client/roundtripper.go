@@ -7,15 +7,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
-	utls "github.com/Titanium-ctrl/utls"
-	"golang.org/x/net/http2"
 	"golang.org/x/net/proxy"
+
+	utls "github.com/Titanium-ctrl/utls"
+
+	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/m/v2/juiced.client/http2"
 )
 
 var errProtocolNegotiated = errors.New("protocol negotiated")

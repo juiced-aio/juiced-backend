@@ -9,10 +9,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 

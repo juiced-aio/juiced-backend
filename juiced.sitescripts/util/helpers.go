@@ -9,12 +9,13 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
-	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
+
+	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/m/v2/juiced.client/http/cookiejar"
 
 	cclient "backend.juicedbot.io/m/v2/juiced.client/client"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
@@ -113,9 +114,9 @@ func MakeRequest(requestInfo *Request) (*http.Response, error) {
 	if requestInfo.Headers != nil {
 		request.Header = requestInfo.Headers
 	}
-	// if requestInfo.RawHeaders != nil {
-	// 	request.RawHeader = requestInfo.RawHeaders
-	// }
+	if requestInfo.RawHeaders != nil {
+		request.RawHeader = requestInfo.RawHeaders
+	}
 	if requestInfo.AddHeadersFunction != nil {
 		requestInfo.AddHeadersFunction(request, requestInfo.Referer)
 	}

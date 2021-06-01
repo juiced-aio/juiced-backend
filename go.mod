@@ -12,6 +12,7 @@ require (
 	github.com/eddycjy/fake-useragent v0.2.0
 	github.com/go-rod/rod v0.99.1
 	github.com/go-rod/stealth v0.4.2
+	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
@@ -23,6 +24,6 @@ require (
 	gitlab.com/yawning/utls.git v0.0.12-1 // indirect
 	go.mongodb.org/mongo-driver v1.5.2
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
-	golang.org/x/net v0.0.0-20210119194325-5f4716e94777
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c // indirect
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	golang.org/x/term v0.0.0-20210503060354-a79de5458b56
 )

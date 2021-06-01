@@ -1,10 +1,10 @@
 package client
 
 import (
-	"net/http"
-
 	utls "github.com/Titanium-ctrl/utls"
 	"golang.org/x/net/proxy"
+
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 )
 
 func UpdateProxy(client *http.Client, proxyurl string) error {

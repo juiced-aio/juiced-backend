@@ -1,10 +1,10 @@
 package amazon
 
 import (
-	"net/http"
 	"net/url"
 	"time"
 
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"

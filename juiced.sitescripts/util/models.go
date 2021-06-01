@@ -1,8 +1,9 @@
 package util
 
 import (
-	"net/http"
 	"time"
+
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 )
 
 type ErrorType string

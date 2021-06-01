@@ -2,7 +2,6 @@ package amazon
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -10,6 +9,7 @@ import (
 
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 
+	"backend.juicedbot.io/m/v2/juiced.client/http"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
