@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/cgi"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/cgi"
 )
 
 // request holds the state for an in-progress request. As soon as it's complete,

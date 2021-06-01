@@ -44,7 +44,7 @@ type contextKey struct {
 }
 
 func (k *contextKey) String() string {
-	return "backend.juicedbot.io/m/v2/juiced.client/http context value " + k.name
+	return "backend.juicedbot.io/juiced.client/http context value " + k.name
 }
 
 // Given a string of the form "host", "host:port", or "[ipv6::address]:port",

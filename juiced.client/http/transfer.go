@@ -18,9 +18,9 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/internal"
+	"backend.juicedbot.io/juiced.client/http/internal"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptrace"
+	"backend.juicedbot.io/juiced.client/http/httptrace"
 
 	"golang.org/x/net/http/httpguts"
 )

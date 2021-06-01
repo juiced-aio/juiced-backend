@@ -3,9 +3,9 @@ package commands
 import (
 	"errors"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	_ "github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"

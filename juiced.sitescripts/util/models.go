@@ -3,7 +3,7 @@ package util
 import (
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 type ErrorType string

@@ -86,14 +86,14 @@ func TestCmdGoNoHTTPServer(t *testing.T) {
 	}
 	wantSym := map[string]bool{
 		// Verify these exist: (sanity checking this test)
-		"backend.juicedbot.io/m/v2/juiced.client/http.(*Client).do":           true,
-		"backend.juicedbot.io/m/v2/juiced.client/http.(*Transport).RoundTrip": true,
+		"backend.juicedbot.io/juiced.client/http.(*Client).do":           true,
+		"backend.juicedbot.io/juiced.client/http.(*Transport).RoundTrip": true,
 
 		// Verify these don't exist:
-		"backend.juicedbot.io/m/v2/juiced.client/http.http2Server":           false,
-		"backend.juicedbot.io/m/v2/juiced.client/http.(*Server).Serve":       false,
-		"backend.juicedbot.io/m/v2/juiced.client/http.(*ServeMux).ServeHTTP": false,
-		"backend.juicedbot.io/m/v2/juiced.client/http.DefaultServeMux":       false,
+		"backend.juicedbot.io/juiced.client/http.http2Server":           false,
+		"backend.juicedbot.io/juiced.client/http.(*Server).Serve":       false,
+		"backend.juicedbot.io/juiced.client/http.(*ServeMux).ServeHTTP": false,
+		"backend.juicedbot.io/juiced.client/http.DefaultServeMux":       false,
 	}
 	for sym, want := range wantSym {
 		got := bytes.Contains(out, []byte(sym))

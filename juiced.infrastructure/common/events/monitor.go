@@ -1,7 +1,7 @@
 package events
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

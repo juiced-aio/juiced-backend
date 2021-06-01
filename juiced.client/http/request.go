@@ -25,7 +25,7 @@ import (
 	"strings"
 	"sync"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptrace"
+	"backend.juicedbot.io/juiced.client/http/httptrace"
 
 	"golang.org/x/net/idna"
 )

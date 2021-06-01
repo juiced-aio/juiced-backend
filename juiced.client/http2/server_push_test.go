@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 func TestServer_Push_Success(t *testing.T) {

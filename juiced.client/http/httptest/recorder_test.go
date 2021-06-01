@@ -9,7 +9,7 @@ import (
 	"io"
 	"testing"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 func TestRecorder(t *testing.T) {

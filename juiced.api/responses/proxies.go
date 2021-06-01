@@ -1,7 +1,7 @@
 package responses
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 )
 
 // ProxyGroupResponse is the response that any /api/proxy/group request receives

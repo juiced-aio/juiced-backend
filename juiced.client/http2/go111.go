@@ -10,7 +10,7 @@ package http2
 import (
 	"net/textproto"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptrace"
+	"backend.juicedbot.io/juiced.client/http/httptrace"
 )
 
 func traceHasWroteHeaderField(trace *httptrace.ClientTrace) bool {

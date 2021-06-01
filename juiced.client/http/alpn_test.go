@@ -14,8 +14,8 @@ import (
 	"strings"
 	"testing"
 
-	. "backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptest"
+	. "backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/httptest"
 )
 
 func TestNextProtoUpgrade(t *testing.T) {

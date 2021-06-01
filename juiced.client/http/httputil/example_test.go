@@ -11,9 +11,9 @@ import (
 	"net/url"
 	"strings"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptest"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httputil"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/httptest"
+	"backend.juicedbot.io/juiced.client/http/httputil"
 )
 
 func ExampleDumpRequest() {

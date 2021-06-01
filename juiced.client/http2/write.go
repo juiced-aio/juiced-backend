@@ -10,9 +10,9 @@ import (
 	"log"
 	"net/url"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httpguts"
-	"backend.juicedbot.io/m/v2/juiced.client/http2/hpack"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/httpguts"
+	"backend.juicedbot.io/juiced.client/http2/hpack"
 )
 
 // writeFramer is implemented by any type that is used to write frames.

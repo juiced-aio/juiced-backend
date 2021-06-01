@@ -1,4 +1,4 @@
-module backend.juicedbot.io/m/v2
+module backend.juicedbot.io
 
 go 1.16
 
@@ -25,5 +25,8 @@ require (
 	go.mongodb.org/mongo-driver v1.5.2
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b // indirect
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )

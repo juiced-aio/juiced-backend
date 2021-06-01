@@ -46,9 +46,9 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httpguts"
-	"backend.juicedbot.io/m/v2/juiced.client/http2/hpack"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/httpguts"
+	"backend.juicedbot.io/juiced.client/http2/hpack"
 )
 
 const (

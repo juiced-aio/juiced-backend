@@ -13,8 +13,8 @@ import (
 	"strconv"
 	"strings"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 func BecomeGuest(client *http.Client) bool {

@@ -27,9 +27,9 @@ import (
 	"testing"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptest"
+	"backend.juicedbot.io/juiced.client/http/httptest"
 
-	. "backend.juicedbot.io/m/v2/juiced.client/http"
+	. "backend.juicedbot.io/juiced.client/http"
 )
 
 const (

@@ -10,10 +10,10 @@
 // The handled paths all begin with /debug/pprof/.
 //
 // To use pprof, link this package into your program:
-//	import _ "backend.juicedbot.io/m/v2/juiced.client/http/pprof"
+//	import _ "backend.juicedbot.io/juiced.client/http/pprof"
 //
 // If your application is not already running an http server, you
-// need to start one. Add "backend.juicedbot.io/m/v2/juiced.client/http" and "log" to your imports and
+// need to start one. Add "backend.juicedbot.io/juiced.client/http" and "log" to your imports and
 // the following code to your main function:
 //
 // 	go func() {
@@ -74,7 +74,7 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 	"github.com/google/pprof/profile"
 )
 

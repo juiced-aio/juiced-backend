@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 	"github.com/google/uuid"
 )

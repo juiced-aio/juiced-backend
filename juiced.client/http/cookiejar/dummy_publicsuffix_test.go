@@ -4,7 +4,7 @@
 
 package cookiejar_test
 
-import "backend.juicedbot.io/m/v2/juiced.client/http/cookiejar"
+import "backend.juicedbot.io/juiced.client/http/cookiejar"
 
 type dummypsl struct {
 	List cookiejar.PublicSuffixList

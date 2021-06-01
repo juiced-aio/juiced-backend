@@ -9,7 +9,7 @@ package httputil
 import (
 	"io"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/internal"
+	"backend.juicedbot.io/juiced.client/http/internal"
 )
 
 // NewChunkedReader returns a new chunkedReader that translates the data read from r

@@ -15,9 +15,9 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/commands"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/mergermarket/go-pkcs7"

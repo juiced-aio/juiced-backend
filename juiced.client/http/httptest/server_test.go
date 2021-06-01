@@ -10,7 +10,7 @@ import (
 	"net"
 	"testing"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 type newServerFunc func(http.Handler) *Server

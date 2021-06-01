@@ -1,8 +1,8 @@
 package target
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // AddTargetHeaders adds Target-specific headers to the request

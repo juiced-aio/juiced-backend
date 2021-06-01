@@ -8,7 +8,7 @@
 package http2
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptrace"
+	"backend.juicedbot.io/juiced.client/http/httptrace"
 	"net/textproto"
 )
 

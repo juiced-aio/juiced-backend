@@ -35,7 +35,7 @@ import (
 	"strconv"
 	"strings"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/hpack"

@@ -14,11 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/cookiejar"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/cookiejar"
 
-	cclient "backend.juicedbot.io/m/v2/juiced.client/client"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
+	cclient "backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	tls "github.com/Titanium-ctrl/utls"
 )
 

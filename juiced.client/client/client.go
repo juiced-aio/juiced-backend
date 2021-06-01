@@ -4,7 +4,7 @@ import (
 	utls "github.com/Titanium-ctrl/utls"
 	"golang.org/x/net/proxy"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 func UpdateProxy(client *http.Client, proxyurl string) error {

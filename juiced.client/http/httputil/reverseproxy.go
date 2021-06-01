@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 
 	"golang.org/x/net/http/httpguts"
 )

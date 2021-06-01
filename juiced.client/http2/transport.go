@@ -33,10 +33,10 @@ import (
 
 	"golang.org/x/net/idna"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httpguts"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptrace"
-	"backend.juicedbot.io/m/v2/juiced.client/http2/hpack"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/httpguts"
+	"backend.juicedbot.io/juiced.client/http/httptrace"
+	"backend.juicedbot.io/juiced.client/http2/hpack"
 )
 
 const (
@@ -1041,7 +1041,7 @@ func (cc *ClientConn) putFrameScratchBuffer(buf []byte) {
 
 // errRequestCanceled is a copy of net/http's errRequestCanceled because it's not
 // exported. At least they'll be DeepEqual for h1-vs-h2 comparisons tests.
-var errRequestCanceled = errors.New("backend.juicedbot.io/m/v2/juiced.client/http: request canceled")
+var errRequestCanceled = errors.New("backend.juicedbot.io/juiced.client/http: request canceled")
 
 func commaSeparatedTrailers(req *http.Request) (string, error) {
 	keys := make([]string, 0, len(req.Trailer))
@@ -2290,7 +2290,7 @@ func (b transportResponseBody) Read(p []byte) (n int, err error) {
 		if int64(n) > cs.bytesRemain {
 			n = int(cs.bytesRemain)
 			if err == nil {
-				err = errors.New("backend.juicedbot.io/m/v2/juiced.client/http: server replied with more than declared Content-Length; truncated")
+				err = errors.New("backend.juicedbot.io/juiced.client/http: server replied with more than declared Content-Length; truncated")
 				cc.writeStreamReset(cs.ID, ErrCodeProtocol, err)
 			}
 			cs.readErr = err

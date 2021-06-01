@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptrace"
+	"backend.juicedbot.io/juiced.client/http/httptrace"
 )
 
 // A Header represents the key-value pairs in an HTTP header.

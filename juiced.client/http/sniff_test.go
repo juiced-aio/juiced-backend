@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	. "backend.juicedbot.io/m/v2/juiced.client/http"
+	. "backend.juicedbot.io/juiced.client/http"
 )
 
 var sniffTests = []struct {

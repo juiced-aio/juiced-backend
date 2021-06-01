@@ -12,7 +12,7 @@ import (
 	"io"
 	"strings"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 // NewRequest returns a new incoming server Request, suitable

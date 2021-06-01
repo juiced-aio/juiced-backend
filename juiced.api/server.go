@@ -1,7 +1,7 @@
 package api
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.api/routes"
+	"backend.juicedbot.io/juiced.api/routes"
 
 	"net/http"
 

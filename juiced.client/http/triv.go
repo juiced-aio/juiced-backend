@@ -7,7 +7,7 @@
 package main
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 	"bytes"
 	"expvar"
 	"flag"

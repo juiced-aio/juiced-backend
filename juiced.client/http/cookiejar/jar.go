@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 // PublicSuffixList provides the public suffix of a domain. For example:

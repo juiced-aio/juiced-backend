@@ -16,8 +16,8 @@ import (
 
 	utls "github.com/Titanium-ctrl/utls"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http2"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http2"
 )
 
 var errProtocolNegotiated = errors.New("protocol negotiated")

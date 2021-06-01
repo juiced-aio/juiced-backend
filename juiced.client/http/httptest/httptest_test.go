@@ -12,7 +12,7 @@ import (
 	"strings"
 	"testing"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 func TestNewRequest(t *testing.T) {

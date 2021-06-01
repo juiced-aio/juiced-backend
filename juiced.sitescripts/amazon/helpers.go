@@ -3,7 +3,7 @@ package amazon
 import (
 	"fmt"
 
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // Creates the webhook depending on whether successful or not

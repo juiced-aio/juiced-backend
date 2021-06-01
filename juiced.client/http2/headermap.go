@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 var (

@@ -10,7 +10,7 @@ import (
 	"crypto/tls"
 	"sync"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 // ClientConnPool manages a pool of HTTP/2 client connections.

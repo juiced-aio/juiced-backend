@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"log"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http/httptrace"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/httptrace"
 )
 
 func Example() {

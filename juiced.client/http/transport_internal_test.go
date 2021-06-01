@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/internal"
+	"backend.juicedbot.io/juiced.client/http/internal"
 )
 
 // Issue 15446: incorrect wrapping of errors when server closes an idle connection.

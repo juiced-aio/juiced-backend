@@ -19,7 +19,7 @@ import (
 	"strconv"
 	"strings"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 // Request returns the HTTP request as represented in the current

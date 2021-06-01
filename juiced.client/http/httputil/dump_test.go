@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 type eofReader struct{}

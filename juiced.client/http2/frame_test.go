@@ -13,7 +13,7 @@ import (
 	"testing"
 	"unsafe"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http2/hpack"
+	"backend.juicedbot.io/juiced.client/http2/hpack"
 )
 
 func testFramer() (*Framer, *bytes.Buffer) {

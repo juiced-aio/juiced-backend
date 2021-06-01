@@ -4,14 +4,14 @@ import (
 	"log"
 	"time"
 
-	api "backend.juicedbot.io/m/v2/juiced.api"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/stores"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
-	"backend.juicedbot.io/m/v2/juiced.security/auth/util"
-	ws "backend.juicedbot.io/m/v2/juiced.ws"
+	api "backend.juicedbot.io/juiced.api"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.security/auth/util"
+	ws "backend.juicedbot.io/juiced.ws"
 )
 
 func main() {

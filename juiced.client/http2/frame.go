@@ -15,8 +15,8 @@ import (
 	"strings"
 	"sync"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http/httpguts"
-	"backend.juicedbot.io/m/v2/juiced.client/http2/hpack"
+	"backend.juicedbot.io/juiced.client/http/httpguts"
+	"backend.juicedbot.io/juiced.client/http2/hpack"
 )
 
 const frameHeaderLen = 9

@@ -28,8 +28,8 @@ import (
 
 	"golang.org/x/net/proxy"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
-	"backend.juicedbot.io/m/v2/juiced.client/http2"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http2"
 )
 
 // connectDialer allows to configure one-time use HTTP CONNECT client

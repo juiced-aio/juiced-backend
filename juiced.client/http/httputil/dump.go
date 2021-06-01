@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 // drainBody reads all of b to memory and then returns two equivalent

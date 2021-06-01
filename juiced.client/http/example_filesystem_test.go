@@ -9,7 +9,7 @@ import (
 	"log"
 	"strings"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 // containsDotFile reports whether name contains a path element starting with a period.

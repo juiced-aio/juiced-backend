@@ -10,7 +10,7 @@ import (
 
 	tls "github.com/Titanium-ctrl/utls"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 type JA3Response struct {

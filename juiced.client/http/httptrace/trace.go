@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/nettrace"
+	"backend.juicedbot.io/juiced.client/nettrace"
 )
 
 // unique type to prevent assignment.

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http"
 )
 
 // tNow is the synthetic current time used as now during testing.
