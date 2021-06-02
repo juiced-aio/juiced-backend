@@ -132,11 +132,11 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		if monitor.HottopicMonitorInfo.MonitorType == "" || len(monitor.HottopicMonitorInfo.PIDs) == 0 {
+		if len(monitor.HottopicMonitorInfo.Monitors) == 0 {
 			return false
 		}
 
-		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxy, monitorStore.EventBus, monitor.HottopicMonitorInfo.MonitorType, monitor.HottopicMonitorInfo.PIDs)
+		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxy, monitorStore.EventBus, monitor.HottopicMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}

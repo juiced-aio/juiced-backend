@@ -1,7 +1,8 @@
 package hottopic
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
 )
 
@@ -38,9 +39,11 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor     base.Monitor
-	MonitorType enums.MonitorType
-	Pids        []string
+	Monitor         base.Monitor
+	RunningMonitors []string
+	Pids            []string
+	EventInfo       events.HotTopicSingleStockData
+	PidWithInfo     map[string]entities.HottopicSingleMonitorInfo
 }
 
 // Task info

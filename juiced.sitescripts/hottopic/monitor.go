@@ -1,10 +1,6 @@
 package hottopic
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
@@ -13,23 +9,34 @@ import (
 )
 
 // CreateHottopicMonitor takes a TaskGroup entity and turns it into a Hottopic Monitor
-func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, pids []string) (Monitor, error) {
+func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
+	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
 	hottopicMonitor := Monitor{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return hottopicMonitor, err
+
+	pids := []string{}
+	for _, monitor := range singleMonitors {
+		client, err := util.CreateClient(proxy)
+		if err != nil {
+			return hottopicMonitor, err
+		}
+		storedHottopicMonitors[monitor.Pid] = entities.HottopicSingleMonitorInfo{
+			Pid:    monitor.Pid,
+			Client: client,
+		}
+		pids = append(pids, monitor.Pid)
+		for created := false; !created; {
+			hottopicMonitor = Monitor{
+				Monitor: base.Monitor{
+					TaskGroup: taskGroup,
+					Proxy:     proxy,
+					EventBus:  eventBus,
+				},
+				Pids: pids,
+			}
+			created = true
+		}
 	}
-	hottopicMonitor = Monitor{
-		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxy:     proxy,
-			EventBus:  eventBus,
-			Client:    client,
-		},
-		MonitorType: monitorType,
-		Pids:        pids,
-	}
-	return hottopicMonitor, err
+	return hottopicMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
@@ -50,80 +57,36 @@ func (monitor *Monitor) RunMonitor() {
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
-
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
-	inStockForShip := make([]string, 0)
-	outOfStockForShip := make([]string, 0)
-
-	switch monitor.MonitorType {
-	case enums.SKUMonitor:
-		inStockForShip, outOfStockForShip = make([]string, 0), make([]string, 0)
-	}
-
-	somethingInStock := false
-	if len(inStockForShip) > 0 {
-		somethingInStock = true
-	}
-
-	if somethingInStock {
-		needToStop := monitor.CheckForStop()
-		if needToStop {
-			return
+	for _, pid := range monitor.Pids {
+		somethingInStock := false
+		switch monitor.PidWithInfo[pid].MonitorType {
+		case enums.SKUMonitor:
+			somethingInStock = monitor.isInStock(pid)
 		}
-		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-		monitor.SendToTasks(inStockForShip)
-	} else {
-		if len(outOfStockForShip) > 0 {
-			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+		if somethingInStock {
+			needToStop := monitor.CheckForStop()
+			if needToStop {
+				return
 			}
+			monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, pid)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+			monitor.SendToTasks()
 		}
-		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-		monitor.RunMonitor()
+
 	}
 }
 
-func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string) {
-	inStockForShip := make([]events.WalmartSingleStockData, 0)
-	outOfStockForShip := make([]string, 0)
-
-	resp, err := util.MakeRequest(&util.Request{
-		Client: monitor.Monitor.Client,
-		Method: "GET",
-		URL:    MonitorEndpoint + strings.Join(monitor.Pids, ","),
-		RawHeaders: [][2]string{
-			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "document"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-site", "none"},
-			{"sec-fetch-user", "?1"},
-			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
-		},
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case 200:
-		//write code here to parse html etc.
-
-		return inStockForShip, outOfStockForShip
-	}
-	return inStockForShip, outOfStockForShip
+func (monitor *Monitor) isInStock(pid string) bool {
+	return true
 }
 
-func (monitor *Monitor) SendToTasks(inStockForShip []string) {
-	data := events.HottopicStockData{InStockForShip: inStockForShip}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.Walmart, data, monitor.Monitor.TaskGroup.GroupID)
+func (monitor *Monitor) SendToTasks() {
+	data := events.HottopicStockData{
+		InStock: []events.HotTopicSingleStockData{monitor.EventInfo},
+	}
+	monitor.Monitor.EventBus.PublishProductEvent(enums.Hottopic, data, monitor.Monitor.TaskGroup.GroupID)
 }

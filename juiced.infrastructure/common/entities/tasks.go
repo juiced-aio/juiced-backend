@@ -130,11 +130,6 @@ type WalmartMonitorInfo struct {
 	SKUs        []string          `json:"skus"`
 }
 
-type HottopicMonitorInfo struct {
-	MonitorType enums.MonitorType `json:"monitorType"`
-	PIDs        []string
-}
-
 type AmazonSingleMonitorInfo struct {
 	ASIN        string            `json:"asin"`
 	OFID        string            `json:"ofid"`
@@ -154,6 +149,16 @@ type BestbuySingleMonitorInfo struct {
 
 type BestbuyMonitorInfo struct {
 	Monitors []BestbuySingleMonitorInfo `json:"monitors"`
+}
+
+type HottopicMonitorInfo struct {
+	Monitors []HottopicSingleMonitorInfo `json:"monitors"`
+}
+
+type HottopicSingleMonitorInfo struct {
+	Pid         string            `json:"pids"`
+	MonitorType enums.MonitorType `json:"monitorType"`
+	Client      http.Client
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup
