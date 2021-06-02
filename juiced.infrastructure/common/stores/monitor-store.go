@@ -50,7 +50,8 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 		// Make sure necessary fields exist
-		if monitor.TargetMonitorInfo.MonitorType == "" || len(monitor.TargetMonitorInfo.TCINs) == 0 {
+		emptyString := ""
+		if monitor.TargetMonitorInfo.MonitorType == emptyString || len(monitor.TargetMonitorInfo.TCINs) == 0 {
 			return false
 		}
 		// Create monitor
@@ -70,7 +71,8 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 		// Make sure necessary fields exist
-		if monitor.WalmartMonitorInfo.MonitorType == "" || len(monitor.WalmartMonitorInfo.SKUs) == 0 {
+		emptyString := ""
+		if monitor.WalmartMonitorInfo.MonitorType == emptyString || len(monitor.WalmartMonitorInfo.SKUs) == 0 {
 			return false
 		}
 		// Create monitor

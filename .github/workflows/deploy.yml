@@ -1,5 +1,5 @@
 name: CI
- 
+
 on:
   release:
     types: [published]
@@ -11,24 +11,34 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
+        with:
+          path: ${{ github.workspace }}/juiced-aio
       - name: Install Go 1.16
         uses: actions/setup-go@v2
         with:
-          go-version: '1.16.4'
+          go-version: "1.16.4"
       - name: Verify Go Version
         run: go version
+      - name: Checkout Obfuscator
+        uses: actions/checkout@v2
+        with:
+          name: juiced-aio/go-obfuscator
+          path: ${{ github.workspace }}/go-obfuscator
+      - name: Run obfuscator
+        working-directory: ${{ github.workspace }}/go-obfuscator
+        run: m ${{ github.workspace }}/juiced-aio ${{ github.workspace }}/juiced-obfuscated
       - name: Extract Tag Name
         run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
         id: extract_tag
-#       - name: Extract Mac Intel build file location
-#         run: echo "##[set-output name=mac;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
-#         id: extract_mac
-#       - name: Extract Mac M1 build file location
-#         run: echo "##[set-output name=mac_m1;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
-#         id: extract_mac_m1
-#       - name: Extract Windows build file location
-#         run: echo "##[set-output name=win;]$(echo /github/workspace/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
-#         id: extract_win
+      #       - name: Extract Mac Intel build file location
+      #         run: echo "##[set-output name=mac;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-amd64)"
+      #         id: extract_mac
+      #       - name: Extract Mac M1 build file location
+      #         run: echo "##[set-output name=mac_m1;]$(echo /github/workspace/dist/${GITHUB_REF#refs/tags/}/backend-darwin-arm)"
+      #         id: extract_mac_m1
+      #       - name: Extract Windows build file location
+      #         run: echo "##[set-output name=win;]$(echo /github/workspace/${GITHUB_REF#refs/tags/}/backend-windows-amd64.exe)"
+      #         id: extract_win
       - name: Generate build files with xgo
         uses: crazy-max/ghaction-xgo@v1
         with:
@@ -38,6 +48,7 @@ jobs:
           prefix: backend
           targets: windows/amd64,darwin/amd64
           buildmode: exe
+          working_dir: ${{ github.workspace }}/juiced-obfuscated
       - name: ls build
         run: ls -al build
       - name: Upload Mac Intel release
@@ -47,13 +58,13 @@ jobs:
           url: https://identity.juicedbot.io/api/v1/juiced/mac
           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
           fileForms: '{"file":"build/backend-darwin-10.12-amd64"}'
-#       - name: Upload Mac M1 release
-#         id: upload-mac-m1
-#         uses: JantHsueh/upload-file-action@master
-#         with:
-#           url: https://identity.juicedbot.io/api/v1/juiced/macm1
-#           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
-#           fileForms: '{"file":"${{  }}"}'
+      #       - name: Upload Mac M1 release
+      #         id: upload-mac-m1
+      #         uses: JantHsueh/upload-file-action@master
+      #         with:
+      #           url: https://identity.juicedbot.io/api/v1/juiced/macm1
+      #           forms: '{"secret":"]Q&Lr,DNozGp&sAzF%g~P5+:Sz>$Ut;k6:v~;EN7c.xs^O:XwpxxDjc?0#-D_Z","version":"${{ steps.extract_tag.outputs.tag }}"}'
+      #           fileForms: '{"file":"${{  }}"}'
       - name: Upload Win release
         id: upload-win
         uses: JantHsueh/upload-file-action@master

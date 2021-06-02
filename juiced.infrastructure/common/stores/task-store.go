@@ -59,7 +59,8 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Make sure necessary fields exist
-		if task.TargetTaskInfo.CheckoutType == "" || task.TargetTaskInfo.Email == "" || task.TargetTaskInfo.Password == "" || task.TargetTaskInfo.PaymentType == "" {
+		emptyString := ""
+		if task.TargetTaskInfo.CheckoutType == emptyString || task.TargetTaskInfo.Email == emptyString || task.TargetTaskInfo.Password == emptyString || task.TargetTaskInfo.PaymentType == emptyString {
 			return false
 		}
 		// Create task
@@ -97,7 +98,8 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Make sure necessary fields exist
-		if task.AmazonTaskInfo.LoginType == "" || task.AmazonTaskInfo.Email == "" || task.AmazonTaskInfo.Password == "" {
+		emptyString := ""
+		if task.AmazonTaskInfo.LoginType == emptyString || task.AmazonTaskInfo.Email == emptyString || task.AmazonTaskInfo.Password == emptyString {
 			return false
 		}
 		// Create task
@@ -118,7 +120,8 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Make sure necessary fields exist
-		if task.BestbuyTaskInfo.TaskType == "" || task.BestbuyTaskInfo.Email == "" || task.BestbuyTaskInfo.Password == "" {
+		emptyString := ""
+		if task.BestbuyTaskInfo.TaskType == emptyString || task.BestbuyTaskInfo.Email == emptyString || task.BestbuyTaskInfo.Password == emptyString {
 			return false
 		}
 		// Create task

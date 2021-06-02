@@ -2112,7 +2112,6 @@ func testTransportResponseHeaderTimeout(t *testing.T, body bool) {
 }
 
 func TestTransportDisableCompression(t *testing.T) {
-	const body = "sup"
 	st := newServerTester(t, func(w http.ResponseWriter, r *http.Request) {
 		want := http.Header{
 			"User-Agent": []string{"Go-http-client/2.0"},

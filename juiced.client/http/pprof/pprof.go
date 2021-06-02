@@ -241,7 +241,8 @@ func (name handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gc, _ := strconv.Atoi(r.FormValue("gc"))
-	if name == "heap" && gc > 0 {
+	heap := handler("heap")
+	if name == heap && gc > 0 {
 		runtime.GC()
 	}
 	debug, _ := strconv.Atoi(r.FormValue("debug"))
@@ -334,12 +335,12 @@ func collectProfile(p *pprof.Profile) (*profile.Profile, error) {
 }
 
 var profileSupportsDelta = map[handler]bool{
-	"allocs":       true,
-	"block":        true,
-	"goroutine":    true,
-	"heap":         true,
-	"mutex":        true,
-	"threadcreate": true,
+	handler("allocs"):       true,
+	handler("block"):        true,
+	handler("goroutine"):    true,
+	handler("heap"):         true,
+	handler("mutex"):        true,
+	handler("threadcreate"): true,
 }
 
 var profileDescriptions = map[string]string{

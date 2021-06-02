@@ -1,7 +1,7 @@
 package enums
 
 // MonitorStatus is a list of possible statuses that a Monitor can have
-type MonitorStatus string
+type MonitorStatus = string
 
 // Idle --> WaitingForProductData --> WaitingForInStock* --> SendingProductInfoToTasks --> WaitingForOutOfStock --> WaitingForInStock --> ...
 const (
@@ -12,7 +12,7 @@ const (
 	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
 )
 
-type MonitorEventType string
+type MonitorEventType = string
 
 const (
 	MonitorStart  MonitorEventType = "MonitorStart"
@@ -21,7 +21,7 @@ const (
 )
 
 // TaskStatus is a list of possible statuses that a Task can have
-type TaskStatus string
+type TaskStatus = string
 
 // Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
 const (
@@ -43,7 +43,7 @@ const (
 	CheckoutFailed      TaskStatus    = "Checkout failed"
 )
 
-type TaskEventType string
+type TaskEventType = string
 
 const (
 	TaskStart    TaskEventType = "TaskStart"
@@ -53,7 +53,7 @@ const (
 )
 
 // Retailer is a list of possible websites that Tasks and Monitors can run for
-type Retailer string
+type Retailer = string
 
 // Choose one per Task/Monitor
 const (
@@ -69,7 +69,7 @@ const (
 )
 
 // MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)
-type MonitorType string
+type MonitorType = string
 
 const (
 	SKUMonitor     MonitorType = "SKU_MONITOR"
@@ -80,7 +80,7 @@ const (
 )
 
 // LoginType is used to choose which login method to use (headless browser / requests)
-type LoginType string
+type LoginType = string
 
 const (
 	LoginTypeBROWSER  LoginType = "BROWSER"
@@ -88,7 +88,7 @@ const (
 )
 
 // ShippingType is used to choose which shipping address to use (stored in account / profile)
-type ShippingType string
+type ShippingType = string
 
 const (
 	ShippingTypeSAVED ShippingType = "SAVED"
@@ -96,7 +96,7 @@ const (
 )
 
 // PaymentType is used to choose which payment info to use (stored in account / profile)
-type PaymentType string
+type PaymentType = string
 
 const (
 	PaymentTypeSAVED PaymentType = "SAVED"
@@ -104,7 +104,7 @@ const (
 )
 
 // CheckoutType is used to choose how the user will receive the item (shipping / pickup)
-type CheckoutType string
+type CheckoutType = string
 
 const (
 	CheckoutTypeSHIP   CheckoutType = "SHIP"
@@ -112,9 +112,9 @@ const (
 )
 
 // TaskType is used to choose how the task will checkout (account / guest)
-type TaskType string
+type TaskType = string
 
-var (
+const (
 	TaskTypeAccount TaskType = "ACCOUNT"
 	TaskTypeGuest   TaskType = "GUEST"
 )

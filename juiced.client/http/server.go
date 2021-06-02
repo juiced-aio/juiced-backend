@@ -473,7 +473,7 @@ type response struct {
 	handlerDone atomicBool // set true when the handler exits
 
 	// Buffers for Date, Content-Length, and status code
-	dateBuf   [len(TimeFormat)]byte
+	dateBuf   [29]byte
 	clenBuf   [10]byte
 	statusBuf [3]byte
 

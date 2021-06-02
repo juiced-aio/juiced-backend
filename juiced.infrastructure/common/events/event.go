@@ -1,6 +1,6 @@
 package events
 
-type EventType string
+type EventType = string
 
 const (
 	ConnectEventType EventType = "CONNECT_EVENT"

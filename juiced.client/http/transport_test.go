@@ -5955,7 +5955,6 @@ func TestTransportIgnores408(t *testing.T) {
 	log.SetOutput(&logout)
 
 	defer afterTest(t)
-	const target = "backend:443"
 
 	cst := newClientServerTest(t, h1Mode, HandlerFunc(func(w ResponseWriter, r *Request) {
 		nc, _, err := w.(Hijacker).Hijack()

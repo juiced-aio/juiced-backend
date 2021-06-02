@@ -6,7 +6,7 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 )
 
-type ErrorType string
+type ErrorType = string
 
 const (
 	EncryptionParsingError    ErrorType = "ENCRYPTION_PARSING_ERROR"

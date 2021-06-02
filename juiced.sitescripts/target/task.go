@@ -11,6 +11,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/stealth"
 
 	"backend.juicedbot.io/juiced.client/http"
@@ -195,31 +196,31 @@ func (task *Task) Login() bool {
 	cookies := make([]*http.Cookie, 0)
 
 	u := launcher.New().
-		Set("headless").
-		// Delete("--headless").
-		Delete("--enable-automation").
-		Delete("--restore-on-startup").
-		Set("disable-background-networking").
-		Set("enable-features", "NetworkService,NetworkServiceInProcess").
-		Set("disable-background-timer-throttling").
-		Set("disable-backgrounding-occluded-windows").
-		Set("disable-breakpad").
-		Set("disable-client-side-phishing-detection").
-		Set("disable-default-apps").
-		Set("disable-dev-shm-usage").
-		Set("disable-extensions").
-		Set("disable-features", "site-per-process,TranslateUI,BlinkGenPropertyTrees").
-		Set("disable-hang-monitor").
-		Set("disable-ipc-flooding-protection").
-		Set("disable-popup-blocking").
-		Set("disable-prompt-on-repost").
-		Set("disable-renderer-backgrounding").
-		Set("disable-sync").
-		Set("force-color-profile", "srgb").
-		Set("metrics-recording-only").
-		Set("safebrowsing-disable-auto-update").
-		Set("password-store", "basic").
-		Set("use-mock-keychain").
+		Set(flags.Flag("headless")).
+		// Delete(flags.Flag("--headless")).
+		Delete(flags.Flag("--enable-automation")).
+		Delete(flags.Flag("--restore-on-startup")).
+		Set(flags.Flag("disable-background-networking")).
+		Set(flags.Flag("enable-features"), "NetworkService,NetworkServiceInProcess").
+		Set(flags.Flag("disable-background-timer-throttling")).
+		Set(flags.Flag("disable-backgrounding-occluded-windows")).
+		Set(flags.Flag("disable-breakpad")).
+		Set(flags.Flag("disable-client-side-phishing-detection")).
+		Set(flags.Flag("disable-default-apps")).
+		Set(flags.Flag("disable-dev-shm-usage")).
+		Set(flags.Flag("disable-extensions")).
+		Set(flags.Flag("disable-features"), "site-per-process,TranslateUI,BlinkGenPropertyTrees").
+		Set(flags.Flag("disable-hang-monitor")).
+		Set(flags.Flag("disable-ipc-flooding-protection")).
+		Set(flags.Flag("disable-popup-blocking")).
+		Set(flags.Flag("disable-prompt-on-repost")).
+		Set(flags.Flag("disable-renderer-backgrounding")).
+		Set(flags.Flag("disable-sync")).
+		Set(flags.Flag("force-color-profile"), "srgb").
+		Set(flags.Flag("metrics-recording-only")).
+		Set(flags.Flag("safebrowsing-disable-auto-update")).
+		Set(flags.Flag("password-store"), "basic").
+		Set(flags.Flag("use-mock-keychain")).
 		MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
@@ -362,7 +363,7 @@ func (task *Task) AddToCart() bool {
 				ItemChannelID: "90",
 			},
 			Fulfillment: CartFulfillment{
-				Type:       "PICKUP",
+				Type:       enums.CheckoutTypePICKUP,
 				LocationID: task.AccountInfo.StoreID,
 				ShipMethod: "STORE_PICKUP",
 			},

@@ -47,7 +47,7 @@ type Monitor struct {
 	SKUWithInfo     map[string]entities.BestbuySingleMonitorInfo
 }
 
-type OrderStatus string
+type OrderStatus = string
 
 var (
 	OrderStatusSuccess  OrderStatus = "SUCCESS"

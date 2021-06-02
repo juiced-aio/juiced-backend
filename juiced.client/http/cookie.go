@@ -201,7 +201,7 @@ func (c *Cookie) String() string {
 			log.Printf("net/http: invalid Cookie.Domain %q; dropping domain attribute", c.Domain)
 		}
 	}
-	var buf [len(TimeFormat)]byte
+	var buf [29]byte
 	if validCookieExpires(c.Expires) {
 		b.WriteString("; Expires=")
 		b.Write(c.Expires.UTC().AppendFormat(buf[:0], TimeFormat))

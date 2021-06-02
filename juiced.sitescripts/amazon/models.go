@@ -58,14 +58,14 @@ type AccChan struct {
 	AccountInfo AccountInfo
 }
 
-type MonitorType string
+type MonitorType = string
 
 const (
 	MonitorTypeOFID  MonitorType = "OFID"
 	MonitorTypeTURBO MonitorType = "TURBO"
 )
 
-type LoginType string
+type LoginType = string
 
 const (
 	LoginTypeBROWSER  LoginType = "BROWSER"
