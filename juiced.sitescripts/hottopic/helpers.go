@@ -8,7 +8,7 @@ import (
 )
 
 // AddWalmartHeaders adds Walmart-specific headers to the request
-func AddWalmartHeaders(request *http.Request, referer ...string) {
+func AddHottopicHeaders(request *http.Request, referer ...string) {
 	util.AddBaseHeaders(request)
 	request.Header.Set("Accept", "application/json")
 	request.Header.Set("Content-Type", "application/json")
