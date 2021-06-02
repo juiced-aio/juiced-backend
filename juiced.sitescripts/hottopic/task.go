@@ -218,8 +218,8 @@ func (task *Task) AddToCart() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
-		AddHeadersFunction: AddWalmartHeaders, //todo
-		Referer:            AddToCartReferer,  //todo
+		AddHeadersFunction: AddHottopicHeaders,                    //todo
+		Referer:            AddToCartReferer + task.Pid + ".html", //todo
 		RequestBodyStruct:  data,
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
@@ -230,13 +230,16 @@ func (task *Task) AddToCart() bool {
 
 	return true
 }
+
+//GetCheckout is here to get the Dwcont which we need for the next request
+//We can also maybe get some cart info here if we want about what items are in the cart
 func (task *Task) GetCheckout() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint, //setendpoint values
-		AddHeadersFunction: AddWalmartHeaders,   //todo
-		Referer:            AddToCartReferer,    //todo
+		AddHeadersFunction: AddHottopicHeaders,  //todo
+		Referer:            GetCheckoutReferer,  //todo
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -253,9 +256,9 @@ func (task *Task) ProceedToCheckout() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SuffixEndpoint + task.Dwcont, //setendpoint values
-		AddHeadersFunction: AddWalmartHeaders,            //todo
-		Referer:            AddToCartReferer,             //todo
+		URL:                ProceedToCheckoutEndpoint + task.Dwcont, //setendpoint values
+		AddHeadersFunction: AddHottopicHeaders,                      //todo
+		Referer:            ProceedToCheckoutReferer,                //todo
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -263,6 +266,7 @@ func (task *Task) ProceedToCheckout() bool {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
+	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
 	task.SecureKey = getSecureKey(bodyText)
 
@@ -274,9 +278,9 @@ func (task *Task) GuestCheckout() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SuffixEndpoint + task.Dwcont, //setendpoint values
-		AddHeadersFunction: AddWalmartHeaders,            //todo
-		Referer:            AddToCartReferer,             //todo
+		URL:                GuestCheckoutEndpoint + task.Dwcont,   //setendpoint values
+		AddHeadersFunction: AddHottopicHeaders,                    //todo
+		Referer:            GuestCheckoutReferer + task.OldDwcont, //todo
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -284,6 +288,7 @@ func (task *Task) GuestCheckout() bool {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
+	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
 	task.SecureKey = getSecureKey(bodyText)
 
@@ -295,9 +300,9 @@ func (task *Task) SubmitShipping() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SuffixEndpoint + task.Dwcont, //setendpoint values
-		AddHeadersFunction: AddWalmartHeaders,            //todo
-		Referer:            AddToCartReferer,             //todo
+		URL:                SubmitShippingEndpoint + task.Dwcont,   //setendpoint values
+		AddHeadersFunction: AddHottopicHeaders,                     //todo
+		Referer:            SubmitShippingReferer + task.OldDwcont, //todo
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -305,6 +310,7 @@ func (task *Task) SubmitShipping() bool {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
+	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
 
 	defer resp.Body.Close()
@@ -315,9 +321,9 @@ func (task *Task) UseOrigAddress() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SuffixEndpoint + task.Dwcont, //setendpoint values
-		AddHeadersFunction: AddWalmartHeaders,            //todo
-		Referer:            AddToCartReferer,             //todo
+		URL:                UseOrigAddressEndpoint + task.Dwcont,   //setendpoint values
+		AddHeadersFunction: AddHottopicHeaders,                     //todo
+		Referer:            UseOrigAddressReferer + task.OldDwcont, //todo
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -325,6 +331,7 @@ func (task *Task) UseOrigAddress() bool {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
+	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
 	task.SecureKey = getSecureKey(bodyText)
 
@@ -336,9 +343,9 @@ func (task *Task) SubmitPaymentInfo() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SuffixEndpoint + task.Dwcont, //setendpoint values
-		AddHeadersFunction: AddWalmartHeaders,            //todo
-		Referer:            AddToCartReferer,             //todo
+		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,   //setendpoint values
+		AddHeadersFunction: AddHottopicHeaders,                        //todo
+		Referer:            SubmitPaymentInfoReferer + task.OldDwcont, //todo
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -352,9 +359,9 @@ func (task *Task) SubmitOrder() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SubmitOrderEndpoint, //setendpoint values
-		AddHeadersFunction: AddWalmartHeaders,   //todo
-		Referer:            AddToCartReferer,    //todo
+		URL:                SubmitOrderEndpoint,                 //setendpoint values
+		AddHeadersFunction: AddHottopicHeaders,                  //todo
+		Referer:            SubmitOrderReferer + task.OldDwcont, //todo
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false

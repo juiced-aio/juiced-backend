@@ -7,13 +7,31 @@ import (
 
 // Endpoints
 const (
-	BaseEndpoint      = "https://www.hottopic.com/"
-	AddToCartEndpoint = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Cart-AddProduct?format=ajax"
-	AddToCartReferer  = ""
+	BaseEndpoint = "https://www.hottopic.com/"
 
-	GetCheckoutEndpoint = "https://www.hottopic.com/cart"
-	SuffixEndpoint      = "https://www.hottopic.com/cart?"
+	AddToCartEndpoint = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Cart-AddProduct?format=ajax"
+	AddToCartReferer  = "https://www.hottopic.com/product/"
+
+	GetCheckoutEndpoint = "https://www.hottopic.com/cart?"
+	GetCheckoutReferer  = "https://www.hottopic.com/cart"
+
+	ProceedToCheckoutEndpoint = "https://www.hottopic.com/cart?"
+	ProceedToCheckoutReferer  = "https://www.hottopic.com/cart?"
+
+	GuestCheckoutEndpoint = "https://www.hottopic.com/cart?"
+	GuestCheckoutReferer  = "https://www.hottopic.com/cart?"
+
+	SubmitShippingEndpoint = "https://www.hottopic.com/cart?"
+	SubmitShippingReferer  = "https://www.hottopic.com/cart?"
+
+	UseOrigAddressEndpoint = "https://www.hottopic.com/cart?"
+	UseOrigAddressReferer  = "https://www.hottopic.com/cart?"
+
+	SubmitPaymentInfoEndpoint = "https://www.hottopic.com/cart?"
+	SubmitPaymentInfoReferer  = "https://www.hottopic.com/cart?"
+
 	SubmitOrderEndpoint = "https://www.hottopic.com/orderconfirmation"
+	SubmitOrderReferer  = "https://www.hottopic.com/cart?"
 
 	MonitorEndpoint = ""
 )
@@ -30,5 +48,6 @@ type Task struct {
 	Task      base.Task
 	Pid       string
 	Dwcont    string
+	OldDwcont string
 	SecureKey string
 }
