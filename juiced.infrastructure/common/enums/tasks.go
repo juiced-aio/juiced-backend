@@ -119,9 +119,9 @@ const (
 	TaskTypeGuest   TaskType = "GUEST"
 )
 
-type OrderStatus string
+type OrderStatus = string
 
-var (
+const (
 	OrderStatusSuccess  OrderStatus = "SUCCESS"
 	OrderStatusDeclined OrderStatus = "DECLINED"
 	OrderStatusFailed   OrderStatus = "FAILED"

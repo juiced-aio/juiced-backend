@@ -11,7 +11,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
-var (
+const (
 	BaseEndpoint      = "https://www.bestbuy.com"
 	GenEndpoint       = "https://notanapi.com/api/akamai/get/sensor-data"
 	AkamaiEndpoint    = "https://www.bestbuy.com/Z43Qo-szvQDrezPFUWbI-oosQsM/9YOhShXz9OX1/D3ZjQkgC/EWdSfC5P/DlY"
@@ -49,7 +49,7 @@ type Monitor struct {
 
 type OrderStatus = string
 
-var (
+const (
 	OrderStatusSuccess  OrderStatus = "SUCCESS"
 	OrderStatusDeclined OrderStatus = "DECLINED"
 	OrderStatusFailed   OrderStatus = "FAILED"
