@@ -66,3 +66,7 @@ type Footer struct {
 type Thumbnail struct {
 	URL string `json:"url"`
 }
+
+type SensorRequest struct {
+	SensorData string `json:"sensor_data"`
+}

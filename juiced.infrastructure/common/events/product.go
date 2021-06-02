@@ -46,6 +46,19 @@ type BestbuyStockData struct {
 	InStock []BestbuySingleStockData
 }
 
+type GamestopSingleStockData struct {
+	SKU        string
+	Price      int
+	ItemName   string
+	PID        string
+	ImageURL   string
+	ProductURL string
+}
+
+type GamestopStockData struct {
+	InStock []GamestopSingleStockData
+}
+
 // ProductEvent is fired whenever a Monitor finds a product
 type ProductEvent struct {
 	DiscordWebhook string             `json:"discordWebhook"`
@@ -55,4 +68,5 @@ type ProductEvent struct {
 	WalmartData    WalmartStockData   `json:"walmartStockData"`
 	AmazonData     AmazonStockData    `json:"amazonStockData"`
 	BestbuyData    BestbuyStockData   `json:"bestbuyStockData"`
+	GamestopData   GamestopStockData  `json:"gamestopStockData"`
 }

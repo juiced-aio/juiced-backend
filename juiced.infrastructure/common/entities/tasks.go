@@ -24,6 +24,7 @@ type Task struct {
 	WalmartTaskInfo  WalmartTaskInfo    `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo     `json:"amazonTaskInfo"`
 	BestbuyTaskInfo  BestbuyTaskInfo    `json:"bestbuyTaskInfo"`
+	GamestopTaskInfo GamestopTaskInfo   `json:"gamestopTaskInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -45,6 +46,12 @@ type AmazonTaskInfo struct {
 }
 
 type BestbuyTaskInfo struct {
+	Email    string         `json:"email"`
+	Password string         `json:"password"`
+	TaskType enums.TaskType `json:"taskType"`
+}
+
+type GamestopTaskInfo struct {
 	Email    string         `json:"email"`
 	Password string         `json:"password"`
 	TaskType enums.TaskType `json:"taskType"`
@@ -84,6 +91,7 @@ type TaskGroupWithTasks struct {
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
+	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -105,6 +113,7 @@ type TaskGroup struct {
 	WalmartMonitorInfo  WalmartMonitorInfo   `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo    `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo   `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
+	GamestopMonitorInfo GamestopMonitorInfo  `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
 	TaskIDs             []primitive.ObjectID `json:"taskIDs" bson:"taskIDs"`
 	// Future sitescripts will have a field here
 }
@@ -140,6 +149,15 @@ type BestbuySingleMonitorInfo struct {
 
 type BestbuyMonitorInfo struct {
 	Monitors []BestbuySingleMonitorInfo `json:"monitors"`
+}
+
+type GamestopSingleMonitorInfo struct {
+	SKU      string `json:"skus"`
+	MaxPrice int    `json:"maxPrice"`
+}
+
+type GamestopMonitorInfo struct {
+	Monitors []GamestopSingleMonitorInfo `json:"monitors"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup

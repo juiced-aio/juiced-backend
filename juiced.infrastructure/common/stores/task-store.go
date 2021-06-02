@@ -12,6 +12,7 @@ import (
 
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -23,10 +24,11 @@ import (
 
 // TaskStore stores information about running Tasks
 type TaskStore struct {
-	TargetTasks  map[primitive.ObjectID]*target.Task
-	WalmartTasks map[primitive.ObjectID]*walmart.Task
-	AmazonTasks  map[primitive.ObjectID]*amazon.Task
-	BestbuyTasks map[primitive.ObjectID]*bestbuy.Task
+	TargetTasks   map[primitive.ObjectID]*target.Task
+	WalmartTasks  map[primitive.ObjectID]*walmart.Task
+	AmazonTasks   map[primitive.ObjectID]*amazon.Task
+	BestbuyTasks  map[primitive.ObjectID]*bestbuy.Task
+	GamestopTasks map[primitive.ObjectID]*gamestop.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -132,6 +134,27 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		// Add task to store
 		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
 
+	case enums.GameStop:
+		// Check if task exists in store already
+		if _, ok := taskStore.GamestopTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if task.GamestopTaskInfo.TaskType == "" || task.GamestopTaskInfo.Email == "" || task.GamestopTaskInfo.Password == "" {
+			return false
+		}
+		// Create task
+		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxy, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.GamestopTasks[task.ID] = &gamestopTask
+
 	}
 
 	return true
@@ -175,6 +198,8 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 		go taskStore.AmazonTasks[task.ID].RunTask()
 	case enums.BestBuy:
 		go taskStore.BestbuyTasks[task.ID].RunTask()
+	case enums.GameStop:
+		go taskStore.GamestopTasks[task.ID].RunTask()
 	}
 
 	return true
@@ -204,6 +229,11 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 			bestbuyTask.Task.StopFlag = true
 		}
 		return true
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
+			gamestopTask.Task.StopFlag = true
+		}
+		return true
 	}
 	return false
 }
@@ -213,11 +243,12 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		TargetTasks:  make(map[primitive.ObjectID]*target.Task),
-		WalmartTasks: make(map[primitive.ObjectID]*walmart.Task),
-		AmazonTasks:  make(map[primitive.ObjectID]*amazon.Task),
-		BestbuyTasks: make(map[primitive.ObjectID]*bestbuy.Task),
-		EventBus:     eventBus,
+		TargetTasks:   make(map[primitive.ObjectID]*target.Task),
+		WalmartTasks:  make(map[primitive.ObjectID]*walmart.Task),
+		AmazonTasks:   make(map[primitive.ObjectID]*amazon.Task),
+		BestbuyTasks:  make(map[primitive.ObjectID]*bestbuy.Task),
+		GamestopTasks: make(map[primitive.ObjectID]*gamestop.Task),
+		EventBus:      eventBus,
 	}
 	channel := make(chan events.Event)
 	eventBus.Subscribe(channel)
@@ -271,6 +302,19 @@ func InitTaskStore(eventBus *events.EventBus) {
 						bestbuyTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
 						bestbuyTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
 						bestbuyTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
+					}
+				}
+			case enums.GameStop:
+				inStock := event.ProductEvent.GamestopData.InStock
+				for _, gamestopTask := range taskStore.GamestopTasks {
+					if gamestopTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
+						gamestopTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
+						gamestopTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
+						gamestopTask.CheckoutInfo.ItemName = inStock[rand.Intn(len(inStock))].ItemName
+						gamestopTask.CheckoutInfo.PID = inStock[rand.Intn(len(inStock))].PID
+						gamestopTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
+						gamestopTask.CheckoutInfo.ProductURL = inStock[rand.Intn(len(inStock))].ProductURL
+						gamestopTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
 			}

@@ -17,7 +17,6 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/denisbrodbeck/machineid"
 	"github.com/mergermarket/go-pkcs7"
@@ -308,7 +307,7 @@ func DecryptRefreshResponse(response EncryptedRefreshTokenResponse, timestamp in
 	return refreshResponse, nil
 }
 
-func DiscordWebhook(success bool, content string, embeds []util.Embed, userInfo entities.UserInfo) (DiscordWebhookResult, error) {
+func DiscordWebhook(success bool, content string, embeds []DiscordEmbed, userInfo entities.UserInfo) (DiscordWebhookResult, error) {
 	discordWebhookResponse := DiscordWebhookResponse{}
 	encryptedDiscordWebhookResponse := EncryptedDiscordWebhookResponse{}
 
