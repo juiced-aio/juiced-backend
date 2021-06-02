@@ -24,9 +24,12 @@ jobs:
         with:
           repository: juiced-aio/go-obfuscator
           path: ${{ github.workspace }}/go-obfuscator
+      - name: Build Obfuscator
+        working-directory: ${{ github.workspace }}/go-obfuscator
+        run: go build -o obfuscate
       - name: Run obfuscator
         working-directory: ${{ github.workspace }}/go-obfuscator
-        run: ./m ${{ github.workspace }}/juiced-aio ${{ github.workspace }}/juiced-obfuscated
+        run: ./obfuscate ${{ github.workspace }}/juiced-aio ${{ github.workspace }}/juiced-obfuscated
       - name: Extract Tag Name
         run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
         id: extract_tag
