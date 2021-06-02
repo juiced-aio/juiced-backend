@@ -1,27 +1,39 @@
-package amazon
+package gamestop
 
 import (
 	"fmt"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// Creates a embed for the DiscordWebhook function
-func (task *Task) CreateAmazonEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
-	// When monitoring in Fast mode there is no way to find the name so this field will be empty and the
-	// webhook would fail to send. This makes it NaN if this is the case.
-	if task.TaskInfo.ItemName == "" {
-		task.TaskInfo.ItemName = "*NaN*"
+func BecomeGuest(client *http.Client) bool {
+	resp, err := util.MakeRequest(&util.Request{
+		Client:     *client,
+		Method:     "GET",
+		URL:        BaseEndpoint,
+		RawHeaders: DefaultRawHeaders,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err)
+		return false
 	}
+	defer resp.Body.Close()
+
+	return true
+}
+
+// Creates a embed for the DiscordWebhook function
+func (task *Task) CreateGamestopEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
 	embeds := []sec.DiscordEmbed{
 		{
 			Fields: []sec.DiscordField{
 				{
 					Name:   "Site:",
-					Value:  "Amazon",
+					Value:  "GameStop",
 					Inline: true,
 				},
 				{
@@ -31,24 +43,20 @@ func (task *Task) CreateAmazonEmbed(status enums.OrderStatus, imageURL string) [
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.amazon.com/dp/%v)", task.TaskInfo.ASIN, task.TaskInfo.ASIN),
+					Value:  fmt.Sprintf("[%v](%v)", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.ProductURL),
 					Inline: true,
 				},
 				{
 					Name:  "Product Name:",
-					Value: task.TaskInfo.ItemName,
+					Value: task.CheckoutInfo.ItemName,
 				},
 				{
 					Name:  "Mode:",
-					Value: string(task.TaskInfo.MonitorType),
+					Value: string(task.TaskType),
 				},
 				{
 					Name:  "Proxy:",
 					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
-				},
-				{
-					Name:  "Offer Listing ID:",
-					Value: task.TaskInfo.OfferID,
 				},
 			},
 			Footer: sec.DiscordFooter{

@@ -6,7 +6,6 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
-	"time"
 
 	tls "github.com/Titanium-ctrl/utls"
 
@@ -29,7 +28,8 @@ func readAndClose(r io.ReadCloser) ([]byte, error) {
 
 const Chrome83Hash = "b32309a26951912be7dba376398abc3b"
 
-var client, _ = NewClient(tls.HelloChrome_Auto) // cannot throw an error because there is no proxy
+//, "http://localhost:8888"
+var client, _ = NewClient(tls.HelloChrome_Auto, "http://209.127.191.180:9279") // cannot throw an error because there is no proxy
 
 func TestCClient_JA3(t *testing.T) {
 	resp, err := client.Get("https://ja3er.com/json")
@@ -82,7 +82,7 @@ func TestCClient_HTTP2(t *testing.T) {
 	if resp.ProtoMajor != 2 || resp.ProtoMinor != 0 {
 		t.Error("unexpected response proto; expected: HTTP/2.0 | got: ", resp.Proto)
 	}
-	time.Sleep(1 * time.Second)
+
 }
 
 func TestProxy(t *testing.T) {
@@ -94,7 +94,7 @@ func TestProxy(t *testing.T) {
 
 	fmt.Println(resp)
 
-	UpdateProxy(&client, "http://localhost:8866")
+	UpdateProxy(&client, "http://localhost:8888")
 	resp, err = client.Get("https://www.google.com")
 	if err != nil {
 		t.Fatal(err)

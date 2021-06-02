@@ -101,7 +101,7 @@ type CheckoutInfo struct {
 	PaymentID  string
 	OrderID    string
 	ThreeDsID  string
-	ImageUrl   string
+	ImageURL   string
 	Price      int
 	ItemName   string
 }
@@ -115,11 +115,6 @@ type AccountInfo struct {
 	StoreID        string
 	Cookies        []*http.Cookie
 	Refresh        int64
-}
-
-type GenResponse struct {
-	Sensordata string `json:"sensorData"`
-	Pixel      string `json:"pixel"`
 }
 
 type SensorRequest struct {

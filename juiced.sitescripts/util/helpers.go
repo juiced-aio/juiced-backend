@@ -16,9 +16,11 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 
 	cclient "backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 	tls "github.com/Titanium-ctrl/utls"
 )
 
@@ -298,4 +300,190 @@ func ReadBody(resp *http.Response) string {
 	newBody = strings.ReplaceAll(newBody, "\t", "")
 	return newBody
 
+}
+
+// Function to generate valid abck cookies using an API
+func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpoint string) bool {
+	var ParsedBase, _ = url.Parse(BaseEndpoint)
+	ver := "1.7"
+	if ParsedBase.Host == "www.gamestop.com" {
+		ver = "1.69"
+	}
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return false
+	}
+
+	resp, err := MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "GET",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+
+	var abckCookie string
+	var genResponse sec.AkamaiAPIResponse
+	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			abckCookie = cookie.Value
+		}
+	}
+
+	genResponse, _, err = sec.Akamai(location, "true", "true", "false", "false", abckCookie, AkamaiEndpoint, ver, "true", "", "", "true", user)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	sensorRequest := SensorRequest{
+		SensorData: genResponse.SensorData,
+	}
+
+	data, _ := json.Marshal(sensorRequest)
+	resp, err = MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "POST",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(data))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: data,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+
+	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			abckCookie = cookie.Value
+		}
+	}
+
+	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	sensorRequest = SensorRequest{
+		SensorData: genResponse.SensorData,
+	}
+	data, _ = json.Marshal(sensorRequest)
+
+	resp, err = MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "POST",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(data))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: data,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+
+	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			abckCookie = cookie.Value
+		}
+	}
+
+	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
+	if err != nil {
+		fmt.Println(err)
+		return false
+	}
+
+	sensorRequest = SensorRequest{
+		SensorData: genResponse.SensorData,
+	}
+
+	data, _ = json.Marshal(sensorRequest)
+
+	resp, err = MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "POST",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(data))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: data,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case 201:
+		for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+			if cookie.Name == "_abck" {
+				fmt.Println(cookie.Value)
+				validator, _ := FindInString(cookie.Value, "~", "~")
+				if validator == "-1" {
+					NewAbck(abckClient, location, BaseEndpoint, AkamaiEndpoint)
+				}
+
+			}
+		}
+		return true
+	}
+	return false
 }

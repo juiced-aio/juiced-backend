@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
 	"strings"
 	"time"
 
@@ -14,6 +13,8 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
@@ -178,267 +179,6 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
 
-// Function to generate valid abck cookies using an API
-func (task *Task) NewAbck(abckClient *http.Client, location string) bool {
-	resp, err := util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "GET",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	var abckCookie string
-	var genResponse GenResponse
-	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-	form := url.Values{
-		"authKey":        {"UFBfkndVOYYGZ58Uu8Mv49TrODCEiVE0gKpOAj679Z0dJoQThi9wGpoq6tpIRvrR"},
-		"pageurl":        {location},
-		"skipkact":       {"true"},
-		"skipmact":       {"true"},
-		"onblur":         {"false"},
-		"onfocus":        {"false"},
-		"abck":           {abckCookie},
-		"sensordatalink": {AkamaiEndpoint},
-		"ver":            {"1.7"},
-		"firstpost":      {"true"},
-		"pixelid":        {""},
-		"pixelg":         {""},
-		"json":           {"true"},
-	}
-	client, _ := util.CreateClient()
-	resp, err = util.MakeRequest(&util.Request{
-		Client: client,
-		Method: "POST",
-		URL:    GenEndpoint,
-		RawHeaders: [][2]string{
-			{"Content-Type", "application/x-www-form-urlencoded"},
-			{"User-Agent", "Juiced/1.0"},
-			{"Accept", "*/*"},
-			{"Accept-Encoding", "gzip, deflate, br"},
-			{"Connection", "keep-alive"},
-			{"Content-Length", fmt.Sprint(len(form.Encode()))},
-		},
-		Data:               []byte(form.Encode()),
-		ResponseBodyStruct: &genResponse,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	sensorRequest := SensorRequest{
-		SensorData: genResponse.Sensordata,
-	}
-
-	data, _ := json.Marshal(sensorRequest)
-	resp, err = util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-	form = url.Values{
-		"authKey":        {"UFBfkndVOYYGZ58Uu8Mv49TrODCEiVE0gKpOAj679Z0dJoQThi9wGpoq6tpIRvrR"},
-		"pageurl":        {location},
-		"skipkact":       {"true"},
-		"skipmact":       {"false"},
-		"onblur":         {"false"},
-		"onfocus":        {"false"},
-		"abck":           {abckCookie},
-		"sensordatalink": {AkamaiEndpoint},
-		"ver":            {"1.7"},
-		"firstpost":      {"false"},
-		"pixelid":        {""},
-		"pixelg":         {""},
-		"json":           {"true"},
-	}
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: client,
-		Method: "POST",
-		URL:    GenEndpoint,
-		RawHeaders: [][2]string{
-			{"Content-Type", "application/x-www-form-urlencoded"},
-			{"User-Agent", "Juiced/1.0"},
-			{"Accept", "*/*"},
-			{"Accept-Encoding", "gzip, deflate, br"},
-			{"Connection", "keep-alive"},
-			{"Content-Length", fmt.Sprint(len(form.Encode()))},
-		},
-		Data:               []byte(form.Encode()),
-		ResponseBodyStruct: &genResponse,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	sensorRequest = SensorRequest{
-		SensorData: genResponse.Sensordata,
-	}
-	data, _ = json.Marshal(sensorRequest)
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-	form = url.Values{
-		"authKey":        {"UFBfkndVOYYGZ58Uu8Mv49TrODCEiVE0gKpOAj679Z0dJoQThi9wGpoq6tpIRvrR"},
-		"pageurl":        {location},
-		"skipkact":       {"true"},
-		"skipmact":       {"false"},
-		"onblur":         {"false"},
-		"onfocus":        {"false"},
-		"abck":           {abckCookie},
-		"sensordatalink": {AkamaiEndpoint},
-		"ver":            {"1.7"},
-		"firstpost":      {"false"},
-		"pixelid":        {""},
-		"pixelg":         {""},
-		"json":           {"true"},
-	}
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: client,
-		Method: "POST",
-		URL:    GenEndpoint,
-		RawHeaders: [][2]string{
-			{"Content-Type", "application/x-www-form-urlencoded"},
-			{"User-Agent", "Juiced/1.0"},
-			{"Accept", "*/*"},
-			{"Accept-Encoding", "gzip, deflate, br"},
-			{"Connection", "keep-alive"},
-			{"Content-Length", fmt.Sprint(len(form.Encode()))},
-		},
-		Data:               []byte(form.Encode()),
-		ResponseBodyStruct: &genResponse,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	sensorRequest = SensorRequest{
-		SensorData: genResponse.Sensordata,
-	}
-	data, _ = json.Marshal(sensorRequest)
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case 201:
-		for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-			if cookie.Name == "_abck" {
-				fmt.Println(cookie.Value)
-				validator, _ := util.FindInString(cookie.Value, "~", "~")
-				if validator == "-1" {
-					task.NewAbck(abckClient, location)
-				}
-
-			}
-		}
-		return true
-	}
-	return false
-}
-
 // Login logs the task's client into the account specified
 func (task *Task) Login() bool {
 
@@ -454,7 +194,7 @@ func (task *Task) Login() bool {
 	}
 	defer resp.Body.Close()
 
-	task.NewAbck(&task.Task.Client, BaseEndpoint+"/")
+	util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 
 	resp, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -543,7 +283,7 @@ func (task *Task) Login() bool {
 		{Name: "ZPLANK", Value: "0e0a383f97f24e5ab11fef6269000a93"},
 	})
 
-	task.NewAbck(&task.Task.Client, LoginPageEndpoint+"/")
+	util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 	var loginResponse LoginResponse
 	resp, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -636,7 +376,7 @@ func (task *Task) AddToCart() bool {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
-					task.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock))
+					util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
 				}
 			}
 		}
@@ -687,7 +427,7 @@ func (task *Task) AddToCart() bool {
 					if cookie.Name == "_abck" {
 						validator, _ := util.FindInString(cookie.Value, "~", "~")
 						if validator == "-1" {
-							task.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock))
+							util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
 						}
 					}
 				}
@@ -779,7 +519,7 @@ func (task *Task) Checkout() bool {
 		task.CheckoutInfo.ItemID = orderData.Items[0].ID
 		task.CheckoutInfo.PaymentID = orderData.Payment.ID
 		task.CheckoutInfo.OrderID = orderData.Customerorderid
-		task.CheckoutInfo.ImageUrl = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
+		task.CheckoutInfo.ImageURL = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
 		task.CheckoutInfo.ItemName = orderData.Items[0].Meta.Shortlabel
 		return true
 
@@ -912,7 +652,7 @@ func (task *Task) SetShippingInfo() bool {
 
 // SetPaymentInfo sets the payment info in checkout
 func (task *Task) SetPaymentInfo() bool {
-	task.NewAbck(&task.Task.Client, BasePaymentEndpoint)
+	util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 
 	billing := Billingaddress{
 		Country:             task.Task.Profile.BillingAddress.CountryCode,
@@ -994,7 +734,7 @@ func (task *Task) SetPaymentInfo() bool {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				task.NewAbck(&task.Task.Client, BasePaymentEndpoint)
+				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 			}
 		}
 	}
@@ -1187,6 +927,7 @@ func (task *Task) PlaceOrder() bool {
 
 	defer resp.Body.Close()
 
+	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -1194,6 +935,7 @@ func (task *Task) PlaceOrder() bool {
 			if cookie.Name == "CartItemCount" {
 				if cookie.Value == "0" {
 					fmt.Println("Checked Out")
+					status = enums.OrderStatusSuccess
 					success = true
 				}
 
@@ -1204,12 +946,25 @@ func (task *Task) PlaceOrder() bool {
 			switch placeOrderResponse.Errors[0].Errorcode {
 			case "CC_AUTH_FAILURE":
 				fmt.Println("Card declined")
+				status = enums.OrderStatusDeclined
+			default:
+				fmt.Println("Failed to Checkout")
+				status = enums.OrderStatusFailed
 			}
+		} else {
+			fmt.Println("Failed to Checkout")
+			status = enums.OrderStatusFailed
 		}
-		fmt.Println("Failed to Checkout")
 		success = false
+
 	}
 
-	util.SendDiscordWebhook(task.Task.DiscordWebhook, success, task.CreateBestbuyFields(success), task.CheckoutInfo.ImageUrl)
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return false
+	}
+	sec.DiscordWebhook(success, "", task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL), user)
+
 	return success
 }

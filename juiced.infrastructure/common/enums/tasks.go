@@ -118,3 +118,11 @@ var (
 	TaskTypeAccount TaskType = "ACCOUNT"
 	TaskTypeGuest   TaskType = "GUEST"
 )
+
+type OrderStatus string
+
+var (
+	OrderStatusSuccess  OrderStatus = "SUCCESS"
+	OrderStatusDeclined OrderStatus = "DECLINED"
+	OrderStatusFailed   OrderStatus = "FAILED"
+)

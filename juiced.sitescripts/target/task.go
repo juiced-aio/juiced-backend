@@ -577,5 +577,4 @@ func (task *Task) PlaceOrder() bool {
 		return false
 	}
 
-	return true
 }

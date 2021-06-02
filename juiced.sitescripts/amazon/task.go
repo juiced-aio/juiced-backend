@@ -11,6 +11,8 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
@@ -540,6 +542,7 @@ func (task *Task) PlaceOrder() bool {
 
 	defer resp.Body.Close()
 
+	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -547,19 +550,30 @@ func (task *Task) PlaceOrder() bool {
 		switch orderStatus {
 		case "thankyou":
 			task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+			status = enums.OrderStatusSuccess
 			success = true
 		default:
 			task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+			status = enums.OrderStatusFailed
 			success = false
 		}
 
 	case 503:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		status = enums.OrderStatusFailed
 		success = false
 	default:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		status = enums.OrderStatusFailed
 		success = false
 	}
-	util.SendDiscordWebhook(task.Task.DiscordWebhook, success, task.CreateAmazonFields(success), task.CheckoutInfo.ImageURL)
+
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return false
+	}
+	sec.DiscordWebhook(success, "", task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL), user)
+
 	return success
 }
