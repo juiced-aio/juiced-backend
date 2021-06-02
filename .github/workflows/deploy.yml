@@ -22,11 +22,11 @@ jobs:
       - name: Checkout Obfuscator
         uses: actions/checkout@v2
         with:
-          name: juiced-aio/go-obfuscator
+          repository: juiced-aio/go-obfuscator
           path: ${{ github.workspace }}/go-obfuscator
       - name: Run obfuscator
         working-directory: ${{ github.workspace }}/go-obfuscator
-        run: m ${{ github.workspace }}/juiced-aio ${{ github.workspace }}/juiced-obfuscated
+        run: ./m ${{ github.workspace }}/juiced-aio ${{ github.workspace }}/juiced-obfuscated
       - name: Extract Tag Name
         run: echo "##[set-output name=tag;]$(echo ${GITHUB_REF#refs/tags/})"
         id: extract_tag
