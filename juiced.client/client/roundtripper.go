@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -112,7 +113,7 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 
 	for _, cert := range conn.ConnectionState().PeerCertificates {
 		stringedCert := strings.ToLower(fmt.Sprint(cert.Issuer))
-		if strings.Contains(stringedCert, "charles") || strings.Contains(stringedCert, "fiddler") || strings.Contains(stringedCert, "mitm") || strings.Contains(stringedCert, "postman") {
+		if os.Getenv("JUICED_MODE") != "DEV" && (strings.Contains(stringedCert, "charles") || strings.Contains(stringedCert, "fiddler") || strings.Contains(stringedCert, "mitm") || strings.Contains(stringedCert, "postman")) {
 			conn.Close()
 			return nil, errors.New("bad proxy")
 		}
