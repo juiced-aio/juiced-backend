@@ -297,10 +297,10 @@ func InitTaskStore(eventBus *events.EventBus) {
 					}
 				}
 			case enums.Hottopic:
-				inStock := event.ProductEvent.HottopicData.InStockForShip
+				inStock := event.ProductEvent.HottopicData.InStock
 				for _, hotTopicTask := range taskStore.HottopicTasks {
 					if hotTopicTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						hotTopicTask.Pid = inStock[rand.Intn(len(inStock))]
+						hotTopicTask.Pid = inStock[rand.Intn(len(inStock))].PID
 					}
 				}
 			}
