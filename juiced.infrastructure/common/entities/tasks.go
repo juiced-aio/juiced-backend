@@ -29,7 +29,6 @@ type Task struct {
 }
 
 type WalmartTaskInfo struct {
-	MaxPrice int `json:"maxPrice"`
 }
 
 // TargetTaskInfo is a class that holds Target-specific details for a single bot task
@@ -123,18 +122,20 @@ type TargetMonitorInfo struct {
 	MonitorType enums.MonitorType `json:"monitorType"`
 	TCINs       []string          `json:"tcins"`
 	StoreID     string            `json:"storeID"`
+	MaxPrice    int               `json:"maxPrice"`
 }
 
 type WalmartMonitorInfo struct {
 	MonitorType enums.MonitorType `json:"monitorType"`
 	SKUs        []string          `json:"skus"`
+	MaxPrice    int               `json:"maxPrice"`
 }
 
 type AmazonSingleMonitorInfo struct {
+	MonitorType enums.MonitorType `json:"monitorType"`
 	ASIN        string            `json:"asin"`
 	OFID        string            `json:"ofid"`
 	MaxPrice    int               `json:"maxPrice"`
-	MonitorType enums.MonitorType `json:"monitorType"`
 	Client      http.Client
 }
 
@@ -143,7 +144,7 @@ type AmazonMonitorInfo struct {
 }
 
 type BestbuySingleMonitorInfo struct {
-	SKU      string `json:"skus"`
+	SKU      string `json:"sku"`
 	MaxPrice int    `json:"maxPrice"`
 }
 
@@ -152,7 +153,7 @@ type BestbuyMonitorInfo struct {
 }
 
 type GamestopSingleMonitorInfo struct {
-	SKU      string `json:"skus"`
+	SKU      string `json:"sku"`
 	MaxPrice int    `json:"maxPrice"`
 }
 
