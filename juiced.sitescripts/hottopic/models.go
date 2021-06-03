@@ -34,7 +34,7 @@ const (
 	SubmitOrderEndpoint = "https://www.hottopic.com/orderconfirmation"
 	SubmitOrderReferer  = "https://www.hottopic.com/cart?"
 
-	MonitorEndpoint = ""
+	MonitorEndpoint = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid="
 )
 
 // Monitor info

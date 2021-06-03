@@ -159,6 +159,7 @@ type HottopicSingleMonitorInfo struct {
 	Pid         string            `json:"pids"`
 	MonitorType enums.MonitorType `json:"monitorType"`
 	Client      http.Client
+	MaxPrice    int `json:"maxPrice"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup
