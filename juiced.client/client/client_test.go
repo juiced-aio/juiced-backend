@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"testing"
 
 	tls "github.com/Titanium-ctrl/utls"
@@ -32,6 +33,7 @@ const Chrome83Hash = "b32309a26951912be7dba376398abc3b"
 var client, _ = NewClient(tls.HelloChrome_Auto, "http://209.127.191.180:9279") // cannot throw an error because there is no proxy
 
 func TestCClient_JA3(t *testing.T) {
+	os.Setenv("JUICED_MODE", "DEV")
 	resp, err := client.Get("https://ja3er.com/json")
 	if err != nil {
 		t.Fatal(err)
@@ -54,6 +56,7 @@ func TestCClient_JA3(t *testing.T) {
 }
 
 func TestCClient_HTTP2(t *testing.T) {
+	os.Setenv("JUICED_MODE", "DEV")
 	//https://http2.golang.org/serverpush
 	req, _ := http.NewRequest("GET", "https://www.google.com", nil)
 

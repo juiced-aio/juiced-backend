@@ -36,6 +36,5 @@ func NewClient(clientHello utls.ClientHelloID, proxyUrl ...string) (http.Client,
 		return http.Client{
 			Transport: newRoundTripper(clientHello, proxy.Direct),
 		}, nil
-
 	}
 }
