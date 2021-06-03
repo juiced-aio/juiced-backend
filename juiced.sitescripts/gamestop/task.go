@@ -3,7 +3,6 @@ package gamestop
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"strings"
@@ -69,6 +68,12 @@ func (task *Task) CheckForStop() bool {
 // 		6. SetPaymentInfo
 // 		7. PlaceOrder
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -180,17 +185,15 @@ func (task *Task) RunTask() {
 
 // Logs the main client in
 func (task *Task) Login() bool {
-
-	resp, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	loginResponse := LoginResponse{}
 	form := url.Values{
@@ -199,7 +202,7 @@ func (task *Task) Login() bool {
 		"loginRememberMe":    {"true"},
 		"userTimezoneOffset": {"420"},
 	}
-	resp, err = util.MakeRequest(&util.Request{
+	_, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    LoginEndpoint,
@@ -225,14 +228,13 @@ func (task *Task) Login() bool {
 		ResponseBodyStruct: &loginResponse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	if !loginResponse.Loginstatus.Success {
 		return false
 	}
-	resp, err = util.MakeRequest(&util.Request{
+	_, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    AccountEndpoint + "/",
@@ -254,9 +256,8 @@ func (task *Task) Login() bool {
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	return loginResponse.Loginstatus.Success
 }
@@ -287,7 +288,7 @@ func (task *Task) AddToCart() bool {
 		"pageSpecified":  {"PDP"},
 		"recommTitle":    {""},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(AddToCartEndpoint, task.CheckoutInfo.SKUInStock),
@@ -311,9 +312,8 @@ func (task *Task) AddToCart() bool {
 		ResponseBodyStruct: &addToCartResponse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -332,7 +332,7 @@ func (task *Task) AddToCart() bool {
 
 // This is the longest request but a very important one because it gets the cross site scripting (csrf) token which is embedded in the html of the page
 func (task *Task) Checkout() bool {
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    CheckoutEndpoint + "/",
@@ -352,11 +352,9 @@ func (task *Task) Checkout() bool {
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
-	body, _ := ioutil.ReadAll(resp.Body)
 	doc := soup.HTMLParse(string(body))
 	switch resp.StatusCode {
 	case 200:
@@ -393,7 +391,7 @@ func (task *Task) SetShippingInfo() bool {
 		"dwfrm_shipping_shippingAddress_shippingMethodID":               {"16"},
 		"csrf_token": {task.CheckoutInfo.CSRF},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    ShippingEndpoint,
@@ -416,9 +414,8 @@ func (task *Task) SetShippingInfo() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -453,7 +450,7 @@ func (task *Task) GetAbck() bool {
 		"pixelg":         {""},
 		"json":           {"true"},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    GenEndpoint,
@@ -469,14 +466,14 @@ func (task *Task) GetAbck() bool {
 		ResponseBodyStruct: &akamaiResponse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
+
 	sensorRequest := SensorRequest{
 		SensorData: akamaiResponse.Sensordata,
 	}
 	data, _ := json.Marshal(sensorRequest)
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    AkamaiEndpoint,
@@ -499,9 +496,8 @@ func (task *Task) GetAbck() bool {
 		ResponseBodyStruct: &akamaiResponse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 201:
@@ -550,7 +546,7 @@ func (task *Task) SetPaymentInfo() bool {
 		"flexpay":              {"nonFlexPayment"},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    PaymentEndpoint,
@@ -573,9 +569,8 @@ func (task *Task) SetPaymentInfo() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -591,7 +586,7 @@ func (task *Task) PlaceOrder() bool {
 	form := url.Values{
 		"klarnaOrderId": {""},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    PlaceOrderEndpoint,
@@ -615,9 +610,8 @@ func (task *Task) PlaceOrder() bool {
 		ResponseBodyStruct: &placeOrderResponse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	var status enums.OrderStatus
 	var success bool

@@ -75,6 +75,12 @@ func (monitor *Monitor) CheckForStop() bool {
 
 // So theres a few different ways we can make the monitoring groups for Amazon, for now I'm going to make it so it runs a goroutine for each ASIN
 func (monitor *Monitor) RunMonitor() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
@@ -84,8 +90,15 @@ func (monitor *Monitor) RunMonitor() {
 	}
 	for _, sku := range monitor.SKUs {
 		if !util.InSlice(monitor.RunningMonitors, sku) {
-
+			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
+			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
 			go func(t string) {
+				// If the function panics due to a runtime error, recover from it
+				defer func() {
+					recover()
+					// TODO @silent: Re-run this specific monitor
+				}()
+
 				somethingInStock := monitor.GetSKUStock(t)
 
 				if somethingInStock {
@@ -115,7 +128,7 @@ func (monitor *Monitor) RunMonitor() {
 // Checks if the item is instock and fills the monitors EventInfo if so
 func (monitor *Monitor) GetSKUStock(sku string) bool {
 	monitorResponse := MonitorResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    fmt.Sprintf(MonitorEndpoint, sku),
@@ -135,9 +148,8 @@ func (monitor *Monitor) GetSKUStock(sku string) bool {
 		ResponseBodyStruct: &monitorResponse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	stockData := events.GamestopSingleStockData{}
 	switch resp.StatusCode {

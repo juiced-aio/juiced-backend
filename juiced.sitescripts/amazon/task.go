@@ -62,6 +62,12 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entit
 }
 
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login
 	loggedIn := false
@@ -247,7 +253,7 @@ func (task *Task) browserLogin() bool {
 // Once we get an api key I will make sure this works, honestly it shouldn't
 // work at all. This is how it was from when I first made it and it worked then so.
 func (task *Task) requestsLogin() bool {
-	resp, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    LoginEndpoint,
@@ -272,9 +278,6 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
-	body := util.ReadBody(resp)
 	doc := soup.HTMLParse(body)
 	return_To := doc.Find("input", "name", "openid.return_to").Attrs()["value"]
 
@@ -286,7 +289,7 @@ func (task *Task) requestsLogin() bool {
 
 	var tempMeta Login
 
-	resp, err = util.MakeRequest(&util.Request{
+	_, _, err = util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                "https://botbypass.com/metadata_api/metadata1_page_1?email=" + task.AccountInfo.Email + "&passwordLength=" + fmt.Sprint(len(task.AccountInfo.Password)) + "&apiKey=" + MetaData1APIKey,
@@ -295,8 +298,6 @@ func (task *Task) requestsLogin() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	params := util.CreateParams(map[string]string{
 		"appActionToken":   string(appActionToken),
@@ -311,7 +312,7 @@ func (task *Task) requestsLogin() bool {
 		"metadata1":        tempMeta.Metadata1,
 	})
 
-	resp, err = util.MakeRequest(&util.Request{
+	_, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    SigninEndpoint,
@@ -341,9 +342,7 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
-	resp, err = util.MakeRequest(&util.Request{
+	_, body, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    TestItemEndpoint,
@@ -371,9 +370,6 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
-	body = util.ReadBody(resp)
 	doc = soup.HTMLParse(body)
 	task.AccountInfo.SavedAddressID = doc.Find("input", "name", "dropdown-selection").Attrs()["value"]
 	if task.AccountInfo.SavedAddressID == "" {
@@ -419,7 +415,7 @@ func (task *Task) AddToCart() bool {
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    currentEndpoint + "/checkout/turbo-initiate?ref_=dp_start-bbf_1_glance_buyNow_2-1&referrer=detail&pipelineType=turbo&clientId=retailwebsite&weblab=RCX_CHECKOUT_TURBO_DESKTOP_PRIME_87783&temporaryAddToCart=1",
@@ -449,17 +445,14 @@ func (task *Task) AddToCart() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
-		body := util.ReadBody(resp)
 		doc := soup.HTMLParse(body)
 
-		err := doc.Find("input", "name", "anti-csrftoken-a2z").Error
+		err = doc.Find("input", "name", "anti-csrftoken-a2z").Error
 		if err != nil {
 			return false
 		}
@@ -514,7 +507,7 @@ func (task *Task) PlaceOrder() bool {
 		"forcePlaceOrder":           {"Place+this+duplicate+order"},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(CheckoutEndpoint, task.CheckoutInfo.RID, fmt.Sprint(time.Now().UnixNano())[0:13], task.CheckoutInfo.PID),
@@ -539,10 +532,8 @@ func (task *Task) PlaceOrder() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	var status enums.OrderStatus
 	var success bool

@@ -83,6 +83,12 @@ func (task *Task) CheckForStop() bool {
 // 		7. SetPaymentInfo
 // 		8. PlaceOrder
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login
 	loggedIn := false
@@ -275,12 +281,18 @@ func (task *Task) Login() bool {
 
 // RefreshLogin refreshes the login tokens so that the user can remain logged in
 func (task *Task) RefreshLogin() {
+	// If the function panics due to a runtime error, recover and restart it
+	defer func() {
+		recover()
+		task.RefreshLogin()
+	}()
+
 	for {
 		success := true
 		if task.AccountInfo.Refresh == 0 || time.Now().Unix() > task.AccountInfo.Refresh {
 			refreshLoginResponse := RefreshLoginResponse{}
 
-			resp, err := util.MakeRequest(&util.Request{
+			resp, _, err := util.MakeRequest(&util.Request{
 				Client:             task.Task.Client,
 				Method:             "POST",
 				URL:                RefreshLoginEndpoint,
@@ -293,8 +305,6 @@ func (task *Task) RefreshLogin() {
 				success = false
 				break
 			}
-
-			defer resp.Body.Close()
 
 			switch resp.StatusCode {
 			case 200:
@@ -374,7 +384,7 @@ func (task *Task) AddToCart() bool {
 		return false
 	}
 	addToCartResponse := AddToCartResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -386,8 +396,6 @@ func (task *Task) AddToCart() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -405,7 +413,7 @@ func (task *Task) GetCartInfo() bool {
 		CartType: "REGULAR",
 	}
 	getCartInfoResponse := GetCartInfoResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                GetCartInfoEndpoint,
@@ -417,8 +425,6 @@ func (task *Task) GetCartInfo() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -433,7 +439,7 @@ func (task *Task) GetCartInfo() bool {
 // SetShippingInfo sets the shipping address or does nothing if using a saved address
 func (task *Task) SetShippingInfo() bool {
 	setShippingInfoResponse := SetShippingInfoResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
 		URL:                fmt.Sprintf(SetShippingInfoEndpoint, task.AccountInfo.CartInfo.Addresses[1].AddressID),
@@ -463,8 +469,6 @@ func (task *Task) SetShippingInfo() bool {
 	if err != nil {
 		return err == nil
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -519,7 +523,7 @@ func (task *Task) SetPaymentInfo() bool {
 		return false
 	}
 	setPaymentInfoResponse := SetPaymentInfoResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
 		URL:                endpoint,
@@ -531,8 +535,6 @@ func (task *Task) SetPaymentInfo() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	// TODO: Handle various responses
 	log.Println(setPaymentInfoResponse)
@@ -553,7 +555,7 @@ func (task *Task) PlaceOrder() bool {
 		ChannelID: 10,
 	}
 	placeOrderResponse := PlaceOrderResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                PlaceOrderEndpoint,
@@ -565,8 +567,6 @@ func (task *Task) PlaceOrder() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	// TODO: Handle various responses
 	log.Println(placeOrderResponse.Message)

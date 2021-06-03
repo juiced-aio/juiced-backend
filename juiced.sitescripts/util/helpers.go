@@ -10,6 +10,7 @@ import (
 	"log"
 	"math/rand"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -27,18 +28,17 @@ import (
 // CreateClient creates an HTTP client
 func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
 	var client http.Client
+	var err error
 	if len(proxy) > 0 {
-		client, err := cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy[0]))
+		client, err = cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy[0]))
 		if err != nil {
 			return client, err
 		}
 	} else {
-		client, err := cclient.NewClient(tls.HelloChrome_83)
+		client, err = cclient.NewClient(tls.HelloChrome_83)
 		if err != nil {
 			return client, err
-
 		}
-
 	}
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
@@ -79,7 +79,7 @@ func HandleErrors(err error, errorType ErrorType) bool {
 		case ShippingTypeError:
 
 		}
-		log.Println(err)
+		log.Println(err.Error())
 		return false
 	}
 	return true
@@ -88,12 +88,16 @@ func HandleErrors(err error, errorType ErrorType) bool {
 // Request wraps the main functions of a request
 // (marshal JSON, create request, execute request, read body, unmarshal JSON)
 // while handling errors throughout
-func MakeRequest(requestInfo *Request) (*http.Response, error) {
+func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	var payload io.Reader
 
-	log.Println("START " + requestInfo.URL)
+	if os.Getenv("JUICED_LOG") == "LOG" {
+		log.Println("\n================\nSTART " + requestInfo.Method + " " + requestInfo.URL)
+	}
 	if requestInfo.Data != nil {
-		log.Println("REQUEST BODY: " + string(requestInfo.Data))
+		if os.Getenv("JUICED_LOG") == "LOG" {
+			log.Println("REQUEST BODY: " + string(requestInfo.Data) + "\n")
+		}
 		payload = bytes.NewBuffer(requestInfo.Data)
 	} else {
 		payload = nil
@@ -102,15 +106,17 @@ func MakeRequest(requestInfo *Request) (*http.Response, error) {
 		data, err := json.Marshal(requestInfo.RequestBodyStruct)
 		ok := HandleErrors(err, RequestMarshalBodyError)
 		if !ok {
-			return nil, err
+			return nil, "", err
 		}
-		log.Println("REQUEST BODY: " + string(data))
+		if os.Getenv("JUICED_LOG") == "LOG" {
+			log.Println("REQUEST BODY: " + string(data) + "\n")
+		}
 		payload = bytes.NewBuffer(data)
 	}
 	request, err := http.NewRequest(requestInfo.Method, requestInfo.URL, payload)
 	ok := HandleErrors(err, RequestCreateError)
 	if !ok {
-		return nil, err
+		return nil, "", err
 	}
 
 	if requestInfo.Headers != nil {
@@ -123,35 +129,50 @@ func MakeRequest(requestInfo *Request) (*http.Response, error) {
 		requestInfo.AddHeadersFunction(request, requestInfo.Referer)
 	}
 
-	log.Println("REQUEST HEADERS:")
-	for header, values := range request.Header {
-		log.Println(header + ": " + strings.Join(values, ","))
+	if os.Getenv("JUICED_LOG") == "LOG" {
+		log.Println("REQUEST HEADERS:")
+		for header, values := range request.Header {
+			log.Println(header + ": " + strings.Join(values, ","))
+		}
+		for _, header := range request.RawHeader {
+			log.Println(header[0] + ": " + header[1])
+		}
+		log.Println()
 	}
 	response, err := requestInfo.Client.Do(request)
 	ok = HandleErrors(err, RequestDoError)
 	if !ok {
-		return response, err
+		return response, "", err
 	}
 
-	//Removing defer resp.Body.Close() here because it was causing problems, now it's after every MakeRequest
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
-	log.Println("RESPONSE BODY: " + string(body))
-	log.Println("RESPONSE HEADERS:")
-	for header, values := range response.Header {
-		log.Println(header + ": " + strings.Join(values, ","))
+	if os.Getenv("JUICED_LOG") == "LOG" {
+		log.Println("RESPONSE BODY: " + string(body) + "\n")
+		log.Println("RESPONSE HEADERS:")
+		for header, values := range response.Header {
+			log.Println(header + ": " + strings.Join(values, ","))
+		}
+		log.Println()
+		log.Println("END " + requestInfo.URL + "\n================\n")
 	}
-	log.Println("END " + requestInfo.URL)
 	ok = HandleErrors(err, RequestReadBodyError)
 	if !ok {
-		return response, err
+		return response, "", err
 	}
 
 	if requestInfo.ResponseBodyStruct != nil {
-		json.Unmarshal(body, requestInfo.ResponseBodyStruct) // TODO
+		err = json.Unmarshal(body, requestInfo.ResponseBodyStruct)
+		if err != nil {
+			return response, "", err
+		}
 	}
 
-	return response, nil // TODO @silent: Return body
+	newBody := strings.ReplaceAll(string(body), "\n", "")
+	newBody = strings.ReplaceAll(newBody, "\t", "")
+
+	return response, newBody, nil
 }
 
 // SendDiscordWebhook sends checkout information to the Discord Webhook
@@ -159,7 +180,7 @@ func SendDiscordWebhook(discordWebhook string, success bool, fields []Field, ima
 	client := http.Client{
 		Transport: &http.Transport{},
 	}
-	response, err := MakeRequest(&Request{
+	response, _, err := MakeRequest(&Request{
 		Client: client,
 		Method: "POST",
 		URL:    discordWebhook,
@@ -290,20 +311,8 @@ func RemoveFromSlice(s []string, x string) []string {
 	return s[:len(s)-1]
 }
 
-func ReadBody(resp *http.Response) string {
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-	newBody := strings.ReplaceAll(string(body), "\n", "")
-	newBody = strings.ReplaceAll(newBody, "\t", "")
-	return newBody
-
-}
-
 // Function to generate valid abck cookies using an API
-func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpoint string) bool {
+func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpoint string) error {
 	var ParsedBase, _ = url.Parse(BaseEndpoint)
 	ver := "1.7"
 	if ParsedBase.Host == "www.gamestop.com" {
@@ -311,11 +320,10 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	}
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
-		fmt.Println("Could not get user info")
-		return false
+		return err
 	}
 
-	resp, err := MakeRequest(&Request{
+	resp, _, err := MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "GET",
 		URL:    AkamaiEndpoint,
@@ -335,9 +343,8 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
-	defer resp.Body.Close()
 
 	var abckCookie string
 	var genResponse sec.AkamaiAPIResponse
@@ -349,8 +356,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 
 	genResponse, _, err = sec.Akamai(location, "true", "true", "false", "false", abckCookie, AkamaiEndpoint, ver, "true", "", "", "true", user)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
 	}
 
 	sensorRequest := SensorRequest{
@@ -358,7 +364,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	}
 
 	data, _ := json.Marshal(sensorRequest)
-	resp, err = MakeRequest(&Request{
+	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
 		URL:    AkamaiEndpoint,
@@ -380,9 +386,8 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		Data: data,
 	})
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
-	defer resp.Body.Close()
 
 	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
@@ -392,8 +397,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 
 	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
 	}
 
 	sensorRequest = SensorRequest{
@@ -401,7 +405,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	}
 	data, _ = json.Marshal(sensorRequest)
 
-	resp, err = MakeRequest(&Request{
+	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
 		URL:    AkamaiEndpoint,
@@ -423,9 +427,8 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		Data: data,
 	})
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
-	defer resp.Body.Close()
 
 	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
@@ -435,17 +438,19 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 
 	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
 	}
 
 	sensorRequest = SensorRequest{
 		SensorData: genResponse.SensorData,
 	}
 
-	data, _ = json.Marshal(sensorRequest)
+	data, err = json.Marshal(sensorRequest)
+	if err != nil {
+		return err
+	}
 
-	resp, err = MakeRequest(&Request{
+	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
 		URL:    AkamaiEndpoint,
@@ -467,9 +472,8 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		Data: data,
 	})
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 201:
@@ -483,7 +487,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 
 			}
 		}
-		return true
+		return nil
 	}
-	return false
+	return errors.New(resp.Status)
 }

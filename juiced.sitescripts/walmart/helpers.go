@@ -36,6 +36,7 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 
 // GetPXCookie retrieves a PX cookie from the PX API main endpoint
 // TODO: Handle errors
+// TODO: Move this to our security request
 func GetPXCookie(client *http.Client, proxy string) GetPXCookieResponse {
 	data := GetPXCookieRequest{
 		Proxy: proxy,
@@ -75,6 +76,7 @@ func GetPXCookie(client *http.Client, proxy string) GetPXCookieResponse {
 
 // GetPXCapCookie retrieves a PX cookie from the PX API's captcha endpoint
 // TODO: Handle errors
+// TODO: Move this to our security request
 func GetPXCapCookie(client *http.Client, proxy, captchaToken string, pxInfo GetPXCookieResponse) string {
 	data := GetPXCapCookieRequest{
 		SetId: pxInfo.SetId,

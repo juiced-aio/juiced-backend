@@ -52,6 +52,12 @@ func (monitor *Monitor) CheckForStop() bool {
 // 		1. Get___Stock (TCIN/URL/Keyword)
 //		2. SendToTasks
 func (monitor *Monitor) RunMonitor() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
@@ -114,7 +120,7 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	getTCINStockResponse := GetTCINStockResponse{}
 
 	params := util.CreateParams(getTCINStockRequest)
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             monitor.Monitor.Client,
 		Method:             "GET",
 		URL:                GetTCINStockEndpoint + params,
@@ -125,8 +131,6 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	if err != nil {
 		return inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:

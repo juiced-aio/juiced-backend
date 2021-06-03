@@ -70,6 +70,12 @@ func (task *Task) CheckForStop() bool {
 // 		6. SetPaymentInfo
 // 		7. PlaceOrder
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -82,7 +88,7 @@ func (task *Task) RunTask() {
 		case enums.TaskTypeAccount:
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
-			sessionMade = BecomeGuest(&task.Task.Client)
+			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
 		if !sessionMade {
@@ -158,6 +164,7 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
+	// TODO @Humphrey: Don't retry if declined
 	placedOrder := false
 	for !placedOrder {
 		needToStop := task.CheckForStop()
@@ -181,22 +188,20 @@ func (task *Task) RunTask() {
 
 // Login logs the task's client into the account specified
 func (task *Task) Login() bool {
-
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 
 	util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 
-	resp, err = util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    LoginPageEndpoint,
@@ -218,13 +223,11 @@ func (task *Task) Login() bool {
 		},
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 
 	// Getting all the json data
-	body := util.ReadBody(resp)
 	doc := soup.HTMLParse(body)
 	signinData := doc.Find("script", "id", "signon-data").FullText()
 
@@ -285,7 +288,7 @@ func (task *Task) Login() bool {
 
 	util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 	var loginResponse LoginResponse
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    LoginEndpoint,
@@ -310,12 +313,11 @@ func (task *Task) Login() bool {
 		ResponseBodyStruct: &loginResponse,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 	fmt.Println(loginResponse)
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    BaseEndpoint,
@@ -335,10 +337,9 @@ func (task *Task) Login() bool {
 		},
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 
 	return true
 }
@@ -376,12 +377,13 @@ func (task *Task) AddToCart() bool {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
+					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
 					util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
 				}
 			}
 		}
 
-		resp, err := util.MakeRequest(&util.Request{
+		resp, _, err := util.MakeRequest(&util.Request{
 			Client: task.Task.Client,
 			Method: "POST",
 			URL:    AddToCartEndpoint,
@@ -408,8 +410,6 @@ func (task *Task) AddToCart() bool {
 			return false
 		}
 
-		defer resp.Body.Close()
-
 		switch resp.StatusCode {
 		case 200:
 			handled = true
@@ -418,9 +418,8 @@ func (task *Task) AddToCart() bool {
 			a2TransactionID = resp.Header.Get("a2ctransactionreferenceid")
 			times, err := CheckTime(a2TransactionCode)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println(err.Error())
 			}
-
 			fmt.Println(times)
 			if times < 5 {
 				for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
@@ -435,7 +434,7 @@ func (task *Task) AddToCart() bool {
 				time.Sleep(time.Duration(times*60000) * time.Millisecond)
 				fmt.Println("Out of Queue")
 				addToCartResponse = AddToCartResponse{}
-				resp, err := util.MakeRequest(&util.Request{
+				resp, _, err := util.MakeRequest(&util.Request{
 					Client: task.Task.Client,
 					Method: "POST",
 					URL:    AddToCartEndpoint,
@@ -464,8 +463,6 @@ func (task *Task) AddToCart() bool {
 					return false
 				}
 
-				defer resp.Body.Close()
-
 				switch resp.StatusCode {
 				case 200:
 					handled = true
@@ -478,6 +475,7 @@ func (task *Task) AddToCart() bool {
 					}
 				}
 			} else {
+				// TODO @Humphrey: use default task delay if guest mode, 3 second delay if account mode
 				//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
 				time.Sleep(3 * time.Second)
 			}
@@ -489,7 +487,7 @@ func (task *Task) AddToCart() bool {
 
 // Checkout goes to the checkout page and gets the required information for the rest of the checkout process
 func (task *Task) Checkout() bool {
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
 		URL:        CheckoutEndpoint,
@@ -500,12 +498,8 @@ func (task *Task) Checkout() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
 	switch resp.StatusCode {
 	case 200:
-		body := util.ReadBody(resp)
-
 		rawOrderData, err := util.FindInString(body, `var orderData = `, `;`)
 		if err != nil {
 			return false
@@ -513,19 +507,23 @@ func (task *Task) Checkout() bool {
 
 		orderData := OrderData{}
 
-		json.Unmarshal([]byte(rawOrderData), &orderData)
+		err = json.Unmarshal([]byte(rawOrderData), &orderData)
+		if err != nil {
+			return false
+		}
 		fmt.Println(orderData.Items)
-		task.CheckoutInfo.ID = orderData.ID
-		task.CheckoutInfo.ItemID = orderData.Items[0].ID
-		task.CheckoutInfo.PaymentID = orderData.Payment.ID
-		task.CheckoutInfo.OrderID = orderData.Customerorderid
-		task.CheckoutInfo.ImageURL = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
-		task.CheckoutInfo.ItemName = orderData.Items[0].Meta.Shortlabel
+		if len(orderData.Items) > 0 {
+			task.CheckoutInfo.ID = orderData.ID
+			task.CheckoutInfo.ItemID = orderData.Items[0].ID
+			task.CheckoutInfo.PaymentID = orderData.Payment.ID
+			task.CheckoutInfo.OrderID = orderData.Customerorderid
+			task.CheckoutInfo.ImageURL = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
+			task.CheckoutInfo.ItemName = orderData.Items[0].Meta.Shortlabel
+		}
 		return true
-
-	default:
-		return false
 	}
+
+	return false
 }
 
 // SetShippingInfo sets the shipping info in checkout
@@ -567,12 +565,14 @@ func (task *Task) SetShippingInfo() bool {
 	data, err := json.Marshal(setShippingRequest)
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
+		log.Println(571)
+		log.Println(err.Error())
 		return false
 	}
 
 	setShippingResponse := UniversalOrderResponse{}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "PATCH",
 		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/",
@@ -597,24 +597,33 @@ func (task *Task) SetShippingInfo() bool {
 		Data:               data,
 		ResponseBodyStruct: &setShippingResponse,
 	})
+	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
+	log.Println(ok)
 	if !ok {
+		log.Println(604)
+		log.Println(err.Error())
 		return false
 	}
 
-	defer resp.Body.Close()
+	log.Println(resp.StatusCode)
 
 	if resp.StatusCode != 200 {
+		log.Println(606)
+		log.Println(resp.StatusCode)
 		return false
 	}
 
-	switch setShippingResponse.Errors[0].Errorcode {
-	case "standardizationError":
-		fmt.Println("Bad shipping details")
-		return false
+	if len(setShippingResponse.Errors) > 0 {
+		switch setShippingResponse.Errors[0].Errorcode {
+		case "standardizationError":
+			log.Println("Bad shipping details")
+			return false
+		}
 	}
 
-	resp, err = util.MakeRequest(&util.Request{
+	log.Println("request 2")
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/validate",
@@ -638,9 +647,14 @@ func (task *Task) SetShippingInfo() bool {
 		},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
+	log.Println(ok)
 	if !ok {
+		log.Println(642)
+		log.Println(err.Error())
 		return false
 	}
+
+	log.Println(resp.StatusCode)
 
 	switch resp.StatusCode {
 	case 200:
@@ -696,7 +710,7 @@ func (task *Task) SetPaymentInfo() bool {
 			Virtualcard:     false,
 		},
 	})
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "PUT",
 		URL:    fmt.Sprintf(PaymentEndpoint, task.CheckoutInfo.PaymentID),
@@ -722,9 +736,8 @@ func (task *Task) SetPaymentInfo() bool {
 		Data: data,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		return false
@@ -739,7 +752,7 @@ func (task *Task) SetPaymentInfo() bool {
 		}
 	}
 
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(RefreshPaymentEndpoint, task.CheckoutInfo.ID),
@@ -765,9 +778,8 @@ func (task *Task) SetPaymentInfo() bool {
 		Data: []byte("{}"),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		return false
@@ -793,7 +805,7 @@ func (task *Task) SetPaymentInfo() bool {
 		}
 	}
 	prelookupResonse := PrelookupResponse{}
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(PrelookupEndpoint, task.CheckoutInfo.PaymentID),
@@ -823,9 +835,8 @@ func (task *Task) SetPaymentInfo() bool {
 		ResponseBodyStruct: &prelookupResonse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -849,7 +860,7 @@ func (task *Task) PlaceOrder() bool {
 		return false
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    PlaceOrderEndpoint,
@@ -879,8 +890,6 @@ func (task *Task) PlaceOrder() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
 	if resp.StatusCode != 200 {
 		return false
 	}
@@ -895,7 +904,7 @@ func (task *Task) PlaceOrder() bool {
 		Colordepth:  "24",
 	})
 	placeOrderResponse := UniversalOrderResponse{}
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/",
@@ -924,8 +933,6 @@ func (task *Task) PlaceOrder() bool {
 	if !ok {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	var status enums.OrderStatus
 	var success bool

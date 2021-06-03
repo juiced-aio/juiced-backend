@@ -11,17 +11,16 @@ import (
 )
 
 func BecomeGuest(client *http.Client) bool {
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:     *client,
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 
 	return true
 }

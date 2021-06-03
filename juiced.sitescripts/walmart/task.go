@@ -55,6 +55,12 @@ func (task *Task) CheckForStop() bool {
 //		6. SetPaymentInfo
 //		7. PlaceOrder
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
 	needToStop := task.WaitForMonitor()
@@ -182,7 +188,7 @@ func (task *Task) AddToCart() bool {
 
 	addToCartResponse := AddToCartResponse{}
 
-	resp, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -194,8 +200,6 @@ func (task *Task) AddToCart() bool {
 	if err != nil || addToCartResponse.Cart.ItemCount == 0 {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	return true
 }
@@ -214,7 +218,7 @@ func (task *Task) GetCartInfo() bool {
 		AffiliateInfo: "",
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                GetCartInfoEndpoint,
@@ -223,23 +227,18 @@ func (task *Task) GetCartInfo() bool {
 		RequestBodyStruct:  data,
 	})
 
-	defer resp.Body.Close()
-
 	return err == nil
 }
 
 // SetPCID sets the PCID cookie
 func (task *Task) SetPCID() bool {
-
-	resp, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetPcidEndpoint,
 		AddHeadersFunction: AddWalmartHeaders,
 		Referer:            SetPcidReferer,
 	})
-
-	defer resp.Body.Close()
 
 	return err == nil
 }
@@ -261,7 +260,7 @@ func (task *Task) SetShippingInfo() bool {
 		ChangedFields:      []string{""},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetShippingInfoEndpoint,
@@ -269,8 +268,6 @@ func (task *Task) SetShippingInfo() bool {
 		Referer:            SetShippingInfoReferer,
 		RequestBodyStruct:  data,
 	})
-
-	defer resp.Body.Close()
 
 	return err == nil
 }
@@ -302,7 +299,7 @@ func (task *Task) SetPaymentInfo() bool {
 		true,
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetPaymentInfoEndpoint,
@@ -310,8 +307,6 @@ func (task *Task) SetPaymentInfo() bool {
 		Referer:            SetPaymentInfoReferer,
 		RequestBodyStruct:  data,
 	})
-
-	defer resp.Body.Close()
 
 	return err == nil
 }
@@ -332,7 +327,7 @@ func (task *Task) PlaceOrder() bool {
 
 	placeOrderResponse := PlaceOrderResponse{}
 
-	resp, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                PlaceOrderEndpoint,
@@ -341,8 +336,6 @@ func (task *Task) PlaceOrder() bool {
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &placeOrderResponse,
 	})
-
-	defer resp.Body.Close()
 
 	return err == nil
 }

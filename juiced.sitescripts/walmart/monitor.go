@@ -2,7 +2,6 @@ package walmart
 
 import (
 	"fmt"
-	"io/ioutil"
 	"strings"
 	"time"
 
@@ -50,6 +49,12 @@ func (monitor *Monitor) CheckForStop() bool {
 }
 
 func (monitor *Monitor) RunMonitor() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
@@ -93,7 +98,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	inStockForShip := make([]events.WalmartSingleStockData, 0)
 	outOfStockForShip := make([]string, 0)
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    MonitorEndpoint + strings.Join(monitor.SKUs, ","),
@@ -112,10 +117,8 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -126,7 +129,6 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 			fmt.Println("All requested items are in-stock.")
 			inStockForShip = ConvertSkuListToWalmartSingleStock(monitor.SKUs)
 		} else {
-			body, _ := ioutil.ReadAll(resp.Body)
 			responseBody := soup.HTMLParse(string(body))
 
 			if !UrlExistsInResponse(responseBody) {

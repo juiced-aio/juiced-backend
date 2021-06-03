@@ -20,18 +20,19 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func BecomeGuest(client *http.Client) bool {
-	resp, err := util.MakeRequest(&util.Request{
-		Client:     *client,
+func BecomeGuest(client http.Client) bool {
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client:     client,
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		if err != nil {
+			log.Println(err.Error())
+		}
 		return false
 	}
-	defer resp.Body.Close()
 
 	return true
 }

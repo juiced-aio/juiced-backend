@@ -38,21 +38,8 @@ func CreateBestbuyMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, e
 			EventBus:  eventBus,
 			Client:    client,
 		},
-
 		SKUs:        skus,
 		SKUWithInfo: storedBestbuyMonitors,
-	}
-
-	becameGuest := false
-	for !becameGuest {
-		needToStop := bestbuyMonitor.CheckForStop()
-		if needToStop {
-			return bestbuyMonitor, nil
-		}
-		becameGuest = BecomeGuest(&bestbuyMonitor.Monitor.Client)
-		if !becameGuest {
-			time.Sleep(1000 * time.Millisecond)
-		}
 	}
 
 	return bestbuyMonitor, nil
@@ -74,12 +61,30 @@ func (monitor *Monitor) CheckForStop() bool {
 }
 
 func (monitor *Monitor) RunMonitor() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
+	}
+
+	becameGuest := false
+	for !becameGuest {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		becameGuest = BecomeGuest(monitor.Monitor.Client)
+		if !becameGuest {
+			time.Sleep(1000 * time.Millisecond)
+		}
 	}
 
 	somethingInStock := monitor.GetSKUStock()
@@ -105,7 +110,7 @@ func (monitor *Monitor) RunMonitor() {
 func (monitor *Monitor) GetSKUStock() bool {
 	skus := url.PathEscape(strings.Join(monitor.SKUs, ","))
 	monitorResponse := MonitorResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    fmt.Sprintf(MonitorEndpoint, skus),
@@ -126,9 +131,8 @@ func (monitor *Monitor) GetSKUStock() bool {
 		ResponseBodyStruct: &monitorResponse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	stockData := events.BestbuySingleStockData{}
 	switch resp.StatusCode {
