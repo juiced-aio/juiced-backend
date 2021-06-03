@@ -123,7 +123,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Make sure necessary fields exist
 		emptyString := ""
-		if task.BestbuyTaskInfo.TaskType == emptyString || task.BestbuyTaskInfo.Email == emptyString || task.BestbuyTaskInfo.Password == emptyString {
+		if task.BestbuyTaskInfo.TaskType == emptyString || (task.BestbuyTaskInfo.TaskType == enums.TaskTypeAccount && (task.BestbuyTaskInfo.Email == emptyString || task.BestbuyTaskInfo.Password == emptyString)) {
 			return false
 		}
 		// Create task
@@ -183,11 +183,6 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	}
 
 	// Otherwise, start the Task
-	defer func() {
-		recover()
-		// TODO @silent: Let the UI know that a task failed
-	}()
-	// May panic (if it runs into a runtime error)
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:

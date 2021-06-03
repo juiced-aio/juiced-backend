@@ -63,6 +63,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 		// Add task to store
 		monitorStore.TargetMonitors[monitor.GroupID] = &targetMonitor
+
 	case enums.Walmart:
 		// Check if monitor exists in store already
 		if _, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
@@ -163,11 +164,6 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 	}
 
 	// Otherwise, start the Monitor
-	defer func() {
-		recover()
-		// TODO @silent: Let the UI know that a monitor failed
-	}()
-	// May panic (if it runs into a runtime error)
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
@@ -180,8 +176,8 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 	case enums.GameStop:
 		go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
-
 	}
+
 	return true
 }
 

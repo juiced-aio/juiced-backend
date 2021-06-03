@@ -27,6 +27,7 @@ type TaskStatus = string
 const (
 	TaskIdle            TaskStatus    = "Idle"
 	LoggingIn           TaskStatus    = "Logging in"
+	SettingUp           TaskStatus    = "Setting up task"
 	UnableToFindProduct MonitorStatus = "Product not found"
 	WaitingForMonitor   TaskStatus    = "Waiting for monitor"
 	AddingToCart        TaskStatus    = "Adding to cart"
