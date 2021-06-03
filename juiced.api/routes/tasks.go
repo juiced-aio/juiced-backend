@@ -274,4 +274,42 @@ func RouteTasksEndpoints(router *mux.Router) {
 	router.HandleFunc("/api/task/{ID}/stop", endpoints.StopTaskEndpoint).Methods("POST")
 
 	// endpoints for each retailer for create task and create task group
+
+	// swagger:operation POST /api/testtask/{ID}/start TestTask StartTestTaskEndpoint
+	//
+	// Starts a Test Task
+	//
+	// ---
+	// parameters:
+	// - name: ID
+	//   in: path
+	//   description: ID of Test Task to start
+	//   type: string
+	//   required: false
+	// responses:
+	//   '200':
+	//     description: Test Task response
+	//     schema:
+	//       "$ref": "#/responses/TaskResponseSwagger"
+	router.HandleFunc("/api/testtask/{ID}/start", endpoints.StartTestTaskEndpoint).Methods("POST")
+
+	// swagger:operation POST /api/testtask/{ID}/stop TestTask StopTestTaskEndpoint
+	//
+	// Stops a Test Task
+	//
+	// ---
+	// parameters:
+	// - name: ID
+	//   in: path
+	//   description: ID of Test Task to stop
+	//   type: string
+	//   required: false
+	// responses:
+	//   '200':
+	//     description: Test Task response
+	//     schema:
+	//       "$ref": "#/responses/TaskResponseSwagger"
+	router.HandleFunc("/api/testtask/{ID}/stop", endpoints.StopTestTaskEndpoint).Methods("POST")
+
+	// endpoints for each retailer for create task and create task group
 }

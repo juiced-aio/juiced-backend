@@ -89,7 +89,6 @@ func TestCClient_HTTP2(t *testing.T) {
 }
 
 func TestProxy(t *testing.T) {
-	//
 	resp, err := client.Get("https://www.google.com")
 	if err != nil {
 		t.Fatal(err)

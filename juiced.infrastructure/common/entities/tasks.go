@@ -28,6 +28,11 @@ type Task struct {
 	// Future sitescripts will have a field here
 }
 
+// Tasks is a class that holds multiple Tasks
+type Tasks struct {
+	Tasks []Task `json:"tasks"`
+}
+
 type WalmartTaskInfo struct {
 }
 
@@ -115,6 +120,11 @@ type TaskGroup struct {
 	GamestopMonitorInfo GamestopMonitorInfo  `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
 	TaskIDs             []primitive.ObjectID `json:"taskIDs" bson:"taskIDs"`
 	// Future sitescripts will have a field here
+}
+
+// TaskGroups is a class that hold multiple TaskGroups
+type TaskGroups struct {
+	TaskGroups []TaskGroup `json:"taskGroups"`
 }
 
 // TargetMonitorInfo is a class that holds Target-specific details for a single monitor

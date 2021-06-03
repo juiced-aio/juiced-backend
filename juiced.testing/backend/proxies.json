@@ -1,0 +1,17 @@
+{
+    "proxyGroups": [
+      {
+        "groupID": "0eb59f9f7c863452201d9e5b",
+        "name": "Test Proxies",
+        "proxies": [
+         {
+             "ID": "ec75c2f0a2eb47a7c7dfd563",
+             "host": "localhost",
+             "port": "8888",
+             "username": "",
+             "password": ""
+         }
+        ]
+      }
+    ]
+  }

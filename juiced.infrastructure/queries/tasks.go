@@ -1,6 +1,9 @@
 package queries
 
 import (
+	"encoding/json"
+	"io/ioutil"
+
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 
 	"context"
@@ -61,6 +64,25 @@ func GetTaskGroup(groupID primitive.ObjectID) (entities.TaskGroup, error) {
 	return taskGroup, err
 }
 
+// GetTestTaskGroup returns the TestTaskGroup object from the database with the given groupID (if it exists)
+func GetTestTaskGroup(groupID primitive.ObjectID) (entities.TaskGroup, error) {
+	taskGroups := entities.TaskGroups{}
+	tg := entities.TaskGroup{}
+	file, err := ioutil.ReadFile("juiced.testing/backend/taskgroups.json")
+	if err != nil {
+		return tg, err
+	}
+
+	err = json.Unmarshal(file, &taskGroups)
+
+	for _, taskGroup := range taskGroups.TaskGroups {
+		if taskGroup.GroupID == groupID {
+			return taskGroup, err
+		}
+	}
+	return tg, err
+}
+
 // GetAllTasks returns all Task objects from the database
 func GetAllTasks() ([]entities.Task, error) {
 	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
@@ -108,6 +130,25 @@ func GetTask(ID primitive.ObjectID) (entities.Task, error) {
 	filter := bson.D{primitive.E{Key: "id", Value: ID}}
 	err = collection.FindOne(ctx, filter).Decode(&task)
 	return task, err
+}
+
+// GetTestTask returns the Task object from the json file with the given ID (if it exists)
+func GetTestTask(ID primitive.ObjectID) (entities.Task, error) {
+	tasks := entities.Tasks{}
+	t := entities.Task{}
+	file, err := ioutil.ReadFile("juiced.testing/backend/tasks.json")
+	if err != nil {
+		return t, err
+	}
+	err = json.Unmarshal(file, &tasks)
+
+	for _, task := range tasks.Tasks {
+		if task.ID == ID {
+			return task, err
+		}
+	}
+
+	return t, err
 }
 
 // ConvertTaskIDsToTasks returns a TaskGroupWithTasks object from a TaskGroup object

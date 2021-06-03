@@ -1,0 +1,21 @@
+{
+    "tasks": [
+        {
+            "ID": "5ad9a913478c26d220afb681",
+            "taskGroupID": "025a9e8a3889f490eb14a718",
+            "profileID": "f2a11180b279228a03d8cd6b",
+            "proxyGroupID": "0eb59f9f7c863452201d9e5b",
+            "retailer": "GameStop",
+            "size": ["", ""],
+            "qty": 1,
+            "status": "Idle",
+            "taskDelay": 1000,
+            "gamestopTaskInfo": {
+                "email": "testemail@testing.com",
+                "password": "testpass",
+                "taskType": "GUEST"
+            }
+        }
+    ]
+	
+}

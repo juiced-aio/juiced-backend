@@ -40,6 +40,11 @@ type ProxyGroup struct {
 	Proxies []Proxy            `json:"proxies"`
 }
 
+// ProxyGroups is a class that holdes multiple ProxyGroups
+type ProxyGroups struct {
+	ProxyGroups []ProxyGroup `json:"proxyGroups"`
+}
+
 // SetName updates the ProxyGroup's Name
 func (proxyGroup *ProxyGroup) SetName(name string) {
 	proxyGroup.Name = name

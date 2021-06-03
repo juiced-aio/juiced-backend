@@ -363,7 +363,10 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		SensorData: genResponse.SensorData,
 	}
 
-	data, _ := json.Marshal(sensorRequest)
+	data, err := json.Marshal(sensorRequest)
+	if err != nil {
+		return err
+	}
 	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",

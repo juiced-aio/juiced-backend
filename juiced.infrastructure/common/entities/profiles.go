@@ -77,6 +77,11 @@ type Profile struct {
 	CreditCard      Card               `json:"creditCard"`
 }
 
+// Profiles is a class that holds multiple Profiles
+type Profiles struct {
+	Profiles []Profile `json:"profiles"`
+}
+
 // SetID updates the Profile's ID
 func (profile *Profile) SetID(ID primitive.ObjectID) {
 	profile.ID = ID

@@ -2,6 +2,7 @@ package stores
 
 import (
 	"math/rand"
+	"os"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -31,15 +32,22 @@ type MonitorStore struct {
 // AddMonitorToStore adds the Monitor to the Store and returns true if successful
 func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup) bool {
 	queryError := false
+	var proxy entities.Proxy
 	// Get Proxy for monitor
-	proxy := entities.Proxy{}
 	if !monitor.MonitorProxyGroupID.IsZero() {
-		proxyGroup, err := queries.GetProxyGroup(monitor.MonitorProxyGroupID)
+		var proxyGroup entities.ProxyGroup
+		var err error
+		if os.Getenv("JUICED_TESTING") == "TESTING" {
+			proxyGroup, err = queries.GetTestProxyGroup(monitor.MonitorProxyGroupID)
+		} else {
+			proxyGroup, err = queries.GetProxyGroup(monitor.MonitorProxyGroupID)
+		}
 		if err != nil {
 			queryError = true
 		}
 		proxy = proxyGroup.Proxies[rand.Intn(len(proxyGroup.Proxies))]
 	}
+
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:

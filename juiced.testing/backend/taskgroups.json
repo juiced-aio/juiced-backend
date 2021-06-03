@@ -1,0 +1,23 @@
+{
+    "taskGroups": [
+        {
+            "groupID": "025a9e8a3889f490eb14a718", 
+            "name": "", 
+            "proxyGroupID": "", 
+            "retailer": "GameStop", 
+            "input": "", 
+            "delay": 1000, 
+            "status": "Idle", 
+            "gamestopMonitorInfo": {
+                "monitors": [
+                    {
+                        "sku": "224738",
+                        "maxPrice": 100
+                  }
+            ]
+            }, 
+            "taskIDs": ["5ad9a913478c26d220afb681"]
+        }
+    ]
+   
+}

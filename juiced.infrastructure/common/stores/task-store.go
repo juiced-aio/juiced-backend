@@ -2,6 +2,7 @@ package stores
 
 import (
 	"math/rand"
+	"os"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -36,19 +37,34 @@ type TaskStore struct {
 // AddTaskToStore adds the Task to the TaskStore and returns true if successful
 func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 	queryError := false
+	var proxy entities.Proxy
+	var profile entities.Profile
 	// Get Profile, Proxy for task
-	profile, err := queries.GetProfile(task.TaskProfileID)
-	if err != nil {
-		queryError = true
-	}
-	proxy := entities.Proxy{}
 	if !task.TaskProxyGroupID.IsZero() {
-		proxyGroup, err := queries.GetProxyGroup(task.TaskProxyGroupID)
+		var proxyGroup entities.ProxyGroup
+		var err error
+		testing := os.Getenv("JUICED_TESTING") == "TESTING"
+		if testing {
+			proxyGroup, err = queries.GetTestProxyGroup(task.TaskProxyGroupID)
+		} else {
+			proxyGroup, err = queries.GetProxyGroup(task.TaskProxyGroupID)
+		}
 		if err != nil {
 			queryError = true
 		}
+
 		proxy = proxyGroup.Proxies[rand.Intn(len(proxyGroup.Proxies))]
+
+		if testing {
+			profile, err = queries.GetTestProfile(task.TaskProfileID)
+		} else {
+			profile, err = queries.GetProfile(task.TaskProfileID)
+		}
+		if err != nil {
+			queryError = true
+		}
 	}
+
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
@@ -162,15 +178,24 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 
 // StartTask runs the RunTask() function for the given Task and returns true if successful
 func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
-	taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
+	var taskGroup entities.TaskGroup
+	var err error
+
+	if os.Getenv("JUICED_TESTING") == "TESTING" {
+		taskGroup, err = queries.GetTestTaskGroup(task.TaskGroupID)
+	} else {
+		taskGroup, err = queries.GetTaskGroup(task.TaskGroupID)
+	}
 	if err != nil {
 		return false
 	}
+
 	// Start the task's TaskGroup (if it's already running, this will return true)
 	started := monitorStore.StartMonitor(&taskGroup)
 	if !started {
 		return false
 	}
+
 	// Add task to store (if it already exists, this will return true)
 	added := taskStore.AddTaskToStore(task)
 	if !added {

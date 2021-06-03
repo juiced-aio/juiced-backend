@@ -119,46 +119,50 @@ func (monitor *Monitor) RunMonitor() {
 	}
 	for _, asin := range monitor.ASINs {
 		if !util.InSlice(monitor.RunningMonitors, asin) {
-			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
-			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
-			go func(t string) {
-				// If the function panics due to a runtime error, recover from it
-				defer func() {
-					recover()
-					// TODO @silent: Re-run this specific monitor
-				}()
-
-				somethingInStock := false
-				switch monitor.ASINWithInfo[t].MonitorType {
-				case enums.SlowSKUMonitor:
-					somethingInStock = monitor.TurboMonitor(t)
-
-				case enums.FastSKUMonitor:
-					somethingInStock = monitor.OFIDMonitor(t)
-				}
-
-				if somethingInStock {
-					needToStop := monitor.CheckForStop()
-					if needToStop {
-						return
-					}
-					monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, t)
-					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-					monitor.SendToTasks()
-				} else {
-					if len(monitor.RunningMonitors) > 0 {
-						if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
-						}
-					}
-					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-					monitor.RunMonitor()
-				}
-			}(asin)
+			go monitor.RunSingleMonitor(asin)
 		}
 
 	}
 
+}
+
+func (monitor *Monitor) RunSingleMonitor(t string) {
+	defer func() {
+		recover()
+		// TODO @silent: Re-run this specific monitor
+	}()
+
+	needToStop := monitor.CheckForStop()
+	if needToStop {
+		return
+	}
+
+	somethingInStock := false
+	switch monitor.ASINWithInfo[t].MonitorType {
+	case enums.SlowSKUMonitor:
+		somethingInStock = monitor.TurboMonitor(t)
+
+	case enums.FastSKUMonitor:
+		somethingInStock = monitor.OFIDMonitor(t)
+	}
+
+	if somethingInStock {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, t)
+		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+		monitor.SendToTasks()
+	} else {
+		if len(monitor.RunningMonitors) > 0 {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+			}
+		}
+		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+		monitor.RunSingleMonitor(t)
+	}
 }
 
 // A lot of the stuff that I'm doing either seems useless or dumb but Cloudfront is Ai based and the more entropy/randomness you add to every request

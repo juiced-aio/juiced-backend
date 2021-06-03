@@ -1,0 +1,43 @@
+{
+    "profiles": [
+        {
+            "ID": "f2a11180b279228a03d8cd6b",
+            "name": "Test Profile",
+            "email": "testemail@testing.com",
+            "phoneNumber": "1234567890",
+            "shippingAddress": {
+                "ID": "8a51af8d0d22dc265a0c70c9",
+                "firstName": "Juiced",
+                "lastName": "AIO",
+                "address1": "100 Juiced Drive",
+                "address2": "",
+                "city": "San Francisco",
+                "zipCode": "94016",
+                "stateCode": "CA",
+                "countryCode": "US"
+            },
+            "billingAddress": {
+                "ID": "43ec02bc11c2659d93c96142",
+                "firstName": "Juiced",
+                "lastName": "AIO",
+                "address1": "100 Juiced Drive",
+                "address2": "",
+                "city": "San Francisco",
+                "zipCode": "94016",
+                "stateCode": "CA",
+                "countryCode": "US"
+            },
+            "creditCard": {
+                "ID": "1cc268e89a01ee2225bbd906",
+                "cardHolderName": "Juiced AIO",
+                "cardNumber": "4767718212263745",
+                "expMonth": "02",
+                "expYear": "26",
+                "cvv": "260",
+                "cardType": "VISA"
+            }
+        }
+    ]
+   
+
+}

@@ -1,6 +1,9 @@
 package queries
 
 import (
+	"encoding/json"
+	"io/ioutil"
+
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 
 	"context"
@@ -59,4 +62,24 @@ func GetProxyGroup(groupID primitive.ObjectID) (entities.ProxyGroup, error) {
 	filter := bson.D{primitive.E{Key: "groupid", Value: groupID}}
 	err = collection.FindOne(ctx, filter).Decode(&proxyGroup)
 	return proxyGroup, err
+}
+
+// GetTestProfile returns the Test Profile object from the json file with the given ID (if it exists)
+func GetTestProxyGroup(groupID primitive.ObjectID) (entities.ProxyGroup, error) {
+	proxyGroups := entities.ProxyGroups{}
+	pg := entities.ProxyGroup{}
+	file, err := ioutil.ReadFile("juiced.testing/backend/proxies.json")
+	if err != nil {
+		return pg, err
+	}
+
+	err = json.Unmarshal(file, &proxyGroups)
+
+	for _, proxyGroup := range proxyGroups.ProxyGroups {
+		if proxyGroup.GroupID == groupID {
+			return proxyGroup, err
+		}
+	}
+
+	return pg, err
 }

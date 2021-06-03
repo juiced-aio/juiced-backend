@@ -548,3 +548,66 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	}
 	json.NewEncoder(response).Encode(result)
 }
+
+// StartTestTaskEndpoint handles the POST request at /api/testtask/{ID}/start
+func StartTestTaskEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	taskToStart := entities.Task{}
+	errorsList := make([]string, 0)
+
+	params := mux.Vars(request)
+	ID, err := primitive.ObjectIDFromHex(params["ID"])
+	if err == nil {
+		taskToStart, err = queries.GetTestTask(ID)
+		if err == nil {
+			taskStore := stores.GetTaskStore()
+			started := taskStore.StartTask(&taskToStart)
+			if !started {
+				errorsList = append(errorsList, errors.StartTaskError)
+			}
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError+err.Error())
+		}
+	} else {
+		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+	}
+	result := &responses.TaskResponse{Success: true, Data: []entities.Task{taskToStart}, Errors: make([]string, 0)}
+	if len(errorsList) > 0 {
+		response.WriteHeader(http.StatusBadRequest)
+		result = &responses.TaskResponse{Success: false, Data: make([]entities.Task, 0), Errors: errorsList}
+	}
+	json.NewEncoder(response).Encode(result)
+}
+
+// StopTestTaskEndpoint handles the POST request at /api/testtask/{ID}/stop
+func StopTestTaskEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	taskToStop := entities.Task{}
+	errorsList := make([]string, 0)
+
+	params := mux.Vars(request)
+	ID, err := primitive.ObjectIDFromHex(params["ID"])
+	if err == nil {
+		taskToStop, err = queries.GetTestTask(ID)
+		if err == nil {
+			taskStore := stores.GetTaskStore()
+			started := taskStore.StopTask(&taskToStop)
+			if !started {
+				errorsList = append(errorsList, errors.StopTaskError)
+			}
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError+err.Error())
+		}
+	} else {
+		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+	}
+
+	result := &responses.TaskResponse{Success: true, Data: []entities.Task{taskToStop}, Errors: make([]string, 0)}
+	if len(errorsList) > 0 {
+		response.WriteHeader(http.StatusBadRequest)
+		result = &responses.TaskResponse{Success: false, Data: make([]entities.Task, 0), Errors: errorsList}
+	}
+	json.NewEncoder(response).Encode(result)
+}

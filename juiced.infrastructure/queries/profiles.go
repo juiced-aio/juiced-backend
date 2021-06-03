@@ -1,6 +1,9 @@
 package queries
 
 import (
+	"encoding/json"
+	"io/ioutil"
+
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 
 	"context"
@@ -108,6 +111,26 @@ func GetProfile(ID primitive.ObjectID) (entities.Profile, error) {
 	filter := bson.D{primitive.E{Key: "id", Value: ID}}
 	err = collection.FindOne(ctx, filter).Decode(&profile)
 	return profile, err
+}
+
+// GetTestProfile returns the Test Profile object from the json file with the given ID (if it exists)
+func GetTestProfile(ID primitive.ObjectID) (entities.Profile, error) {
+	profiles := entities.Profiles{}
+	p := entities.Profile{}
+	file, err := ioutil.ReadFile("juiced.testing/backend/profiles.json")
+	if err != nil {
+		return p, err
+	}
+
+	err = json.Unmarshal(file, &profiles)
+
+	for _, profile := range profiles.Profiles {
+		if profile.ID == ID {
+			return profile, err
+		}
+	}
+
+	return p, err
 }
 
 // ConvertProfileIDsToProfiles returns a ProfileGroupWithProfiles object from a ProfileGroup object

@@ -164,14 +164,14 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
-	// TODO @Humphrey: Don't retry if declined
+	var status enums.OrderStatus
 	placedOrder := false
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || status == enums.OrderStatusDeclined {
 			return
 		}
-		placedOrder = task.PlaceOrder()
+		status, placedOrder = task.PlaceOrder()
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -199,7 +199,10 @@ func (task *Task) Login() bool {
 		return false
 	}
 
-	util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -286,7 +289,11 @@ func (task *Task) Login() bool {
 		{Name: "ZPLANK", Value: "0e0a383f97f24e5ab11fef6269000a93"},
 	})
 
-	util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	err = util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
+
 	var loginResponse LoginResponse
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -377,8 +384,10 @@ func (task *Task) AddToCart() bool {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
-					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
-					util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					if err != nil {
+						return false
+					}
 				}
 			}
 		}
@@ -426,7 +435,10 @@ func (task *Task) AddToCart() bool {
 					if cookie.Name == "_abck" {
 						validator, _ := util.FindInString(cookie.Value, "~", "~")
 						if validator == "-1" {
-							util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+							err = util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+							if err != nil {
+								return false
+							}
 						}
 					}
 				}
@@ -475,9 +487,13 @@ func (task *Task) AddToCart() bool {
 					}
 				}
 			} else {
-				// TODO @Humphrey: use default task delay if guest mode, 3 second delay if account mode
 				//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
-				time.Sleep(3 * time.Second)
+				if task.TaskType == enums.TaskTypeGuest {
+					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+				} else {
+					time.Sleep(3 * time.Second)
+				}
+
 			}
 		}
 
@@ -666,7 +682,10 @@ func (task *Task) SetShippingInfo() bool {
 
 // SetPaymentInfo sets the payment info in checkout
 func (task *Task) SetPaymentInfo() bool {
-	util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+	err := util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
 
 	billing := Billingaddress{
 		Country:             task.Task.Profile.BillingAddress.CountryCode,
@@ -747,7 +766,10 @@ func (task *Task) SetPaymentInfo() bool {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				err = util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
 			}
 		}
 	}
@@ -848,7 +870,8 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder() (enums.OrderStatus, bool) {
+	var status enums.OrderStatus
 	data, err := json.Marshal(PlaceOrderRequest{
 		Orderid: task.CheckoutInfo.ID,
 		Threedsecurestatus: Threedsecurestatus{
@@ -857,7 +880,7 @@ func (task *Task) PlaceOrder() bool {
 	})
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false
+		return status, false
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -887,11 +910,11 @@ func (task *Task) PlaceOrder() bool {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false
+		return status, false
 	}
 
 	if resp.StatusCode != 200 {
-		return false
+		return status, false
 	}
 
 	data, _ = json.Marshal(Browserinfo{
@@ -931,10 +954,9 @@ func (task *Task) PlaceOrder() bool {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false
+		return status, false
 	}
 
-	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -969,9 +991,9 @@ func (task *Task) PlaceOrder() bool {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false
+		return status, false
 	}
 	sec.DiscordWebhook(success, "", task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL), user)
 
-	return success
+	return status, success
 }

@@ -54,7 +54,6 @@ func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 			time.Sleep(1000 * time.Millisecond)
 		}
 	}
-
 	return gamestopMonitor, nil
 }
 
@@ -90,39 +89,43 @@ func (monitor *Monitor) RunMonitor() {
 	}
 	for _, sku := range monitor.SKUs {
 		if !util.InSlice(monitor.RunningMonitors, sku) {
-			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
-			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
-			go func(t string) {
-				// If the function panics due to a runtime error, recover from it
-				defer func() {
-					recover()
-					// TODO @silent: Re-run this specific monitor
-				}()
-
-				somethingInStock := monitor.GetSKUStock(t)
-
-				if somethingInStock {
-					needToStop := monitor.CheckForStop()
-					if needToStop {
-						return
-					}
-					monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, t)
-					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-					monitor.SendToTasks()
-				} else {
-					if len(monitor.RunningMonitors) > 0 {
-						if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
-						}
-					}
-					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-					monitor.RunMonitor()
-				}
-			}(sku)
+			go monitor.RunSingleMonitor(sku)
 		}
 
 	}
 
+}
+
+func (monitor *Monitor) RunSingleMonitor(t string) {
+	defer func() {
+		recover()
+		// TODO @silent: Re-run this specific monitor
+	}()
+
+	needToStop := monitor.CheckForStop()
+	if needToStop {
+		return
+	}
+
+	somethingInStock := monitor.GetSKUStock(t)
+
+	if somethingInStock {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, t)
+		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+		monitor.SendToTasks()
+	} else {
+		if len(monitor.RunningMonitors) > 0 {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+			}
+		}
+		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+		monitor.RunSingleMonitor(t)
+	}
 }
 
 // Checks if the item is instock and fills the monitors EventInfo if so

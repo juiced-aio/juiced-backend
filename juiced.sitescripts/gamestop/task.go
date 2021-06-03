@@ -96,6 +96,7 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
 	// 2. WaitForMonitor
+
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
@@ -145,7 +146,6 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
-
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
@@ -279,7 +279,7 @@ func (task *Task) WaitForMonitor() bool {
 func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
 	form := url.Values{
-		"pid":            {task.CheckoutInfo.PID},
+		"pid":            {task.CheckoutInfo.SKUInStock},
 		"upsellID":       {""},
 		"purPROID":       {""},
 		"options":        {"[]"},
@@ -416,7 +416,6 @@ func (task *Task) SetShippingInfo() bool {
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
 	switch resp.StatusCode {
 	case 200:
 		return true
@@ -509,7 +508,11 @@ func (task *Task) GetAbck() bool {
 // Setting the payment for the order
 func (task *Task) SetPaymentInfo() bool {
 	// Not sure how this will work for gamestop compared to bestbuy, it will be a small change after testing if it's a problem
-	util.NewAbck(&task.Task.Client, CheckoutEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	err := util.NewAbck(&task.Task.Client, CheckoutEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
+
 	// Format is not 02 instead just 2
 	if task.Task.Profile.CreditCard.ExpMonth[0:1] == "0" {
 		task.Task.Profile.CreditCard.ExpMonth = task.Task.Profile.CreditCard.ExpMonth[1:]

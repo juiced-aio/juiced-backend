@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
@@ -23,14 +24,18 @@ func main() {
 
 	go func() {
 		// Wait for the client to connect to the websocket server
-		channel := make(chan events.Event)
-		eventBus.Subscribe(channel)
-		for {
-			event := <-channel
-			if event.EventType == events.ConnectEventType {
-				eventBus.Unsubscribe(channel)
-				break
+		// @silent: Safe?
+		if os.Getenv("JUICED_TESTING") != "TESTING" {
+			channel := make(chan events.Event)
+			eventBus.Subscribe(channel)
+			for {
+				event := <-channel
+				if event.EventType == events.ConnectEventType {
+					eventBus.Unsubscribe(channel)
+					break
+				}
 			}
+
 		}
 
 		// Initalize the database
