@@ -894,25 +894,25 @@ func Akamai(pageURL, skipKact, skipMact, onBlur, onFocus, abck, sensorDataLink, 
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_JSON, err
 	}
 
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[3:7], key)
+	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[3:7], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_C, err
 	}
 	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[7:14], key)
 	if err != nil {
-		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_A, err
-	}
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[14:18], key)
-	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[18:], key)
+	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[14:18], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_D, err
+	}
+	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[18:], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_A, err
 	}
 
 	akamaiRequest := AkamaiRequest{
