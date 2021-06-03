@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
@@ -29,6 +28,7 @@ func main() {
 		for {
 			event := <-channel
 			if event.EventType == events.ConnectEventType {
+				eventBus.Unsubscribe(channel)
 				break
 			}
 		}
@@ -36,14 +36,12 @@ func main() {
 		// Initalize the database
 		err := common.InitDatabase()
 		if err != nil {
-			log.Println(err.Error())
 			eventBus.PublishCloseEvent()
 		}
 
 		// Get the user's info
 		_, userInfo, err := queries.GetUserInfo()
 		if err != nil {
-			log.Println(err.Error())
 			eventBus.PublishCloseEvent()
 		} else {
 			go Heartbeat(eventBus, userInfo)
