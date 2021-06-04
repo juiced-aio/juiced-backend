@@ -95,12 +95,23 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 	var client http.Client
 	BuildEndpoint := MonitorEndpoint + pid.Pid
 
+	//Values have to be exact and case sensistive
+	//XXS
+	//SM
+	//MD
+	//LG
+	//XL
+	//2X
+	//3X
 	if len(pid.size) > 0 {
 		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_size=" + pid.size
 	}
+
+	//Default seems to be BLACK case sensitive
 	if len(pid.color) > 0 {
 		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_color=" + pid.color
 	}
+
 	client = monitor.PidWithInfo[pid.Pid].Client
 	resp, err := util.MakeRequest(&util.Request{
 		Client: client,
