@@ -409,7 +409,7 @@ func (task *Task) AddToCart() (bool, bool) {
 	}
 
 	switch resp.StatusCode {
-	case 200:
+	case 201:
 		task.AccountInfo.CartID = addToCartResponse.CartID
 		return float64(task.TCINMaxPrice) > addToCartResponse.CurrentPrice, true
 	default:
