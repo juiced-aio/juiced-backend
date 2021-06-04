@@ -47,14 +47,6 @@ type Monitor struct {
 	SKUWithInfo     map[string]entities.BestbuySingleMonitorInfo
 }
 
-type OrderStatus = string
-
-const (
-	OrderStatusSuccess  OrderStatus = "SUCCESS"
-	OrderStatusDeclined OrderStatus = "DECLINED"
-	OrderStatusFailed   OrderStatus = "FAILED"
-)
-
 var DefaultRawHeaders = [][2]string{
 	{"pragma", "no-cache"},
 	{"cache-control", "no-cache"},

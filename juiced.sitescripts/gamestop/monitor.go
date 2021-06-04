@@ -20,10 +20,7 @@ func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 	skus := []string{}
 
 	for _, monitor := range singleMonitors {
-		storedGamestopMonitors[monitor.SKU] = entities.GamestopSingleMonitorInfo{
-			SKU:      monitor.SKU,
-			MaxPrice: monitor.MaxPrice,
-		}
+		storedGamestopMonitors[monitor.SKU] = monitor
 		skus = append(skus, monitor.SKU)
 	}
 
