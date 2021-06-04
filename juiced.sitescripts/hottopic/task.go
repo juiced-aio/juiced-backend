@@ -192,7 +192,6 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
-// AddToCart sends a post request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
 	colorSelected := "notRequired"
 	sizeSelected := "notRequired"
@@ -223,11 +222,11 @@ func (task *Task) AddToCart() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
-		AddHeadersFunction: AddHottopicHeaders,                    //todo
-		Referer:            AddToCartReferer + task.Pid + ".html", //todo
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            AddToCartReferer + task.Pid + ".html",
 		RequestBodyStruct:  data,
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -239,11 +238,11 @@ func (task *Task) GetCheckout() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                GetCheckoutEndpoint, //setendpoint values
-		AddHeadersFunction: AddHottopicHeaders,  //todo
-		Referer:            GetCheckoutReferer,  //todo
+		URL:                GetCheckoutEndpoint,
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            GetCheckoutReferer,
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -262,9 +261,9 @@ func (task *Task) ProceedToCheckout() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                ProceedToCheckoutEndpoint + task.Dwcont, //setendpoint values
-		AddHeadersFunction: AddHottopicHeaders,                      //todo
-		Referer:            ProceedToCheckoutReferer,                //todo
+		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            ProceedToCheckoutReferer,
 		RequestBodyStruct:  data,
 	})
 	if err != nil {
@@ -290,12 +289,12 @@ func (task *Task) GuestCheckout() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                GuestCheckoutEndpoint + task.Dwcont,   //setendpoint values
-		AddHeadersFunction: AddHottopicHeaders,                    //todo
-		Referer:            GuestCheckoutReferer + task.OldDwcont, //todo
+		URL:                GuestCheckoutEndpoint + task.Dwcont,
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            GuestCheckoutReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -332,12 +331,12 @@ func (task *Task) SubmitShipping() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SubmitShippingEndpoint + task.Dwcont,   //setendpoint values
-		AddHeadersFunction: AddHottopicHeaders,                     //todo
-		Referer:            SubmitShippingReferer + task.OldDwcont, //todo
+		URL:                SubmitShippingEndpoint + task.Dwcont,
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            SubmitShippingReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -357,9 +356,9 @@ func (task *Task) UseOrigAddress() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                UseOrigAddressEndpoint + task.Dwcont,   //setendpoint values
-		AddHeadersFunction: AddHottopicHeaders,                     //todo
-		Referer:            UseOrigAddressReferer + task.OldDwcont, //todo
+		URL:                UseOrigAddressEndpoint + task.Dwcont,
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
@@ -378,45 +377,45 @@ func (task *Task) UseOrigAddress() bool {
 }
 func (task *Task) SubmitPaymentInfo() bool {
 	data := url.Values{
-		//"dwfrm_billing_save":                                   {"true"},
-		"dwfrm_billing_addressChoice_addressChoices":           {"shipping"},
-		"dwfrm_billing_billingAddress_addressFields_firstName": {task.Task.Profile.BillingAddress.FirstName},
-		"dwfrm_billing_billingAddress_addressFields_lastName":  {task.Task.Profile.BillingAddress.LastName},
-		"dwfrm_billing_billingAddress_addressFields_country":   {task.Task.Profile.BillingAddress.CountryCode},
-		"dwfrm_billing_billingAddress_addressFields_postal":    {task.Task.Profile.BillingAddress.ZipCode},
-		"dwfrm_billing_billingAddress_addressFields_address1":  {task.Task.Profile.BillingAddress.Address1,
-		"dwfrm_billing_billingAddress_addressFields_address2":  {task.Task.Profile.BillingAddress.Address2},
-		"dwfrm_billing_billingAddress_addressFields_city":      {task.Task.Profile.BillingAddress.City},
+		//"dwfrm_billing_save":                                      {"true"}, //duplicate key?
+		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
+		"dwfrm_billing_billingAddress_addressFields_firstName":    {task.Task.Profile.BillingAddress.FirstName},
+		"dwfrm_billing_billingAddress_addressFields_lastName":     {task.Task.Profile.BillingAddress.LastName},
+		"dwfrm_billing_billingAddress_addressFields_country":      {task.Task.Profile.BillingAddress.CountryCode},
+		"dwfrm_billing_billingAddress_addressFields_postal":       {task.Task.Profile.BillingAddress.ZipCode},
+		"dwfrm_billing_billingAddress_addressFields_address1":     {task.Task.Profile.BillingAddress.Address1},
+		"dwfrm_billing_billingAddress_addressFields_address2":     {task.Task.Profile.BillingAddress.Address2},
+		"dwfrm_billing_billingAddress_addressFields_city":         {task.Task.Profile.BillingAddress.City},
 		"dwfrm_billing_billingAddress_addressFields_states_state": {task.Task.Profile.BillingAddress.StateCode},
 		"dwfrm_billing_billingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
 		"dwfrm_billing_securekey":                                 {task.SecureKey},
 		"dwfrm_billing_couponCode":                                {""}, //coupon
-		"dwfrm_billing_giftCertCode":                              {""}, 
+		"dwfrm_billing_giftCertCode":                              {""},
 		"dwfrm_billing_paymentMethods_selectedPaymentMethodID":    {"CREDIT_CARD"},
 		"dwfrm_billing_paymentMethods_creditCard_owner":           {task.Task.Profile.CreditCard.CardholderName},
 		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},
 		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType}, //Ex VISA
 		"dwfrm_billing_paymentMethods_creditCard_month":           {task.Task.Profile.CreditCard.ExpMonth}, //should be month (no 0) Ex: 2
-		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear}, //should be full year Ex: 2026
-		"dwfrm_billing_paymentMethods_creditCard_userexp":         {"02/26"}, //should be smalldate Ex: 02/26
+		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},  //should be full year Ex: 2026
+		"dwfrm_billing_paymentMethods_creditCard_userexp":         {"02/26"},                               //should be smalldate Ex: 02/26
 		"dwfrm_billing_paymentMethods_creditCard_cvn":             {task.Task.Profile.CreditCard.CVV},
-		"cardToken":                              {""}, //is always empty
+		"cardToken":                              {""},                                           //is always empty
 		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
-		"dwfrm_billing_paymentMethods_bml_year":  {""}, //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_month": {""}, //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_day":   {""}, //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_ssn":   {""}, //always seems to be empty
+		"dwfrm_billing_paymentMethods_bml_year":  {""},                                           //always seems to be empty
+		"dwfrm_billing_paymentMethods_bml_month": {""},                                           //always seems to be empty
+		"dwfrm_billing_paymentMethods_bml_day":   {""},                                           //always seems to be empty
+		"dwfrm_billing_paymentMethods_bml_ssn":   {""},                                           //always seems to be empty
 		"dwfrm_billing_save":                     {"Continue to Review"},
 	}
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,   //setendpoint values
-		AddHeadersFunction: AddHottopicHeaders,                        //todo
-		Referer:            SubmitPaymentInfoReferer + task.OldDwcont, //todo
+		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -426,15 +425,15 @@ func (task *Task) SubmitPaymentInfo() bool {
 }
 func (task *Task) SubmitOrder() bool {
 	data := url.Values{
-		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]},  //First 6 digits of card number
+		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
 		"addToEmailList": {"false"},
 	}
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
-		URL:                SubmitOrderEndpoint,                 //setendpoint values
-		AddHeadersFunction: AddHottopicHeaders,                  //todo
-		Referer:            SubmitOrderReferer + task.OldDwcont, //todo
+		URL:                SubmitOrderEndpoint,
+		AddHeadersFunction: AddHottopicHeaders,
+		Referer:            SubmitOrderReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
 	})
 	if err != nil {
