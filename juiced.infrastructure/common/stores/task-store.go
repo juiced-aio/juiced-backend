@@ -130,6 +130,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
+
 	case enums.Hottopic:
 		// Check if task exists in store already
 		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
@@ -139,11 +140,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		if queryError {
 			return false
 		}
-		// Make sure necessary fields exist
-		// No necessary fields atm
-		//if task.HottopicTaskInfo. == "" || task.HottopicTaskInfo.Email == "" || task.HottopicTaskInfo.Password == "" {
-		//	return false
-		//}
 		// Create task
 		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxy, taskStore.EventBus)
 		if err != nil {

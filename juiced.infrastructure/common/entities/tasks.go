@@ -34,8 +34,6 @@ type WalmartTaskInfo struct {
 
 type HottopicTaskInfo struct {
 	Pids []string
-	//size
-
 }
 
 // TargetTaskInfo is a class that holds Target-specific details for a single bot task
@@ -159,9 +157,9 @@ type HottopicSingleMonitorInfo struct {
 	Pid         string            `json:"pids"`
 	Size        string            `json:"size"`
 	Color       string            `json:"color"`
+	MaxPrice    int               `json:"maxPrice"`
 	MonitorType enums.MonitorType `json:"monitorType"`
 	Client      http.Client
-	MaxPrice    int `json:"maxPrice"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup

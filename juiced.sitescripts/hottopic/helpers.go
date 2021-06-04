@@ -7,7 +7,7 @@ import (
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 )
 
-// AddWalmartHeaders adds Walmart-specific headers to the request
+// AddHottopicHeaders adds Walmart-specific headers to the request
 func AddHottopicHeaders(request *http.Request, referer ...string) {
 	util.AddBaseHeaders(request)
 	request.Header.Set("Accept", "application/json")
