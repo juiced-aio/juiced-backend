@@ -194,24 +194,29 @@ func (task *Task) WaitForMonitor() bool {
 
 // AddToCart sends a post request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
-	//Ive added all the payload values here which are used from the browser however you can remove the marked values
-	//and the ATC still seems to function fine. For this reason not sure if we need these values at all.
-	//In theory could be a means to identify the bot and cancel orders but that could be an issue for another day.
+	colorSelected := "notRequired"
+	sizeSelected := "notRequired"
+	inseamSelected := "notRequired"
+
+	if len(task.Color) > 0 {
+		colorSelected = "true"
+	}
+	if len(task.Size) > 0 {
+		sizeSelected = "true"
+	}
+	if len(task.Size) > 0 {
+		inseamSelected = "true"
+	}
+
 	data := url.Values{
-		"shippingMethod-13249991":  {"shipToHome"},
-		"deliveryMsgHome-13249991": {"Backorder:Expected to ship by:05/18/21 - 05/29/21"}, //not needed
-		"atc-13249991":             {"0.0"},                                               //not needed
-		"storeId-13249991":         {"2536"},                                              //not needed
-		"deliveryType-13249991":    {""},                                                  //not needed
-		"deliveryMsg-13249991":     {"Unavailable for in-store pickup"},                   //not needed
-		"cgid":                     {""},                                                  //not needed
-		"pid":                      {task.Pid},
-		"Quantity":                 {"1"},
-		"hasColorSelected":         {"notRequired"}, //not needed
-		"hasSizeSelected":          {"true"},        //not needed
-		"hasInseamSelected":        {"notRequired"}, //not needed
-		"cartAction":               {"add"},
-		"productColor":             {""}, //not needed
+		"shippingMethod-13249991": {"shipToHome"},
+		"pid":                     {task.Pid},
+		"Quantity":                {"1"},
+		"hasColorSelected":        {colorSelected},
+		"hasSizeSelected":         {sizeSelected},
+		"hasInseamSelected":       {inseamSelected},
+		"cartAction":              {"add"},
+		"productColor":            {task.Color},
 	}
 
 	resp, err := util.MakeRequest(&util.Request{
@@ -230,9 +235,6 @@ func (task *Task) AddToCart() bool {
 
 	return true
 }
-
-//GetCheckout is here to get the Dwcont which we need for the next request
-//We can also maybe get some cart info here if we want about what items are in the cart
 func (task *Task) GetCheckout() bool {
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
@@ -253,14 +255,19 @@ func (task *Task) GetCheckout() bool {
 	return true
 }
 func (task *Task) ProceedToCheckout() bool {
+	data := url.Values{
+		"dwfrm_cart_checkoutCart": {"checkout"},
+	}
+
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont, //setendpoint values
 		AddHeadersFunction: AddHottopicHeaders,                      //todo
 		Referer:            ProceedToCheckoutReferer,                //todo
+		RequestBodyStruct:  data,
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -275,12 +282,18 @@ func (task *Task) ProceedToCheckout() bool {
 	return true
 }
 func (task *Task) GuestCheckout() bool {
+	data := url.Values{
+		"dwfrm_login_unregistered": {"Checkout As a Guest"},
+		"dwfrm_login_securekey":    {task.SecureKey},
+	}
+
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,   //setendpoint values
 		AddHeadersFunction: AddHottopicHeaders,                    //todo
 		Referer:            GuestCheckoutReferer + task.OldDwcont, //todo
+		RequestBodyStruct:  data,
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -297,12 +310,32 @@ func (task *Task) GuestCheckout() bool {
 	return true
 }
 func (task *Task) SubmitShipping() bool {
+	data := url.Values{
+		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.Email},
+		"dwfrm_singleshipping_email_emailAddress":                         {task.Task.Profile.Email},
+		"dwfrm_singleshipping_addToEmailList":                             {"false"},
+		"dwfrm_singleshipping_shippingAddress_addressFields_firstName":    {task.Task.Profile.ShippingAddress.FirstName},
+		"dwfrm_singleshipping_shippingAddress_addressFields_lastName":     {task.Task.Profile.ShippingAddress.LastName},
+		"dwfrm_singleshipping_shippingAddress_addressFields_country":      {task.Task.Profile.ShippingAddress.CountryCode},
+		"dwfrm_singleshipping_shippingAddress_addressFields_postal":       {task.Task.Profile.ShippingAddress.ZipCode},
+		"dwfrm_singleshipping_shippingAddress_addressFields_address1":     {task.Task.Profile.ShippingAddress.Address1},
+		"dwfrm_singleshipping_shippingAddress_addressFields_address2":     {task.Task.Profile.ShippingAddress.Address2},
+		"dwfrm_singleshipping_shippingAddress_addressFields_city":         {task.Task.Profile.ShippingAddress.City},
+		"dwfrm_singleshipping_shippingAddress_addressFields_states_state": {task.Task.Profile.ShippingAddress.StateCode},
+		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"true"}, //depends if they want to or not? Not sure what to do here.
+		"dwfrm_singleshipping_shippingAddress_shippingMetho	dID": {"7D"}, // multiple methods, should we default to 1?
+		"dwfrm_singleshipping_shippingAddress_isGift":      {"false"}, //assume always false?
+		"dwfrm_singleshipping_shippingAddress_giftMessage": {""},      //^
+		"dwfrm_singleshipping_shippingAddress_save":        {"Continue to Billing"},
+		"dwfrm_singleshipping_securekey":                   {task.SecureKey},
+	}
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitShippingEndpoint + task.Dwcont,   //setendpoint values
 		AddHeadersFunction: AddHottopicHeaders,                     //todo
 		Referer:            SubmitShippingReferer + task.OldDwcont, //todo
+		RequestBodyStruct:  data,
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -318,12 +351,16 @@ func (task *Task) SubmitShipping() bool {
 	return true
 }
 func (task *Task) UseOrigAddress() bool {
+	data := url.Values{
+		"dwfrm_addForm_useOrig": {""},
+	}
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,   //setendpoint values
 		AddHeadersFunction: AddHottopicHeaders,                     //todo
 		Referer:            UseOrigAddressReferer + task.OldDwcont, //todo
+		RequestBodyStruct:  data,
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -340,12 +377,44 @@ func (task *Task) UseOrigAddress() bool {
 	return true
 }
 func (task *Task) SubmitPaymentInfo() bool {
+	data := url.Values{
+		//"dwfrm_billing_save":                                   {"true"},
+		"dwfrm_billing_addressChoice_addressChoices":           {"shipping"},
+		"dwfrm_billing_billingAddress_addressFields_firstName": {task.Task.Profile.BillingAddress.FirstName},
+		"dwfrm_billing_billingAddress_addressFields_lastName":  {task.Task.Profile.BillingAddress.LastName},
+		"dwfrm_billing_billingAddress_addressFields_country":   {task.Task.Profile.BillingAddress.CountryCode},
+		"dwfrm_billing_billingAddress_addressFields_postal":    {task.Task.Profile.BillingAddress.ZipCode},
+		"dwfrm_billing_billingAddress_addressFields_address1":  {task.Task.Profile.BillingAddress.Address1,
+		"dwfrm_billing_billingAddress_addressFields_address2":  {task.Task.Profile.BillingAddress.Address2},
+		"dwfrm_billing_billingAddress_addressFields_city":      {task.Task.Profile.BillingAddress.City},
+		"dwfrm_billing_billingAddress_addressFields_states_state": {task.Task.Profile.BillingAddress.StateCode},
+		"dwfrm_billing_billingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
+		"dwfrm_billing_securekey":                                 {task.SecureKey},
+		"dwfrm_billing_couponCode":                                {""}, //coupon
+		"dwfrm_billing_giftCertCode":                              {""}, 
+		"dwfrm_billing_paymentMethods_selectedPaymentMethodID":    {"CREDIT_CARD"},
+		"dwfrm_billing_paymentMethods_creditCard_owner":           {task.Task.Profile.CreditCard.CardholderName},
+		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},
+		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType}, //Ex VISA
+		"dwfrm_billing_paymentMethods_creditCard_month":           {task.Task.Profile.CreditCard.ExpMonth}, //should be month (no 0) Ex: 2
+		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear}, //should be full year Ex: 2026
+		"dwfrm_billing_paymentMethods_creditCard_userexp":         {"02/26"}, //should be smalldate Ex: 02/26
+		"dwfrm_billing_paymentMethods_creditCard_cvn":             {task.Task.Profile.CreditCard.CVV},
+		"cardToken":                              {""}, //is always empty
+		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
+		"dwfrm_billing_paymentMethods_bml_year":  {""}, //always seems to be empty
+		"dwfrm_billing_paymentMethods_bml_month": {""}, //always seems to be empty
+		"dwfrm_billing_paymentMethods_bml_day":   {""}, //always seems to be empty
+		"dwfrm_billing_paymentMethods_bml_ssn":   {""}, //always seems to be empty
+		"dwfrm_billing_save":                     {"Continue to Review"},
+	}
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,   //setendpoint values
 		AddHeadersFunction: AddHottopicHeaders,                        //todo
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont, //todo
+		RequestBodyStruct:  data,
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -356,14 +425,19 @@ func (task *Task) SubmitPaymentInfo() bool {
 	return true
 }
 func (task *Task) SubmitOrder() bool {
+	data := url.Values{
+		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]},  //First 6 digits of card number
+		"addToEmailList": {"false"},
+	}
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitOrderEndpoint,                 //setendpoint values
 		AddHeadersFunction: AddHottopicHeaders,                  //todo
 		Referer:            SubmitOrderReferer + task.OldDwcont, //todo
+		RequestBodyStruct:  data,
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 

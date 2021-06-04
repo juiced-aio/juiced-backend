@@ -56,6 +56,9 @@ type PidSingle struct {
 type Task struct {
 	Task      base.Task
 	Pid       string
+	Size      string
+	Color     string
+	Inseam    string
 	Dwcont    string
 	OldDwcont string
 	SecureKey string
