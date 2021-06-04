@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
 	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"github.com/anaskhan96/soup"
 	browser "github.com/eddycjy/fake-useragent"
 )
 
@@ -18,7 +19,7 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
 	hottopicMonitor := Monitor{}
 
-	pids := []string{}
+	pids := []PidSingle{}
 	for _, monitor := range singleMonitors {
 		client, err := util.CreateClient(proxy)
 		if err != nil {
@@ -28,7 +29,12 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 			Pid:    monitor.Pid,
 			Client: client,
 		}
-		pids = append(pids, monitor.Pid)
+		pidV := PidSingle{
+			Pid:   monitor.Pid,
+			size:  monitor.Size,
+			color: monitor.Color,
+		}
+		pids = append(pids, pidV)
 		for created := false; !created; {
 			hottopicMonitor = Monitor{
 				Monitor: base.Monitor{
@@ -68,7 +74,7 @@ func (monitor *Monitor) RunMonitor() {
 	}
 	for _, pid := range monitor.Pids {
 		somethingInStock := false
-		switch monitor.PidWithInfo[pid].MonitorType {
+		switch monitor.PidWithInfo[pid.Pid].MonitorType {
 		case enums.SKUMonitor:
 			somethingInStock = monitor.StockMonitor(pid)
 		}
@@ -77,7 +83,7 @@ func (monitor *Monitor) RunMonitor() {
 			if needToStop {
 				return
 			}
-			monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, pid)
+			monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
 			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
 			monitor.SendToTasks()
 		}
@@ -85,13 +91,21 @@ func (monitor *Monitor) RunMonitor() {
 	}
 }
 
-func (monitor *Monitor) StockMonitor(pid string) bool {
+func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 	var client http.Client
-	client = monitor.PidWithInfo[pid].Client
+	BuildEndpoint := MonitorEndpoint + pid.Pid
+
+	if len(pid.size) > 0 {
+		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_size=" + pid.size
+	}
+	if len(pid.color) > 0 {
+		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_color=" + pid.color
+	}
+	client = monitor.PidWithInfo[pid.Pid].Client
 	resp, err := util.MakeRequest(&util.Request{
 		Client: client,
 		Method: "GET",
-		URL:    MonitorEndpoint + pid,
+		URL:    BuildEndpoint,
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
 			{"sec-ch-ua-mobile", "?0"},
@@ -114,9 +128,8 @@ func (monitor *Monitor) StockMonitor(pid string) bool {
 
 	switch resp.StatusCode {
 	case 200:
-		test := monitor.StockInfo(resp, pid)
-		fmt.Println(test)
-		return test
+		stockInfo := monitor.StockInfo(resp, pid)
+		return stockInfo
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate)
 		return false
@@ -126,21 +139,38 @@ func (monitor *Monitor) StockMonitor(pid string) bool {
 	}
 }
 
-func (monitor *Monitor) StockInfo(resp *http.Response, pid string) bool {
-	//use soup to parse the HTML and get values we want
-	//
-	var priceStr string
-	price, _ := strconv.Atoi(priceStr)
-	inBudget := monitor.PidWithInfo[pid].MaxPrice > price
-	if inBudget {
-		monitor.EventInfo = events.HotTopicSingleStockData{
-			PID:         pid,
-			MonitorType: enums.SKUMonitor,
-			//anymore data you want to scrape put here such as item name, size, color etc.
-		}
+func (monitor *Monitor) StockInfo(resp *http.Response, pid PidSingle) bool {
+	body := util.ReadBody(resp)
+	doc := soup.HTMLParse(body)
+
+	ShipTable := doc.Find("div", "class", "method-descr__label")
+	InStock := ShipTable.Find("span", "class", "color-green").Text() == "In stock"
+	if !InStock {
+		InStock = ShipTable.Find("span", "class", "text-red").Text() == "Backorder"
+	}
+	if !InStock {
+		//not instock or backorder return false
+		return InStock
 	}
 
-	return inBudget
+	//We are in stock for this size/color, lets check price is in budget.
+	PriceText := doc.Find("span", "class", "productdetail__info-pricing-original").Text()
+	Price, _ := strconv.Atoi(PriceText)
+	InBudget := monitor.PidWithInfo[pid.Pid].MaxPrice > Price
+
+	if !InBudget {
+		//not in budget return false
+		return InBudget
+	}
+
+	//we are in stock and in budget
+	monitor.EventInfo = events.HotTopicSingleStockData{
+		PID:         pid.Pid,
+		MonitorType: enums.SKUMonitor,
+	}
+
+	//EventInfo updated now we return true
+	return true
 }
 func (monitor *Monitor) SendToTasks() {
 	data := events.HottopicStockData{

@@ -157,6 +157,8 @@ type HottopicMonitorInfo struct {
 
 type HottopicSingleMonitorInfo struct {
 	Pid         string            `json:"pids"`
+	Size        string            `json:"size"`
+	Color       string            `json:"color"`
 	MonitorType enums.MonitorType `json:"monitorType"`
 	Client      http.Client
 	MaxPrice    int `json:"maxPrice"`

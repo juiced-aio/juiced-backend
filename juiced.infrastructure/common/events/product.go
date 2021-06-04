@@ -53,6 +53,7 @@ type HottopicData struct {
 type HottopicStockData struct {
 	InStock []HotTopicSingleStockData
 }
+
 type HotTopicSingleStockData struct {
 	PID         string
 	MonitorType enums.MonitorType
