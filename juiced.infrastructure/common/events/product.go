@@ -1,6 +1,7 @@
 package events
 
 import (
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -16,8 +17,8 @@ type WalmartStockData struct {
 }
 
 type WalmartSingleStockData struct {
-	Sku     string `json:"sku"`
-	OfferID string `json:"offerID"`
+	Product entities.WalmartProduct `json:"product"`
+	OfferID string                  `json:"offerID"`
 }
 
 type AmazonSingleStockData struct {

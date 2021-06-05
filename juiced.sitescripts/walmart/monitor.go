@@ -15,7 +15,7 @@ import (
 )
 
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
-func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, skus []string) (Monitor, error) {
+func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, products []entities.WalmartProduct) (Monitor, error) {
 	walmartMonitor := Monitor{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
@@ -29,7 +29,7 @@ func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, e
 			Client:    client,
 		},
 		MonitorType: monitorType,
-		SKUs:        skus,
+		Products:    products,
 	}
 	return walmartMonitor, err
 }
@@ -98,10 +98,17 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	inStockForShip := make([]events.WalmartSingleStockData, 0)
 	outOfStockForShip := make([]string, 0)
 
+	var products []entities.WalmartProduct
+	var skus []string
+	for _, product := range monitor.Products {
+		products = append(products, product)
+		skus = append(skus, product.Sku)
+	}
+
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
-		URL:    MonitorEndpoint + strings.Join(monitor.SKUs, ","),
+		URL:    MonitorEndpoint + strings.Join(skus, ","),
 		RawHeaders: [][2]string{
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"accept-encoding", "gzip, deflate, br"},
@@ -127,19 +134,34 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 			//captcha
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
-			inStockForShip = ConvertSkuListToWalmartSingleStock(monitor.SKUs)
+			inStockForShip = ConvertProductsToWalmartSingleStock(products)
 		} else {
 			responseBody := soup.HTMLParse(string(body))
-
 			if !UrlExistsInResponse(responseBody) {
 				fmt.Println("All requested items are out of stock.")
-				outOfStockForShip = monitor.SKUs
+				outOfStockForShip = skus
 			} else {
-				inStockForShip = ConvertSkuListToWalmartSingleStock(ParseInstockSku(responseBody))
-				fmt.Print(inStockForShip)
-				fmt.Println(" items are in-stock")
+				foundItems := ParseInstockSku(responseBody)
+				//remove from products where it wasnt found. We do this as we need to keep our maxPrice with it.
+				for i, v := range products {
+					if !findValueInList(v.Sku, foundItems) {
+						//not in stock remove from our list
+						products = append(products[:i], products[i+1:]...)
+					} else {
+						if v.MaxPrice < 99999 {
+							price := GetPrice(v.Sku)
+							if price > v.MaxPrice {
+								//too expensive remove from our list
+								products = append(products[:i], products[i+1:]...)
+							}
+						}
+					}
+				}
 			}
-			return inStockForShip, outOfStockForShip
+
+			inStockForShip = ConvertProductsToWalmartSingleStock(products)
+			fmt.Print(inStockForShip)
+			fmt.Println(" items are in-stock")
 		}
 	case 404:
 		fmt.Printf("We have a bad response:%v", resp.Status)
@@ -150,6 +172,36 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	return inStockForShip, outOfStockForShip
 }
 
+func GetPrice(Sku string) int {
+	return 1
+}
+
+//takes a lists of needles and searches a list of haystacks. Filters out missing needles and returns list.
+func ListUniqueFilter(needles []string, haystack []string) []string {
+	for _, needle := range needles {
+		if !findValueInList(needle, haystack) {
+			for i, v := range needles {
+				if v == needle {
+					needles = append(needles[:i], needles[i+1:]...)
+					break
+				}
+			}
+		}
+	}
+
+	return needles
+}
+
+func findValueInList(needle string, haystack []string) bool {
+	found := false
+	for _, i := range haystack {
+		if i == needle {
+			found = true
+			break
+		}
+	}
+	return found
+}
 func (monitor *Monitor) SendToTasks(inStockForShip []events.WalmartSingleStockData) {
 	data := events.WalmartStockData{InStockForShip: inStockForShip}
 	monitor.Monitor.EventBus.PublishProductEvent(enums.Walmart, data, monitor.Monitor.TaskGroup.GroupID)

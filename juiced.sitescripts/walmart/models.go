@@ -1,6 +1,7 @@
 package walmart
 
 import (
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
@@ -27,14 +28,15 @@ const (
 	PlaceOrderEndpoint = "https://www.walmart.com/api/checkout/v3/contract/:PCID/order"
 	PlaceOrderReferer  = "https://www.walmart.com/checkout/"
 
-	MonitorEndpoint = "https://affil.walmart.com/cart/buynow?items="
+	MonitorEndpoint    = "https://affil.walmart.com/cart/buynow?items="
+	PriceCheckEndpoint = ""
 )
 
 // Monitor info
 type Monitor struct {
 	Monitor     base.Monitor
 	MonitorType enums.MonitorType
-	SKUs        []string
+	Products    []entities.WalmartProduct
 }
 
 // Task info

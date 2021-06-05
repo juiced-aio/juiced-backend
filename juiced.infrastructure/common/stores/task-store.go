@@ -268,7 +268,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 				inStockForShip := event.ProductEvent.WalmartData.InStockForShip
 				for _, walmartTask := range taskStore.WalmartTasks {
 					if walmartTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Sku
+						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Product.Sku
 						walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 
