@@ -151,7 +151,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 						if v.MaxPrice < 99999 {
 							price := GetPrice(v.Sku)
 							if price > v.MaxPrice {
-								//too expensive remove from our list
+								//too expensive remove from our products
 								products = append(products[:i], products[i+1:]...)
 							}
 						}
@@ -174,22 +174,6 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 
 func GetPrice(Sku string) int {
 	return 1
-}
-
-//takes a lists of needles and searches a list of haystacks. Filters out missing needles and returns list.
-func ListUniqueFilter(needles []string, haystack []string) []string {
-	for _, needle := range needles {
-		if !findValueInList(needle, haystack) {
-			for i, v := range needles {
-				if v == needle {
-					needles = append(needles[:i], needles[i+1:]...)
-					break
-				}
-			}
-		}
-	}
-
-	return needles
 }
 
 func findValueInList(needle string, haystack []string) bool {
