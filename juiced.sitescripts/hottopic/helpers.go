@@ -10,9 +10,9 @@ import (
 // AddHottopicHeaders adds Walmart-specific headers to the request
 func AddHottopicHeaders(request *http.Request, referer ...string) {
 	util.AddBaseHeaders(request)
-	request.Header.Set("Accept", "application/json")
-	request.Header.Set("Content-Type", "application/json")
-	request.Header.Set("Origin", "https://www.walmart.com")
+	request.Header.Set("Accept", "*/*")
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+	request.Header.Set("Origin", "https://www.hottopic.com")
 	// omitcsrfjwt: true
 	// omitcorrelationid: true
 	// credentials: include

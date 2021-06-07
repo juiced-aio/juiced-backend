@@ -21,13 +21,8 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 
 	pids := []PidSingle{}
 	for _, monitor := range singleMonitors {
-		client, err := util.CreateClient(proxy)
-		if err != nil {
-			return hottopicMonitor, err
-		}
 		storedHottopicMonitors[monitor.Pid] = entities.HottopicSingleMonitorInfo{
-			Pid:    monitor.Pid,
-			Client: client,
+			Pid: monitor.Pid,
 		}
 		pidV := PidSingle{
 			Pid:   monitor.Pid,
@@ -92,7 +87,6 @@ func (monitor *Monitor) RunMonitor() {
 }
 
 func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
-	var client http.Client
 	BuildEndpoint := MonitorEndpoint + pid.Pid
 
 	//Values have to be exact and case sensistive
@@ -112,9 +106,8 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_color=" + pid.color
 	}
 
-	client = monitor.PidWithInfo[pid.Pid].Client
 	resp, err := util.MakeRequest(&util.Request{
-		Client: client,
+		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    BuildEndpoint,
 		RawHeaders: [][2]string{
