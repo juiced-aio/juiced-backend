@@ -20,10 +20,7 @@ func CreateBestbuyMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, e
 	skus := []string{}
 
 	for _, monitor := range singleMonitors {
-		storedBestbuyMonitors[monitor.SKU] = entities.BestbuySingleMonitorInfo{
-			SKU:      monitor.SKU,
-			MaxPrice: monitor.MaxPrice,
-		}
+		storedBestbuyMonitors[monitor.SKU] = monitor
 		skus = append(skus, monitor.SKU)
 	}
 

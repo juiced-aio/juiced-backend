@@ -5,21 +5,23 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
-
-	"github.com/dgrijalva/jwt-go"
-	"github.com/go-rod/rod"
-	"github.com/go-rod/rod/lib/launcher"
-	"github.com/go-rod/rod/lib/launcher/flags"
-	"github.com/go-rod/stealth"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
+	"github.com/dgrijalva/jwt-go"
+	"github.com/go-rod/rod"
+	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/stealth"
 )
 
 // TODO @silent: Handle proxies
@@ -118,12 +120,13 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	// 4. AddtoCart
 	addedToCart := false
+	overMaxPrice := false
 	for !addedToCart {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || overMaxPrice {
 			return
 		}
-		addedToCart = task.AddToCart()
+		overMaxPrice, addedToCart = task.AddToCart()
 		if !addedToCart {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -176,12 +179,13 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 8. PlaceOrder
 	placedOrder := false
+	var status enums.OrderStatus
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || status == enums.OrderStatusDeclined {
 			return
 		}
-		placedOrder = task.PlaceOrder()
+		status, placedOrder = task.PlaceOrder()
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -347,9 +351,16 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 // AddToCart sends a post request to the AddToCartEndpoint with a body determined by the CheckoutType
-func (task *Task) AddToCart() bool {
+func (task *Task) AddToCart() (bool, bool) {
 	var data []byte
 	var err error
+	tcinWithPrice := strings.Split(task.TCIN, "|")
+	price, err := strconv.Atoi(tcinWithPrice[1])
+	if err != nil {
+		return false, false
+	}
+	task.TCINMaxPrice = price
+	task.TCIN = tcinWithPrice[0]
 	// TODO: Handle TCIN in stock for ship when user prefers pickup
 	if task.CheckoutType == enums.CheckoutTypeSHIP {
 		data, err = json.Marshal(AddToCartShipRequest{
@@ -358,7 +369,7 @@ func (task *Task) AddToCart() bool {
 			ShoppingContext: "DIGITAL",
 			CartItem: CartItem{
 				TCIN:          task.TCIN,
-				Quantity:      1,
+				Quantity:      task.Task.Task.TaskQty,
 				ItemChannelID: "10",
 			},
 		})
@@ -369,7 +380,7 @@ func (task *Task) AddToCart() bool {
 			ShoppingContext: "DIGITAL",
 			CartItem: CartItem{
 				TCIN:          task.TCIN,
-				Quantity:      1,
+				Quantity:      task.Task.Task.TaskQty,
 				ItemChannelID: "90",
 			},
 			Fulfillment: CartFulfillment{
@@ -381,7 +392,7 @@ func (task *Task) AddToCart() bool {
 	}
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false
+		return false, false
 	}
 	addToCartResponse := AddToCartResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -394,15 +405,15 @@ func (task *Task) AddToCart() bool {
 		ResponseBodyStruct: &addToCartResponse,
 	})
 	if err != nil {
-		return false
+		return false, false
 	}
 
 	switch resp.StatusCode {
-	case 200:
+	case 201:
 		task.AccountInfo.CartID = addToCartResponse.CartID
-		return true
+		return float64(task.TCINMaxPrice) > addToCartResponse.CurrentPrice, true
 	default:
-		return false
+		return false, false
 	}
 
 }
@@ -438,7 +449,6 @@ func (task *Task) GetCartInfo() bool {
 
 // SetShippingInfo sets the shipping address or does nothing if using a saved address
 func (task *Task) SetShippingInfo() bool {
-	setShippingInfoResponse := SetShippingInfoResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
@@ -464,18 +474,16 @@ func (task *Task) SetShippingInfo() bool {
 			SaveToProfile:    false,
 			SkipVerification: true,
 		},
-		ResponseBodyStruct: &setShippingInfoResponse,
 	})
 	if err != nil {
 		return err == nil
 	}
 
-	switch resp.StatusCode {
-	case 200:
-		return true
-	default:
+	if resp.StatusCode != 200 {
 		return false
 	}
+
+	return true
 
 }
 
@@ -522,7 +530,7 @@ func (task *Task) SetPaymentInfo() bool {
 	if !ok {
 		return false
 	}
-	setPaymentInfoResponse := SetPaymentInfoResponse{}
+
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
@@ -530,26 +538,23 @@ func (task *Task) SetPaymentInfo() bool {
 		AddHeadersFunction: AddTargetHeaders,
 		Referer:            util.TernaryOperator(task.AccountInfo.PaymentType == enums.PaymentTypeSAVED, SetPaymentInfoSAVEDReferer, SetPaymentInfoNEWReferer).(string),
 		Data:               data,
-		ResponseBodyStruct: &setPaymentInfoResponse,
 	})
 	if err != nil {
 		return false
 	}
 
 	// TODO: Handle various responses
-	log.Println(setPaymentInfoResponse)
+	// Not much to handle here
 
-	switch resp.StatusCode {
-	case 200:
-		return true
-	default:
+	if resp.StatusCode != 200 {
 		return false
 	}
-
+	return true
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder() (enums.OrderStatus, bool) {
+	var status enums.OrderStatus
 	placeOrderRequest := PlaceOrderRequest{
 		CartType:  "REGULAR",
 		ChannelID: 10,
@@ -565,17 +570,31 @@ func (task *Task) PlaceOrder() bool {
 		ResponseBodyStruct: &placeOrderResponse,
 	})
 	if err != nil {
-		return false
+		return status, false
 	}
 
 	// TODO: Handle various responses
 	log.Println(placeOrderResponse.Message)
-
+	var success bool
 	switch resp.StatusCode {
 	case 200:
-		return true
+		status = enums.OrderStatusSuccess
+		success = true
 	default:
-		return false
+		switch placeOrderResponse.Code {
+		case "PAYMENT_DECLINED_EXCEPTION":
+			status = enums.OrderStatusDeclined
+			success = false
+		default:
+			status = enums.OrderStatusFailed
+			success = false
+		}
 	}
-
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return status, success
+	}
+	sec.DiscordWebhook(success, "", task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath), user)
+	return status, success
 }

@@ -6,6 +6,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
@@ -35,10 +36,11 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor     base.Monitor
-	MonitorType enums.MonitorType
-	TCINs       []string
-	StoreID     string
+	Monitor       base.Monitor
+	MonitorType   enums.MonitorType
+	TCINs         []string
+	StoreID       string
+	TCINsWithInfo map[string]entities.TargetSingleMonitorInfo
 }
 
 // Task info
@@ -47,6 +49,7 @@ type Task struct {
 	CheckoutType enums.CheckoutType
 	AccountInfo  AccountInfo
 	TCIN         string
+	TCINMaxPrice int
 }
 
 // Used in SetPaymentInfo function

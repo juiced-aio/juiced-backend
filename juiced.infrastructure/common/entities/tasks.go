@@ -117,12 +117,15 @@ type TaskGroup struct {
 	// Future sitescripts will have a field here
 }
 
+type TargetSingleMonitorInfo struct {
+	TCIN     string `json:"tcin"`
+	MaxPrice int    `json:"maxPrice"`
+}
+
 // TargetMonitorInfo is a class that holds Target-specific details for a single monitor
 type TargetMonitorInfo struct {
-	MonitorType enums.MonitorType `json:"monitorType"`
-	TCINs       []string          `json:"tcins"`
-	StoreID     string            `json:"storeID"`
-	MaxPrice    int               `json:"maxPrice"`
+	Monitors []TargetSingleMonitorInfo `json:"monitors"`
+	StoreID  string                    `json:"storeID"`
 }
 
 type WalmartMonitorInfo struct {

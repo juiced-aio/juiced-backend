@@ -1,6 +1,7 @@
 package target
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,12 +13,20 @@ import (
 )
 
 // CreateTargetMonitor takes a TaskGroup entity and turns it into a Target Monitor
-func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, tcins []string, storeID string) (Monitor, error) {
+func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitor entities.TargetMonitorInfo) (Monitor, error) {
+	storedTargetMonitors := make(map[string]entities.TargetSingleMonitorInfo)
 	targetMonitor := Monitor{}
+	tcins := []string{}
+	for _, monitor := range monitor.Monitors {
+		storedTargetMonitors[monitor.TCIN] = monitor
+		tcins = append(tcins, monitor.TCIN)
+	}
+
 	client, err := util.CreateClient(proxy)
 	if err != nil {
 		return targetMonitor, err
 	}
+
 	targetMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
@@ -25,9 +34,9 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, ev
 			EventBus:  eventBus,
 			Client:    client,
 		},
-		MonitorType: monitorType,
-		TCINs:       tcins,
-		StoreID:     storeID,
+		TCINs:         tcins,
+		StoreID:       monitor.StoreID,
+		TCINsWithInfo: storedTargetMonitors,
 	}
 	return targetMonitor, err
 }
@@ -136,13 +145,15 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	case 200:
 		for _, product := range getTCINStockResponse.Data.ProductSummaries {
 			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" {
-				inStockForShip = append(inStockForShip, product.TCIN)
+				TCINWithMaxPrice := product.TCIN + "|" + fmt.Sprint(monitor.TCINsWithInfo[product.TCIN].MaxPrice)
+				inStockForShip = append(inStockForShip, TCINWithMaxPrice)
 			} else {
 				outOfStockForShip = append(outOfStockForShip, product.TCIN)
 			}
 			for _, store := range product.Fulfillment.StoreOptions {
 				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID {
-					inStockForPickup = append(inStockForPickup, product.TCIN)
+					TCINWithMaxPrice := product.TCIN + "|" + fmt.Sprint(monitor.TCINsWithInfo[product.TCIN].MaxPrice)
+					inStockForPickup = append(inStockForPickup, TCINWithMaxPrice)
 				} else {
 					outOfStockForPickup = append(outOfStockForPickup, product.TCIN)
 				}

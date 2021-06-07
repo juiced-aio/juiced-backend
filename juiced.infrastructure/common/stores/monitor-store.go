@@ -52,12 +52,11 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 		// Make sure necessary fields exist
-		emptyString := ""
-		if monitor.TargetMonitorInfo.MonitorType == emptyString || len(monitor.TargetMonitorInfo.TCINs) == 0 {
+		if len(monitor.TargetMonitorInfo.Monitors) == 0 {
 			return false
 		}
 		// Create monitor
-		targetMonitor, err := target.CreateTargetMonitor(monitor, proxy, monitorStore.EventBus, monitor.TargetMonitorInfo.MonitorType, monitor.TargetMonitorInfo.TCINs, monitor.TargetMonitorInfo.StoreID)
+		targetMonitor, err := target.CreateTargetMonitor(monitor, proxy, monitorStore.EventBus, monitor.TargetMonitorInfo)
 		if err != nil {
 			return false
 		}
