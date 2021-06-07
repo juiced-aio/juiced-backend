@@ -89,7 +89,7 @@ type TaskGroupWithTasks struct {
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
-	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo" bson:hottopicMonitorInfo"`
+	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo" bson:"hottopicMonitorInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -159,7 +159,6 @@ type HottopicSingleMonitorInfo struct {
 	Color       string            `json:"color"`
 	MaxPrice    int               `json:"maxPrice"`
 	MonitorType enums.MonitorType `json:"monitorType"`
-	Client      http.Client
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup

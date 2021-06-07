@@ -66,7 +66,7 @@ const (
 	Shopify     Retailer = "Shopify"
 	BigCartel   Retailer = "BigCartel"
 	SquareSpace Retailer = "SquareSpace"
-	Hottopic    Retailer = "Hottopic"
+	Hottopic    Retailer = "HotTopic"
 )
 
 // MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)

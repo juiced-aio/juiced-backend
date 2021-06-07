@@ -321,12 +321,12 @@ func (task *Task) SubmitShipping() bool {
 		"dwfrm_singleshipping_shippingAddress_addressFields_address2":     {task.Task.Profile.ShippingAddress.Address2},
 		"dwfrm_singleshipping_shippingAddress_addressFields_city":         {task.Task.Profile.ShippingAddress.City},
 		"dwfrm_singleshipping_shippingAddress_addressFields_states_state": {task.Task.Profile.ShippingAddress.StateCode},
-		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"true"}, //depends if they want to or not? Not sure what to do here.
-		"dwfrm_singleshipping_shippingAddress_shippingMetho	dID": {"7D"}, // multiple methods, should we default to 1?
-		"dwfrm_singleshipping_shippingAddress_isGift":      {"false"}, //assume always false?
-		"dwfrm_singleshipping_shippingAddress_giftMessage": {""},      //^
-		"dwfrm_singleshipping_shippingAddress_save":        {"Continue to Billing"},
-		"dwfrm_singleshipping_securekey":                   {task.SecureKey},
+		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"false"}, //depends if they want to or not? Not sure what to do here.
+		"dwfrm_singleshipping_shippingAddress_shippingMethodID":           {"7D"},    // multiple methods, should we default to 1?
+		"dwfrm_singleshipping_shippingAddress_isGift":                     {"false"}, //assume always false?
+		"dwfrm_singleshipping_shippingAddress_giftMessage":                {""},      //^
+		"dwfrm_singleshipping_shippingAddress_save":                       {"Continue to Billing"},
+		"dwfrm_singleshipping_securekey":                                  {task.SecureKey},
 	}
 	resp, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,

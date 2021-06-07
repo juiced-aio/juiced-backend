@@ -176,8 +176,7 @@ func (monitor *Monitor) StockInfo(resp *http.Response, pid PidSingle) bool {
 
 	//we are in stock and in budget
 	monitor.EventInfo = events.HotTopicSingleStockData{
-		PID:         pid.Pid,
-		MonitorType: enums.SKUMonitor,
+		PID: pid.Pid,
 	}
 
 	//EventInfo updated now we return true

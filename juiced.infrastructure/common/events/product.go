@@ -46,17 +46,12 @@ type BestbuyStockData struct {
 	InStock []BestbuySingleStockData
 }
 
-type HottopicData struct {
-	Pid string
-}
-
 type HottopicStockData struct {
 	InStock []HotTopicSingleStockData
 }
 
 type HotTopicSingleStockData struct {
-	PID         string
-	MonitorType enums.MonitorType
+	PID string
 }
 
 // ProductEvent is fired whenever a Monitor finds a product
