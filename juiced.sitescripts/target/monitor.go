@@ -1,7 +1,6 @@
 package target
 
 import (
-	"fmt"
 	"strings"
 	"time"
 
@@ -144,24 +143,61 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	switch resp.StatusCode {
 	case 200:
 		for _, product := range getTCINStockResponse.Data.ProductSummaries {
-			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" {
-				TCINWithMaxPrice := product.TCIN + "|" + fmt.Sprint(monitor.TCINsWithInfo[product.TCIN].MaxPrice)
-				inStockForShip = append(inStockForShip, TCINWithMaxPrice)
+			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" && monitor.CheckPrice(product.TCIN) {
+				TCINWithType := product.TCIN + "|" + monitor.TCINsWithInfo[product.TCIN].CheckoutType
+				inStockForShip = append(inStockForShip, TCINWithType)
 			} else {
 				outOfStockForShip = append(outOfStockForShip, product.TCIN)
 			}
 			for _, store := range product.Fulfillment.StoreOptions {
-				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID {
-					TCINWithMaxPrice := product.TCIN + "|" + fmt.Sprint(monitor.TCINsWithInfo[product.TCIN].MaxPrice)
-					inStockForPickup = append(inStockForPickup, TCINWithMaxPrice)
+				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID && monitor.CheckPrice(product.TCIN) {
+					TCINWithType := product.TCIN + "|" + monitor.TCINsWithInfo[product.TCIN].CheckoutType
+					inStockForPickup = append(inStockForPickup, TCINWithType)
 				} else {
 					outOfStockForPickup = append(outOfStockForPickup, product.TCIN)
 				}
+			}
+			switch monitor.TCINsWithInfo[product.TCIN].CheckoutType {
+			case enums.CheckoutTypeSHIP:
+				inStockForPickup = inStockForPickup[:0]
+			case enums.CheckoutTypePICKUP:
+				inStockForShip = inStockForShip[:0]
 			}
 		}
 	}
 
 	return inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup
+}
+
+func (monitor *Monitor) CheckPrice(sku string) bool {
+
+	params := util.CreateParams(map[string]string{
+		"key":                             "ff457966e64d5e877fdbad070f276d18ecec4a01",
+		"tcin":                            sku,
+		"store_id":                        monitor.StoreID,
+		"has_store_id":                    "true",
+		"pricing_store_id":                monitor.StoreID,
+		"has_pricing_store_id":            "true",
+		"scheduled_delivery_store_id":     monitor.StoreID,
+		"has_scheduled_delivery_store_id": "true",
+		"has_financing_options":           "true",
+	})
+
+	checkPriceResponse := CheckPriceResponse{}
+
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client:             monitor.Monitor.Client,
+		Method:             "GET",
+		URL:                CheckPriceEndpoint + params,
+		AddHeadersFunction: AddTargetHeaders,
+		Referer:            CheckPriceReferer + sku,
+		ResponseBodyStruct: &checkPriceResponse,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+
+	return monitor.TCINsWithInfo[sku].MaxPrice > int(checkPriceResponse.Data.Product.Price.CurrentRetail)
 }
 
 // SendToTasks sends the product info to tasks

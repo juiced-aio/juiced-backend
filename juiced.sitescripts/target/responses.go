@@ -6,6 +6,11 @@ type GetTCINStockResponse struct {
 	Data   Data     `json:"data"`
 }
 
+// CheckPrice is returned by the CheckPrice endpoint
+type CheckPriceResponse struct {
+	Data PriceData `json:"data"`
+}
+
 // RefreshLoginResponse is returned by the RefreshLogin endpoint
 type RefreshLoginResponse struct {
 	AccessToken  string `json:"access_token"`

@@ -271,7 +271,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Sku
 						walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
-
 				}
 			case enums.Amazon:
 				inStock := event.ProductEvent.AmazonData.InStock
@@ -287,7 +286,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 						amazonTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
 						amazonTask.CheckoutInfo.UA = inStock[rand.Intn(len(inStock))].UA
 						amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(inStock[rand.Intn(len(inStock))].MonitorType)
-
 					}
 				}
 			case enums.BestBuy:
