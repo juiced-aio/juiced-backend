@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -120,13 +119,12 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	// 4. AddtoCart
 	addedToCart := false
-	overMaxPrice := false
 	for !addedToCart {
 		needToStop := task.CheckForStop()
-		if needToStop || overMaxPrice {
+		if needToStop {
 			return
 		}
-		overMaxPrice, addedToCart = task.AddToCart()
+		addedToCart = task.AddToCart()
 		if !addedToCart {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -351,49 +349,63 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 // AddToCart sends a post request to the AddToCartEndpoint with a body determined by the CheckoutType
-func (task *Task) AddToCart() (bool, bool) {
+func (task *Task) AddToCart() bool {
 	var data []byte
 	var err error
-	tcinWithPrice := strings.Split(task.TCIN, "|")
-	price, err := strconv.Atoi(tcinWithPrice[1])
-	if err != nil {
-		return false, false
-	}
-	task.TCINMaxPrice = price
-	task.TCIN = tcinWithPrice[0]
-	// TODO: Handle TCIN in stock for ship when user prefers pickup
-	if task.CheckoutType == enums.CheckoutTypeSHIP {
-		data, err = json.Marshal(AddToCartShipRequest{
-			CartType:        "REGULAR",
-			ChannelID:       "10",
-			ShoppingContext: "DIGITAL",
-			CartItem: CartItem{
-				TCIN:          task.TCIN,
-				Quantity:      task.Task.Task.TaskQty,
-				ItemChannelID: "10",
-			},
-		})
-	} else {
-		data, err = json.Marshal(AddToCartPickupRequest{
-			CartType:        "REGULAR",
-			ChannelID:       "10",
-			ShoppingContext: "DIGITAL",
-			CartItem: CartItem{
-				TCIN:          task.TCIN,
-				Quantity:      task.Task.Task.TaskQty,
-				ItemChannelID: "90",
-			},
-			Fulfillment: CartFulfillment{
-				Type:       enums.CheckoutTypePICKUP,
-				LocationID: task.AccountInfo.StoreID,
-				ShipMethod: "STORE_PICKUP",
-			},
-		})
-	}
+	tcinWithType := strings.Split(task.TCIN, "|")
+
+	task.TCINType = tcinWithType[1]
+	task.TCIN = tcinWithType[0]
+
+	shipReq, err := json.Marshal(AddToCartPickupRequest{
+		CartType:        "REGULAR",
+		ChannelID:       "10",
+		ShoppingContext: "DIGITAL",
+		CartItem: CartItem{
+			TCIN:          task.TCIN,
+			Quantity:      task.Task.Task.TaskQty,
+			ItemChannelID: "90",
+		},
+		Fulfillment: CartFulfillment{
+			Type:       enums.CheckoutTypePICKUP,
+			LocationID: task.AccountInfo.StoreID,
+			ShipMethod: "STORE_PICKUP",
+		},
+	})
+	pickupReq, err := json.Marshal(AddToCartPickupRequest{
+		CartType:        "REGULAR",
+		ChannelID:       "10",
+		ShoppingContext: "DIGITAL",
+		CartItem: CartItem{
+			TCIN:          task.TCIN,
+			Quantity:      task.Task.Task.TaskQty,
+			ItemChannelID: "90",
+		},
+		Fulfillment: CartFulfillment{
+			Type:       enums.CheckoutTypePICKUP,
+			LocationID: task.AccountInfo.StoreID,
+			ShipMethod: "STORE_PICKUP",
+		},
+	})
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false, false
+		return false
 	}
+
+	switch task.CheckoutType {
+	case enums.CheckoutTypeSHIP:
+		data = shipReq
+	case enums.CheckoutTypePICKUP:
+		data = pickupReq
+	case enums.CheckoutTypeEITHER:
+		switch task.TCINType {
+		case enums.CheckoutTypeSHIP:
+			data = shipReq
+		case enums.CheckoutTypePICKUP:
+			data = pickupReq
+		}
+	}
+
 	addToCartResponse := AddToCartResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
@@ -405,15 +417,15 @@ func (task *Task) AddToCart() (bool, bool) {
 		ResponseBodyStruct: &addToCartResponse,
 	})
 	if err != nil {
-		return false, false
+		return false
 	}
 
 	switch resp.StatusCode {
 	case 201:
 		task.AccountInfo.CartID = addToCartResponse.CartID
-		return float64(task.TCINMaxPrice) > addToCartResponse.CurrentPrice, true
+		return true
 	default:
-		return false, false
+		return false
 	}
 
 }

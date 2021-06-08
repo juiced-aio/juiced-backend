@@ -110,6 +110,7 @@ type CheckoutType = string
 const (
 	CheckoutTypeSHIP   CheckoutType = "SHIP"
 	CheckoutTypePICKUP CheckoutType = "PICKUP"
+	CheckoutTypeEITHER CheckoutType = "EITHER"
 )
 
 // TaskType is used to choose how the task will checkout (account / guest)

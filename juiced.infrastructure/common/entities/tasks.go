@@ -118,8 +118,9 @@ type TaskGroup struct {
 }
 
 type TargetSingleMonitorInfo struct {
-	TCIN     string `json:"tcin"`
-	MaxPrice int    `json:"maxPrice"`
+	TCIN         string             `json:"tcin"`
+	MaxPrice     int                `json:"maxPrice"`
+	CheckoutType enums.CheckoutType `json:"checkoutType"`
 }
 
 // TargetMonitorInfo is a class that holds Target-specific details for a single monitor
