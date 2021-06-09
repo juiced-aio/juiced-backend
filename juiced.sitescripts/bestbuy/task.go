@@ -14,7 +14,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
@@ -971,7 +970,18 @@ func (task *Task) PlaceOrder() bool {
 		fmt.Println("Could not get user info")
 		return false
 	}
-	sec.DiscordWebhook(success, "", task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL), user)
+
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask: task.Task,
+		Success:  success,
+		Content:  "",
+		Embeds:   task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo: user,
+		ItemName: task.CheckoutInfo.ItemName,
+		Sku:      task.CheckoutInfo.SKUInStock,
+		Price:    task.CheckoutInfo.Price,
+		Quantity: 1,
+	})
 
 	return success
 }

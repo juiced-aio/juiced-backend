@@ -2,6 +2,7 @@ package entities
 
 import (
 	"encoding/json"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
@@ -203,4 +204,15 @@ func (taskGroup *TaskGroup) SetMonitorStatus(MonitorStatus enums.MonitorStatus) 
 func ParseTaskGroup(taskGroup *TaskGroup, data []byte) error {
 	err := json.Unmarshal(data, &taskGroup)
 	return err
+}
+
+// Checkout contains all the info that is stored in the local db
+type Checkout struct {
+	ItemName    string         `json:"itemName" bson:"itemName"`
+	SKU         string         `json:"sku" bson:"sku"`
+	Price       int            `json:"price" bson:"price"`
+	Quantity    int            `json:"quantity" bson:"quantity"`
+	Retailer    enums.Retailer `json:"retailer" bson:"retailer"`
+	ProfileName string         `json:"profileName" bson:"profileName"`
+	Time        time.Time      `json:"time" bson:"time"`
 }
