@@ -134,6 +134,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
 			fmt.Println("We are on the captcha page.")
+
 			//captcha
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
@@ -226,16 +227,6 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 	return price
 }
 
-func findValueInList(needle string, haystack []string) bool {
-	found := false
-	for _, i := range haystack {
-		if i == needle {
-			found = true
-			break
-		}
-	}
-	return found
-}
 func (monitor *Monitor) SendToTasks(inStockForShip []events.WalmartSingleStockData) {
 	data := events.WalmartStockData{InStockForShip: inStockForShip}
 	monitor.Monitor.EventBus.PublishProductEvent(enums.Walmart, data, monitor.Monitor.TaskGroup.GroupID)
