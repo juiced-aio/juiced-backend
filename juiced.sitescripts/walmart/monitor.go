@@ -2,6 +2,9 @@ package walmart
 
 import (
 	"fmt"
+	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -148,8 +151,9 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 						//not in stock remove from our list
 						products = append(products[:i], products[i+1:]...)
 					} else {
-						if v.MaxPrice < 99999 {
-							price := GetPrice(v.Sku)
+						//instock check if we need to check max price
+						if v.MaxPrice > -1 {
+							price := monitor.GetPrice(v.Sku)
 							if price > v.MaxPrice {
 								//too expensive remove from our products
 								products = append(products[:i], products[i+1:]...)
@@ -172,8 +176,54 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	return inStockForShip, outOfStockForShip
 }
 
-func GetPrice(Sku string) int {
-	return 1
+func (monitor *Monitor) GetPrice(Sku string) int {
+	var price = 0
+
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: monitor.Monitor.Client,
+		Method: "GET",
+		URL:    PriceMonitorEndpoint + Sku,
+		RawHeaders: [][2]string{
+			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+		},
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			fmt.Println("We are on the captcha page.")
+			//captcha
+		} else if strings.Contains(resp.Request.URL.String(), "walmart.com/ip/seort") {
+			fmt.Println("Invalid Sku")
+		} else {
+			reg, _ := regexp.Compile("[^0-9]+")
+			responseBody := soup.HTMLParse(string(body))
+			priceBlock := responseBody.Find("span", "class", "display-inline-block")
+			priceText := priceBlock.Find("span", "class", "visuallyhidden").Text()
+			price, err = strconv.Atoi(reg.ReplaceAllString(priceText, ""))
+			if err != nil {
+				log.Fatal(err)
+			}
+		}
+	case 404:
+		fmt.Printf("We have a bad response:%v", resp.Status)
+	default:
+		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+	}
+	return price
 }
 
 func findValueInList(needle string, haystack []string) bool {
