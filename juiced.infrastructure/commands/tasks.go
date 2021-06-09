@@ -145,7 +145,7 @@ func CreateCheckout(checkout entities.Checkout) error {
 	if err != nil {
 		return err
 	}
-	collection := client.Database("juiced").Collection("checkouts").Database().Collection(checkout.Retailer)
+	collection := client.Database("juiced").Collection("checkouts")
 	_, err = collection.InsertOne(ctx, checkout)
 	return err
 }

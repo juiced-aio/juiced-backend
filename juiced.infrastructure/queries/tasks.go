@@ -155,12 +155,13 @@ func GetCheckouts(retailer enums.Retailer, daysBack int) ([]entities.Checkout, e
 	if err != nil {
 		return checkouts, err
 	}
-	collection := client.Database("juiced").Collection("checkouts").Database().Collection(retailer)
+	collection := client.Database("juiced").Collection("checkouts")
 	cursor, err := collection.Find(ctx, bson.M{
 		"time": bson.M{
 			"$gt": then,
 			"$lt": now,
 		},
+		"retailer": retailer,
 	})
 	if err != nil {
 		return checkouts, err
