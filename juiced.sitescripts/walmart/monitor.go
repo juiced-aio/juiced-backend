@@ -141,8 +141,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 				outOfStockForShip = skus
 			} else {
 				foundItems := ParseInstockSku(responseBody)
-				var checkMaxPrice = monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1
-				if checkMaxPrice {
+				if monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1 {
 					for i, sku := range foundItems {
 						price := monitor.GetPrice(sku)
 						if price > monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice {
