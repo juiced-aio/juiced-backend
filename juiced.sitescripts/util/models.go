@@ -4,6 +4,9 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
 type ErrorType = string
@@ -69,4 +72,17 @@ type Thumbnail struct {
 
 type SensorRequest struct {
 	SensorData string `json:"sensor_data"`
+}
+
+// All info needed for ProccessCheckout
+type ProcessCheckoutInfo struct {
+	BaseTask base.Task
+	Success  bool
+	Content  string
+	Embeds   []sec.DiscordEmbed
+	UserInfo entities.UserInfo
+	ItemName string
+	Sku      string
+	Price    int
+	Quantity int
 }
