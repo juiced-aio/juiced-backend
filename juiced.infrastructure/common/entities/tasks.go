@@ -127,12 +127,10 @@ type TargetMonitorInfo struct {
 
 type WalmartMonitorInfo struct {
 	MonitorType enums.MonitorType `json:"monitorType"`
-	Products    []WalmartProduct
+	SKUs        []string          `json:"skus"`
+	MaxPrice    int               `json:"maxPrice"`
 }
-type WalmartProduct struct {
-	Sku      string
-	MaxPrice int
-}
+
 type AmazonSingleMonitorInfo struct {
 	MonitorType enums.MonitorType `json:"monitorType"`
 	ASIN        string            `json:"asin"`

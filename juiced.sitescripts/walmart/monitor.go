@@ -18,7 +18,7 @@ import (
 )
 
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
-func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, products []entities.WalmartProduct) (Monitor, error) {
+func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, skus []string) (Monitor, error) {
 	walmartMonitor := Monitor{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
@@ -32,7 +32,7 @@ func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, e
 			Client:    client,
 		},
 		MonitorType: monitorType,
-		Products:    products,
+		SKUs:        skus,
 	}
 	return walmartMonitor, err
 }
@@ -101,12 +101,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	inStockForShip := make([]events.WalmartSingleStockData, 0)
 	outOfStockForShip := make([]string, 0)
 
-	var products []entities.WalmartProduct
 	var skus []string
-	for _, product := range monitor.Products {
-		products = append(products, product)
-		skus = append(skus, product.Sku)
-	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
@@ -138,7 +133,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 			//captcha
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
-			inStockForShip = ConvertProductsToWalmartSingleStock(products)
+			inStockForShip = ConvertSkuListToWalmartSingleStock(skus)
 		} else {
 			responseBody := soup.HTMLParse(string(body))
 			if !UrlExistsInResponse(responseBody) {
@@ -147,26 +142,21 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 			} else {
 				foundItems := ParseInstockSku(responseBody)
 				//remove from products where it wasnt found. We do this as we need to keep our maxPrice with it.
-				for i, v := range products {
-					if !findValueInList(v.Sku, foundItems) {
-						//not in stock remove from our list
-						products = append(products[:i], products[i+1:]...)
-					} else {
-						//instock check if we need to check max price
-						if v.MaxPrice > -1 {
-							price := monitor.GetPrice(v.Sku)
-							if price > v.MaxPrice {
-								//too expensive remove from our products
-								products = append(products[:i], products[i+1:]...)
-							}
+				var checkMaxPrice = monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1
+				for i, sku := range foundItems {
+					//instock check if we need to check max price
+					if checkMaxPrice {
+						price := monitor.GetPrice(sku)
+						if price > monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice {
+							//too expensive remove from our products
+							foundItems = append(foundItems[:i], foundItems[i+1:]...)
 						}
 					}
 				}
+				inStockForShip = ConvertSkuListToWalmartSingleStock(foundItems)
+				fmt.Print(inStockForShip)
+				fmt.Println(" items are in-stock")
 			}
-
-			inStockForShip = ConvertProductsToWalmartSingleStock(products)
-			fmt.Print(inStockForShip)
-			fmt.Println(" items are in-stock")
 		}
 	case 404:
 		fmt.Printf("We have a bad response:%v", resp.Status)

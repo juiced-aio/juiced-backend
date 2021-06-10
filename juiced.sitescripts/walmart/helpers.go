@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
@@ -27,12 +26,12 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 }
 
 //Converts a list of in-stock skus to a WarlmartSingleStockData structure.
-func ConvertProductsToWalmartSingleStock(products []entities.WalmartProduct) []events.WalmartSingleStockData {
+func ConvertSkuListToWalmartSingleStock(skuCodes []string) []events.WalmartSingleStockData {
 	inStock := events.WalmartSingleStockData{}
 	inStockForShip := make([]events.WalmartSingleStockData, 0)
 
-	for i := 0; i < len(products); i++ {
-		inStock.Product = products[i]
+	for i := 0; i < len(skuCodes); i++ {
+		inStock.Sku = skuCodes[i]
 		inStockForShip = append(inStockForShip, inStock)
 	}
 

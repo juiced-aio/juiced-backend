@@ -1,7 +1,6 @@
 package walmart
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
@@ -36,7 +35,7 @@ const (
 type Monitor struct {
 	Monitor     base.Monitor
 	MonitorType enums.MonitorType
-	Products    []entities.WalmartProduct
+	SKUs        []string
 }
 
 // Task info
