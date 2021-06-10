@@ -8,7 +8,7 @@ import (
 
 // RouteCheckoutsEndpoints routes endpoints that handle checkouts
 func RouteCheckoutsEndpoints(router *mux.Router) {
-	// swagger:operation GET /api/checkouts Checkout GetAllCheckoutsEndpoint
+	// swagger:operation GET /api/checkout Checkout GetAllCheckoutsEndpoint
 	//
 	// Returns a list of all Checkouts
 	//
@@ -18,5 +18,5 @@ func RouteCheckoutsEndpoints(router *mux.Router) {
 	//     description: Checkouts response
 	//     schema:
 	//       "$ref": "#/responses/CheckoutsResponseSwagger"
-	router.HandleFunc("/api/checkouts", endpoints.GetAllCheckoutsEndpoint).Methods("GET")
+	router.HandleFunc("/api/checkout", endpoints.GetAllCheckoutsEndpoint).Methods("GET")
 }
