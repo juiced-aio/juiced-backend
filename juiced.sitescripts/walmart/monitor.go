@@ -43,6 +43,7 @@ func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums
 	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, nil, monitor.Monitor.TaskGroup.GroupID)
 }
 
+//This checks if we want to stop
 func (monitor *Monitor) CheckForStop() bool {
 	if monitor.Monitor.StopFlag {
 		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop)
@@ -51,6 +52,7 @@ func (monitor *Monitor) CheckForStop() bool {
 	return false
 }
 
+//This is responsible for starting the Walmart Product monitor
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -97,10 +99,10 @@ func (monitor *Monitor) RunMonitor() {
 	}
 }
 
+//This is for checking if a list of Skus are instock. Here we also check if there is a maximum price.
 func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string) {
 	inStockForShip := make([]events.WalmartSingleStockData, 0)
 	outOfStockForShip := make([]string, 0)
-
 	var skus []string
 
 	resp, body, err := util.MakeRequest(&util.Request{
@@ -129,8 +131,6 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
 			fmt.Println("We are on the captcha page.")
-
-			//captcha
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
 			inStockForShip = ConvertSkuListToWalmartSingleStock(skus)
@@ -141,14 +141,10 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 				outOfStockForShip = skus
 			} else {
 				foundItems := ParseInstockSku(responseBody)
-				//remove from products where it wasnt found. We do this as we need to keep our maxPrice with it.
-				var checkMaxPrice = monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1
-				for i, sku := range foundItems {
-					//instock check if we need to check max price
-					if checkMaxPrice {
+				if monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1 {
+					for i, sku := range foundItems {
 						price := monitor.GetPrice(sku)
 						if price > monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice {
-							//too expensive remove from our products
 							foundItems = append(foundItems[:i], foundItems[i+1:]...)
 						}
 					}
@@ -167,6 +163,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	return inStockForShip, outOfStockForShip
 }
 
+//This is for checking the maximum price. It is called from GetSkuStock() if maximum price is over -1
 func (monitor *Monitor) GetPrice(Sku string) int {
 	var price = 0
 
@@ -196,7 +193,6 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
 			fmt.Println("We are on the captcha page.")
-			//captcha
 		} else if strings.Contains(resp.Request.URL.String(), "walmart.com/ip/seort") {
 			fmt.Println("Invalid Sku")
 		} else {

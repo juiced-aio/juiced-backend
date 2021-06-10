@@ -60,14 +60,3 @@ func UrlExistsInResponse(resp soup.Root) bool {
 		return false
 	}
 }
-
-func findValueInList(needle string, haystack []string) bool {
-	found := false
-	for _, i := range haystack {
-		if i == needle {
-			found = true
-			break
-		}
-	}
-	return found
-}
