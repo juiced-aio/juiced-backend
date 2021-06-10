@@ -2,6 +2,9 @@ package walmart
 
 import (
 	"fmt"
+	"log"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -98,10 +101,79 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	inStockForShip := make([]events.WalmartSingleStockData, 0)
 	outOfStockForShip := make([]string, 0)
 
+	var skus []string
+
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
-		URL:    MonitorEndpoint + strings.Join(monitor.SKUs, ","),
+		URL:    MonitorEndpoint + strings.Join(skus, ","),
+		RawHeaders: [][2]string{
+			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+		},
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			fmt.Println("We are on the captcha page.")
+
+			//captcha
+		} else if strings.Contains(resp.Request.URL.String(), "cart") {
+			fmt.Println("All requested items are in-stock.")
+			inStockForShip = ConvertSkuListToWalmartSingleStock(skus)
+		} else {
+			responseBody := soup.HTMLParse(string(body))
+			if !UrlExistsInResponse(responseBody) {
+				fmt.Println("All requested items are out of stock.")
+				outOfStockForShip = skus
+			} else {
+				foundItems := ParseInstockSku(responseBody)
+				//remove from products where it wasnt found. We do this as we need to keep our maxPrice with it.
+				var checkMaxPrice = monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1
+				for i, sku := range foundItems {
+					//instock check if we need to check max price
+					if checkMaxPrice {
+						price := monitor.GetPrice(sku)
+						if price > monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice {
+							//too expensive remove from our products
+							foundItems = append(foundItems[:i], foundItems[i+1:]...)
+						}
+					}
+				}
+				inStockForShip = ConvertSkuListToWalmartSingleStock(foundItems)
+				fmt.Print(inStockForShip)
+				fmt.Println(" items are in-stock")
+			}
+		}
+	case 404:
+		fmt.Printf("We have a bad response:%v", resp.Status)
+	default:
+		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+	}
+
+	return inStockForShip, outOfStockForShip
+}
+
+func (monitor *Monitor) GetPrice(Sku string) int {
+	var price = 0
+
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: monitor.Monitor.Client,
+		Method: "GET",
+		URL:    PriceMonitorEndpoint + Sku,
 		RawHeaders: [][2]string{
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"accept-encoding", "gzip, deflate, br"},
@@ -125,29 +197,24 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
 			fmt.Println("We are on the captcha page.")
 			//captcha
-		} else if strings.Contains(resp.Request.URL.String(), "cart") {
-			fmt.Println("All requested items are in-stock.")
-			inStockForShip = ConvertSkuListToWalmartSingleStock(monitor.SKUs)
+		} else if strings.Contains(resp.Request.URL.String(), "walmart.com/ip/seort") {
+			fmt.Println("Invalid Sku")
 		} else {
+			reg, _ := regexp.Compile("[^0-9]+")
 			responseBody := soup.HTMLParse(string(body))
-
-			if !UrlExistsInResponse(responseBody) {
-				fmt.Println("All requested items are out of stock.")
-				outOfStockForShip = monitor.SKUs
-			} else {
-				inStockForShip = ConvertSkuListToWalmartSingleStock(ParseInstockSku(responseBody))
-				fmt.Print(inStockForShip)
-				fmt.Println(" items are in-stock")
+			priceBlock := responseBody.Find("span", "class", "display-inline-block")
+			priceText := priceBlock.Find("span", "class", "visuallyhidden").Text()
+			price, err = strconv.Atoi(reg.ReplaceAllString(priceText, ""))
+			if err != nil {
+				log.Fatal(err)
 			}
-			return inStockForShip, outOfStockForShip
 		}
 	case 404:
 		fmt.Printf("We have a bad response:%v", resp.Status)
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
 	}
-
-	return inStockForShip, outOfStockForShip
+	return price
 }
 
 func (monitor *Monitor) SendToTasks(inStockForShip []events.WalmartSingleStockData) {

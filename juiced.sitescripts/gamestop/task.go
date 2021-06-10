@@ -12,7 +12,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
@@ -450,7 +449,7 @@ func (task *Task) GetAbck() bool {
 		"pixelg":         {""},
 		"json":           {"true"},
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    GenEndpoint,
@@ -473,7 +472,7 @@ func (task *Task) GetAbck() bool {
 		SensorData: akamaiResponse.Sensordata,
 	}
 	data, _ := json.Marshal(sensorRequest)
-	resp, _, err = util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    AkamaiEndpoint,
@@ -638,7 +637,18 @@ func (task *Task) PlaceOrder() bool {
 		fmt.Println("Could not get user info")
 		return false
 	}
-	sec.DiscordWebhook(success, "", task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL), user)
+
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask: task.Task,
+		Success:  success,
+		Content:  "",
+		Embeds:   task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo: user,
+		ItemName: task.CheckoutInfo.ItemName,
+		Sku:      task.CheckoutInfo.SKUInStock,
+		Price:    task.CheckoutInfo.Price,
+		Quantity: 1,
+	})
 
 	return success
 

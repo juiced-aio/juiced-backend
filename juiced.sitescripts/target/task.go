@@ -13,7 +13,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/dgrijalva/jwt-go"
@@ -607,6 +606,18 @@ func (task *Task) PlaceOrder() (enums.OrderStatus, bool) {
 		fmt.Println("Could not get user info")
 		return status, success
 	}
-	sec.DiscordWebhook(success, "", task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath), user)
+
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask: task.Task,
+		Success:  success,
+		Content:  "",
+		Embeds:   task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
+		UserInfo: user,
+		ItemName: task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		Sku:      task.TCIN,
+		Price:    int(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
+		Quantity: 1,
+	})
+
 	return status, success
 }

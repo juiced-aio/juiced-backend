@@ -18,8 +18,10 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 
 	cclient "backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 	tls "github.com/Titanium-ctrl/utls"
@@ -490,4 +492,23 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		return nil
 	}
 	return errors.New(resp.Status)
+}
+
+// Processes each checkout by sending a webhook and logging the checkout
+func ProcessCheckout(pci ProcessCheckoutInfo) {
+	sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
+	SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity)
+}
+
+// Logs the checkout
+func SendCheckout(task base.Task, itemName string, sku string, price int, quantity int) {
+	commands.CreateCheckout(entities.Checkout{
+		ItemName:    itemName,
+		SKU:         sku,
+		Price:       price,
+		Quantity:    quantity,
+		Retailer:    task.Task.TaskRetailer,
+		ProfileName: task.Profile.Name,
+		Time:        time.Now(),
+	})
 }
