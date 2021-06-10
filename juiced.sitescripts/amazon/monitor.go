@@ -278,7 +278,7 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
 	}
 
 	price, _ := strconv.Atoi(priceStr)
-	inBudget := monitor.ASINWithInfo[asin].MaxPrice > price
+	inBudget := monitor.ASINWithInfo[asin].MaxPrice > price || monitor.ASINWithInfo[asin].MaxPrice == -1
 	if inBudget {
 		monitor.EventInfo = events.AmazonSingleStockData{
 			ASIN:        asin,

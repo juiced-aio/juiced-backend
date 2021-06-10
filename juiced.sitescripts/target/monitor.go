@@ -197,7 +197,7 @@ func (monitor *Monitor) CheckPrice(sku string) bool {
 		return false
 	}
 
-	return monitor.TCINsWithInfo[sku].MaxPrice > int(checkPriceResponse.Data.Product.Price.CurrentRetail)
+	return monitor.TCINsWithInfo[sku].MaxPrice > int(checkPriceResponse.Data.Product.Price.CurrentRetail) || monitor.TCINsWithInfo[sku].MaxPrice == -1
 }
 
 // SendToTasks sends the product info to tasks

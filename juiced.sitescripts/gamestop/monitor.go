@@ -158,7 +158,7 @@ func (monitor *Monitor) GetSKUStock(sku string) bool {
 			stockData.Price, _ = strconv.Atoi(monitorResponse.Gtmdata.Price.Sellingprice)
 
 			var inBudget bool
-			inBudget = monitor.SKUWithInfo[sku].MaxPrice > stockData.Price
+			inBudget = monitor.SKUWithInfo[sku].MaxPrice > stockData.Price || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
 				for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
 					stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])

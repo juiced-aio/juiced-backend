@@ -144,7 +144,7 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 				if monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1 {
 					for i, sku := range foundItems {
 						price := monitor.GetPrice(sku)
-						if price > monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice {
+						if price > monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice || monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice == -1 {
 							foundItems = append(foundItems[:i], foundItems[i+1:]...)
 						}
 					}

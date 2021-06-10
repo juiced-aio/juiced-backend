@@ -140,7 +140,7 @@ func (monitor *Monitor) GetSKUStock() bool {
 
 			if monitorResponse[i].Sku.Buttonstate.Buttonstate == "ADD_TO_CART" {
 				price := int(monitorResponse[i].Sku.Price.Currentprice)
-				if monitor.SKUWithInfo[sku].MaxPrice > price && !util.InSlice(monitor.SKUsSentToTask, sku) {
+				if (monitor.SKUWithInfo[sku].MaxPrice > price || monitor.SKUWithInfo[sku].MaxPrice == -1) && !util.InSlice(monitor.SKUsSentToTask, sku) {
 					stockData.SKU = sku
 					stockData.Price = int(monitorResponse[i].Sku.Price.Currentprice)
 					monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
