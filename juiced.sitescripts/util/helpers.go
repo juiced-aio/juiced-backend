@@ -47,15 +47,15 @@ func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
 
 // Adds base headers to the request
 func AddBaseHeaders(request *http.Request) {
-	request.Header.Set("accept-encoding", "gzip, deflate, br")
-	request.Header.Set("accept-language", "en-GB,en-US;q=0.9,en;q=0.8")
-	request.Header.Set("sec-ch-ua", "\"Google Chrome\";v=\"89\", \"Chromium\";v=\"89\", \";Not A Brand\";v=\"99\"") // TODO
+	request.Header.Set("Connection", "keep-alive")
+	request.Header.Set("Sec-Ch-Ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"")
+	request.Header.Set("X-Application-Name", "web")
 	request.Header.Set("Sec-Ch-Ua-Mobile", "?0")
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36")
 	request.Header.Set("Sec-Fetch-Site", "same-site")
 	request.Header.Set("Sec-Fetch-Mode", "cors")
 	request.Header.Set("Sec-Fetch-Dest", "empty")
-	request.Header.Set("x-requested-with", "XMLHttpRequest")
+	request.Header.Set("Accept-Language", "en-US,en;q=0.9")
 }
 
 // HandleErrors handles errors
