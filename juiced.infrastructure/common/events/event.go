@@ -1,6 +1,6 @@
 package events
 
-type EventType string
+type EventType = string
 
 const (
 	ConnectEventType EventType = "CONNECT_EVENT"
@@ -24,6 +24,3 @@ type Event struct {
 
 // EventChannel is a channel that can accept an Event
 type EventChannel chan Event
-
-// EventChannelSlice is a slice of TaskChannels
-type EventChannelSlice []EventChannel

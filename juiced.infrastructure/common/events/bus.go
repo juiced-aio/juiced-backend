@@ -1,8 +1,8 @@
 package events
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"sync"
 
@@ -11,14 +11,14 @@ import (
 
 // EventBus stores the information about subscribers
 type EventBus struct {
-	Subscribers EventChannelSlice
+	Subscribers []EventChannel
 	RM          sync.RWMutex
 }
 
 // Unsubscribe removes the EventChannel from the EventBus's subscribers
 func (eb *EventBus) Unsubscribe(ch EventChannel) {
 	eb.RM.Lock()
-	newSubscribers := EventChannelSlice{}
+	newSubscribers := []EventChannel{}
 	for _, subscriber := range eb.Subscribers {
 		if ch != subscriber {
 			newSubscribers = append(newSubscribers, subscriber)
@@ -39,11 +39,11 @@ func (eb *EventBus) Subscribe(ch EventChannel) {
 // PublishConnectEvent publishes a ConnectEvent
 func (eb *EventBus) PublishConnectEvent() {
 	eb.RM.RLock()
-	defer func() {
-		recover()
-	}()
 	// Will panic if any channel is closed
-	go func(event Event, channels EventChannelSlice) {
+	go func(event Event, channels []EventChannel) {
+		defer func() {
+			recover()
+		}()
 		for _, ch := range channels {
 			ch <- event
 		}
@@ -57,11 +57,11 @@ func (eb *EventBus) PublishConnectEvent() {
 // PublishAuthEvent publishes an AuthEvent
 func (eb *EventBus) PublishAuthEvent() {
 	eb.RM.RLock()
-	defer func() {
-		recover()
-	}()
 	// Will panic if any channel is closed
-	go func(event Event, channels EventChannelSlice) {
+	go func(event Event, channels []EventChannel) {
+		defer func() {
+			recover()
+		}()
 		for _, ch := range channels {
 			ch <- event
 		}
@@ -75,11 +75,11 @@ func (eb *EventBus) PublishAuthEvent() {
 // PublishCloseEvent publishes a CloseEvent
 func (eb *EventBus) PublishCloseEvent() {
 	eb.RM.RLock()
-	defer func() {
-		recover()
-	}()
 	// Will panic if any channel is closed
-	go func(event Event, channels EventChannelSlice) {
+	go func(event Event, channels []EventChannel) {
+		defer func() {
+			recover()
+		}()
 		for _, ch := range channels {
 			ch <- event
 		}
@@ -93,11 +93,11 @@ func (eb *EventBus) PublishCloseEvent() {
 // PublishMonitorEvent publishes a MonitorEvent
 func (eb *EventBus) PublishMonitorEvent(monitorStatus enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}, monitorID primitive.ObjectID) {
 	eb.RM.RLock()
-	defer func() {
-		recover()
-	}()
 	// Will panic if any channel is closed
-	go func(event Event, channels EventChannelSlice) {
+	go func(event Event, channels []EventChannel) {
+		defer func() {
+			recover()
+		}()
 		for _, ch := range channels {
 			ch <- event
 		}
@@ -116,11 +116,11 @@ func (eb *EventBus) PublishMonitorEvent(monitorStatus enums.MonitorStatus, event
 // PublishTaskEvent publishes a TaskEvent
 func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, eventType enums.TaskEventType, data interface{}, taskID primitive.ObjectID) {
 	eb.RM.RLock()
-	defer func() {
-		recover()
-	}()
 	// Will panic if any channel is closed
-	go func(event Event, channels EventChannelSlice) {
+	go func(event Event, channels []EventChannel) {
+		defer func() {
+			recover()
+		}()
 		for _, ch := range channels {
 			ch <- event
 		}
@@ -179,18 +179,24 @@ func (eb *EventBus) PublishProductEvent(retailer enums.Retailer, data interface{
 			return
 		}
 		event.ProductEvent.BestbuyData = bestbuyData
-	case enums.Hottopic:
+	case enums.HotTopic:
 		hottopicData, ok := data.(HottopicStockData)
 		if !ok {
 			return
 		}
 		event.ProductEvent.HottopicData = hottopicData
+	case enums.GameStop:
+		gamestopData, ok := data.(GamestopStockData)
+		if !ok {
+			return
+		}
+		event.ProductEvent.GamestopData = gamestopData
 	}
-	defer func() {
-		recover()
-	}()
 	// Will panic if any channel is closed
-	go func(event Event, channels EventChannelSlice) {
+	go func(event Event, channels []EventChannel) {
+		defer func() {
+			recover()
+		}()
 		for _, ch := range channels {
 			ch <- event
 		}
@@ -202,7 +208,7 @@ var eventBus *EventBus
 
 // InitEventBus initializes the singleton instance of the EventBus
 func InitEventBus() {
-	eventBus = &EventBus{Subscribers: EventChannelSlice{}}
+	eventBus = &EventBus{Subscribers: []EventChannel{}}
 }
 
 // GetEventBus returns the singleton instance of the EventBus

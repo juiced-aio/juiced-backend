@@ -1,8 +1,8 @@
 package walmart
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
 // Endpoints
@@ -27,7 +27,8 @@ const (
 	PlaceOrderEndpoint = "https://www.walmart.com/api/checkout/v3/contract/:PCID/order"
 	PlaceOrderReferer  = "https://www.walmart.com/checkout/"
 
-	MonitorEndpoint = "https://affil.walmart.com/cart/buynow?items="
+	MonitorEndpoint      = "https://affil.walmart.com/cart/buynow?items="
+	PriceMonitorEndpoint = "https://www.walmart.com/ip/"
 )
 
 // Monitor info

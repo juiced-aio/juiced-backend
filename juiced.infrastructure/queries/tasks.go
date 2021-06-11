@@ -1,7 +1,7 @@
 package queries
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 
 	"context"
 	"time"
@@ -123,6 +123,7 @@ func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWit
 		AmazonMonitorInfo:   taskGroup.AmazonMonitorInfo,
 		BestbuyMonitorInfo:  taskGroup.BestbuyMonitorInfo,
 		HottopicMonitorInfo: taskGroup.HottopicMonitorInfo,
+		GamestopMonitorInfo: taskGroup.GamestopMonitorInfo,
 		Tasks:               []entities.Task{},
 	}
 	tasks := []entities.Task{}

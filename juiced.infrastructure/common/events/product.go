@@ -1,7 +1,7 @@
 package events
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -46,12 +46,25 @@ type BestbuyStockData struct {
 	InStock []BestbuySingleStockData
 }
 
+type HotTopicSingleStockData struct {
+	PID string
+}
+
 type HottopicStockData struct {
 	InStock []HotTopicSingleStockData
 }
 
-type HotTopicSingleStockData struct {
-	PID string
+type GamestopSingleStockData struct {
+	SKU        string
+	Price      int
+	ItemName   string
+	PID        string
+	ImageURL   string
+	ProductURL string
+}
+
+type GamestopStockData struct {
+	InStock []GamestopSingleStockData
 }
 
 // ProductEvent is fired whenever a Monitor finds a product
@@ -63,5 +76,6 @@ type ProductEvent struct {
 	WalmartData    WalmartStockData   `json:"walmartStockData"`
 	AmazonData     AmazonStockData    `json:"amazonStockData"`
 	BestbuyData    BestbuyStockData   `json:"bestbuyStockData"`
-	HottopicData   HottopicStockData  `json:"HottopicStockData"`
+	HottopicData   HottopicStockData  `json:"hottopicStockData"`
+	GamestopData   GamestopStockData  `json:"gamestopStockData"`
 }

@@ -3,19 +3,21 @@ package amazon
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/stealth"
 )
 
@@ -59,6 +61,12 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entit
 }
 
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login
 	loggedIn := false
@@ -156,31 +164,31 @@ func (task *Task) browserLogin() bool {
 	cookies := make([]*http.Cookie, 0)
 
 	u := launcher.New().
-		Set("headless").
-		Delete("--headless").
-		Delete("--enable-automation").
-		Delete("--restore-on-startup").
-		Set("disable-background-networking").
-		Set("enable-features", "NetworkService,NetworkServiceInProcess").
-		Set("disable-background-timer-throttling").
-		Set("disable-backgrounding-occluded-windows").
-		Set("disable-breakpad").
-		Set("disable-client-side-phishing-detection").
-		Set("disable-default-apps").
-		Set("disable-dev-shm-usage").
-		Set("disable-extensions").
-		Set("disable-features", "site-per-process,TranslateUI,BlinkGenPropertyTrees").
-		Set("disable-hang-monitor").
-		Set("disable-ipc-flooding-protection").
-		Set("disable-popup-blocking").
-		Set("disable-prompt-on-repost").
-		Set("disable-renderer-backgrounding").
-		Set("disable-sync").
-		Set("force-color-profile", "srgb").
-		Set("metrics-recording-only").
-		Set("safebrowsing-disable-auto-update").
-		Set("password-store", "basic").
-		Set("use-mock-keychain").
+		Set(flags.Flag("headless")).
+		// Delete(flags.Flag("--headless")).
+		Delete(flags.Flag("--enable-automation")).
+		Delete(flags.Flag("--restore-on-startup")).
+		Set(flags.Flag("disable-background-networking")).
+		Set(flags.Flag("enable-features"), "NetworkService,NetworkServiceInProcess").
+		Set(flags.Flag("disable-background-timer-throttling")).
+		Set(flags.Flag("disable-backgrounding-occluded-windows")).
+		Set(flags.Flag("disable-breakpad")).
+		Set(flags.Flag("disable-client-side-phishing-detection")).
+		Set(flags.Flag("disable-default-apps")).
+		Set(flags.Flag("disable-dev-shm-usage")).
+		Set(flags.Flag("disable-extensions")).
+		Set(flags.Flag("disable-features"), "site-per-process,TranslateUI,BlinkGenPropertyTrees").
+		Set(flags.Flag("disable-hang-monitor")).
+		Set(flags.Flag("disable-ipc-flooding-protection")).
+		Set(flags.Flag("disable-popup-blocking")).
+		Set(flags.Flag("disable-prompt-on-repost")).
+		Set(flags.Flag("disable-renderer-backgrounding")).
+		Set(flags.Flag("disable-sync")).
+		Set(flags.Flag("force-color-profile"), "srgb").
+		Set(flags.Flag("metrics-recording-only")).
+		Set(flags.Flag("safebrowsing-disable-auto-update")).
+		Set(flags.Flag("password-store"), "basic").
+		Set(flags.Flag("use-mock-keychain")).
 		MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
@@ -244,7 +252,7 @@ func (task *Task) browserLogin() bool {
 // Once we get an api key I will make sure this works, honestly it shouldn't
 // work at all. This is how it was from when I first made it and it worked then so.
 func (task *Task) requestsLogin() bool {
-	resp, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    LoginEndpoint,
@@ -269,9 +277,6 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
-	body := util.ReadBody(resp)
 	doc := soup.HTMLParse(body)
 	return_To := doc.Find("input", "name", "openid.return_to").Attrs()["value"]
 
@@ -283,7 +288,7 @@ func (task *Task) requestsLogin() bool {
 
 	var tempMeta Login
 
-	resp, err = util.MakeRequest(&util.Request{
+	_, _, err = util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                "https://botbypass.com/metadata_api/metadata1_page_1?email=" + task.AccountInfo.Email + "&passwordLength=" + fmt.Sprint(len(task.AccountInfo.Password)) + "&apiKey=" + MetaData1APIKey,
@@ -292,8 +297,6 @@ func (task *Task) requestsLogin() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	params := util.CreateParams(map[string]string{
 		"appActionToken":   string(appActionToken),
@@ -308,7 +311,7 @@ func (task *Task) requestsLogin() bool {
 		"metadata1":        tempMeta.Metadata1,
 	})
 
-	resp, err = util.MakeRequest(&util.Request{
+	_, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    SigninEndpoint,
@@ -338,9 +341,7 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
-	resp, err = util.MakeRequest(&util.Request{
+	_, body, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    TestItemEndpoint,
@@ -368,9 +369,6 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
-	body = util.ReadBody(resp)
 	doc = soup.HTMLParse(body)
 	task.AccountInfo.SavedAddressID = doc.Find("input", "name", "dropdown-selection").Attrs()["value"]
 	if task.AccountInfo.SavedAddressID == "" {
@@ -385,7 +383,7 @@ func (task *Task) requestsLogin() bool {
 	ok := util.HandleErrors(err, util.LoginDetailsError)
 
 	// It does have an effect so I'm not sure why it gives a warning here
-	return !(!ok)
+	return ok
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -395,7 +393,8 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.CheckoutInfo.MonitorType != "" {
+		emptyString := ""
+		if task.CheckoutInfo.MonitorType != emptyString {
 			return false
 		}
 		// @silent: Why sleeping here?
@@ -415,7 +414,7 @@ func (task *Task) AddToCart() bool {
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    currentEndpoint + "/checkout/turbo-initiate?ref_=dp_start-bbf_1_glance_buyNow_2-1&referrer=detail&pipelineType=turbo&clientId=retailwebsite&weblab=RCX_CHECKOUT_TURBO_DESKTOP_PRIME_87783&temporaryAddToCart=1",
@@ -445,17 +444,14 @@ func (task *Task) AddToCart() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
-		body := util.ReadBody(resp)
 		doc := soup.HTMLParse(body)
 
-		err := doc.Find("input", "name", "anti-csrftoken-a2z").Error
+		err = doc.Find("input", "name", "anti-csrftoken-a2z").Error
 		if err != nil {
 			return false
 		}
@@ -510,7 +506,7 @@ func (task *Task) PlaceOrder() bool {
 		"forcePlaceOrder":           {"Place+this+duplicate+order"},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(CheckoutEndpoint, task.CheckoutInfo.RID, fmt.Sprint(time.Now().UnixNano())[0:13], task.CheckoutInfo.PID),
@@ -535,11 +531,10 @@ func (task *Task) PlaceOrder() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
 
-	defer resp.Body.Close()
-
+	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -547,19 +542,41 @@ func (task *Task) PlaceOrder() bool {
 		switch orderStatus {
 		case "thankyou":
 			task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+			status = enums.OrderStatusSuccess
 			success = true
 		default:
 			task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+			status = enums.OrderStatusFailed
 			success = false
 		}
 
 	case 503:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		status = enums.OrderStatusFailed
 		success = false
 	default:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		status = enums.OrderStatusFailed
 		success = false
 	}
-	util.SendDiscordWebhook(task.Task.DiscordWebhook, success, task.CreateAmazonFields(success), task.CheckoutInfo.ImageURL)
+
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return false
+	}
+
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask: task.Task,
+		Success:  success,
+		Content:  "",
+		Embeds:   task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo: user,
+		ItemName: task.TaskInfo.ItemName,
+		Sku:      task.TaskInfo.ASIN,
+		Price:    task.CheckoutInfo.Price,
+		Quantity: 1,
+	})
+
 	return success
 }

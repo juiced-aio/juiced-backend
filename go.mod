@@ -1,10 +1,9 @@
-module backend.juicedbot.io/m/v2
+module backend.juicedbot.io
 
 go 1.16
 
 require (
 	github.com/EDDYCJY/fake-useragent v0.2.0 // indirect
-	github.com/IHaveNothingg/cclientwtf v0.0.0-20210503100226-25a4507da047
 	github.com/PuerkitoBio/goquery v1.6.1 // indirect
 	github.com/Titanium-ctrl/utls v0.0.0-20210220142115-7c6ee6812971
 	github.com/anaskhan96/soup v1.2.4
@@ -13,6 +12,7 @@ require (
 	github.com/eddycjy/fake-useragent v0.2.0
 	github.com/go-rod/rod v0.99.1
 	github.com/go-rod/stealth v0.4.2
+	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
@@ -23,4 +23,10 @@ require (
 	github.com/rs/cors v1.7.0
 	gitlab.com/yawning/utls.git v0.0.12-1 // indirect
 	go.mongodb.org/mongo-driver v1.5.2
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
+	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b // indirect
+	golang.org/x/term v0.0.0-20210503060354-a79de5458b56
+	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 )

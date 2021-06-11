@@ -1,16 +1,15 @@
 package hottopic
 
 import (
-	"io/ioutil"
 	"log"
 	"net/url"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
@@ -218,7 +217,7 @@ func (task *Task) AddToCart() bool {
 		"productColor":            {task.Color},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -235,7 +234,7 @@ func (task *Task) AddToCart() bool {
 	return true
 }
 func (task *Task) GetCheckout() bool {
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint,
@@ -246,7 +245,6 @@ func (task *Task) GetCheckout() bool {
 		return false
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
 	task.Dwcont = getDwCont(string(body))
 
 	defer resp.Body.Close()
@@ -258,7 +256,7 @@ func (task *Task) ProceedToCheckout() bool {
 		"dwfrm_cart_checkoutCart": {"checkout"},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
@@ -270,7 +268,6 @@ func (task *Task) ProceedToCheckout() bool {
 		return false
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
@@ -286,7 +283,7 @@ func (task *Task) GuestCheckout() bool {
 		"dwfrm_login_securekey":    {task.SecureKey},
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
@@ -298,7 +295,6 @@ func (task *Task) GuestCheckout() bool {
 		return false
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
@@ -328,7 +324,7 @@ func (task *Task) SubmitShipping() bool {
 		"dwfrm_singleshipping_shippingAddress_save":                       {"Continue to Billing"},
 		"dwfrm_singleshipping_securekey":                                  {task.SecureKey},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
@@ -340,7 +336,6 @@ func (task *Task) SubmitShipping() bool {
 		return false
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
@@ -353,7 +348,7 @@ func (task *Task) UseOrigAddress() bool {
 	data := url.Values{
 		"dwfrm_addForm_useOrig": {""},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
@@ -365,7 +360,6 @@ func (task *Task) UseOrigAddress() bool {
 		return false
 	}
 
-	body, _ := ioutil.ReadAll(resp.Body)
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
 	task.Dwcont = getDwCont(bodyText)
@@ -377,7 +371,6 @@ func (task *Task) UseOrigAddress() bool {
 }
 func (task *Task) SubmitPaymentInfo() bool {
 	data := url.Values{
-		//"dwfrm_billing_save":                                      {"true"}, //duplicate key?
 		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
 		"dwfrm_billing_billingAddress_addressFields_firstName":    {task.Task.Profile.BillingAddress.FirstName},
 		"dwfrm_billing_billingAddress_addressFields_lastName":     {task.Task.Profile.BillingAddress.LastName},
@@ -407,7 +400,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 		"dwfrm_billing_paymentMethods_bml_ssn":   {""},                                           //always seems to be empty
 		"dwfrm_billing_save":                     {"Continue to Review"},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
@@ -428,7 +421,7 @@ func (task *Task) SubmitOrder() bool {
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
 		"addToEmailList": {"false"},
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitOrderEndpoint,

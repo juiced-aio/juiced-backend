@@ -3,7 +3,7 @@ package ws
 import (
 	"os"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
 
 	"flag"
 	"net/http"

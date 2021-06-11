@@ -4,20 +4,28 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // CreateTargetMonitor takes a TaskGroup entity and turns it into a Target Monitor
-func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, tcins []string, storeID string) (Monitor, error) {
+func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitor entities.TargetMonitorInfo) (Monitor, error) {
+	storedTargetMonitors := make(map[string]entities.TargetSingleMonitorInfo)
 	targetMonitor := Monitor{}
+	tcins := []string{}
+	for _, monitor := range monitor.Monitors {
+		storedTargetMonitors[monitor.TCIN] = monitor
+		tcins = append(tcins, monitor.TCIN)
+	}
+
 	client, err := util.CreateClient(proxy)
 	if err != nil {
 		return targetMonitor, err
 	}
+
 	targetMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
@@ -25,9 +33,9 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, ev
 			EventBus:  eventBus,
 			Client:    client,
 		},
-		MonitorType: monitorType,
-		TCINs:       tcins,
-		StoreID:     storeID,
+		TCINs:         tcins,
+		StoreID:       monitor.StoreID,
+		TCINsWithInfo: storedTargetMonitors,
 	}
 	return targetMonitor, err
 }
@@ -52,6 +60,12 @@ func (monitor *Monitor) CheckForStop() bool {
 // 		1. Get___Stock (TCIN/URL/Keyword)
 //		2. SendToTasks
 func (monitor *Monitor) RunMonitor() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
@@ -114,7 +128,7 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	getTCINStockResponse := GetTCINStockResponse{}
 
 	params := util.CreateParams(getTCINStockRequest)
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             monitor.Monitor.Client,
 		Method:             "GET",
 		URL:                GetTCINStockEndpoint + params,
@@ -126,27 +140,64 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 		return inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup
 	}
 
-	defer resp.Body.Close()
-
 	switch resp.StatusCode {
 	case 200:
 		for _, product := range getTCINStockResponse.Data.ProductSummaries {
-			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" {
-				inStockForShip = append(inStockForShip, product.TCIN)
+			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" && monitor.CheckPrice(product.TCIN) {
+				TCINWithType := product.TCIN + "|" + monitor.TCINsWithInfo[product.TCIN].CheckoutType
+				inStockForShip = append(inStockForShip, TCINWithType)
 			} else {
 				outOfStockForShip = append(outOfStockForShip, product.TCIN)
 			}
 			for _, store := range product.Fulfillment.StoreOptions {
-				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID {
-					inStockForPickup = append(inStockForPickup, product.TCIN)
+				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID && monitor.CheckPrice(product.TCIN) {
+					TCINWithType := product.TCIN + "|" + monitor.TCINsWithInfo[product.TCIN].CheckoutType
+					inStockForPickup = append(inStockForPickup, TCINWithType)
 				} else {
 					outOfStockForPickup = append(outOfStockForPickup, product.TCIN)
 				}
+			}
+			switch monitor.TCINsWithInfo[product.TCIN].CheckoutType {
+			case enums.CheckoutTypeSHIP:
+				inStockForPickup = inStockForPickup[:0]
+			case enums.CheckoutTypePICKUP:
+				inStockForShip = inStockForShip[:0]
 			}
 		}
 	}
 
 	return inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup
+}
+
+func (monitor *Monitor) CheckPrice(sku string) bool {
+
+	params := util.CreateParams(map[string]string{
+		"key":                             "ff457966e64d5e877fdbad070f276d18ecec4a01",
+		"tcin":                            sku,
+		"store_id":                        monitor.StoreID,
+		"has_store_id":                    "true",
+		"pricing_store_id":                monitor.StoreID,
+		"has_pricing_store_id":            "true",
+		"scheduled_delivery_store_id":     monitor.StoreID,
+		"has_scheduled_delivery_store_id": "true",
+		"has_financing_options":           "true",
+	})
+
+	checkPriceResponse := CheckPriceResponse{}
+
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client:             monitor.Monitor.Client,
+		Method:             "GET",
+		URL:                CheckPriceEndpoint + params,
+		AddHeadersFunction: AddTargetHeaders,
+		Referer:            CheckPriceReferer + sku,
+		ResponseBodyStruct: &checkPriceResponse,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+
+	return monitor.TCINsWithInfo[sku].MaxPrice > int(checkPriceResponse.Data.Product.Price.CurrentRetail) || monitor.TCINsWithInfo[sku].MaxPrice == -1
 }
 
 // SendToTasks sends the product info to tasks

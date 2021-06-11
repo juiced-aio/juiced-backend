@@ -1,10 +1,10 @@
 package hottopic
 
 import (
-	"net/http"
 	"strings"
 
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // AddHottopicHeaders adds Walmart-specific headers to the request

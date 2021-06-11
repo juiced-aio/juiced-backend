@@ -6,6 +6,11 @@ type GetTCINStockResponse struct {
 	Data   Data     `json:"data"`
 }
 
+// CheckPrice is returned by the CheckPrice endpoint
+type CheckPriceResponse struct {
+	Data PriceData `json:"data"`
+}
+
 // RefreshLoginResponse is returned by the RefreshLogin endpoint
 type RefreshLoginResponse struct {
 	AccessToken  string `json:"access_token"`
@@ -17,13 +22,15 @@ type RefreshLoginResponse struct {
 
 // AddToCartResponse is returned by the AddToCart endpoint
 type AddToCartResponse struct {
-	CartID string `json:"cart_id"`
+	CartID       string  `json:"cart_id"`
+	CurrentPrice float64 `json:"current_price"`
 }
 
 // GetCartInfoResponse is returned by the GetCartInfo endpoint
 type GetCartInfoResponse struct {
 	ChannelID           string                `json:"channel_id"`
 	CartID              string                `json:"cart_id"`
+	CartItems           []CartItems           `json:"cart_items"`
 	Addresses           []Addresses           `json:"addresses"`
 	PaymentInstructions []PaymentInstructions `json:"payment_instructions"`
 }

@@ -5,16 +5,17 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/amazon"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/bestbuy"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/hottopic"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/target"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/walmart"
+	"backend.juicedbot.io/juiced.sitescripts/amazon"
+	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/gamestop"
+	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/target"
+	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
 )
 
@@ -25,6 +26,7 @@ type MonitorStore struct {
 	AmazonMonitors   map[primitive.ObjectID]*amazon.Monitor
 	BestbuyMonitors  map[primitive.ObjectID]*bestbuy.Monitor
 	HottopicMonitors map[primitive.ObjectID]*hottopic.Monitor
+	GamestopMonitors map[primitive.ObjectID]*gamestop.Monitor
 	EventBus         *events.EventBus
 }
 
@@ -52,16 +54,17 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 		// Make sure necessary fields exist
-		if monitor.TargetMonitorInfo.MonitorType == "" || len(monitor.TargetMonitorInfo.TCINs) == 0 {
+		if len(monitor.TargetMonitorInfo.Monitors) == 0 {
 			return false
 		}
 		// Create monitor
-		targetMonitor, err := target.CreateTargetMonitor(monitor, proxy, monitorStore.EventBus, monitor.TargetMonitorInfo.MonitorType, monitor.TargetMonitorInfo.TCINs, monitor.TargetMonitorInfo.StoreID)
+		targetMonitor, err := target.CreateTargetMonitor(monitor, proxy, monitorStore.EventBus, monitor.TargetMonitorInfo)
 		if err != nil {
 			return false
 		}
 		// Add task to store
 		monitorStore.TargetMonitors[monitor.GroupID] = &targetMonitor
+
 	case enums.Walmart:
 		// Check if monitor exists in store already
 		if _, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
@@ -72,7 +75,8 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 		// Make sure necessary fields exist
-		if monitor.WalmartMonitorInfo.MonitorType == "" || len(monitor.WalmartMonitorInfo.SKUs) == 0 {
+		emptyString := ""
+		if monitor.WalmartMonitorInfo.MonitorType == emptyString || len(monitor.WalmartMonitorInfo.SKUs) == 0 {
 			return false
 		}
 		// Create monitor
@@ -123,7 +127,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 		monitorStore.BestbuyMonitors[monitor.GroupID] = &bestbuyMonitor
 
-	case enums.Hottopic:
+	case enums.HotTopic:
 		if _, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
 			return true
 		}
@@ -142,6 +146,26 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 
 		monitorStore.HottopicMonitors[monitor.GroupID] = &hottopicMonitor
+
+	case enums.GameStop:
+		if _, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+			return true
+		}
+
+		if queryError {
+			return false
+		}
+
+		if len(monitor.GamestopMonitorInfo.Monitors) == 0 {
+			return false
+		}
+
+		gamestopMonitor, err := gamestop.CreateGamestopMonitor(monitor, proxy, monitorStore.EventBus, monitor.GamestopMonitorInfo.Monitors)
+		if err != nil {
+			return false
+		}
+		monitorStore.GamestopMonitors[monitor.GroupID] = &gamestopMonitor
+
 	}
 	return true
 }
@@ -160,24 +184,27 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 	}
 
 	// Otherwise, start the Monitor
-	defer func() {
-		recover()
-		// TODO @silent: Let the UI know that a monitor failed
-	}()
-	// May panic (if it runs into a runtime error)
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
 		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.Walmart:
 		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.Amazon:
 		go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.BestBuy:
 		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
-	case enums.Hottopic:
+
+	case enums.HotTopic:
 		go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
+
+	case enums.GameStop:
+		go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 	}
+
 	return true
 }
 
@@ -189,32 +216,38 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
 			targetMonitor.Monitor.StopFlag = true
 		}
-		// Return true if the task doesn't exist
 		return true
+
 	case enums.Walmart:
 		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
 			walmartMonitor.Monitor.StopFlag = true
 		}
-		// Return true if the task doesn't exist
 		return true
+
 	case enums.Amazon:
 		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
 			amazonMonitor.Monitor.StopFlag = true
-			return true
 		}
 		return true
+
 	case enums.BestBuy:
 		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
 			bestbuyMonitor.Monitor.StopFlag = true
-			return true
 		}
 		return true
-	case enums.Hottopic:
+
+	case enums.HotTopic:
 		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
 			hottopicMonitor.Monitor.StopFlag = true
-			return true
 		}
 		return true
+
+	case enums.GameStop:
+		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+			gamestopMonitor.Monitor.StopFlag = true
+		}
+		return true
+
 	}
 	return false
 }
@@ -229,6 +262,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 		AmazonMonitors:   make(map[primitive.ObjectID]*amazon.Monitor),
 		BestbuyMonitors:  make(map[primitive.ObjectID]*bestbuy.Monitor),
 		HottopicMonitors: make(map[primitive.ObjectID]*hottopic.Monitor),
+		GamestopMonitors: make(map[primitive.ObjectID]*gamestop.Monitor),
 		EventBus:         eventBus,
 	}
 }

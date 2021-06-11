@@ -1,13 +1,14 @@
 package target
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
 // Endpoints
@@ -16,6 +17,8 @@ const (
 	GetTCINStockEndpoint        = "https://redsky.target.com/redsky_aggregations/v1/web/plp_fulfillment_v1?"
 	GetTCINStockHost            = "redsky.target.com"
 	GetTCINStockReferer         = "https://www.target.com/"
+	CheckPriceEndpoint          = "https://redsky.target.com/redsky_aggregations/v1/web/pdp_client_v1?"
+	CheckPriceReferer           = "https://www.target.com/p/-/A-"
 	LoginEndpoint               = "https://gsp.target.com/gsp/authentications/v1/auth_codes?client_id=ecom-web-1.0.0&state=1619237851891&redirect_uri=https%3A%2F%2Fwww.target.com%2F&assurance_level=M"
 	RefreshLoginEndpoint        = "https://gsp.target.com/gsp/oauth_tokens/v2/client_tokens"
 	RefreshLoginReferer         = "https://www.target.com/"
@@ -35,10 +38,11 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor     base.Monitor
-	MonitorType enums.MonitorType
-	TCINs       []string
-	StoreID     string
+	Monitor       base.Monitor
+	MonitorType   enums.MonitorType
+	TCINs         []string
+	StoreID       string
+	TCINsWithInfo map[string]entities.TargetSingleMonitorInfo
 }
 
 // Task info
@@ -47,6 +51,7 @@ type Task struct {
 	CheckoutType enums.CheckoutType
 	AccountInfo  AccountInfo
 	TCIN         string
+	TCINType     string
 }
 
 // Used in SetPaymentInfo function
@@ -411,6 +416,7 @@ type PaymentInstructions struct {
 }
 type Price struct {
 	ShippingPrice float64 `json:"shipping_price"`
+	CurrentRetail float64 `json:"current_retail"`
 }
 type RedCardBanner struct {
 	OrderTotal           string `json:"order_total"`
@@ -501,4 +507,12 @@ type CartFulfillment struct {
 	Type       enums.CheckoutType `json:"type"`
 	LocationID string             `json:"location_id"`
 	ShipMethod string             `json:"ship_method"`
+}
+
+type Product struct {
+	Price Price `json:"price"`
+}
+
+type PriceData struct {
+	Product Product `json:"product"`
 }

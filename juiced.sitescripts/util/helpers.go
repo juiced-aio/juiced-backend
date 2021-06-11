@@ -9,33 +9,38 @@ import (
 	"io/ioutil"
 	"log"
 	"math/rand"
-	"net/http"
-	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	cclient "github.com/IHaveNothingg/cclientwtf"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/cookiejar"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+
+	cclient "backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 	tls "github.com/Titanium-ctrl/utls"
 )
 
 // CreateClient creates an HTTP client
 func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
 	var client http.Client
+	var err error
 	if len(proxy) > 0 {
-		client, err := cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy[0]))
+		client, err = cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy[0]))
 		if err != nil {
 			return client, err
 		}
 	} else {
-		client, err := cclient.NewClient(tls.HelloChrome_83)
+		client, err = cclient.NewClient(tls.HelloChrome_83)
 		if err != nil {
 			return client, err
-
 		}
-
 	}
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
@@ -76,7 +81,7 @@ func HandleErrors(err error, errorType ErrorType) bool {
 		case ShippingTypeError:
 
 		}
-		log.Println(err)
+		log.Println(err.Error())
 		return false
 	}
 	return true
@@ -85,12 +90,16 @@ func HandleErrors(err error, errorType ErrorType) bool {
 // Request wraps the main functions of a request
 // (marshal JSON, create request, execute request, read body, unmarshal JSON)
 // while handling errors throughout
-func MakeRequest(requestInfo *Request) (*http.Response, error) {
+func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	var payload io.Reader
 
-	log.Println("START " + requestInfo.URL)
+	if os.Getenv("JUICED_LOG") == "LOG" {
+		log.Println("\n================\nSTART " + requestInfo.Method + " " + requestInfo.URL)
+	}
 	if requestInfo.Data != nil {
-		log.Println("REQUEST BODY: " + string(requestInfo.Data))
+		if os.Getenv("JUICED_LOG") == "LOG" {
+			log.Println("REQUEST BODY: " + string(requestInfo.Data) + "\n")
+		}
 		payload = bytes.NewBuffer(requestInfo.Data)
 	} else {
 		payload = nil
@@ -99,56 +108,73 @@ func MakeRequest(requestInfo *Request) (*http.Response, error) {
 		data, err := json.Marshal(requestInfo.RequestBodyStruct)
 		ok := HandleErrors(err, RequestMarshalBodyError)
 		if !ok {
-			return nil, err
+			return nil, "", err
 		}
-		log.Println("REQUEST BODY: " + string(data))
+		if os.Getenv("JUICED_LOG") == "LOG" {
+			log.Println("REQUEST BODY: " + string(data) + "\n")
+		}
 		payload = bytes.NewBuffer(data)
 	}
 	request, err := http.NewRequest(requestInfo.Method, requestInfo.URL, payload)
 	ok := HandleErrors(err, RequestCreateError)
 	if !ok {
-		return nil, err
+		return nil, "", err
 	}
 
 	if requestInfo.Headers != nil {
 		request.Header = requestInfo.Headers
 	}
-	// if requestInfo.RawHeaders != nil {
-	// 	request.RawHeader = requestInfo.RawHeaders
-	// }
+	if requestInfo.RawHeaders != nil {
+		request.RawHeader = requestInfo.RawHeaders
+	}
 	if requestInfo.AddHeadersFunction != nil {
 		requestInfo.AddHeadersFunction(request, requestInfo.Referer)
 	}
 
-	log.Println("REQUEST HEADERS:")
-	for header, values := range request.Header {
-		log.Println(header + ": " + strings.Join(values, ","))
+	if os.Getenv("JUICED_LOG") == "LOG" {
+		log.Println("REQUEST HEADERS:")
+		for header, values := range request.Header {
+			log.Println(header + ": " + strings.Join(values, ","))
+		}
+		for _, header := range request.RawHeader {
+			log.Println(header[0] + ": " + header[1])
+		}
+		log.Println()
 	}
 	response, err := requestInfo.Client.Do(request)
 	ok = HandleErrors(err, RequestDoError)
 	if !ok {
-		return response, err
+		return response, "", err
 	}
 
-	//Removing defer resp.Body.Close() here because it was causing problems, now it's after every MakeRequest
+	defer response.Body.Close()
 
 	body, err := ioutil.ReadAll(response.Body)
-	log.Println("RESPONSE BODY: " + string(body))
-	log.Println("RESPONSE HEADERS:")
-	for header, values := range response.Header {
-		log.Println(header + ": " + strings.Join(values, ","))
+	if os.Getenv("JUICED_LOG") == "LOG" {
+		log.Println("RESPONSE BODY: " + string(body) + "\n")
+		log.Println("RESPONSE HEADERS:")
+		for header, values := range response.Header {
+			log.Println(header + ": " + strings.Join(values, ","))
+		}
+		log.Println()
+		log.Println("END " + requestInfo.URL + "\n================\n")
 	}
-	log.Println("END " + requestInfo.URL)
 	ok = HandleErrors(err, RequestReadBodyError)
 	if !ok {
-		return response, err
+		return response, "", err
 	}
 
 	if requestInfo.ResponseBodyStruct != nil {
-		json.Unmarshal(body, requestInfo.ResponseBodyStruct) // TODO
+		err = json.Unmarshal(body, requestInfo.ResponseBodyStruct)
+		if err != nil {
+			return response, "", err
+		}
 	}
 
-	return response, nil // TODO @silent: Return body
+	newBody := strings.ReplaceAll(string(body), "\n", "")
+	newBody = strings.ReplaceAll(newBody, "\t", "")
+
+	return response, newBody, nil
 }
 
 // SendDiscordWebhook sends checkout information to the Discord Webhook
@@ -156,7 +182,7 @@ func SendDiscordWebhook(discordWebhook string, success bool, fields []Field, ima
 	client := http.Client{
 		Transport: &http.Transport{},
 	}
-	response, err := MakeRequest(&Request{
+	response, _, err := MakeRequest(&Request{
 		Client: client,
 		Method: "POST",
 		URL:    discordWebhook,
@@ -287,14 +313,202 @@ func RemoveFromSlice(s []string, x string) []string {
 	return s[:len(s)-1]
 }
 
-func ReadBody(resp *http.Response) string {
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println(err)
+// Function to generate valid abck cookies using an API
+func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpoint string) error {
+	var ParsedBase, _ = url.Parse(BaseEndpoint)
+	ver := "1.7"
+	if ParsedBase.Host == "www.gamestop.com" {
+		ver = "1.69"
 	}
-	defer resp.Body.Close()
-	newBody := strings.ReplaceAll(string(body), "\n", "")
-	newBody = strings.ReplaceAll(newBody, "\t", "")
-	return newBody
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		return err
+	}
 
+	resp, _, err := MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "GET",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	var abckCookie string
+	var genResponse sec.AkamaiAPIResponse
+	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			abckCookie = cookie.Value
+		}
+	}
+
+	genResponse, _, err = sec.Akamai(location, "true", "true", "false", "false", abckCookie, AkamaiEndpoint, ver, "true", "", "", "true", user)
+	if err != nil {
+		return err
+	}
+
+	sensorRequest := SensorRequest{
+		SensorData: genResponse.SensorData,
+	}
+
+	data, _ := json.Marshal(sensorRequest)
+	resp, _, err = MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "POST",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(data))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			abckCookie = cookie.Value
+		}
+	}
+
+	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
+	if err != nil {
+		return err
+	}
+
+	sensorRequest = SensorRequest{
+		SensorData: genResponse.SensorData,
+	}
+	data, _ = json.Marshal(sensorRequest)
+
+	resp, _, err = MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "POST",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(data))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			abckCookie = cookie.Value
+		}
+	}
+
+	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
+	if err != nil {
+		return err
+	}
+
+	sensorRequest = SensorRequest{
+		SensorData: genResponse.SensorData,
+	}
+
+	data, err = json.Marshal(sensorRequest)
+	if err != nil {
+		return err
+	}
+
+	resp, _, err = MakeRequest(&Request{
+		Client: *abckClient,
+		Method: "POST",
+		URL:    AkamaiEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(data))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "text/plain;charset=UTF-8"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", location},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: data,
+	})
+	if err != nil {
+		return err
+	}
+
+	switch resp.StatusCode {
+	case 201:
+		for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+			if cookie.Name == "_abck" {
+				fmt.Println(cookie.Value)
+				validator, _ := FindInString(cookie.Value, "~", "~")
+				if validator == "-1" {
+					NewAbck(abckClient, location, BaseEndpoint, AkamaiEndpoint)
+				}
+
+			}
+		}
+		return nil
+	}
+	return errors.New(resp.Status)
+}
+
+// Processes each checkout by sending a webhook and logging the checkout
+func ProcessCheckout(pci ProcessCheckoutInfo) {
+	sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
+	SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity)
+}
+
+// Logs the checkout
+func SendCheckout(task base.Task, itemName string, sku string, price int, quantity int) {
+	commands.CreateCheckout(entities.Checkout{
+		ItemName:    itemName,
+		SKU:         sku,
+		Price:       price,
+		Quantity:    quantity,
+		Retailer:    task.Task.TaskRetailer,
+		ProfileName: task.Profile.Name,
+		Time:        time.Now(),
+	})
 }

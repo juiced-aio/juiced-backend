@@ -5,16 +5,17 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/amazon"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/bestbuy"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/hottopic"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/target"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/walmart"
+	"backend.juicedbot.io/juiced.sitescripts/amazon"
+	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/gamestop"
+	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/target"
+	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
 )
 
@@ -29,6 +30,7 @@ type TaskStore struct {
 	AmazonTasks   map[primitive.ObjectID]*amazon.Task
 	BestbuyTasks  map[primitive.ObjectID]*bestbuy.Task
 	HottopicTasks map[primitive.ObjectID]*hottopic.Task
+	GamestopTasks map[primitive.ObjectID]*gamestop.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -61,7 +63,8 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Make sure necessary fields exist
-		if task.TargetTaskInfo.CheckoutType == "" || task.TargetTaskInfo.Email == "" || task.TargetTaskInfo.Password == "" || task.TargetTaskInfo.PaymentType == "" {
+		emptyString := ""
+		if task.TargetTaskInfo.CheckoutType == emptyString || task.TargetTaskInfo.Email == emptyString || task.TargetTaskInfo.Password == emptyString || task.TargetTaskInfo.PaymentType == emptyString {
 			return false
 		}
 		// Create task
@@ -99,7 +102,8 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Make sure necessary fields exist
-		if task.AmazonTaskInfo.LoginType == "" || task.AmazonTaskInfo.Email == "" || task.AmazonTaskInfo.Password == "" {
+		emptyString := ""
+		if task.AmazonTaskInfo.LoginType == emptyString || task.AmazonTaskInfo.Email == emptyString || task.AmazonTaskInfo.Password == emptyString {
 			return false
 		}
 		// Create task
@@ -120,7 +124,8 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Make sure necessary fields exist
-		if task.BestbuyTaskInfo.TaskType == "" || task.BestbuyTaskInfo.Email == "" || task.BestbuyTaskInfo.Password == "" {
+		emptyString := ""
+		if task.BestbuyTaskInfo.TaskType == emptyString || (task.BestbuyTaskInfo.TaskType == enums.TaskTypeAccount && (task.BestbuyTaskInfo.Email == emptyString || task.BestbuyTaskInfo.Password == emptyString)) {
 			return false
 		}
 		// Create task
@@ -131,13 +136,17 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		// Add task to store
 		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
 
-	case enums.Hottopic:
+	case enums.HotTopic:
 		// Check if task exists in store already
 		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
 			return true
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
 		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if len(task.HottopicTaskInfo.Pids) == 0 {
 			return false
 		}
 		// Create task
@@ -147,6 +156,28 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.HottopicTasks[task.ID] = &hottopicTask
+
+	case enums.GameStop:
+		// Check if task exists in store already
+		if _, ok := taskStore.GamestopTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if task.GamestopTaskInfo.TaskType == "" || task.GamestopTaskInfo.Email == "" || task.GamestopTaskInfo.Password == "" {
+			return false
+		}
+		// Create task
+		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxy, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.GamestopTasks[task.ID] = &gamestopTask
+
 	}
 	return true
 }
@@ -174,23 +205,25 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	}
 
 	// Otherwise, start the Task
-	defer func() {
-		recover()
-		// TODO @silent: Let the UI know that a task failed
-	}()
-	// May panic (if it runs into a runtime error)
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
 	case enums.Target:
 		go taskStore.TargetTasks[task.ID].RunTask()
+
 	case enums.Walmart:
 		go taskStore.WalmartTasks[task.ID].RunTask()
+
 	case enums.Amazon:
 		go taskStore.AmazonTasks[task.ID].RunTask()
+
 	case enums.BestBuy:
 		go taskStore.BestbuyTasks[task.ID].RunTask()
-	case enums.Hottopic:
+
+	case enums.HotTopic:
 		go taskStore.HottopicTasks[task.ID].RunTask()
+
+	case enums.GameStop:
+		go taskStore.GamestopTasks[task.ID].RunTask()
 	}
 	return true
 }
@@ -204,26 +237,37 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 			targetTask.Task.StopFlag = true
 		}
 		return true
+
 	case enums.Walmart:
 		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
 			walmartTask.Task.StopFlag = true
 		}
 		return true
+
 	case enums.Amazon:
 		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
 			amazonTask.Task.StopFlag = true
 		}
 		return true
+
 	case enums.BestBuy:
 		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
 			bestbuyTask.Task.StopFlag = true
 		}
 		return true
-	case enums.Hottopic:
+
+	case enums.HotTopic:
 		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
 			hottopicTask.Task.StopFlag = true
 		}
 		return true
+
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
+			gamestopTask.Task.StopFlag = true
+		}
+		return true
+
 	}
 	return false
 }
@@ -238,6 +282,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 		AmazonTasks:   make(map[primitive.ObjectID]*amazon.Task),
 		BestbuyTasks:  make(map[primitive.ObjectID]*bestbuy.Task),
 		HottopicTasks: make(map[primitive.ObjectID]*hottopic.Task),
+		GamestopTasks: make(map[primitive.ObjectID]*gamestop.Task),
 		EventBus:      eventBus,
 	}
 	channel := make(chan events.Event)
@@ -259,6 +304,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 						targetTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
+
 			case enums.Walmart:
 				inStockForShip := event.ProductEvent.WalmartData.InStockForShip
 				for _, walmartTask := range taskStore.WalmartTasks {
@@ -267,6 +313,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 						walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
+
 			case enums.Amazon:
 				inStock := event.ProductEvent.AmazonData.InStock
 				for _, amazonTask := range taskStore.AmazonTasks {
@@ -283,6 +330,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 						amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(inStock[rand.Intn(len(inStock))].MonitorType)
 					}
 				}
+
 			case enums.BestBuy:
 				inStock := event.ProductEvent.BestbuyData.InStock
 				for _, bestbuyTask := range taskStore.BestbuyTasks {
@@ -292,11 +340,26 @@ func InitTaskStore(eventBus *events.EventBus) {
 						bestbuyTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
-			case enums.Hottopic:
+
+			case enums.HotTopic:
 				inStock := event.ProductEvent.HottopicData.InStock
 				for _, hotTopicTask := range taskStore.HottopicTasks {
 					if hotTopicTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
 						hotTopicTask.Pid = inStock[rand.Intn(len(inStock))].PID
+					}
+				}
+
+			case enums.GameStop:
+				inStock := event.ProductEvent.GamestopData.InStock
+				for _, gamestopTask := range taskStore.GamestopTasks {
+					if gamestopTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
+						gamestopTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
+						gamestopTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
+						gamestopTask.CheckoutInfo.ItemName = inStock[rand.Intn(len(inStock))].ItemName
+						gamestopTask.CheckoutInfo.PID = inStock[rand.Intn(len(inStock))].PID
+						gamestopTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
+						gamestopTask.CheckoutInfo.ProductURL = inStock[rand.Intn(len(inStock))].ProductURL
+						gamestopTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
 			}

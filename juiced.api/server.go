@@ -1,7 +1,7 @@
 package api
 
 import (
-	"backend.juicedbot.io/m/v2/juiced.api/routes"
+	"backend.juicedbot.io/juiced.api/routes"
 
 	"net/http"
 
@@ -17,6 +17,7 @@ func StartServer() {
 	routes.RouteProxiesEndpoints(router)
 	routes.RouteProfilesEndpoints(router)
 	routes.RouteTasksEndpoints(router)
+	routes.RouteCheckoutsEndpoints(router)
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:3000"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},

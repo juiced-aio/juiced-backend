@@ -1,17 +1,16 @@
 package main
 
 import (
-	"log"
 	"time"
 
-	api "backend.juicedbot.io/m/v2/juiced.api"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/stores"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/queries"
-	"backend.juicedbot.io/m/v2/juiced.security/auth/util"
-	ws "backend.juicedbot.io/m/v2/juiced.ws"
+	api "backend.juicedbot.io/juiced.api"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.security/auth/util"
+	ws "backend.juicedbot.io/juiced.ws"
 )
 
 func main() {
@@ -29,6 +28,7 @@ func main() {
 		for {
 			event := <-channel
 			if event.EventType == events.ConnectEventType {
+				eventBus.Unsubscribe(channel)
 				break
 			}
 		}
@@ -36,14 +36,12 @@ func main() {
 		// Initalize the database
 		err := common.InitDatabase()
 		if err != nil {
-			log.Println(err.Error())
 			eventBus.PublishCloseEvent()
 		}
 
 		// Get the user's info
 		_, userInfo, err := queries.GetUserInfo()
 		if err != nil {
-			log.Println(err.Error())
 			eventBus.PublishCloseEvent()
 		} else {
 			go Heartbeat(eventBus, userInfo)

@@ -6,16 +6,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 	"github.com/google/uuid"
 )
@@ -69,6 +69,12 @@ func (task *Task) CheckForStop() bool {
 // 		6. SetPaymentInfo
 // 		7. PlaceOrder
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -81,7 +87,7 @@ func (task *Task) RunTask() {
 		case enums.TaskTypeAccount:
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
-			sessionMade = BecomeGuest(&task.Task.Client)
+			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
 		if !sessionMade {
@@ -157,6 +163,7 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
+	// TODO @Humphrey: Don't retry if declined
 	placedOrder := false
 	for !placedOrder {
 		needToStop := task.CheckForStop()
@@ -178,285 +185,22 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
 
-// Function to generate valid abck cookies using an API
-func (task *Task) NewAbck(abckClient *http.Client, location string) bool {
-	resp, err := util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "GET",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	var abckCookie string
-	var genResponse GenResponse
-	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-	form := url.Values{
-		"authKey":        {"UFBfkndVOYYGZ58Uu8Mv49TrODCEiVE0gKpOAj679Z0dJoQThi9wGpoq6tpIRvrR"},
-		"pageurl":        {location},
-		"skipkact":       {"true"},
-		"skipmact":       {"true"},
-		"onblur":         {"false"},
-		"onfocus":        {"false"},
-		"abck":           {abckCookie},
-		"sensordatalink": {AkamaiEndpoint},
-		"ver":            {"1.7"},
-		"firstpost":      {"true"},
-		"pixelid":        {""},
-		"pixelg":         {""},
-		"json":           {"true"},
-	}
-	client, _ := util.CreateClient()
-	resp, err = util.MakeRequest(&util.Request{
-		Client: client,
-		Method: "POST",
-		URL:    GenEndpoint,
-		RawHeaders: [][2]string{
-			{"Content-Type", "application/x-www-form-urlencoded"},
-			{"User-Agent", "Juiced/1.0"},
-			{"Accept", "*/*"},
-			{"Accept-Encoding", "gzip, deflate, br"},
-			{"Connection", "keep-alive"},
-			{"Content-Length", fmt.Sprint(len(form.Encode()))},
-		},
-		Data:               []byte(form.Encode()),
-		ResponseBodyStruct: &genResponse,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	sensorRequest := SensorRequest{
-		SensorData: genResponse.Sensordata,
-	}
-
-	data, _ := json.Marshal(sensorRequest)
-	resp, err = util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-	form = url.Values{
-		"authKey":        {"UFBfkndVOYYGZ58Uu8Mv49TrODCEiVE0gKpOAj679Z0dJoQThi9wGpoq6tpIRvrR"},
-		"pageurl":        {location},
-		"skipkact":       {"true"},
-		"skipmact":       {"false"},
-		"onblur":         {"false"},
-		"onfocus":        {"false"},
-		"abck":           {abckCookie},
-		"sensordatalink": {AkamaiEndpoint},
-		"ver":            {"1.7"},
-		"firstpost":      {"false"},
-		"pixelid":        {""},
-		"pixelg":         {""},
-		"json":           {"true"},
-	}
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: client,
-		Method: "POST",
-		URL:    GenEndpoint,
-		RawHeaders: [][2]string{
-			{"Content-Type", "application/x-www-form-urlencoded"},
-			{"User-Agent", "Juiced/1.0"},
-			{"Accept", "*/*"},
-			{"Accept-Encoding", "gzip, deflate, br"},
-			{"Connection", "keep-alive"},
-			{"Content-Length", fmt.Sprint(len(form.Encode()))},
-		},
-		Data:               []byte(form.Encode()),
-		ResponseBodyStruct: &genResponse,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	sensorRequest = SensorRequest{
-		SensorData: genResponse.Sensordata,
-	}
-	data, _ = json.Marshal(sensorRequest)
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-	form = url.Values{
-		"authKey":        {"UFBfkndVOYYGZ58Uu8Mv49TrODCEiVE0gKpOAj679Z0dJoQThi9wGpoq6tpIRvrR"},
-		"pageurl":        {location},
-		"skipkact":       {"true"},
-		"skipmact":       {"false"},
-		"onblur":         {"false"},
-		"onfocus":        {"false"},
-		"abck":           {abckCookie},
-		"sensordatalink": {AkamaiEndpoint},
-		"ver":            {"1.7"},
-		"firstpost":      {"false"},
-		"pixelid":        {""},
-		"pixelg":         {""},
-		"json":           {"true"},
-	}
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: client,
-		Method: "POST",
-		URL:    GenEndpoint,
-		RawHeaders: [][2]string{
-			{"Content-Type", "application/x-www-form-urlencoded"},
-			{"User-Agent", "Juiced/1.0"},
-			{"Accept", "*/*"},
-			{"Accept-Encoding", "gzip, deflate, br"},
-			{"Connection", "keep-alive"},
-			{"Content-Length", fmt.Sprint(len(form.Encode()))},
-		},
-		Data:               []byte(form.Encode()),
-		ResponseBodyStruct: &genResponse,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	sensorRequest = SensorRequest{
-		SensorData: genResponse.Sensordata,
-	}
-	data, _ = json.Marshal(sensorRequest)
-
-	resp, err = util.MakeRequest(&util.Request{
-		Client: *abckClient,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case 201:
-		for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-			if cookie.Name == "_abck" {
-				fmt.Println(cookie.Value)
-				validator, _ := util.FindInString(cookie.Value, "~", "~")
-				if validator == "-1" {
-					task.NewAbck(abckClient, location)
-				}
-
-			}
-		}
-		return true
-	}
-	return false
-}
-
 // Login logs the task's client into the account specified
 func (task *Task) Login() bool {
-
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 
-	task.NewAbck(&task.Task.Client, BaseEndpoint+"/")
+	util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 
-	resp, err = util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    LoginPageEndpoint,
@@ -478,13 +222,11 @@ func (task *Task) Login() bool {
 		},
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 
 	// Getting all the json data
-	body := util.ReadBody(resp)
 	doc := soup.HTMLParse(body)
 	signinData := doc.Find("script", "id", "signon-data").FullText()
 
@@ -543,9 +285,9 @@ func (task *Task) Login() bool {
 		{Name: "ZPLANK", Value: "0e0a383f97f24e5ab11fef6269000a93"},
 	})
 
-	task.NewAbck(&task.Task.Client, LoginPageEndpoint+"/")
+	util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 	var loginResponse LoginResponse
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    LoginEndpoint,
@@ -570,12 +312,11 @@ func (task *Task) Login() bool {
 		ResponseBodyStruct: &loginResponse,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 	fmt.Println(loginResponse)
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    BaseEndpoint,
@@ -595,10 +336,9 @@ func (task *Task) Login() bool {
 		},
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 		return false
 	}
-	defer resp.Body.Close()
 
 	return true
 }
@@ -636,12 +376,13 @@ func (task *Task) AddToCart() bool {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
-					task.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock))
+					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
+					util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
 				}
 			}
 		}
 
-		resp, err := util.MakeRequest(&util.Request{
+		resp, _, err := util.MakeRequest(&util.Request{
 			Client: task.Task.Client,
 			Method: "POST",
 			URL:    AddToCartEndpoint,
@@ -668,8 +409,6 @@ func (task *Task) AddToCart() bool {
 			return false
 		}
 
-		defer resp.Body.Close()
-
 		switch resp.StatusCode {
 		case 200:
 			handled = true
@@ -678,16 +417,15 @@ func (task *Task) AddToCart() bool {
 			a2TransactionID = resp.Header.Get("a2ctransactionreferenceid")
 			times, err := CheckTime(a2TransactionCode)
 			if err != nil {
-				fmt.Println(err)
+				fmt.Println(err.Error())
 			}
-
 			fmt.Println(times)
 			if times < 5 {
 				for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 					if cookie.Name == "_abck" {
 						validator, _ := util.FindInString(cookie.Value, "~", "~")
 						if validator == "-1" {
-							task.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock))
+							util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
 						}
 					}
 				}
@@ -695,7 +433,7 @@ func (task *Task) AddToCart() bool {
 				time.Sleep(time.Duration(times*60000) * time.Millisecond)
 				fmt.Println("Out of Queue")
 				addToCartResponse = AddToCartResponse{}
-				resp, err := util.MakeRequest(&util.Request{
+				resp, _, err := util.MakeRequest(&util.Request{
 					Client: task.Task.Client,
 					Method: "POST",
 					URL:    AddToCartEndpoint,
@@ -724,8 +462,6 @@ func (task *Task) AddToCart() bool {
 					return false
 				}
 
-				defer resp.Body.Close()
-
 				switch resp.StatusCode {
 				case 200:
 					handled = true
@@ -738,6 +474,7 @@ func (task *Task) AddToCart() bool {
 					}
 				}
 			} else {
+				// TODO @Humphrey: use default task delay if guest mode, 3 second delay if account mode
 				//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
 				time.Sleep(3 * time.Second)
 			}
@@ -749,7 +486,7 @@ func (task *Task) AddToCart() bool {
 
 // Checkout goes to the checkout page and gets the required information for the rest of the checkout process
 func (task *Task) Checkout() bool {
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
 		URL:        CheckoutEndpoint,
@@ -760,12 +497,8 @@ func (task *Task) Checkout() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
 	switch resp.StatusCode {
 	case 200:
-		body := util.ReadBody(resp)
-
 		rawOrderData, err := util.FindInString(body, `var orderData = `, `;`)
 		if err != nil {
 			return false
@@ -773,19 +506,23 @@ func (task *Task) Checkout() bool {
 
 		orderData := OrderData{}
 
-		json.Unmarshal([]byte(rawOrderData), &orderData)
+		err = json.Unmarshal([]byte(rawOrderData), &orderData)
+		if err != nil {
+			return false
+		}
 		fmt.Println(orderData.Items)
-		task.CheckoutInfo.ID = orderData.ID
-		task.CheckoutInfo.ItemID = orderData.Items[0].ID
-		task.CheckoutInfo.PaymentID = orderData.Payment.ID
-		task.CheckoutInfo.OrderID = orderData.Customerorderid
-		task.CheckoutInfo.ImageUrl = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
-		task.CheckoutInfo.ItemName = orderData.Items[0].Meta.Shortlabel
+		if len(orderData.Items) > 0 {
+			task.CheckoutInfo.ID = orderData.ID
+			task.CheckoutInfo.ItemID = orderData.Items[0].ID
+			task.CheckoutInfo.PaymentID = orderData.Payment.ID
+			task.CheckoutInfo.OrderID = orderData.Customerorderid
+			task.CheckoutInfo.ImageURL = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
+			task.CheckoutInfo.ItemName = orderData.Items[0].Meta.Shortlabel
+		}
 		return true
-
-	default:
-		return false
 	}
+
+	return false
 }
 
 // SetShippingInfo sets the shipping info in checkout
@@ -805,7 +542,7 @@ func (task *Task) SetShippingInfo() bool {
 							Country:             task.Task.Profile.ShippingAddress.CountryCode,
 							Savetoprofile:       false,
 							Street2:             strings.ToUpper(task.Task.Profile.ShippingAddress.Address2),
-							Useaddressasbilling: task.Task.Profile.SSAB,
+							Useaddressasbilling: false,
 							Middleinitial:       "",
 							Lastname:            task.Task.Profile.ShippingAddress.LastName,
 							Street:              strings.ToUpper(task.Task.Profile.ShippingAddress.Address1),
@@ -827,12 +564,14 @@ func (task *Task) SetShippingInfo() bool {
 	data, err := json.Marshal(setShippingRequest)
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
+		log.Println(571)
+		log.Println(err.Error())
 		return false
 	}
 
 	setShippingResponse := UniversalOrderResponse{}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "PATCH",
 		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/",
@@ -857,24 +596,33 @@ func (task *Task) SetShippingInfo() bool {
 		Data:               data,
 		ResponseBodyStruct: &setShippingResponse,
 	})
+	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
+	log.Println(ok)
 	if !ok {
+		log.Println(604)
+		log.Println(err.Error())
 		return false
 	}
 
-	defer resp.Body.Close()
+	log.Println(resp.StatusCode)
 
 	if resp.StatusCode != 200 {
+		log.Println(606)
+		log.Println(resp.StatusCode)
 		return false
 	}
 
-	switch setShippingResponse.Errors[0].Errorcode {
-	case "standardizationError":
-		fmt.Println("Bad shipping details")
-		return false
+	if len(setShippingResponse.Errors) > 0 {
+		switch setShippingResponse.Errors[0].Errorcode {
+		case "standardizationError":
+			log.Println("Bad shipping details")
+			return false
+		}
 	}
 
-	resp, err = util.MakeRequest(&util.Request{
+	log.Println("request 2")
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/validate",
@@ -898,9 +646,14 @@ func (task *Task) SetShippingInfo() bool {
 		},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
+	log.Println(ok)
 	if !ok {
+		log.Println(642)
+		log.Println(err.Error())
 		return false
 	}
+
+	log.Println(resp.StatusCode)
 
 	switch resp.StatusCode {
 	case 200:
@@ -912,44 +665,25 @@ func (task *Task) SetShippingInfo() bool {
 
 // SetPaymentInfo sets the payment info in checkout
 func (task *Task) SetPaymentInfo() bool {
-	task.NewAbck(&task.Task.Client, BasePaymentEndpoint)
+	util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 
-	var billing Billingaddress
-	if task.Task.Profile.SSAB {
-		billing = Billingaddress{
-			Country:             task.Task.Profile.ShippingAddress.CountryCode,
-			Useaddressasbilling: true,
-			Middleinitial:       "",
-			Lastname:            task.Task.Profile.ShippingAddress.LastName,
-			Iswishlistaddress:   false,
-			City:                strings.ToUpper(task.Task.Profile.ShippingAddress.City),
-			State:               task.Task.Profile.ShippingAddress.StateCode,
-			Firstname:           task.Task.Profile.ShippingAddress.FirstName,
-			Addressline1:        strings.ToUpper(task.Task.Profile.ShippingAddress.Address1),
-			Addressline2:        strings.ToUpper(task.Task.Profile.ShippingAddress.Address2),
-			Dayphone:            task.Task.Profile.PhoneNumber,
-			Postalcode:          task.Task.Profile.ShippingAddress.ZipCode,
-			Standardized:        false,
-			Useroverridden:      false,
-		}
-	} else {
-		billing = Billingaddress{
-			Country:             task.Task.Profile.BillingAddress.CountryCode,
-			Useaddressasbilling: true,
-			Middleinitial:       "",
-			Lastname:            task.Task.Profile.BillingAddress.LastName,
-			Iswishlistaddress:   false,
-			City:                strings.ToUpper(task.Task.Profile.BillingAddress.City),
-			State:               task.Task.Profile.BillingAddress.StateCode,
-			Firstname:           task.Task.Profile.BillingAddress.FirstName,
-			Addressline1:        strings.ToUpper(task.Task.Profile.BillingAddress.Address1),
-			Addressline2:        strings.ToUpper(task.Task.Profile.BillingAddress.Address2),
-			Dayphone:            task.Task.Profile.PhoneNumber,
-			Postalcode:          task.Task.Profile.BillingAddress.ZipCode,
-			Standardized:        false,
-			Useroverridden:      false,
-		}
+	billing := Billingaddress{
+		Country:             task.Task.Profile.BillingAddress.CountryCode,
+		Useaddressasbilling: true,
+		Middleinitial:       "",
+		Lastname:            task.Task.Profile.BillingAddress.LastName,
+		Iswishlistaddress:   false,
+		City:                strings.ToUpper(task.Task.Profile.BillingAddress.City),
+		State:               task.Task.Profile.BillingAddress.StateCode,
+		Firstname:           task.Task.Profile.BillingAddress.FirstName,
+		Addressline1:        strings.ToUpper(task.Task.Profile.BillingAddress.Address1),
+		Addressline2:        strings.ToUpper(task.Task.Profile.BillingAddress.Address2),
+		Dayphone:            task.Task.Profile.PhoneNumber,
+		Postalcode:          task.Task.Profile.BillingAddress.ZipCode,
+		Standardized:        false,
+		Useroverridden:      false,
 	}
+
 	encryptedNumber := encrypt([]byte("00960001"+task.Task.Profile.CreditCard.CardNumber), paymentKey)
 	data, _ := json.Marshal(SetPaymentRequest{
 		Billingaddress: billing,
@@ -975,7 +709,7 @@ func (task *Task) SetPaymentInfo() bool {
 			Virtualcard:     false,
 		},
 	})
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "PUT",
 		URL:    fmt.Sprintf(PaymentEndpoint, task.CheckoutInfo.PaymentID),
@@ -1001,9 +735,8 @@ func (task *Task) SetPaymentInfo() bool {
 		Data: data,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		return false
@@ -1013,12 +746,12 @@ func (task *Task) SetPaymentInfo() bool {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				task.NewAbck(&task.Task.Client, BasePaymentEndpoint)
+				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 			}
 		}
 	}
 
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(RefreshPaymentEndpoint, task.CheckoutInfo.ID),
@@ -1044,9 +777,8 @@ func (task *Task) SetPaymentInfo() bool {
 		Data: []byte("{}"),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
 		return false
@@ -1072,7 +804,7 @@ func (task *Task) SetPaymentInfo() bool {
 		}
 	}
 	prelookupResonse := PrelookupResponse{}
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(PrelookupEndpoint, task.CheckoutInfo.PaymentID),
@@ -1102,9 +834,8 @@ func (task *Task) SetPaymentInfo() bool {
 		ResponseBodyStruct: &prelookupResonse,
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -1128,7 +859,7 @@ func (task *Task) PlaceOrder() bool {
 		return false
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    PlaceOrderEndpoint,
@@ -1158,8 +889,6 @@ func (task *Task) PlaceOrder() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
 	if resp.StatusCode != 200 {
 		return false
 	}
@@ -1174,7 +903,7 @@ func (task *Task) PlaceOrder() bool {
 		Colordepth:  "24",
 	})
 	placeOrderResponse := UniversalOrderResponse{}
-	resp, err = util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/",
@@ -1204,8 +933,7 @@ func (task *Task) PlaceOrder() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
+	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -1213,6 +941,7 @@ func (task *Task) PlaceOrder() bool {
 			if cookie.Name == "CartItemCount" {
 				if cookie.Value == "0" {
 					fmt.Println("Checked Out")
+					status = enums.OrderStatusSuccess
 					success = true
 				}
 
@@ -1223,12 +952,36 @@ func (task *Task) PlaceOrder() bool {
 			switch placeOrderResponse.Errors[0].Errorcode {
 			case "CC_AUTH_FAILURE":
 				fmt.Println("Card declined")
+				status = enums.OrderStatusDeclined
+			default:
+				fmt.Println("Failed to Checkout")
+				status = enums.OrderStatusFailed
 			}
+		} else {
+			fmt.Println("Failed to Checkout")
+			status = enums.OrderStatusFailed
 		}
-		fmt.Println("Failed to Checkout")
 		success = false
+
 	}
 
-	util.SendDiscordWebhook(task.Task.DiscordWebhook, success, task.CreateBestbuyFields(success), task.CheckoutInfo.ImageUrl)
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return false
+	}
+
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask: task.Task,
+		Success:  success,
+		Content:  "",
+		Embeds:   task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo: user,
+		ItemName: task.CheckoutInfo.ItemName,
+		Sku:      task.CheckoutInfo.SKUInStock,
+		Price:    task.CheckoutInfo.Price,
+		Quantity: 1,
+	})
+
 	return success
 }

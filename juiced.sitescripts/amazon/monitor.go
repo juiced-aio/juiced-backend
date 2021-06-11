@@ -2,18 +2,18 @@ package amazon
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 
 	"github.com/anaskhan96/soup"
 	browser "github.com/eddycjy/fake-useragent"
@@ -104,6 +104,12 @@ func (monitor *Monitor) CheckForStop() bool {
 
 // So theres a few different ways we can make the monitoring groups for Amazon, for now I'm going to make it so it runs a goroutine for each ASIN
 func (monitor *Monitor) RunMonitor() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a monitor failed
+	}()
+
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
@@ -113,8 +119,15 @@ func (monitor *Monitor) RunMonitor() {
 	}
 	for _, asin := range monitor.ASINs {
 		if !util.InSlice(monitor.RunningMonitors, asin) {
-
+			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
+			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
 			go func(t string) {
+				// If the function panics due to a runtime error, recover from it
+				defer func() {
+					recover()
+					// TODO @silent: Re-run this specific monitor
+				}()
+
 				somethingInStock := false
 				switch monitor.ASINWithInfo[t].MonitorType {
 				case enums.SlowSKUMonitor:
@@ -158,7 +171,7 @@ func (monitor *Monitor) TurboMonitor(asin string) bool {
 	} else {
 		client = monitor.ASINWithInfo[asin].Client
 	}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: client,
 		Method: "GET",
 		URL:    currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], asin) + util.Randomizer("&pldnSite=1"),
@@ -180,14 +193,12 @@ func (monitor *Monitor) TurboMonitor(asin string) bool {
 		},
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
-		test := monitor.StockInfo(resp, asin)
+		test := monitor.StockInfo(resp, body, asin)
 		fmt.Println(test)
 		return test
 	case 404:
@@ -205,19 +216,18 @@ func (monitor *Monitor) TurboMonitor(asin string) bool {
 }
 
 // Scraping the info from the page, since we are rotating between two page types I have to check each value in two different places
-func (monitor *Monitor) StockInfo(resp *http.Response, asin string) bool {
-	body := util.ReadBody(resp)
+func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
 	if strings.Contains(body, "automated access") {
 		fmt.Println("Captcha")
 		return false
 	}
 	doc := soup.HTMLParse(body)
 	ua := resp.Request.UserAgent()
+	var err error
 	var ofid string
 	var merchantID string
 	var priceStr string
 	var itemName string
-	var err error
 
 	if strings.Contains(resp.Request.URL.String(), "aod") {
 		if doc.Find("input", "name", "offeringID.1").Error != nil {
@@ -268,7 +278,7 @@ func (monitor *Monitor) StockInfo(resp *http.Response, asin string) bool {
 	}
 
 	price, _ := strconv.Atoi(priceStr)
-	inBudget := monitor.ASINWithInfo[asin].MaxPrice > price
+	inBudget := monitor.ASINWithInfo[asin].MaxPrice > price || monitor.ASINWithInfo[asin].MaxPrice == -1
 	if inBudget {
 		monitor.EventInfo = events.AmazonSingleStockData{
 			ASIN:        asin,
@@ -296,7 +306,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
 	ua := browser.Chrome()
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.AccountClient,
 		Method: "POST",
 		URL:    currentEndpoint + "/checkout/turbo-initiate?ref_=dp_start-bbf_1_glance_buyNow_2-1&referrer=detail&pipelineType=turbo&clientId=retailwebsite&weblab=RCX_CHECKOUT_TURBO_DESKTOP_PRIME_87783&temporaryAddToCart=1",
@@ -326,20 +336,17 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println(err.Error())
 	}
-
-	defer resp.Body.Close()
 
 	// It is impossible to know if the OfferID actually exists so it's up to the user here when running OfferID mode/Fast mode
 	monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
 	switch resp.StatusCode {
 	case 200:
 		var imageURL string
-		body := util.ReadBody(resp)
 		doc := soup.HTMLParse(body)
 
-		err := doc.Find("input", "name", "anti-csrftoken-a2z").Error
+		err = doc.Find("input", "name", "anti-csrftoken-a2z").Error
 		if err != nil {
 			return false
 		}
@@ -389,7 +396,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 
 // This becomes a guest basically to monitor amazon
 func (monitor *Monitor) BecomeGuest() bool {
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    BaseEndpoint,
@@ -410,8 +417,6 @@ func (monitor *Monitor) BecomeGuest() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:

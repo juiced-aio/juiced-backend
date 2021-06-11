@@ -2,11 +2,11 @@ package entities
 
 import (
 	"encoding/json"
-	"net/http"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // Task is a class that holds details about a single bot task
@@ -25,24 +25,24 @@ type Task struct {
 	AmazonTaskInfo   AmazonTaskInfo     `json:"amazonTaskInfo"`
 	BestbuyTaskInfo  BestbuyTaskInfo    `json:"bestbuyTaskInfo"`
 	HottopicTaskInfo HottopicTaskInfo   `json:"hottopicTaskInfo"`
+	GamestopTaskInfo GamestopTaskInfo   `json:"gamestopTaskInfo"`
 	// Future sitescripts will have a field here
 }
 
 type WalmartTaskInfo struct {
-	MaxPrice int `json:"maxPrice"`
 }
 
 type HottopicTaskInfo struct {
 	Pids []string
 }
 
-// TargetTaskInfo is a class that holds Target-specific details for a single bot task
 type TargetTaskInfo struct {
 	CheckoutType enums.CheckoutType `json:"checkoutType"`
 	Email        string             `json:"email"`
 	Password     string             `json:"password"`
 	PaymentType  enums.PaymentType  `json:"paymentType"`
 }
+
 type AmazonTaskInfo struct {
 	Email     string          `json:"email"`
 	Password  string          `json:"password"`
@@ -50,6 +50,12 @@ type AmazonTaskInfo struct {
 }
 
 type BestbuyTaskInfo struct {
+	Email    string         `json:"email"`
+	Password string         `json:"password"`
+	TaskType enums.TaskType `json:"taskType"`
+}
+
+type GamestopTaskInfo struct {
 	Email    string         `json:"email"`
 	Password string         `json:"password"`
 	TaskType enums.TaskType `json:"taskType"`
@@ -90,6 +96,7 @@ type TaskGroupWithTasks struct {
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo" bson:"hottopicMonitorInfo"`
+	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -112,27 +119,34 @@ type TaskGroup struct {
 	AmazonMonitorInfo   AmazonMonitorInfo    `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo   `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo  `json:"hottopicMonitorInfo" bson:"hottopicMonitorInfo"`
+	GamestopMonitorInfo GamestopMonitorInfo  `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
 	TaskIDs             []primitive.ObjectID `json:"taskIDs" bson:"taskIDs"`
 	// Future sitescripts will have a field here
 }
 
+type TargetSingleMonitorInfo struct {
+	TCIN         string             `json:"tcin"`
+	MaxPrice     int                `json:"maxPrice"`
+	CheckoutType enums.CheckoutType `json:"checkoutType"`
+}
+
 // TargetMonitorInfo is a class that holds Target-specific details for a single monitor
 type TargetMonitorInfo struct {
-	MonitorType enums.MonitorType `json:"monitorType"`
-	TCINs       []string          `json:"tcins"`
-	StoreID     string            `json:"storeID"`
+	Monitors []TargetSingleMonitorInfo `json:"monitors"`
+	StoreID  string                    `json:"storeID"`
 }
 
 type WalmartMonitorInfo struct {
 	MonitorType enums.MonitorType `json:"monitorType"`
 	SKUs        []string          `json:"skus"`
+	MaxPrice    int               `json:"maxPrice"`
 }
 
 type AmazonSingleMonitorInfo struct {
+	MonitorType enums.MonitorType `json:"monitorType"`
 	ASIN        string            `json:"asin"`
 	OFID        string            `json:"ofid"`
 	MaxPrice    int               `json:"maxPrice"`
-	MonitorType enums.MonitorType `json:"monitorType"`
 	Client      http.Client
 }
 
@@ -141,7 +155,7 @@ type AmazonMonitorInfo struct {
 }
 
 type BestbuySingleMonitorInfo struct {
-	SKU      string `json:"skus"`
+	SKU      string `json:"sku"`
 	MaxPrice int    `json:"maxPrice"`
 }
 
@@ -159,6 +173,15 @@ type HottopicSingleMonitorInfo struct {
 	Color       string            `json:"color"`
 	MaxPrice    int               `json:"maxPrice"`
 	MonitorType enums.MonitorType `json:"monitorType"`
+}
+
+type GamestopSingleMonitorInfo struct {
+	SKU      string `json:"sku"`
+	MaxPrice int    `json:"maxPrice"`
+}
+
+type GamestopMonitorInfo struct {
+	Monitors []GamestopSingleMonitorInfo `json:"monitors"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup

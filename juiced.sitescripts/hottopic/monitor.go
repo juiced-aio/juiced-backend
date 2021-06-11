@@ -2,14 +2,13 @@ package hottopic
 
 import (
 	"fmt"
-	"net/http"
 	"strconv"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 	browser "github.com/eddycjy/fake-useragent"
 )
@@ -106,7 +105,7 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_color=" + pid.color
 	}
 
-	resp, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    BuildEndpoint,
@@ -132,7 +131,7 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 
 	switch resp.StatusCode {
 	case 200:
-		stockInfo := monitor.StockInfo(resp, pid)
+		stockInfo := monitor.StockInfo(body, pid)
 		return stockInfo
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate)
@@ -143,8 +142,7 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 	}
 }
 
-func (monitor *Monitor) StockInfo(resp *http.Response, pid PidSingle) bool {
-	body := util.ReadBody(resp)
+func (monitor *Monitor) StockInfo(body string, pid PidSingle) bool {
 	doc := soup.HTMLParse(body)
 
 	ShipTable := doc.Find("div", "class", "method-descr__label")
@@ -179,5 +177,5 @@ func (monitor *Monitor) SendToTasks() {
 	data := events.HottopicStockData{
 		InStock: []events.HotTopicSingleStockData{monitor.EventInfo},
 	}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.Hottopic, data, monitor.Monitor.TaskGroup.GroupID)
+	monitor.Monitor.EventBus.PublishProductEvent(enums.HotTopic, data, monitor.Monitor.TaskGroup.GroupID)
 }

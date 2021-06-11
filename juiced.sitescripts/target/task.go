@@ -4,21 +4,22 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/stealth"
-
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/util"
 )
 
 // TODO @silent: Handle proxies
@@ -82,6 +83,12 @@ func (task *Task) CheckForStop() bool {
 // 		7. SetPaymentInfo
 // 		8. PlaceOrder
 func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		recover()
+		// TODO @silent: Let the UI know that a task failed
+	}()
+
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login
 	loggedIn := false
@@ -169,12 +176,13 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 8. PlaceOrder
 	placedOrder := false
+	var status enums.OrderStatus
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || status == enums.OrderStatusDeclined {
 			return
 		}
-		placedOrder = task.PlaceOrder()
+		status, placedOrder = task.PlaceOrder()
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -195,31 +203,31 @@ func (task *Task) Login() bool {
 	cookies := make([]*http.Cookie, 0)
 
 	u := launcher.New().
-		Set("headless").
-		// Delete("--headless").
-		Delete("--enable-automation").
-		Delete("--restore-on-startup").
-		Set("disable-background-networking").
-		Set("enable-features", "NetworkService,NetworkServiceInProcess").
-		Set("disable-background-timer-throttling").
-		Set("disable-backgrounding-occluded-windows").
-		Set("disable-breakpad").
-		Set("disable-client-side-phishing-detection").
-		Set("disable-default-apps").
-		Set("disable-dev-shm-usage").
-		Set("disable-extensions").
-		Set("disable-features", "site-per-process,TranslateUI,BlinkGenPropertyTrees").
-		Set("disable-hang-monitor").
-		Set("disable-ipc-flooding-protection").
-		Set("disable-popup-blocking").
-		Set("disable-prompt-on-repost").
-		Set("disable-renderer-backgrounding").
-		Set("disable-sync").
-		Set("force-color-profile", "srgb").
-		Set("metrics-recording-only").
-		Set("safebrowsing-disable-auto-update").
-		Set("password-store", "basic").
-		Set("use-mock-keychain").
+		Set(flags.Flag("headless")).
+		// Delete(flags.Flag("--headless")).
+		Delete(flags.Flag("--enable-automation")).
+		Delete(flags.Flag("--restore-on-startup")).
+		Set(flags.Flag("disable-background-networking")).
+		Set(flags.Flag("enable-features"), "NetworkService,NetworkServiceInProcess").
+		Set(flags.Flag("disable-background-timer-throttling")).
+		Set(flags.Flag("disable-backgrounding-occluded-windows")).
+		Set(flags.Flag("disable-breakpad")).
+		Set(flags.Flag("disable-client-side-phishing-detection")).
+		Set(flags.Flag("disable-default-apps")).
+		Set(flags.Flag("disable-dev-shm-usage")).
+		Set(flags.Flag("disable-extensions")).
+		Set(flags.Flag("disable-features"), "site-per-process,TranslateUI,BlinkGenPropertyTrees").
+		Set(flags.Flag("disable-hang-monitor")).
+		Set(flags.Flag("disable-ipc-flooding-protection")).
+		Set(flags.Flag("disable-popup-blocking")).
+		Set(flags.Flag("disable-prompt-on-repost")).
+		Set(flags.Flag("disable-renderer-backgrounding")).
+		Set(flags.Flag("disable-sync")).
+		Set(flags.Flag("force-color-profile"), "srgb").
+		Set(flags.Flag("metrics-recording-only")).
+		Set(flags.Flag("safebrowsing-disable-auto-update")).
+		Set(flags.Flag("password-store"), "basic").
+		Set(flags.Flag("use-mock-keychain")).
 		MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
@@ -274,12 +282,18 @@ func (task *Task) Login() bool {
 
 // RefreshLogin refreshes the login tokens so that the user can remain logged in
 func (task *Task) RefreshLogin() {
+	// If the function panics due to a runtime error, recover and restart it
+	defer func() {
+		recover()
+		task.RefreshLogin()
+	}()
+
 	for {
 		success := true
 		if task.AccountInfo.Refresh == 0 || time.Now().Unix() > task.AccountInfo.Refresh {
 			refreshLoginResponse := RefreshLoginResponse{}
 
-			resp, err := util.MakeRequest(&util.Request{
+			resp, _, err := util.MakeRequest(&util.Request{
 				Client:             task.Task.Client,
 				Method:             "POST",
 				URL:                RefreshLoginEndpoint,
@@ -292,8 +306,6 @@ func (task *Task) RefreshLogin() {
 				success = false
 				break
 			}
-
-			defer resp.Body.Close()
 
 			switch resp.StatusCode {
 			case 200:
@@ -339,41 +351,62 @@ func (task *Task) WaitForMonitor() bool {
 func (task *Task) AddToCart() bool {
 	var data []byte
 	var err error
-	// TODO: Handle TCIN in stock for ship when user prefers pickup
-	if task.CheckoutType == enums.CheckoutTypeSHIP {
-		data, err = json.Marshal(AddToCartShipRequest{
-			CartType:        "REGULAR",
-			ChannelID:       "10",
-			ShoppingContext: "DIGITAL",
-			CartItem: CartItem{
-				TCIN:          task.TCIN,
-				Quantity:      1,
-				ItemChannelID: "10",
-			},
-		})
-	} else {
-		data, err = json.Marshal(AddToCartPickupRequest{
-			CartType:        "REGULAR",
-			ChannelID:       "10",
-			ShoppingContext: "DIGITAL",
-			CartItem: CartItem{
-				TCIN:          task.TCIN,
-				Quantity:      1,
-				ItemChannelID: "90",
-			},
-			Fulfillment: CartFulfillment{
-				Type:       "PICKUP",
-				LocationID: task.AccountInfo.StoreID,
-				ShipMethod: "STORE_PICKUP",
-			},
-		})
-	}
+	tcinWithType := strings.Split(task.TCIN, "|")
+
+	task.TCINType = tcinWithType[1]
+	task.TCIN = tcinWithType[0]
+
+	shipReq, err := json.Marshal(AddToCartPickupRequest{
+		CartType:        "REGULAR",
+		ChannelID:       "10",
+		ShoppingContext: "DIGITAL",
+		CartItem: CartItem{
+			TCIN:          task.TCIN,
+			Quantity:      task.Task.Task.TaskQty,
+			ItemChannelID: "90",
+		},
+		Fulfillment: CartFulfillment{
+			Type:       enums.CheckoutTypePICKUP,
+			LocationID: task.AccountInfo.StoreID,
+			ShipMethod: "STORE_PICKUP",
+		},
+	})
+	pickupReq, err := json.Marshal(AddToCartPickupRequest{
+		CartType:        "REGULAR",
+		ChannelID:       "10",
+		ShoppingContext: "DIGITAL",
+		CartItem: CartItem{
+			TCIN:          task.TCIN,
+			Quantity:      task.Task.Task.TaskQty,
+			ItemChannelID: "90",
+		},
+		Fulfillment: CartFulfillment{
+			Type:       enums.CheckoutTypePICKUP,
+			LocationID: task.AccountInfo.StoreID,
+			ShipMethod: "STORE_PICKUP",
+		},
+	})
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
 		return false
 	}
+
+	switch task.CheckoutType {
+	case enums.CheckoutTypeSHIP:
+		data = shipReq
+	case enums.CheckoutTypePICKUP:
+		data = pickupReq
+	case enums.CheckoutTypeEITHER:
+		switch task.TCINType {
+		case enums.CheckoutTypeSHIP:
+			data = shipReq
+		case enums.CheckoutTypePICKUP:
+			data = pickupReq
+		}
+	}
+
 	addToCartResponse := AddToCartResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -386,10 +419,8 @@ func (task *Task) AddToCart() bool {
 		return false
 	}
 
-	defer resp.Body.Close()
-
 	switch resp.StatusCode {
-	case 200:
+	case 201:
 		task.AccountInfo.CartID = addToCartResponse.CartID
 		return true
 	default:
@@ -404,7 +435,7 @@ func (task *Task) GetCartInfo() bool {
 		CartType: "REGULAR",
 	}
 	getCartInfoResponse := GetCartInfoResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                GetCartInfoEndpoint,
@@ -416,8 +447,6 @@ func (task *Task) GetCartInfo() bool {
 	if err != nil {
 		return false
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -431,8 +460,7 @@ func (task *Task) GetCartInfo() bool {
 
 // SetShippingInfo sets the shipping address or does nothing if using a saved address
 func (task *Task) SetShippingInfo() bool {
-	setShippingInfoResponse := SetShippingInfoResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
 		URL:                fmt.Sprintf(SetShippingInfoEndpoint, task.AccountInfo.CartInfo.Addresses[1].AddressID),
@@ -457,20 +485,16 @@ func (task *Task) SetShippingInfo() bool {
 			SaveToProfile:    false,
 			SkipVerification: true,
 		},
-		ResponseBodyStruct: &setShippingInfoResponse,
 	})
 	if err != nil {
 		return err == nil
 	}
 
-	defer resp.Body.Close()
-
-	switch resp.StatusCode {
-	case 200:
-		return true
-	default:
+	if resp.StatusCode != 200 {
 		return false
 	}
+
+	return true
 
 }
 
@@ -517,42 +541,37 @@ func (task *Task) SetPaymentInfo() bool {
 	if !ok {
 		return false
 	}
-	setPaymentInfoResponse := SetPaymentInfoResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "PUT",
 		URL:                endpoint,
 		AddHeadersFunction: AddTargetHeaders,
 		Referer:            util.TernaryOperator(task.AccountInfo.PaymentType == enums.PaymentTypeSAVED, SetPaymentInfoSAVEDReferer, SetPaymentInfoNEWReferer).(string),
 		Data:               data,
-		ResponseBodyStruct: &setPaymentInfoResponse,
 	})
 	if err != nil {
 		return false
 	}
 
-	defer resp.Body.Close()
-
 	// TODO: Handle various responses
-	log.Println(setPaymentInfoResponse)
+	// Not much to handle here
 
-	switch resp.StatusCode {
-	case 200:
-		return true
-	default:
+	if resp.StatusCode != 200 {
 		return false
 	}
-
+	return true
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder() (enums.OrderStatus, bool) {
+	var status enums.OrderStatus
 	placeOrderRequest := PlaceOrderRequest{
 		CartType:  "REGULAR",
 		ChannelID: 10,
 	}
 	placeOrderResponse := PlaceOrderResponse{}
-	resp, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                PlaceOrderEndpoint,
@@ -562,20 +581,43 @@ func (task *Task) PlaceOrder() bool {
 		ResponseBodyStruct: &placeOrderResponse,
 	})
 	if err != nil {
-		return false
+		return status, false
 	}
-
-	defer resp.Body.Close()
 
 	// TODO: Handle various responses
 	log.Println(placeOrderResponse.Message)
-
+	var success bool
 	switch resp.StatusCode {
 	case 200:
-		return true
+		status = enums.OrderStatusSuccess
+		success = true
 	default:
-		return false
+		switch placeOrderResponse.Code {
+		case "PAYMENT_DECLINED_EXCEPTION":
+			status = enums.OrderStatusDeclined
+			success = false
+		default:
+			status = enums.OrderStatusFailed
+			success = false
+		}
+	}
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return status, success
 	}
 
-	return true
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask: task.Task,
+		Success:  success,
+		Content:  "",
+		Embeds:   task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
+		UserInfo: user,
+		ItemName: task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		Sku:      task.TCIN,
+		Price:    int(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
+		Quantity: 1,
+	})
+
+	return status, success
 }

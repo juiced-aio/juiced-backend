@@ -1,17 +1,17 @@
 package bestbuy
 
 import (
-	"net/http"
 	"net/url"
 	"time"
 
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/m/v2/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/m/v2/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
-var (
+const (
 	BaseEndpoint      = "https://www.bestbuy.com"
 	GenEndpoint       = "https://notanapi.com/api/akamai/get/sensor-data"
 	AkamaiEndpoint    = "https://www.bestbuy.com/Z43Qo-szvQDrezPFUWbI-oosQsM/9YOhShXz9OX1/D3ZjQkgC/EWdSfC5P/DlY"
@@ -46,14 +46,6 @@ type Monitor struct {
 	EventInfo       events.BestbuySingleStockData
 	SKUWithInfo     map[string]entities.BestbuySingleMonitorInfo
 }
-
-type OrderStatus string
-
-var (
-	OrderStatusSuccess  OrderStatus = "SUCCESS"
-	OrderStatusDeclined OrderStatus = "DECLINED"
-	OrderStatusFailed   OrderStatus = "FAILED"
-)
 
 var DefaultRawHeaders = [][2]string{
 	{"pragma", "no-cache"},
@@ -101,7 +93,7 @@ type CheckoutInfo struct {
 	PaymentID  string
 	OrderID    string
 	ThreeDsID  string
-	ImageUrl   string
+	ImageURL   string
 	Price      int
 	ItemName   string
 }
@@ -115,11 +107,6 @@ type AccountInfo struct {
 	StoreID        string
 	Cookies        []*http.Cookie
 	Refresh        int64
-}
-
-type GenResponse struct {
-	Sensordata string `json:"sensorData"`
-	Pixel      string `json:"pixel"`
 }
 
 type SensorRequest struct {

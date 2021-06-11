@@ -1,6 +1,6 @@
 package enums
 
-type CaptchaType string
+type CaptchaType = string
 
 const (
 	ReCaptchaV2    CaptchaType = "ReCaptchaV2"
@@ -9,7 +9,7 @@ const (
 	GeeTestCaptcha CaptchaType = "GeeTestCaptcha"
 )
 
-type ReCaptchaSitekey string
+type ReCaptchaSitekey = string
 
 const (
 	WalmartSitekey   ReCaptchaSitekey = ""
@@ -21,8 +21,8 @@ var ReCaptchaSitekeys = map[Retailer]ReCaptchaSitekey{
 	HotWheels: HotWheelsSitekey,
 }
 
-type HCaptchaSitekey string
+type HCaptchaSitekey = string
 
 var HCaptchaSitekeys = map[Retailer]HCaptchaSitekey{}
 
-type GeeTestCaptchaSitekey string
+type GeeTestCaptchaSitekey = string
