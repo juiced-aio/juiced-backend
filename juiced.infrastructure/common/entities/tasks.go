@@ -24,6 +24,7 @@ type Task struct {
 	WalmartTaskInfo  WalmartTaskInfo    `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo     `json:"amazonTaskInfo"`
 	BestbuyTaskInfo  BestbuyTaskInfo    `json:"bestbuyTaskInfo"`
+	HottopicTaskInfo HottopicTaskInfo   `json:"hottopicTaskInfo"`
 	GamestopTaskInfo GamestopTaskInfo   `json:"gamestopTaskInfo"`
 	// Future sitescripts will have a field here
 }
@@ -31,13 +32,17 @@ type Task struct {
 type WalmartTaskInfo struct {
 }
 
-// TargetTaskInfo is a class that holds Target-specific details for a single bot task
+type HottopicTaskInfo struct {
+	Pids []string
+}
+
 type TargetTaskInfo struct {
 	CheckoutType enums.CheckoutType `json:"checkoutType"`
 	Email        string             `json:"email"`
 	Password     string             `json:"password"`
 	PaymentType  enums.PaymentType  `json:"paymentType"`
 }
+
 type AmazonTaskInfo struct {
 	Email     string          `json:"email"`
 	Password  string          `json:"password"`
@@ -90,6 +95,7 @@ type TaskGroupWithTasks struct {
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
+	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo" bson:"hottopicMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
 	// Future sitescripts will have a field here
 }
@@ -112,6 +118,7 @@ type TaskGroup struct {
 	WalmartMonitorInfo  WalmartMonitorInfo   `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo    `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo   `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
+	HottopicMonitorInfo HottopicMonitorInfo  `json:"hottopicMonitorInfo" bson:"hottopicMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo  `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
 	TaskIDs             []primitive.ObjectID `json:"taskIDs" bson:"taskIDs"`
 	// Future sitescripts will have a field here
@@ -154,6 +161,18 @@ type BestbuySingleMonitorInfo struct {
 
 type BestbuyMonitorInfo struct {
 	Monitors []BestbuySingleMonitorInfo `json:"monitors"`
+}
+
+type HottopicMonitorInfo struct {
+	Monitors []HottopicSingleMonitorInfo `json:"monitors"`
+}
+
+type HottopicSingleMonitorInfo struct {
+	Pid         string            `json:"pids"`
+	Size        string            `json:"size"`
+	Color       string            `json:"color"`
+	MaxPrice    int               `json:"maxPrice"`
+	MonitorType enums.MonitorType `json:"monitorType"`
 }
 
 type GamestopSingleMonitorInfo struct {
