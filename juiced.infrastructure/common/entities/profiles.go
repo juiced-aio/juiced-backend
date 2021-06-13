@@ -3,13 +3,13 @@ package entities
 import (
 	"encoding/json"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
 // UnmarshalJSON is a Card's redefinition of the default UnmarshalJSON function
 func (card *Card) UnmarshalJSON(data []byte) error {
 	type CardAlias Card
-	temp := &CardAlias{ID: primitive.NewObjectID()}
+	temp := &CardAlias{ID: uuid.New().String()}
 
 	err := json.Unmarshal(data, temp)
 	if err != nil {
@@ -21,24 +21,26 @@ func (card *Card) UnmarshalJSON(data []byte) error {
 
 // Card is a class that holds details about a Profile's payment method
 type Card struct {
-	ID             primitive.ObjectID `json:"ID"`
-	CardholderName string             `json:"cardHolderName"`
-	CardNumber     string             `json:"cardNumber"`
-	ExpMonth       string             `json:"expMonth"`
-	ExpYear        string             `json:"expYear"`
-	CVV            string             `json:"cvv"`
-	CardType       string             `json:"cardType"`
+	ID             string `json:"ID" db:"ID"`
+	ProfileID      string `json:"profileID" db:"profileID"`
+	ProfileGroupID string `json:"profileGroupID" db:"profileGroupID"`
+	CardholderName string `json:"cardHolderName" db:"cardHolderName"`
+	CardNumber     string `json:"cardNumber" db:"cardNumber"`
+	ExpMonth       string `json:"expMonth" db:"expMonth"`
+	ExpYear        string `json:"expYear" db:"expYear"`
+	CVV            string `json:"cvv" db:"cvv"`
+	CardType       string `json:"cardType" db:"cardType"`
 }
 
 // SetID updates the Card's ID
-func (creditCard *Card) SetID(ID primitive.ObjectID) {
+func (creditCard *Card) SetID(ID string) {
 	creditCard.ID = ID
 }
 
 // UnmarshalJSON is a Address's redefinition of the default UnmarshalJSON function
 func (address *Address) UnmarshalJSON(data []byte) error {
 	type AddressAlias Address
-	temp := &AddressAlias{ID: primitive.NewObjectID()}
+	temp := &AddressAlias{ID: uuid.New().String()}
 
 	err := json.Unmarshal(data, temp)
 	if err != nil {
@@ -49,36 +51,39 @@ func (address *Address) UnmarshalJSON(data []byte) error {
 }
 
 // SetID updates the Address's ID
-func (address *Address) SetID(ID primitive.ObjectID) {
+func (address *Address) SetID(ID string) {
 	address.ID = ID
 }
 
 // Address is a class that holds details about a Profile's address
 type Address struct {
-	ID          primitive.ObjectID `json:"ID"`
-	FirstName   string             `json:"firstName"`
-	LastName    string             `json:"lastName"`
-	Address1    string             `json:"address1"`
-	Address2    string             `json:"address2"`
-	City        string             `json:"city"`
-	ZipCode     string             `json:"zipCode"`
-	StateCode   string             `json:"stateCode"`
-	CountryCode string             `json:"countryCode"`
+	ID             string `json:"ID" db:"ID"`
+	ProfileID      string `json:"profileID" db:"profileID"`
+	ProfileGroupID string `json:"profileGroupID" db:"profileGroupID"`
+	FirstName      string `json:"firstName" db:"firstName"`
+	LastName       string `json:"lastName" db:"lastName"`
+	Address1       string `json:"address1" db:"address1"`
+	Address2       string `json:"address2" db:"address2"`
+	City           string `json:"city" db:"city"`
+	ZipCode        string `json:"zipCode" db:"zipCode"`
+	StateCode      string `json:"stateCode" db:"stateCode"`
+	CountryCode    string `json:"countryCode" db:"countryCode"`
 }
 
 // Profile is a class that holds details about a single profile
 type Profile struct {
-	ID              primitive.ObjectID `json:"ID"`
-	Name            string             `json:"name"`
-	Email           string             `json:"email"`
-	PhoneNumber     string             `json:"phoneNumber"`
-	ShippingAddress Address            `json:"shippingAddress"`
-	BillingAddress  Address            `json:"billingAddress"`
-	CreditCard      Card               `json:"creditCard"`
+	ID              string  `json:"ID" db:"ID"`
+	ProfileGroupID  string  `json:"profileGroupID" db:"profileGroupID"`
+	Name            string  `json:"name" db:"name"`
+	Email           string  `json:"email" db:"email"`
+	PhoneNumber     string  `json:"phoneNumber" db:"phoneNumber"`
+	ShippingAddress Address `json:"shippingAddress"`
+	BillingAddress  Address `json:"billingAddress"`
+	CreditCard      Card    `json:"creditCard"`
 }
 
 // SetID updates the Profile's ID
-func (profile *Profile) SetID(ID primitive.ObjectID) {
+func (profile *Profile) SetID(ID string) {
 	profile.ID = ID
 }
 
@@ -95,9 +100,9 @@ func ParseProfile(profile *Profile, data []byte) error {
 
 // ProfileGroupWithProfiles is a class that holds a list of Profiles
 type ProfileGroupWithProfiles struct {
-	GroupID  primitive.ObjectID `json:"groupID"`
-	Name     string             `json:"name"`
-	Profiles []Profile          `json:"profiles"`
+	GroupID  string    `json:"groupID" db:"groupID"`
+	Name     string    `json:"name" db:"name"`
+	Profiles []Profile `json:"profiles"`
 }
 
 // AddProfilesToGroup adds the given ProfileIDs to the ProfileGroupWithProfiles
@@ -141,13 +146,14 @@ func (profileGroupWithProfiles *ProfileGroupWithProfiles) SetProfiles(profiles [
 
 // ProfileGroup is a class that holds a list of Profile IDs
 type ProfileGroup struct {
-	GroupID    primitive.ObjectID   `json:"groupID"`
-	Name       string               `json:"name"`
-	ProfileIDs []primitive.ObjectID `json:"profileIDs"`
+	GroupID          string   `json:"groupID" db:"groupID"`
+	Name             string   `json:"name" db:"name"`
+	ProfileIDs       []string `json:"profileIDs"`
+	ProfileIDsJoined string   `json:"profileIDsJoined" db:"profileIDsJoined"`
 }
 
 // AddProfileIDsToGroup adds the given ProfileIDs to the ProfileGroup
-func (profileGroup *ProfileGroup) AddProfileIDsToGroup(profileIDsToAdd []primitive.ObjectID) {
+func (profileGroup *ProfileGroup) AddProfileIDsToGroup(profileIDsToAdd []string) {
 	profileIDs := profileGroup.ProfileIDs
 	for i := 0; i < len(profileIDsToAdd); i++ {
 		alreadyInProfiles := false
@@ -164,8 +170,8 @@ func (profileGroup *ProfileGroup) AddProfileIDsToGroup(profileIDsToAdd []primiti
 }
 
 // RemoveProfileIDsFromGroup removes the given Profiles from the ProfileGroup
-func (profileGroup *ProfileGroup) RemoveProfileIDsFromGroup(profileIDsToRemove []primitive.ObjectID) {
-	profileIDs := []primitive.ObjectID{}
+func (profileGroup *ProfileGroup) RemoveProfileIDsFromGroup(profileIDsToRemove []string) {
+	profileIDs := []string{}
 	for i := 0; i < len(profileGroup.ProfileIDs); i++ {
 		inProfilesToRemove := false
 		for j := 0; j < len(profileIDsToRemove); j++ {
@@ -181,7 +187,7 @@ func (profileGroup *ProfileGroup) RemoveProfileIDsFromGroup(profileIDsToRemove [
 }
 
 // SetProfileIDs updates the ProfileGroup's ProfileIDs
-func (profileGroup *ProfileGroup) SetProfileIDs(profileIDs []primitive.ObjectID) {
+func (profileGroup *ProfileGroup) SetProfileIDs(profileIDs []string) {
 	profileGroup.ProfileIDs = profileIDs
 }
 
@@ -191,7 +197,7 @@ func (profileGroup *ProfileGroup) SetName(name string) {
 }
 
 // SetGroupID updates the ProfileGroup's GroupID
-func (profileGroup *ProfileGroup) SetGroupID(GroupID primitive.ObjectID) {
+func (profileGroup *ProfileGroup) SetGroupID(GroupID string) {
 	profileGroup.GroupID = GroupID
 }
 

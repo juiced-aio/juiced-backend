@@ -12,26 +12,27 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // GetProfileGroupEndpoint handles the GET request at /api/profile/group/{groupID}
 func GetProfileGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profileGroup := entities.ProfileGroup{}
+	var profileGroup entities.ProfileGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		profileGroup, err = queries.GetProfileGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
@@ -75,7 +76,7 @@ func GetAllProfileGroupsEndpoint(response http.ResponseWriter, request *http.Req
 func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profileGroup := &entities.ProfileGroup{GroupID: primitive.NewObjectID(), ProfileIDs: []primitive.ObjectID{}}
+	profileGroup := &entities.ProfileGroup{GroupID: uuid.New().String(), ProfileIDs: []string{}}
 	errorsList := make([]string, 0)
 
 	body, err := ioutil.ReadAll(request.Body)
@@ -109,18 +110,19 @@ func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 func RemoveProfileGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profileGroup := entities.ProfileGroup{}
+	var profileGroup entities.ProfileGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		profileGroup, err = commands.RemoveProfileGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.RemoveProfileGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
@@ -139,12 +141,13 @@ func RemoveProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 func UpdateProfileGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var profileGroup entities.ProfileGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	profileGroup := entities.ProfileGroup{}
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		profileGroup, err = queries.GetProfileGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
@@ -170,7 +173,7 @@ func UpdateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 			errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	profileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
@@ -189,15 +192,16 @@ func UpdateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var newProfileGroup entities.ProfileGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	newProfileGroup := entities.ProfileGroup{}
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		newProfileGroup, err = queries.GetProfileGroup(groupID)
 		if err == nil {
-			newProfileGroup.SetGroupID(primitive.NewObjectID())
+			newProfileGroup.SetGroupID(uuid.New().String())
 			newProfileGroup.SetName(newProfileGroup.Name + " (Copy " + common.RandID(4) + ")")
 			err = commands.CreateProfileGroup(newProfileGroup)
 			if err != nil {
@@ -207,7 +211,7 @@ func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Reque
 			errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&newProfileGroup)
 	if err != nil {
@@ -226,18 +230,19 @@ func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Reque
 func AddProfilesToGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var profileGroup entities.ProfileGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	profileGroup := entities.ProfileGroup{}
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		profileGroup, err = queries.GetProfileGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
 			if err == nil {
 				type ProfileIDs struct {
-					ProfileIDs []primitive.ObjectID `json:"profileIDs"`
+					ProfileIDs []string `json:"profileIDs"`
 				}
 				profileIDs := ProfileIDs{}
 				err := json.Unmarshal(body, &profileIDs)
@@ -248,7 +253,7 @@ func AddProfilesToGroupEndpoint(response http.ResponseWriter, request *http.Requ
 						errorsList = append(errorsList, errors.UpdateProfileGroupError+err.Error())
 					}
 				} else {
-					errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+					errorsList = append(errorsList, errors.ParseProfileGroupError+err.Error())
 				}
 			} else {
 				errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
@@ -257,7 +262,7 @@ func AddProfilesToGroupEndpoint(response http.ResponseWriter, request *http.Requ
 			errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	profileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
@@ -276,18 +281,19 @@ func AddProfilesToGroupEndpoint(response http.ResponseWriter, request *http.Requ
 func RemoveProfilesFromGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var profileGroup entities.ProfileGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	profileGroup := entities.ProfileGroup{}
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		profileGroup, err = queries.GetProfileGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
 			if err == nil {
 				type ProfileIDs struct {
-					ProfileIDs []primitive.ObjectID `json:"profileIDs"`
+					ProfileIDs []string `json:"profileIDs"`
 				}
 				profileIDs := ProfileIDs{}
 				err := json.Unmarshal(body, &profileIDs)
@@ -298,7 +304,7 @@ func RemoveProfilesFromGroupEndpoint(response http.ResponseWriter, request *http
 						errorsList = append(errorsList, errors.UpdateProfileGroupError+err.Error())
 					}
 				} else {
-					errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+					errorsList = append(errorsList, errors.ParseProfileGroupError+err.Error())
 				}
 			} else {
 				errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
@@ -307,7 +313,7 @@ func RemoveProfilesFromGroupEndpoint(response http.ResponseWriter, request *http
 			errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	profileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
@@ -343,18 +349,19 @@ func GetAllProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 func GetProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profile := entities.Profile{}
+	var profile entities.Profile
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	if err == nil {
+	ID, ok := params["ID"]
+	if ok {
 		profile, err = queries.GetProfile(ID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetProfileError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{profile}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -368,7 +375,7 @@ func GetProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 func CreateProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profile := &entities.Profile{ID: primitive.NewObjectID()}
+	profile := &entities.Profile{ID: uuid.New().String()}
 	errorsList := make([]string, 0)
 
 	body, err := ioutil.ReadAll(request.Body)
@@ -397,18 +404,19 @@ func CreateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profile := entities.Profile{}
+	var profile entities.Profile
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	if err == nil {
+	ID, ok := params["ID"]
+	if ok {
 		profile, err = commands.RemoveProfile(ID)
 		if err != nil {
 			errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{profile}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -422,13 +430,14 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 func UpdateProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profile := entities.Profile{}
+	var profile entities.Profile
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	newProfile := &entities.Profile{ID: ID}
-	if err == nil {
+	ID, ok := params["ID"]
+
+	if ok {
+		newProfile := &entities.Profile{ID: ID}
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
 			err = entities.ParseProfile(newProfile, body)
@@ -444,7 +453,7 @@ func UpdateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 			errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{profile}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -458,22 +467,30 @@ func UpdateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profile := entities.Profile{}
+	var profile entities.Profile
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	if err == nil {
+	ID, ok := params["ID"]
+	if ok {
 		profile, err = queries.GetProfile(ID)
 		if err == nil {
-			profile.SetID(primitive.NewObjectID())
+			newProfileID := uuid.New().String()
+			profile.SetID(newProfileID)
 			profile.SetName(profile.Name + " (Copy " + common.RandID(4) + ")")
 			shippingAddress := &profile.ShippingAddress
-			shippingAddress.SetID(primitive.NewObjectID())
+			shippingAddress.SetID(uuid.New().String())
+			shippingAddress.ProfileID = newProfileID
+			shippingAddress.ProfileGroupID = profile.ProfileGroupID
 			billingAddress := &profile.BillingAddress
-			billingAddress.SetID(primitive.NewObjectID())
+			billingAddress.SetID(uuid.New().String())
+			billingAddress.ProfileID = newProfileID
+			billingAddress.ProfileGroupID = profile.ProfileGroupID
 			creditCard := &profile.CreditCard
-			creditCard.SetID(primitive.NewObjectID())
+			creditCard.SetID(uuid.New().String())
+			creditCard.ProfileID = newProfileID
+			creditCard.ProfileGroupID = profile.ProfileGroupID
 			err = commands.CreateProfile(profile)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())
@@ -482,7 +499,7 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 			errorsList = append(errorsList, errors.GetProfileError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{profile}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {

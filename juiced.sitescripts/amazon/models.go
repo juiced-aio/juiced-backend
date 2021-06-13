@@ -9,8 +9,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // Endpoints
@@ -53,7 +51,7 @@ type Monitor struct {
 }
 
 type AccChan struct {
-	GroupID     primitive.ObjectID
+	GroupID     string
 	Client      http.Client
 	AccountInfo AccountInfo
 }

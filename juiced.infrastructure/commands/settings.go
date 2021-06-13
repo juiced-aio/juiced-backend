@@ -1,35 +1,36 @@
 package commands
 
 import (
-	"context"
-	"time"
+	"errors"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	_ "github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // UpdateSettings updates the Settings object in the database
 func UpdateSettings(newSettings entities.Settings) (entities.Settings, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
 	settings := entities.Settings{}
-	if err != nil {
-		return settings, err
+	database := common.GetDatabase()
+	if database == nil {
+		return settings, errors.New("database not initialized")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return settings, err
-	}
-	collection := client.Database("juiced").Collection("settings")
-	filter := bson.D{primitive.E{Key: "id", Value: 0}}
-	opts := options.FindOneAndReplace().SetReturnDocument(options.After)
-	err = collection.FindOneAndReplace(ctx, filter, newSettings, opts).Decode(&settings)
 
-	return settings, err
+	_, err := database.Exec("DELETE FROM tasks")
+	if err != nil {
+		return settings, err
+	}
+
+	statement, err := database.Preparex(`INSERT INTO settings (id, discordWebhook, twoCaptchaAPIKey, antiCaptchaAPIKey, capMonsterAPIKey) VALUES (?, ?, ?, ?, ?)`)
+	if err != nil {
+		return settings, err
+	}
+	_, err = statement.Exec(0, settings.DiscordWebhook, settings.TwoCaptchaAPIKey, settings.AntiCaptchaAPIKey, settings.CapMonsterAPIKey)
+	if err != nil {
+		return settings, err
+	}
+
+	return queries.GetSettings()
 }

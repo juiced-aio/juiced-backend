@@ -5,8 +5,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"sync"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // EventBus stores the information about subscribers
@@ -91,7 +89,7 @@ func (eb *EventBus) PublishCloseEvent() {
 }
 
 // PublishMonitorEvent publishes a MonitorEvent
-func (eb *EventBus) PublishMonitorEvent(monitorStatus enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}, monitorID primitive.ObjectID) {
+func (eb *EventBus) PublishMonitorEvent(monitorStatus enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}, monitorID string) {
 	eb.RM.RLock()
 	// Will panic if any channel is closed
 	go func(event Event, channels []EventChannel) {
@@ -114,7 +112,7 @@ func (eb *EventBus) PublishMonitorEvent(monitorStatus enums.MonitorStatus, event
 }
 
 // PublishTaskEvent publishes a TaskEvent
-func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, eventType enums.TaskEventType, data interface{}, taskID primitive.ObjectID) {
+func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, eventType enums.TaskEventType, data interface{}, taskID string) {
 	eb.RM.RLock()
 	// Will panic if any channel is closed
 	go func(event Event, channels []EventChannel) {
@@ -137,7 +135,7 @@ func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, eventType enum
 }
 
 // PublishProductEvent publishes a ProductEvent for any site
-func (eb *EventBus) PublishProductEvent(retailer enums.Retailer, data interface{}, monitorID primitive.ObjectID) {
+func (eb *EventBus) PublishProductEvent(retailer enums.Retailer, data interface{}, monitorID string) {
 	eb.RM.RLock()
 	// By retrieving this right after picking up the product data, we ensure we have the latest webhook info
 	// without having to retrieve it once per task.

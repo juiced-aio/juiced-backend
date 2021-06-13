@@ -509,6 +509,6 @@ func SendCheckout(task base.Task, itemName string, sku string, price int, quanti
 		Quantity:    quantity,
 		Retailer:    task.Task.TaskRetailer,
 		ProfileName: task.Profile.Name,
-		Time:        time.Now(),
+		Time:        time.Now().Unix(),
 	})
 }

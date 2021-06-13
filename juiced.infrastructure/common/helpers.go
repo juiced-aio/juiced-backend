@@ -13,21 +13,6 @@ import (
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 var runes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
-var schema = `
-	CREATE TABLE IF NOT EXISTS userInfo (
-		ID INTEGER,
-		email TEXT,
-		licenseKey TEXT,
-		deviceName TEXT,
-		discordID TEXT,
-		discordUsername TEXT,
-		discordAvatarURL TEXT,
-		activationToken TEXT,
-		refreshToken TEXT,
-		expiresAt INTEGER
-	)
-`
-
 // RandID returns a random n-digit ID of digits and uppercase letters
 func RandID(n int) string {
 	b := make([]rune, n)
@@ -41,6 +26,7 @@ var database *sqlx.DB
 
 // InitDatabase initializes the database singleton
 func InitDatabase() error {
+
 	var err error
 	configPath := configdir.LocalConfig("juiced")
 	err = configdir.MakePath(configPath)
@@ -52,8 +38,10 @@ func InitDatabase() error {
 	if err != nil {
 		return err
 	}
+	for _, schema := range schemas {
+		_, err = database.Exec(schema)
+	}
 
-	_, err = database.Exec(schema)
 	return err
 }
 

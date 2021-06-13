@@ -3,66 +3,76 @@ package entities
 import (
 	"encoding/json"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // Task is a class that holds details about a single bot task
 type Task struct {
-	ID               primitive.ObjectID `json:"ID"`
-	TaskGroupID      primitive.ObjectID `json:"taskGroupID"`
-	TaskProfileID    primitive.ObjectID `json:"profileID"`
-	TaskProxyGroupID primitive.ObjectID `json:"proxyGroupID"`
-	TaskRetailer     enums.Retailer     `json:"retailer"`
-	TaskSize         []string           `json:"size"`
-	TaskQty          int                `json:"qty"`
-	TaskStatus       enums.TaskStatus   `json:"status"`
-	TaskDelay        int                `json:"taskDelay"`
-	TargetTaskInfo   TargetTaskInfo     `json:"targetTaskInfo"`
-	WalmartTaskInfo  WalmartTaskInfo    `json:"walmartTaskInfo"`
-	AmazonTaskInfo   AmazonTaskInfo     `json:"amazonTaskInfo"`
-	BestbuyTaskInfo  BestbuyTaskInfo    `json:"bestbuyTaskInfo"`
-	GamestopTaskInfo GamestopTaskInfo   `json:"gamestopTaskInfo"`
+	ID               string           `json:"ID" db:"ID"`
+	TaskGroupID      string           `json:"taskGroupID" db:"taskGroupID"`
+	TaskProfileID    string           `json:"profileID" db:"profileID"`
+	TaskProxyGroupID string           `json:"proxyGroupID" db:"proxyGroupID"`
+	TaskRetailer     enums.Retailer   `json:"retailer" db:"retailer"`
+	TaskSize         []string         `json:"size" db:"size"`
+	TaskSizeJoined   string           `json:"sizeJoined" db:"sizeJoined"`
+	TaskQty          int              `json:"qty" db:"qty"`
+	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
+	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
+	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
+	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
+	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
+	BestbuyTaskInfo  BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
+	GamestopTaskInfo GamestopTaskInfo `json:"gamestopTaskInfo"`
 	// Future sitescripts will have a field here
-}
-
-type WalmartTaskInfo struct {
 }
 
 // TargetTaskInfo is a class that holds Target-specific details for a single bot task
 type TargetTaskInfo struct {
-	CheckoutType enums.CheckoutType `json:"checkoutType"`
-	Email        string             `json:"email"`
-	Password     string             `json:"password"`
-	PaymentType  enums.PaymentType  `json:"paymentType"`
+	TaskID       string             `json:"taskID" db:"taskID"`
+	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
+	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
+	Email        string             `json:"email" db:"email"`
+	Password     string             `json:"password" db:"password"`
+	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
 }
+
+type WalmartTaskInfo struct {
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+}
+
 type AmazonTaskInfo struct {
-	Email     string          `json:"email"`
-	Password  string          `json:"password"`
-	LoginType enums.LoginType `json:"loginType"`
+	TaskID      string          `json:"taskID" db:"taskID"`
+	TaskGroupID string          `json:"taskGroupID" db:"taskGroupID"`
+	Email       string          `json:"email" db:"email"`
+	Password    string          `json:"password" db:"password"`
+	LoginType   enums.LoginType `json:"loginType" db:"loginType"`
 }
 
 type BestbuyTaskInfo struct {
-	Email    string         `json:"email"`
-	Password string         `json:"password"`
-	TaskType enums.TaskType `json:"taskType"`
+	TaskID      string         `json:"taskID" db:"taskID"`
+	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
+	Email       string         `json:"email" db:"email"`
+	Password    string         `json:"password" db:"password"`
+	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
 }
 
 type GamestopTaskInfo struct {
-	Email    string         `json:"email"`
-	Password string         `json:"password"`
-	TaskType enums.TaskType `json:"taskType"`
+	TaskID      string         `json:"taskID" db:"taskID"`
+	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
+	Email       string         `json:"email" db:"email"`
+	Password    string         `json:"password" db:"password"`
+	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
 }
 
 // SetID updates the Task's ID
-func (task *Task) SetID(ID primitive.ObjectID) {
+func (task *Task) SetID(ID string) {
 	task.ID = ID
 }
 
 // SetTaskProfileID updates the Task's TaskProfileID
-func (task *Task) SetTaskProfileID(TaskProfileID primitive.ObjectID) {
+func (task *Task) SetTaskProfileID(TaskProfileID string) {
 	task.TaskProfileID = TaskProfileID
 }
 
@@ -79,18 +89,18 @@ func ParseTask(task *Task, data []byte) error {
 
 // TaskGroupWithTasks is a class that holds a list of Tasks and a Monitor
 type TaskGroupWithTasks struct {
-	GroupID             primitive.ObjectID  `json:"groupID" bson:"groupID"`
-	Name                string              `json:"name" bson:"name"`
-	MonitorProxyGroupID primitive.ObjectID  `json:"proxyGroupID" bson:"proxyGroupID"`
-	MonitorRetailer     enums.Retailer      `json:"retailer" bson:"retailer"`
-	MonitorDelay        int                 `json:"delay" bson:"delay"`
-	MonitorStatus       enums.MonitorStatus `json:"status" bson:"status"`
-	Tasks               []Task              `json:"tasks" bson:"tasks"`
-	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo" bson:"targetMonitorInfo"`
-	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
-	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
-	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
-	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
+	GroupID             string              `json:"groupID" db:"groupID"`
+	Name                string              `json:"name" db:"name"`
+	MonitorProxyGroupID string              `json:"proxyGroupID" db:"proxyGroupID"`
+	MonitorRetailer     enums.Retailer      `json:"retailer" db:"retailer"`
+	MonitorDelay        int                 `json:"delay" db:"delay"`
+	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
+	Tasks               []Task              `json:"tasks"`
+	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
+	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
+	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
+	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
+	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -101,72 +111,92 @@ func (taskGroup *TaskGroupWithTasks) SetTasks(tasks []Task) {
 
 // TaskGroup is a class that holds a list of TaskIDs and a Monitor
 type TaskGroup struct {
-	GroupID             primitive.ObjectID   `json:"groupID" bson:"groupID"`
-	Name                string               `json:"name" bson:"name"`
-	MonitorProxyGroupID primitive.ObjectID   `json:"proxyGroupID" bson:"proxyGroupID"`
-	MonitorRetailer     enums.Retailer       `json:"retailer" bson:"retailer"`
-	MonitorInput        string               `json:"input" bson:"input"`
-	MonitorDelay        int                  `json:"delay" bson:"delay"`
-	MonitorStatus       enums.MonitorStatus  `json:"status" bson:"status"`
-	TargetMonitorInfo   TargetMonitorInfo    `json:"targetMonitorInfo" bson:"targetMonitorInfo"`
-	WalmartMonitorInfo  WalmartMonitorInfo   `json:"walmartMonitorInfo" bson:"walmartMonitorInfo"`
-	AmazonMonitorInfo   AmazonMonitorInfo    `json:"amazonMonitorInfo" bson:"amazonMonitorInfo"`
-	BestbuyMonitorInfo  BestbuyMonitorInfo   `json:"bestbuyMonitorInfo" bson:"bestbuyMonitorInfo"`
-	GamestopMonitorInfo GamestopMonitorInfo  `json:"gamestopMonitorInfo" bson:"gamestopMonitorInfo"`
-	TaskIDs             []primitive.ObjectID `json:"taskIDs" bson:"taskIDs"`
+	GroupID             string              `json:"groupID" db:"groupID"`
+	Name                string              `json:"name" db:"name"`
+	MonitorProxyGroupID string              `json:"proxyGroupID" db:"proxyGroupID"`
+	MonitorRetailer     enums.Retailer      `json:"retailer" db:"retailer"`
+	MonitorInput        string              `json:"input" db:"input"`
+	MonitorDelay        int                 `json:"delay" db:"delay"`
+	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
+	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
+	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
+	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
+	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
+	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
+	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
+	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
 	// Future sitescripts will have a field here
 }
 
 type TargetSingleMonitorInfo struct {
-	TCIN         string             `json:"tcin"`
-	MaxPrice     int                `json:"maxPrice"`
-	CheckoutType enums.CheckoutType `json:"checkoutType"`
+	MonitorID    string             `json:"monitorID" db:"monitorID"`
+	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
+	TCIN         string             `json:"tcin" db:"tcin"`
+	MaxPrice     int                `json:"maxPrice" db:"maxPrice"`
+	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
 }
 
 // TargetMonitorInfo is a class that holds Target-specific details for a single monitor
 type TargetMonitorInfo struct {
-	Monitors []TargetSingleMonitorInfo `json:"monitors"`
-	StoreID  string                    `json:"storeID"`
+	ID          string                    `json:"ID" db:"ID"`
+	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []TargetSingleMonitorInfo `json:"monitors"`
+	StoreID     string                    `json:"storeID" db:"storeID"`
 }
 
 type WalmartMonitorInfo struct {
-	MonitorType enums.MonitorType `json:"monitorType"`
+	ID          string            `json:"ID" db:"ID"`
+	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
+	MonitorType enums.MonitorType `json:"monitorType" db:"monitorType"`
 	SKUs        []string          `json:"skus"`
-	MaxPrice    int               `json:"maxPrice"`
+	SKUsJoined  string            `json:"skusJoined" db:"skusJoined"`
+	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
 }
 
 type AmazonSingleMonitorInfo struct {
-	MonitorType enums.MonitorType `json:"monitorType"`
-	ASIN        string            `json:"asin"`
-	OFID        string            `json:"ofid"`
-	MaxPrice    int               `json:"maxPrice"`
+	MonitorID   string            `json:"monitorID" db:"monitorID"`
+	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
+	MonitorType enums.MonitorType `json:"monitorType" db:"monitorType"`
+	ASIN        string            `json:"asin" db:"asin"`
+	OFID        string            `json:"ofid" db:"ofid"`
+	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
 	Client      http.Client
 }
 
 type AmazonMonitorInfo struct {
-	Monitors []AmazonSingleMonitorInfo `json:"monitors"`
+	ID          string                    `json:"ID" db:"ID"`
+	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []AmazonSingleMonitorInfo `json:"monitors"`
 }
 
 type BestbuySingleMonitorInfo struct {
-	SKU      string `json:"sku"`
-	MaxPrice int    `json:"maxPrice"`
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	SKU         string `json:"sku" db:"sku"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
 }
 
 type BestbuyMonitorInfo struct {
-	Monitors []BestbuySingleMonitorInfo `json:"monitors"`
+	ID          string                     `json:"ID" db:"ID"`
+	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []BestbuySingleMonitorInfo `json:"monitors"`
 }
 
 type GamestopSingleMonitorInfo struct {
-	SKU      string `json:"sku"`
-	MaxPrice int    `json:"maxPrice"`
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	SKU         string `json:"sku" db:"sku"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
 }
 
 type GamestopMonitorInfo struct {
-	Monitors []GamestopSingleMonitorInfo `json:"monitors"`
+	ID          string                      `json:"ID" db:"ID"`
+	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []GamestopSingleMonitorInfo `json:"monitors"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup
-func (taskGroup *TaskGroup) AddTasksToGroup(tasksToAdd []primitive.ObjectID) {
+func (taskGroup *TaskGroup) AddTasksToGroup(tasksToAdd []string) {
 	tasks := taskGroup.TaskIDs
 	for i := 0; i < len(tasksToAdd); i++ {
 		tasks = append(tasks, tasksToAdd[i])
@@ -175,7 +205,7 @@ func (taskGroup *TaskGroup) AddTasksToGroup(tasksToAdd []primitive.ObjectID) {
 }
 
 // SetTaskIDs updates the TaskGroup's TaskIDs
-func (taskGroup *TaskGroup) SetTaskIDs(taskIDs []primitive.ObjectID) {
+func (taskGroup *TaskGroup) SetTaskIDs(taskIDs []string) {
 	taskGroup.TaskIDs = taskIDs
 }
 
@@ -185,7 +215,7 @@ func (taskGroup *TaskGroup) SetName(name string) {
 }
 
 // SetGroupID updates the TaskGroup's GroupID
-func (taskGroup *TaskGroup) SetGroupID(GroupID primitive.ObjectID) {
+func (taskGroup *TaskGroup) SetGroupID(GroupID string) {
 	taskGroup.GroupID = GroupID
 }
 

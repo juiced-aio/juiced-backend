@@ -3,8 +3,6 @@ package stores
 import (
 	"math/rand"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -20,11 +18,11 @@ import (
 
 // MonitorStore stores information about running Monitors
 type MonitorStore struct {
-	TargetMonitors   map[primitive.ObjectID]*target.Monitor
-	WalmartMonitors  map[primitive.ObjectID]*walmart.Monitor
-	AmazonMonitors   map[primitive.ObjectID]*amazon.Monitor
-	BestbuyMonitors  map[primitive.ObjectID]*bestbuy.Monitor
-	GamestopMonitors map[primitive.ObjectID]*gamestop.Monitor
+	TargetMonitors   map[string]*target.Monitor
+	WalmartMonitors  map[string]*walmart.Monitor
+	AmazonMonitors   map[string]*amazon.Monitor
+	BestbuyMonitors  map[string]*bestbuy.Monitor
+	GamestopMonitors map[string]*gamestop.Monitor
 	EventBus         *events.EventBus
 }
 
@@ -33,7 +31,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 	queryError := false
 	// Get Proxy for monitor
 	proxy := entities.Proxy{}
-	if !monitor.MonitorProxyGroupID.IsZero() {
+	if monitor.MonitorProxyGroupID != "" {
 		proxyGroup, err := queries.GetProxyGroup(monitor.MonitorProxyGroupID)
 		if err != nil {
 			queryError = true
@@ -223,11 +221,11 @@ var monitorStore *MonitorStore
 // InitMonitorStore initializes the singleton instance of the Store
 func InitMonitorStore(eventBus *events.EventBus) {
 	monitorStore = &MonitorStore{
-		TargetMonitors:   make(map[primitive.ObjectID]*target.Monitor),
-		WalmartMonitors:  make(map[primitive.ObjectID]*walmart.Monitor),
-		AmazonMonitors:   make(map[primitive.ObjectID]*amazon.Monitor),
-		BestbuyMonitors:  make(map[primitive.ObjectID]*bestbuy.Monitor),
-		GamestopMonitors: make(map[primitive.ObjectID]*gamestop.Monitor),
+		TargetMonitors:   make(map[string]*target.Monitor),
+		WalmartMonitors:  make(map[string]*walmart.Monitor),
+		AmazonMonitors:   make(map[string]*amazon.Monitor),
+		BestbuyMonitors:  make(map[string]*bestbuy.Monitor),
+		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		EventBus:         eventBus,
 	}
 }

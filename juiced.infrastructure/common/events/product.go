@@ -2,8 +2,6 @@ package events
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type TargetStockData struct {
@@ -61,12 +59,12 @@ type GamestopStockData struct {
 
 // ProductEvent is fired whenever a Monitor finds a product
 type ProductEvent struct {
-	DiscordWebhook string             `json:"discordWebhook"`
-	Retailer       enums.Retailer     `json:"retailer"`
-	MonitorID      primitive.ObjectID `json:"monitorID"`
-	TargetData     TargetStockData    `json:"targetStockData"`
-	WalmartData    WalmartStockData   `json:"walmartStockData"`
-	AmazonData     AmazonStockData    `json:"amazonStockData"`
-	BestbuyData    BestbuyStockData   `json:"bestbuyStockData"`
-	GamestopData   GamestopStockData  `json:"gamestopStockData"`
+	DiscordWebhook string            `json:"discordWebhook"`
+	Retailer       enums.Retailer    `json:"retailer"`
+	MonitorID      string            `json:"monitorID"`
+	TargetData     TargetStockData   `json:"targetStockData"`
+	WalmartData    WalmartStockData  `json:"walmartStockData"`
+	AmazonData     AmazonStockData   `json:"amazonStockData"`
+	BestbuyData    BestbuyStockData  `json:"bestbuyStockData"`
+	GamestopData   GamestopStockData `json:"gamestopStockData"`
 }
