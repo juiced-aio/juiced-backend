@@ -527,12 +527,13 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var taskToStop entities.Task
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		taskToStop, err := queries.GetTask(ID)
+		taskToStop, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			started := taskStore.StopTask(&taskToStop)

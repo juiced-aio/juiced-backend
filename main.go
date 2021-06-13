@@ -23,7 +23,7 @@ func main() {
 
 	go func() {
 		// Wait for the client to connect to the websocket server
-		/* channel := make(chan events.Event)
+		channel := make(chan events.Event)
 		eventBus.Subscribe(channel)
 		for {
 			event := <-channel
@@ -31,7 +31,7 @@ func main() {
 				eventBus.Unsubscribe(channel)
 				break
 			}
-		} */
+		}
 
 		// Initalize the database
 		err := common.InitDatabase()
