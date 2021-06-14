@@ -44,6 +44,14 @@ type BestbuyStockData struct {
 	InStock []BestbuySingleStockData
 }
 
+type HotTopicSingleStockData struct {
+	PID string
+}
+
+type HottopicStockData struct {
+	InStock []HotTopicSingleStockData
+}
+
 type GamestopSingleStockData struct {
 	SKU        string
 	Price      int
@@ -67,4 +75,5 @@ type ProductEvent struct {
 	AmazonData     AmazonStockData   `json:"amazonStockData"`
 	BestbuyData    BestbuyStockData  `json:"bestbuyStockData"`
 	GamestopData   GamestopStockData `json:"gamestopStockData"`
+	HottopicData   HottopicStockData `json:"hottopicStockData"`
 }

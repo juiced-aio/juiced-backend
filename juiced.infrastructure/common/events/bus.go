@@ -177,6 +177,12 @@ func (eb *EventBus) PublishProductEvent(retailer enums.Retailer, data interface{
 			return
 		}
 		event.ProductEvent.BestbuyData = bestbuyData
+	case enums.HotTopic:
+		hottopicData, ok := data.(HottopicStockData)
+		if !ok {
+			return
+		}
+		event.ProductEvent.HottopicData = hottopicData
 	case enums.GameStop:
 		gamestopData, ok := data.(GamestopStockData)
 		if !ok {

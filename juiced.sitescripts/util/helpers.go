@@ -54,7 +54,7 @@ func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
 func AddBaseHeaders(request *http.Request) {
 	request.Header.Set("Connection", "keep-alive")
 	request.Header.Set("Sec-Ch-Ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"")
-	request.Header.Set("X-Application-Name", "web") // TODO
+	request.Header.Set("X-Application-Name", "web")
 	request.Header.Set("Sec-Ch-Ua-Mobile", "?0")
 	request.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36")
 	request.Header.Set("Sec-Fetch-Site", "same-site")
