@@ -132,7 +132,7 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		newProxyGroup := entities.ProxyGroup{GroupID: groupID}
+		newProxyGroup = entities.ProxyGroup{GroupID: groupID}
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
 			err = entities.ParseProxyGroup(&newProxyGroup, body)
