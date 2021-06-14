@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -96,7 +95,6 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
-			fmt.Println(monitor)
 			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
 			if err != nil {
 				return err

@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"strings"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -351,9 +353,20 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	errorsList := make([]string, 0)
 
 	type CreateTaskRequest struct {
-		NumTasksPerProfile int      `json:"numTasksPerProfile"`
-		ProfileIDs         []string `json:"profileIDs"`
-		ProfileGroupID     string   `json:"profileGroupID"`
+		NumTasksPerProfile int                       `json:"numTasksPerProfile"`
+		ProfileIDs         []string                  `json:"profileIDs"`
+		ProfileGroupID     string                    `json:"profileGroupID"`
+		ProxyGroupID       string                    `json:"proxyGroupID"`
+		Retailer           string                    `json:"retailer"`
+		Sizes              []string                  `json:"sizes"`
+		Quantity           int                       `json:"quantity"`
+		Delay              int                       `json:"delay"`
+		TargetTaskInfo     entities.TargetTaskInfo   `json:"targetTaskInfo"`
+		WalmartTaskInfo    entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
+		AmazonTaskInfo     entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
+		BestbuyTaskInfo    entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
+		GamestopTaskInfo   entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
+		HottopicTaskInfo   entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -362,43 +375,79 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		task.TaskGroupID = groupID
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
-			err = entities.ParseTask(task, body)
+			createTaskRequestInfo := CreateTaskRequest{}
+			err = json.Unmarshal(body, &createTaskRequestInfo)
 			if err == nil {
-				createTaskRequestInfo := CreateTaskRequest{}
-				err = json.Unmarshal(body, &createTaskRequestInfo)
-				if err == nil {
-					var profileIDs []string
-					profileGroup, err := queries.GetProfileGroup(createTaskRequestInfo.ProfileGroupID)
-					if err != nil {
-						errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
-					}
-					profileIDs = profileGroup.ProfileIDs
+				task.TaskProxyGroupID = createTaskRequestInfo.ProxyGroupID
+				task.TaskRetailer = createTaskRequestInfo.Retailer
+				task.TaskSize = createTaskRequestInfo.Sizes
+				task.TaskSizeJoined = strings.Join(createTaskRequestInfo.Sizes, ",")
+				if createTaskRequestInfo.Quantity > 0 {
+					task.TaskQty = createTaskRequestInfo.Quantity
+				}
+				if createTaskRequestInfo.Delay > 0 {
+					task.TaskDelay = createTaskRequestInfo.Delay
+				}
+				switch createTaskRequestInfo.Retailer {
+				case enums.Amazon:
+					task.AmazonTaskInfo = createTaskRequestInfo.AmazonTaskInfo
+				case enums.BestBuy:
+					task.BestbuyTaskInfo = createTaskRequestInfo.BestbuyTaskInfo
 
+				case enums.GameStop:
+					task.GamestopTaskInfo = createTaskRequestInfo.GamestopTaskInfo
+
+				case enums.HotTopic:
+					task.HottopicTaskInfo = createTaskRequestInfo.HottopicTaskInfo
+
+				case enums.Target:
+					task.TargetTaskInfo = createTaskRequestInfo.TargetTaskInfo
+
+				case enums.Walmart:
+					task.WalmartTaskInfo = createTaskRequestInfo.WalmartTaskInfo
+
+				}
+
+				profileIDs := createTaskRequestInfo.ProfileIDs
+				if createTaskRequestInfo.ProfileGroupID != "" {
+					var profileGroup entities.ProfileGroup
+					profileGroup, err = queries.GetProfileGroup(createTaskRequestInfo.ProfileGroupID)
+					profileIDs = profileGroup.ProfileIDs
+				}
+
+				if err == nil {
+					oldTaskGroup, err := queries.GetTaskGroup(groupID)
 					if err == nil {
 						for i := 0; i < len(profileIDs); i++ {
 							task.SetTaskProfileID(profileIDs[i])
+							var createTaskError error
 							for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
 								task.SetID(uuid.New().String())
 								err = commands.CreateTask(*task)
-								if err == nil {
-									oldTaskGroup, err := queries.GetTaskGroup(groupID)
-									if err == nil {
-										oldTaskGroup.SetTaskIDs(append(oldTaskGroup.TaskIDs, task.ID))
-										newTaskGroup, err = commands.UpdateTaskGroup(groupID, oldTaskGroup)
-										if err != nil {
-											errorsList = append(errorsList, errors.AddTaskToGroupError+err.Error())
-										}
-									} else {
-										errorsList = append(errorsList, errors.AddTaskToGroupError+err.Error())
-									}
-								} else {
-									errorsList = append(errorsList, errors.CreateTaskError+err.Error())
+								if err != nil {
+									createTaskError = err
+									break
 								}
+								oldTaskGroup.SetTaskIDs(append(oldTaskGroup.TaskIDs, task.ID))
+							}
+							if createTaskError != nil {
+								break
 							}
 						}
+
+						if err == nil {
+							newTaskGroup, err = commands.UpdateTaskGroup(groupID, oldTaskGroup)
+							if err != nil {
+								errorsList = append(errorsList, errors.AddTaskToGroupError+err.Error())
+							}
+						} else {
+							errorsList = append(errorsList, errors.CreateTaskError+err.Error())
+						}
+					} else {
+						errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 					}
 				} else {
-					errorsList = append(errorsList, errors.ParseTaskError+err.Error())
+					errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 				}
 			} else {
 				errorsList = append(errorsList, errors.ParseTaskError+err.Error())
