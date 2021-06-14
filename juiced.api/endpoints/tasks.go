@@ -208,8 +208,27 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		if err == nil {
 			newTaskGroup.SetGroupID(uuid.New().String())
 			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + common.RandID(4) + ")")
-			err = commands.CreateTaskGroup(newTaskGroup)
-			if err != nil {
+			newTaskIDs := make([]string, 0)
+			for _, taskID := range newTaskGroup.TaskIDs {
+				var task entities.Task
+				task, err = queries.GetTask(taskID)
+				if err != nil {
+					break
+				}
+				task.ID = uuid.New().String()
+				err = commands.CreateTask(task)
+				if err != nil {
+					break
+				}
+				newTaskIDs = append(newTaskIDs, task.ID)
+			}
+			if err == nil {
+				newTaskGroup.TaskIDs = newTaskIDs
+				err = commands.CreateTaskGroup(newTaskGroup)
+				if err != nil {
+					errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
+				}
+			} else {
 				errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
 			}
 		} else {
@@ -391,6 +410,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				switch createTaskRequestInfo.Retailer {
 				case enums.Amazon:
 					task.AmazonTaskInfo = createTaskRequestInfo.AmazonTaskInfo
+
 				case enums.BestBuy:
 					task.BestbuyTaskInfo = createTaskRequestInfo.BestbuyTaskInfo
 
