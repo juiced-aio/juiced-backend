@@ -16,7 +16,7 @@ import (
 func GetSettingsEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	settings := entities.Settings{}
+	var settings entities.Settings
 	errorsList := make([]string, 0)
 
 	settings, err := queries.GetSettings()
@@ -35,9 +35,9 @@ func GetSettingsEndpoint(response http.ResponseWriter, request *http.Request) {
 func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var newSettings entities.Settings
 	errorsList := make([]string, 0)
 
-	newSettings := entities.Settings{}
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
 		err = entities.ParseSettings(&newSettings, body)

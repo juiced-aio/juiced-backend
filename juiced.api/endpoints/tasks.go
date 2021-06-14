@@ -14,26 +14,27 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // GetTaskGroupEndpoint handles the GET request at /api/task/group/{groupID}
 func GetTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	taskGroup := entities.TaskGroup{}
+	var taskGroup entities.TaskGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		taskGroup, err = queries.GetTaskGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
@@ -77,7 +78,8 @@ func GetAllTaskGroupsEndpoint(response http.ResponseWriter, request *http.Reques
 func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	taskGroup := &entities.TaskGroup{GroupID: primitive.NewObjectID(), TaskIDs: []primitive.ObjectID{}, MonitorDelay: 2000}
+	groupID := uuid.New().String()
+	taskGroup := &entities.TaskGroup{GroupID: groupID, TaskIDs: []string{}, MonitorDelay: 2000}
 	errorsList := make([]string, 0)
 
 	body, err := ioutil.ReadAll(request.Body)
@@ -111,18 +113,19 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	taskGroup := entities.TaskGroup{}
+	var taskGroup entities.TaskGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		taskGroup, err = commands.RemoveTaskGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
@@ -141,12 +144,13 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	newTaskGroup := entities.TaskGroup{GroupID: groupID}
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
+		newTaskGroup = entities.TaskGroup{GroupID: groupID}
 		oldTaskGroup, err := queries.GetTaskGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
@@ -171,7 +175,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
@@ -190,15 +194,17 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var newTaskGroup entities.TaskGroup
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	newTaskGroup := entities.TaskGroup{}
-	if err == nil {
+	groupID, ok := params["GroupID"]
+
+	if ok {
 		newTaskGroup, err = queries.GetTaskGroup(groupID)
 		if err == nil {
-			newTaskGroup.SetGroupID(primitive.NewObjectID())
+			newTaskGroup.SetGroupID(uuid.New().String())
 			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + common.RandID(4) + ")")
 			err = commands.CreateTaskGroup(newTaskGroup)
 			if err != nil {
@@ -208,7 +214,7 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
@@ -227,16 +233,16 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
 	type DeleteTasksRequest struct {
-		TaskIDs []primitive.ObjectID `json:"taskIDs"`
+		TaskIDs []string `json:"taskIDs"`
 	}
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	newTaskGroup := entities.TaskGroup{}
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
 			newTaskGroup, err = queries.GetTaskGroup(groupID)
@@ -244,7 +250,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 				deleteTasksRequestInfo := DeleteTasksRequest{}
 				err = json.Unmarshal(body, &deleteTasksRequestInfo)
 				if err == nil {
-					newTaskIDs := make([]primitive.ObjectID, 0)
+					newTaskIDs := make([]string, 0)
 					for i := 0; i < len(newTaskGroup.TaskIDs); i++ {
 						found := false
 						for j := 0; j < len(deleteTasksRequestInfo.TaskIDs); j++ {
@@ -278,7 +284,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 			errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
@@ -314,18 +320,19 @@ func GetAllTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 func GetTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	task := entities.Task{}
+	var task entities.Task
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	if err == nil {
+	ID, ok := params["ID"]
+	if ok {
 		task, err = queries.GetTask(ID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.TaskResponse{Success: true, Data: []entities.Task{task}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -339,19 +346,19 @@ func GetTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	task := &entities.Task{ID: primitive.NewObjectID(), TaskSize: make([]string, 0), TaskQty: 1, TaskStatus: enums.TaskIdle}
-	newTaskGroup := entities.TaskGroup{}
+	task := &entities.Task{ID: uuid.New().String(), TaskSize: make([]string, 0), TaskQty: 1, TaskStatus: enums.TaskIdle}
+	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
 	type CreateTaskRequest struct {
-		NumTasksPerProfile int                  `json:"numTasksPerProfile"`
-		ProfileIDs         []primitive.ObjectID `json:"profileIDs"`
-		ProfileGroupID     primitive.ObjectID   `json:"profileGroupID"`
+		NumTasksPerProfile int      `json:"numTasksPerProfile"`
+		ProfileIDs         []string `json:"profileIDs"`
+		ProfileGroupID     string   `json:"profileGroupID"`
 	}
 
 	params := mux.Vars(request)
-	groupID, err := primitive.ObjectIDFromHex(params["GroupID"])
-	if err == nil {
+	groupID, ok := params["GroupID"]
+	if ok {
 		task.TaskGroupID = groupID
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
@@ -360,21 +367,18 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				createTaskRequestInfo := CreateTaskRequest{}
 				err = json.Unmarshal(body, &createTaskRequestInfo)
 				if err == nil {
-					var profileIDs []primitive.ObjectID
-					if primitive.ObjectID.IsZero(createTaskRequestInfo.ProfileGroupID) {
-						profileIDs = createTaskRequestInfo.ProfileIDs
-					} else {
-						profileGroup, err := queries.GetProfileGroup(createTaskRequestInfo.ProfileGroupID)
-						if err != nil {
-							errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
-						}
-						profileIDs = profileGroup.ProfileIDs
+					var profileIDs []string
+					profileGroup, err := queries.GetProfileGroup(createTaskRequestInfo.ProfileGroupID)
+					if err != nil {
+						errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 					}
+					profileIDs = profileGroup.ProfileIDs
+
 					if err == nil {
 						for i := 0; i < len(profileIDs); i++ {
 							task.SetTaskProfileID(profileIDs[i])
 							for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
-								task.SetID(primitive.NewObjectID())
+								task.SetID(uuid.New().String())
 								err = commands.CreateTask(*task)
 								if err == nil {
 									oldTaskGroup, err := queries.GetTaskGroup(groupID)
@@ -403,7 +407,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 			errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
 	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
@@ -423,13 +427,14 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 func UpdateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	task := entities.Task{}
+	var task entities.Task
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	newTask := &entities.Task{ID: ID}
-	if err == nil {
+	ID, ok := params["ID"]
+	if ok {
+		newTask := &entities.Task{ID: ID}
+
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
 			err = entities.ParseTask(newTask, body)
@@ -445,7 +450,7 @@ func UpdateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 			errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.TaskResponse{Success: true, Data: []entities.Task{task}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -459,15 +464,15 @@ func UpdateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 func CloneTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	task := entities.Task{}
+	var task entities.Task
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	if err == nil {
-		task, err = queries.GetTask(ID)
+	ID, ok := params["ID"]
+	if ok {
+		task, err := queries.GetTask(ID)
 		if err == nil {
-			task.SetID(primitive.NewObjectID())
+			task.SetID(uuid.New().String())
 			err = commands.CreateTask(task)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateTaskError+err.Error())
@@ -476,7 +481,7 @@ func CloneTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.TaskResponse{Success: true, Data: []entities.Task{task}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -490,13 +495,13 @@ func CloneTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 func StartTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	taskToStart := entities.Task{}
+	var taskToStart entities.Task
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	if err == nil {
-		taskToStart, err = queries.GetTask(ID)
+	ID, ok := params["ID"]
+	if ok {
+		taskToStart, err := queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			started := taskStore.StartTask(&taskToStart)
@@ -507,7 +512,7 @@ func StartTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 	result := &responses.TaskResponse{Success: true, Data: []entities.Task{taskToStart}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -521,12 +526,13 @@ func StartTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	taskToStop := entities.Task{}
+	var taskToStop entities.Task
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
-	ID, err := primitive.ObjectIDFromHex(params["ID"])
-	if err == nil {
+	ID, ok := params["ID"]
+	if ok {
 		taskToStop, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
@@ -538,7 +544,7 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.ParseObjectIDError+err.Error())
+		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
 	result := &responses.TaskResponse{Success: true, Data: []entities.Task{taskToStop}, Errors: make([]string, 0)}

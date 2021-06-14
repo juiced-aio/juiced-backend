@@ -1,29 +1,30 @@
 package commands
 
 import (
+	"errors"
+
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"context"
-	"time"
-
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	_ "github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // CreateCheckout adds the Checkout object to the database
 func CreateCheckout(checkout entities.Checkout) error {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`INSERT INTO checkouts (itemName, sku, price, quantity, retailer, profileName, time) VALUES (?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	_, err = statement.Exec(checkout.ItemName, checkout.SKU, checkout.Price, checkout.Quantity, checkout.Retailer, checkout.ProfileName, checkout.Time)
 	if err != nil {
 		return err
 	}
-	collection := client.Database("juiced").Collection("checkouts")
-	_, err = collection.InsertOne(ctx, checkout)
+
 	return err
 }

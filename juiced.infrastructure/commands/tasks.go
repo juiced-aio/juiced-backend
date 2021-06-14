@@ -1,133 +1,137 @@
 package commands
 
 import (
+	"errors"
+	"strings"
+
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"context"
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	_ "github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // CreateTaskGroup adds the TaskGroup object to the database
 func CreateTaskGroup(taskGroup entities.TaskGroup) error {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`INSERT INTO taskGroups (groupID, name, proxyGroupID, retailer, input, delay, status, taskIDsJoined) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+	taskIDsJoined := strings.Join(taskGroup.TaskIDs, ",")
+
+	_, err = statement.Exec(taskGroup.GroupID, taskGroup.Name, taskGroup.MonitorProxyGroupID, taskGroup.MonitorRetailer, taskGroup.MonitorInput, taskGroup.MonitorDelay, taskGroup.MonitorStatus, taskIDsJoined)
 	if err != nil {
 		return err
 	}
-	collection := client.Database("juiced").Collection("task_groups")
-	_, err = collection.InsertOne(ctx, taskGroup)
-	return err
+
+	return CreateMonitorInfos(taskGroup)
 }
 
 // RemoveTaskGroup removes the TaskGroup from the database with the given groupID and returns it (if it exists)
-func RemoveTaskGroup(groupID primitive.ObjectID) (entities.TaskGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 	taskGroup := entities.TaskGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return taskGroup, errors.New("database not initialized")
+	}
+
+	taskGroup, err := queries.GetTaskGroup(groupID)
 	if err != nil {
 		return taskGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	statement, err := database.Preparex(`DELETE FROM taskGroups WHERE groupID = @p1`)
 	if err != nil {
 		return taskGroup, err
 	}
-	collection := client.Database("juiced").Collection("task_groups")
-	filter := bson.D{primitive.E{Key: "groupID", Value: groupID}}
-	err = collection.FindOneAndDelete(ctx, filter).Decode(&taskGroup)
+	_, err = statement.Exec(groupID)
+	if err != nil {
+		return taskGroup, err
+	}
+
+	err = DeleteMonitorInfos(groupID, taskGroup.MonitorRetailer)
 	return taskGroup, err
+
 }
 
 // UpdateTaskGroup updates the TaskGroup from the database with the given groupID and returns it (if it exists)
-func UpdateTaskGroup(groupID primitive.ObjectID, newTaskGroup entities.TaskGroup) (entities.TaskGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-	taskGroup := entities.TaskGroup{}
+func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (entities.TaskGroup, error) {
+	taskGroup, err := RemoveTaskGroup(groupID)
 	if err != nil {
 		return taskGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return taskGroup, err
-	}
-	collection := client.Database("juiced").Collection("task_groups")
-	filter := bson.D{primitive.E{Key: "groupID", Value: groupID}}
-	opts := options.FindOneAndReplace().SetReturnDocument(options.After)
-	err = collection.FindOneAndReplace(ctx, filter, newTaskGroup, opts).Decode(&taskGroup)
 
-	return taskGroup, err
+	err = CreateTaskGroup(newTaskGroup)
+	if err != nil {
+		return taskGroup, err
+	}
+
+	return queries.GetTaskGroup(groupID)
 }
 
 // CreateTask adds the Task object to the database
 func CreateTask(task entities.Task) error {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`INSERT INTO tasks (ID, taskGroupID, profileID, proxyGroupID, retailer, sizeJoined, qty, status, taskDelay) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	sizeJoined := strings.Join(task.TaskSize, ",")
+	_, err = statement.Exec(task.ID, task.TaskGroupID, task.TaskProfileID, task.TaskProxyGroupID, task.TaskRetailer, sizeJoined, task.TaskQty, task.TaskStatus, task.TaskDelay)
 	if err != nil {
 		return err
 	}
-	collection := client.Database("juiced").Collection("tasks")
-	_, err = collection.InsertOne(ctx, task)
-	return err
+
+	return CreateTaskInfos(task)
+
 }
 
 // RemoveTask removes the Task from the database with the given ID and returns it (if it exists)
-func RemoveTask(ID primitive.ObjectID) (entities.Task, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func RemoveTask(ID string) (entities.Task, error) {
 	task := entities.Task{}
+	database := common.GetDatabase()
+	if database == nil {
+		return task, errors.New("database not initialized")
+	}
+	task, err := queries.GetTask(ID)
 	if err != nil {
 		return task, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	statement, err := database.Preparex(`DELETE FROM tasks WHERE ID = @p1`)
 	if err != nil {
 		return task, err
 	}
-	collection := client.Database("juiced").Collection("tasks")
-	filter := bson.D{primitive.E{Key: "id", Value: ID}}
-	err = collection.FindOneAndDelete(ctx, filter).Decode(&task)
+	_, err = statement.Exec(ID)
+
+	task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
+
 	return task, err
 }
 
 // UpdateTask updates the Task from the database with the given ID and returns it (if it exists)
-func UpdateTask(ID primitive.ObjectID, newTask entities.Task) (entities.Task, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func UpdateTask(ID string, newTask entities.Task) (entities.Task, error) {
+	// @silent: Good or bad practice?
 	task := entities.Task{}
+	_, err := RemoveTask(ID)
 	if err != nil {
 		return task, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	err = CreateTask(newTask)
 	if err != nil {
 		return task, err
 	}
-	collection := client.Database("juiced").Collection("tasks")
-	filter := bson.D{primitive.E{Key: "id", Value: ID}}
-	opts := options.FindOneAndReplace().SetReturnDocument(options.After)
-	err = collection.FindOneAndReplace(ctx, filter, newTask, opts).Decode(&task)
 
 	return task, err
 }

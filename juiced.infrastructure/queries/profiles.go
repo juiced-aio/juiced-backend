@@ -1,113 +1,125 @@
 package queries
 
 import (
+	"errors"
+	"strings"
+
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"context"
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // GetAllProfileGroups returns all ProfileGroup objects from the database
 func GetAllProfileGroups() ([]entities.ProfileGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-	profileGroups := make([]entities.ProfileGroup, 0)
+	profileGroups := []entities.ProfileGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return profileGroups, errors.New("database not initialized")
+	}
+
+	rows, err := database.Queryx("SELECT * FROM profileGroups")
 	if err != nil {
 		return profileGroups, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return profileGroups, err
+
+	defer rows.Close()
+	for rows.Next() {
+		tempProfileGroup := entities.ProfileGroup{}
+		err = rows.StructScan(&tempProfileGroup)
+		if err != nil {
+			return profileGroups, err
+		}
+		tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
+
 	}
-	collection := client.Database("juiced").Collection("profile_groups")
-	cursor, err := collection.Find(ctx, bson.M{})
-	if err != nil {
-		return profileGroups, err
-	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var profileGroup entities.ProfileGroup
-		cursor.Decode(&profileGroup)
-		profileGroups = append(profileGroups, profileGroup)
-	}
-	err = cursor.Err()
+
 	return profileGroups, err
 }
 
 // GetProfileGroup returns the ProfileGroup object from the database with the given groupID (if it exists)
-func GetProfileGroup(groupID primitive.ObjectID) (entities.ProfileGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func GetProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	profileGroup := entities.ProfileGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return profileGroup, errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex("SELECT * FROM profileGroups WHERE groupID = @p1")
 	if err != nil {
 		return profileGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	rows, err := statement.Queryx(groupID)
 	if err != nil {
 		return profileGroup, err
 	}
-	collection := client.Database("juiced").Collection("profile_groups")
-	filter := bson.D{primitive.E{Key: "groupid", Value: groupID}}
-	err = collection.FindOne(ctx, filter).Decode(&profileGroup)
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.StructScan(&profileGroup)
+		if err != nil {
+			return profileGroup, err
+		}
+	}
+
+	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+
 	return profileGroup, err
 }
 
 // GetAllProfiles returns all Profile objects from the database
 func GetAllProfiles() ([]entities.Profile, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-	profiles := make([]entities.Profile, 0)
+	profiles := []entities.Profile{}
+	database := common.GetDatabase()
+	if database == nil {
+		return profiles, errors.New("database not initialized")
+	}
+
+	rows, err := database.Queryx("SELECT * FROM profiles")
 	if err != nil {
 		return profiles, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return profiles, err
+
+	defer rows.Close()
+	for rows.Next() {
+		tempProfile := entities.Profile{}
+		err = rows.StructScan(&tempProfile)
+		if err != nil {
+			return profiles, err
+		}
+		tempProfile, err = GetProfileInfo(tempProfile)
+		profiles = append(profiles, tempProfile)
 	}
-	collection := client.Database("juiced").Collection("profiles")
-	cursor, err := collection.Find(ctx, bson.M{})
-	if err != nil {
-		return profiles, err
-	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var profile entities.Profile
-		cursor.Decode(&profile)
-		profiles = append(profiles, profile)
-	}
-	err = cursor.Err()
+
 	return profiles, err
 }
 
 // GetProfile returns the Profile object from the database with the given ID (if it exists)
-func GetProfile(ID primitive.ObjectID) (entities.Profile, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func GetProfile(ID string) (entities.Profile, error) {
 	profile := entities.Profile{}
+	database := common.GetDatabase()
+	if database == nil {
+		return profile, errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex("SELECT * FROM profiles WHERE ID = @p1")
 	if err != nil {
 		return profile, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	rows, err := statement.Queryx(ID)
 	if err != nil {
 		return profile, err
 	}
-	collection := client.Database("juiced").Collection("profiles")
-	filter := bson.D{primitive.E{Key: "id", Value: ID}}
-	err = collection.FindOne(ctx, filter).Decode(&profile)
-	return profile, err
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.StructScan(&profile)
+		if err != nil {
+			return profile, err
+		}
+	}
+
+	return GetProfileInfo(profile)
 }
 
 // ConvertProfileIDsToProfiles returns a ProfileGroupWithProfiles object from a ProfileGroup object
@@ -117,7 +129,7 @@ func ConvertProfileIDsToProfiles(profileGroup *entities.ProfileGroup) (entities.
 	for i := 0; i < len(profileGroup.ProfileIDs); i++ {
 		profile, err := GetProfile(profileGroup.ProfileIDs[i])
 		if err != nil {
-			if err.Error() != "mongo: no documents in result" {
+			if profile.ID == "" {
 				return profileGroupWithProfiles, err
 			}
 		} else {
@@ -130,8 +142,8 @@ func ConvertProfileIDsToProfiles(profileGroup *entities.ProfileGroup) (entities.
 
 // ConvertProfilesToProfileIDs returns a ProfileGroup object from a ProfileGroupWithProfiles object
 func ConvertProfilesToProfileIDs(profileGroupWithProfiles *entities.ProfileGroupWithProfiles) (entities.ProfileGroup, error) {
-	profileGroup := entities.ProfileGroup{GroupID: profileGroupWithProfiles.GroupID, Name: profileGroupWithProfiles.Name, ProfileIDs: []primitive.ObjectID{}}
-	profileIDs := []primitive.ObjectID{}
+	profileGroup := entities.ProfileGroup{GroupID: profileGroupWithProfiles.GroupID, Name: profileGroupWithProfiles.Name, ProfileIDs: []string{}}
+	profileIDs := []string{}
 	for i := 0; i < len(profileGroupWithProfiles.Profiles); i++ {
 		profileID := profileGroupWithProfiles.Profiles[i].ID
 		profileIDs = append(profileIDs, profileID)

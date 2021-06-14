@@ -1,133 +1,160 @@
 package commands
 
 import (
+	"errors"
+	"strings"
+
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"context"
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	_ "github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // CreateProfileGroup adds the ProfileGroup object to the database
 func CreateProfileGroup(profileGroup entities.ProfileGroup) error {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`INSERT INTO profileGroups (groupID, name, profileIDsJoined) VALUES (?, ?, ?)`)
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+	profileIDsJoined := strings.Join(profileGroup.ProfileIDs, ",")
+
+	_, err = statement.Exec(profileGroup.GroupID, profileGroup.Name, profileIDsJoined)
 	if err != nil {
 		return err
 	}
-	collection := client.Database("juiced").Collection("profile_groups")
-	_, err = collection.InsertOne(ctx, profileGroup)
+
+	for _, profileID := range profileGroup.ProfileIDs {
+		profile, err := queries.GetProfile(profileID)
+		if err != nil {
+			return err
+		}
+		profile.ProfileGroupID = profileGroup.GroupID
+		_, err = UpdateProfile(profile.ID, profile)
+		if err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
 // RemoveProfileGroup removes the ProfileGroup from the database with the given groupID and returns it (if it exists)
-func RemoveProfileGroup(groupID primitive.ObjectID) (entities.ProfileGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	profileGroup := entities.ProfileGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return profileGroup, errors.New("database not initialized")
+	}
+
+	profileGroup, err := queries.GetProfileGroup(groupID)
 	if err != nil {
 		return profileGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	statement, err := database.Preparex(`DELETE FROM profileGroups WHERE groupID = @p1`)
 	if err != nil {
 		return profileGroup, err
 	}
-	collection := client.Database("juiced").Collection("profile_groups")
-	filter := bson.D{primitive.E{Key: "groupid", Value: groupID}}
-	err = collection.FindOneAndDelete(ctx, filter).Decode(&profileGroup)
+	_, err = statement.Exec(groupID)
+
+	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+
+	for _, profileID := range profileGroup.ProfileIDs {
+		profile, err := queries.GetProfile(profileID)
+		if err != nil {
+			return profileGroup, err
+		}
+		profile.ProfileGroupID = ""
+		_, err = UpdateProfile(profile.ID, profile)
+		if err != nil {
+			return profileGroup, err
+		}
+	}
+
 	return profileGroup, err
+
 }
 
 // UpdateProfileGroup updates the ProfileGroup from the database with the given groupID and returns it (if it exists)
-func UpdateProfileGroup(groupID primitive.ObjectID, newProfileGroup entities.ProfileGroup) (entities.ProfileGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func UpdateProfileGroup(groupID string, newProfileGroup entities.ProfileGroup) (entities.ProfileGroup, error) {
 	profileGroup := entities.ProfileGroup{}
+	_, err := RemoveProfileGroup(groupID)
 	if err != nil {
 		return profileGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+	err = CreateProfileGroup(newProfileGroup)
 	if err != nil {
 		return profileGroup, err
 	}
-	collection := client.Database("juiced").Collection("profile_groups")
-	filter := bson.D{primitive.E{Key: "groupid", Value: groupID}}
-	opts := options.FindOneAndReplace().SetReturnDocument(options.After)
-	err = collection.FindOneAndReplace(ctx, filter, newProfileGroup, opts).Decode(&profileGroup)
 
-	return profileGroup, err
+	return queries.GetProfileGroup(groupID)
 }
 
 // CreateProfile adds the Profile object to the database
 func CreateProfile(profile entities.Profile) error {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupID, name, email, phoneNumber) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	_, err = statement.Exec(profile.ID, profile.ProfileGroupID, profile.Name, profile.Email, profile.PhoneNumber)
 	if err != nil {
 		return err
 	}
-	collection := client.Database("juiced").Collection("profiles")
-	_, err = collection.InsertOne(ctx, profile)
-	return err
+
+	return CreateProfileInfos(profile)
 }
 
 // RemoveProfile removes the Profile from the database with the given ID and returns it (if it exists)
-func RemoveProfile(ID primitive.ObjectID) (entities.Profile, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func RemoveProfile(ID string) (entities.Profile, error) {
 	profile := entities.Profile{}
+	database := common.GetDatabase()
+	if database == nil {
+		return profile, errors.New("database not initialized")
+	}
+
+	profile, err := queries.GetProfile(ID)
 	if err != nil {
 		return profile, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	statement, err := database.Preparex(`DELETE FROM profiles WHERE ID = @p1`)
 	if err != nil {
 		return profile, err
 	}
-	collection := client.Database("juiced").Collection("profiles")
-	filter := bson.D{primitive.E{Key: "id", Value: ID}}
-	err = collection.FindOneAndDelete(ctx, filter).Decode(&profile)
+	_, err = statement.Exec(ID)
+	if err != nil {
+		return profile, err
+	}
+
+	err = DeleteProfileInfos(ID)
 	return profile, err
+
 }
 
 // UpdateProfile updates the Profile from the database with the given ID and returns it (if it exists)
-func UpdateProfile(ID primitive.ObjectID, newProfile entities.Profile) (entities.Profile, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func UpdateProfile(ID string, newProfile entities.Profile) (entities.Profile, error) {
 	profile := entities.Profile{}
+	_, err := RemoveProfile(ID)
 	if err != nil {
 		return profile, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return profile, err
-	}
-	collection := client.Database("juiced").Collection("profiles")
-	filter := bson.D{primitive.E{Key: "id", Value: ID}}
-	opts := options.FindOneAndReplace().SetReturnDocument(options.After)
-	err = collection.FindOneAndReplace(ctx, filter, newProfile, opts).Decode(&profile)
 
-	return profile, err
+	err = CreateProfile(newProfile)
+	if err != nil {
+		return profile, err
+	}
+
+	return queries.GetProfile(ID)
 }

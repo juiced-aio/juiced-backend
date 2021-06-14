@@ -1,73 +1,88 @@
 package commands
 
 import (
+	"errors"
+
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"context"
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	_ "github.com/jmoiron/sqlx"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 // CreateProxyGroup adds the ProxyGroup object to the database
 func CreateProxyGroup(proxyGroup entities.ProxyGroup) error {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`INSERT INTO proxyGroups (groupID, name) VALUES (?, ?)`)
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	_, err = statement.Exec(proxyGroup.GroupID, proxyGroup.Name)
 	if err != nil {
 		return err
 	}
-	collection := client.Database("juiced").Collection("proxy_groups")
-	_, err = collection.InsertOne(ctx, proxyGroup)
+
+	for _, proxy := range proxyGroup.Proxies {
+		statement, err := database.Preparex(`INSERT INTO proxys (ID, proxyGroupID, host, port, username, password) VALUES (?, ?, ?, ?, ?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(proxy.ID, proxyGroup.GroupID, proxy.Host, proxy.Port, proxy.Username, proxy.Password)
+		if err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
 // RemoveProxyGroup removes the ProxyGroup from the database with the given groupID and returns it (if it exists)
-func RemoveProxyGroup(groupID primitive.ObjectID) (entities.ProxyGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func RemoveProxyGroup(groupID string) (entities.ProxyGroup, error) {
 	proxyGroup := entities.ProxyGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return proxyGroup, errors.New("database not initialized")
+	}
+
+	proxyGroup, err := queries.GetProxyGroup(groupID)
 	if err != nil {
 		return proxyGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	statement, err := database.Preparex(`DELETE FROM proxyGroups WHERE groupID = @p1`)
 	if err != nil {
 		return proxyGroup, err
 	}
-	collection := client.Database("juiced").Collection("proxy_groups")
-	filter := bson.D{primitive.E{Key: "groupid", Value: groupID}}
-	err = collection.FindOneAndDelete(ctx, filter).Decode(&proxyGroup)
+	_, err = statement.Exec(groupID)
+	if err != nil {
+		return proxyGroup, err
+	}
+
+	statement, err = database.Preparex(`DELETE FROM proxys WHERE proxyGroupID = @p1`)
+	if err != nil {
+		return proxyGroup, err
+	}
+	_, err = statement.Exec(groupID)
+
 	return proxyGroup, err
 }
 
 // UpdateProxyGroup updates the ProxyGroup from the database with the given groupID and returns it (if it exists)
-func UpdateProxyGroup(groupID primitive.ObjectID, newProxyGroup entities.ProxyGroup) (entities.ProxyGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-	proxyGroup := entities.ProxyGroup{}
+func UpdateProxyGroup(groupID string, newProxyGroup entities.ProxyGroup) (entities.ProxyGroup, error) {
+	proxyGroup, err := RemoveProxyGroup(groupID)
 	if err != nil {
 		return proxyGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return proxyGroup, err
-	}
-	collection := client.Database("juiced").Collection("proxy_groups")
-	filter := bson.D{primitive.E{Key: "groupid", Value: groupID}}
-	opts := options.FindOneAndReplace().SetReturnDocument(options.After)
-	err = collection.FindOneAndReplace(ctx, filter, newProxyGroup, opts).Decode(&proxyGroup)
 
-	return proxyGroup, err
+	err = CreateProxyGroup(newProxyGroup)
+	if err != nil {
+		return proxyGroup, err
+	}
+
+	return queries.GetProxyGroup(groupID)
 }

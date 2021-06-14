@@ -1,33 +1,32 @@
 package queries
 
 import (
-	"context"
-	"time"
+	"errors"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // GetSettings returns the settings object from the database
 func GetSettings() (entities.Settings, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
 	settings := entities.Settings{}
+	database := common.GetDatabase()
+	if database == nil {
+		return settings, errors.New("database not initialized")
+	}
+
+	// Might want to add "WHERE id = 0" to the query
+	rows, err := database.Queryx("SELECT * FROM settings")
 	if err != nil {
 		return settings, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return settings, err
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.StructScan(&settings)
+		if err != nil {
+			return settings, err
+		}
 	}
-	collection := client.Database("juiced").Collection("settings")
-	filter := bson.D{primitive.E{Key: "id", Value: 0}}
-	err = collection.FindOne(ctx, filter).Decode(&settings)
 	return settings, err
 }

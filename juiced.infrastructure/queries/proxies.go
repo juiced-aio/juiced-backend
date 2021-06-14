@@ -1,62 +1,67 @@
 package queries
 
 import (
+	"errors"
+
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"context"
-	"time"
-
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 // GetAllProxyGroups returns all ProxyGroup objects from the database
 func GetAllProxyGroups() ([]entities.ProxyGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
-	proxyGroups := make([]entities.ProxyGroup, 0)
+	proxyGroups := []entities.ProxyGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return proxyGroups, errors.New("database not initialized")
+	}
+
+	rows, err := database.Queryx("SELECT * FROM proxyGroups")
 	if err != nil {
 		return proxyGroups, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
-	if err != nil {
-		return proxyGroups, err
+
+	defer rows.Close()
+	for rows.Next() {
+		tempProxyGroup := entities.ProxyGroup{}
+		err = rows.StructScan(&tempProxyGroup)
+		if err != nil {
+			return proxyGroups, err
+		}
+		tempProxyGroup, err = GetProxies(tempProxyGroup)
+		if err != nil {
+			return proxyGroups, err
+		}
+		proxyGroups = append(proxyGroups, tempProxyGroup)
+
 	}
-	collection := client.Database("juiced").Collection("proxy_groups")
-	cursor, err := collection.Find(ctx, bson.M{})
-	if err != nil {
-		return proxyGroups, err
-	}
-	defer cursor.Close(ctx)
-	for cursor.Next(ctx) {
-		var proxyGroup entities.ProxyGroup
-		cursor.Decode(&proxyGroup)
-		proxyGroups = append(proxyGroups, proxyGroup)
-	}
-	err = cursor.Err()
 	return proxyGroups, err
 }
 
 // GetProxyGroup returns the ProxyGroup object from the database with the given groupID (if it exists)
-func GetProxyGroup(groupID primitive.ObjectID) (entities.ProxyGroup, error) {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb://localhost:27017"))
+func GetProxyGroup(groupID string) (entities.ProxyGroup, error) {
 	proxyGroup := entities.ProxyGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return proxyGroup, errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex("SELECT * FROM proxyGroups WHERE groupID = @p1")
 	if err != nil {
 		return proxyGroup, err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	err = client.Connect(ctx)
-	defer client.Disconnect(ctx)
+
+	rows, err := statement.Queryx(groupID)
 	if err != nil {
 		return proxyGroup, err
 	}
-	collection := client.Database("juiced").Collection("proxy_groups")
-	filter := bson.D{primitive.E{Key: "groupid", Value: groupID}}
-	err = collection.FindOne(ctx, filter).Decode(&proxyGroup)
-	return proxyGroup, err
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.StructScan(&proxyGroup)
+		if err != nil {
+			return proxyGroup, err
+		}
+	}
+
+	return GetProxies(proxyGroup)
 }

@@ -3,8 +3,6 @@ package stores
 import (
 	"math/rand"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
-
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -25,12 +23,12 @@ import (
 
 // TaskStore stores information about running Tasks
 type TaskStore struct {
-	TargetTasks   map[primitive.ObjectID]*target.Task
-	WalmartTasks  map[primitive.ObjectID]*walmart.Task
-	AmazonTasks   map[primitive.ObjectID]*amazon.Task
-	BestbuyTasks  map[primitive.ObjectID]*bestbuy.Task
-	HottopicTasks map[primitive.ObjectID]*hottopic.Task
-	GamestopTasks map[primitive.ObjectID]*gamestop.Task
+	TargetTasks   map[string]*target.Task
+	WalmartTasks  map[string]*walmart.Task
+	AmazonTasks   map[string]*amazon.Task
+	BestbuyTasks  map[string]*bestbuy.Task
+	GamestopTasks map[string]*gamestop.Task
+	HottopicTasks map[string]*hottopic.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -44,7 +42,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		queryError = true
 	}
 	proxy := entities.Proxy{}
-	if !task.TaskProxyGroupID.IsZero() {
+	if task.TaskProxyGroupID != "" {
 		proxyGroup, err := queries.GetProxyGroup(task.TaskProxyGroupID)
 		if err != nil {
 			queryError = true
@@ -277,12 +275,12 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		TargetTasks:   make(map[primitive.ObjectID]*target.Task),
-		WalmartTasks:  make(map[primitive.ObjectID]*walmart.Task),
-		AmazonTasks:   make(map[primitive.ObjectID]*amazon.Task),
-		BestbuyTasks:  make(map[primitive.ObjectID]*bestbuy.Task),
-		HottopicTasks: make(map[primitive.ObjectID]*hottopic.Task),
-		GamestopTasks: make(map[primitive.ObjectID]*gamestop.Task),
+		TargetTasks:   make(map[string]*target.Task),
+		WalmartTasks:  make(map[string]*walmart.Task),
+		AmazonTasks:   make(map[string]*amazon.Task),
+		BestbuyTasks:  make(map[string]*bestbuy.Task),
+		GamestopTasks: make(map[string]*gamestop.Task),
+		HottopicTasks: make(map[string]*hottopic.Task),
 		EventBus:      eventBus,
 	}
 	channel := make(chan events.Event)
