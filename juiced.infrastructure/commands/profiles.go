@@ -63,7 +63,9 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	}
 	_, err = statement.Exec(groupID)
 
-	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	if profileGroup.ProfileIDsJoined != "" {
+		profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	}
 
 	for _, profileID := range profileGroup.ProfileIDs {
 		profile, err := queries.GetProfile(profileID)

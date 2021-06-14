@@ -168,7 +168,9 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 			}
 		}
 
-		taskGroup.WalmartMonitorInfo.SKUs = strings.Split(taskGroup.WalmartMonitorInfo.SKUsJoined, ",")
+		if taskGroup.WalmartMonitorInfo.SKUsJoined != "" {
+			taskGroup.WalmartMonitorInfo.SKUs = strings.Split(taskGroup.WalmartMonitorInfo.SKUsJoined, ",")
+		}
 
 	case enums.Amazon:
 		statement, err := database.Preparex(`SELECT * FROM amazonMonitorInfos WHERE taskGroupID = @p1`)

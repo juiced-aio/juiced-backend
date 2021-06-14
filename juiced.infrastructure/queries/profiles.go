@@ -28,8 +28,10 @@ func GetAllProfileGroups() ([]entities.ProfileGroup, error) {
 		if err != nil {
 			return profileGroups, err
 		}
-		tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
 
+		if tempProfileGroup.ProfileIDsJoined != "" {
+			tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
+		}
 	}
 
 	return profileGroups, err
@@ -61,7 +63,9 @@ func GetProfileGroup(groupID string) (entities.ProfileGroup, error) {
 		}
 	}
 
-	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	if profileGroup.ProfileIDsJoined != "" {
+		profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	}
 
 	return profileGroup, err
 }
