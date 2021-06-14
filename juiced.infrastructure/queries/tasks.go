@@ -28,7 +28,9 @@ func GetAllTaskGroups() ([]entities.TaskGroup, error) {
 		if err != nil {
 			return taskGroups, err
 		}
-		tempTaskGroup.TaskIDs = strings.Split(tempTaskGroup.TaskIDsJoined, ",")
+		if tempTaskGroup.TaskIDsJoined != "" {
+			tempTaskGroup.TaskIDs = strings.Split(tempTaskGroup.TaskIDsJoined, ",")
+		}
 		tempTaskGroup, err = GetMonitorInfos(tempTaskGroup)
 		if err != nil {
 			return taskGroups, err
