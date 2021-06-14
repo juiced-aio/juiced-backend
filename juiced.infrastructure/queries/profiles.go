@@ -32,6 +32,8 @@ func GetAllProfileGroups() ([]entities.ProfileGroup, error) {
 		if tempProfileGroup.ProfileIDsJoined != "" {
 			tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
 		}
+
+		profileGroups = append(profileGroups, tempProfileGroup)
 	}
 
 	return profileGroups, err
