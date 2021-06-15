@@ -182,7 +182,7 @@ func (task *Task) RunTask() {
 		if needToStop || status == enums.OrderStatusDeclined {
 			return
 		}
-		status, placedOrder = task.PlaceOrder()
+		status, placedOrder = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -192,7 +192,7 @@ func (task *Task) RunTask() {
 
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
-	log.Println("TIME TO CHECK OUT: " + endTime.Sub(startTime).String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
@@ -564,7 +564,7 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder() (enums.OrderStatus, bool) {
+func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 	var status enums.OrderStatus
 	placeOrderRequest := PlaceOrderRequest{
 		CartType:  "REGULAR",
@@ -608,15 +608,16 @@ func (task *Task) PlaceOrder() (enums.OrderStatus, bool) {
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask: task.Task,
-		Success:  success,
-		Content:  "",
-		Embeds:   task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
-		UserInfo: user,
-		ItemName: task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
-		Sku:      task.TCIN,
-		Price:    int(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
-		Quantity: 1,
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
+		UserInfo:     user,
+		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		Sku:          task.TCIN,
+		Price:        int(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
 	return status, success

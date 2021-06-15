@@ -174,7 +174,7 @@ func (task *Task) RunTask() {
 
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
-	log.Println("TIME TO CHECK OUT: " + endTime.Sub(startTime).String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }

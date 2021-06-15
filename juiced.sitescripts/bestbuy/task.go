@@ -170,7 +170,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		placedOrder = task.PlaceOrder()
+		placedOrder = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -180,7 +180,7 @@ func (task *Task) RunTask() {
 
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
-	log.Println("TIME TO CHECK OUT: " + endTime.Sub(startTime).String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
@@ -847,7 +847,7 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder(startTime time.Time) bool {
 	data, err := json.Marshal(PlaceOrderRequest{
 		Orderid: task.CheckoutInfo.ID,
 		Threedsecurestatus: Threedsecurestatus{
@@ -972,15 +972,16 @@ func (task *Task) PlaceOrder() bool {
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask: task.Task,
-		Success:  success,
-		Content:  "",
-		Embeds:   task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo: user,
-		ItemName: task.CheckoutInfo.ItemName,
-		Sku:      task.CheckoutInfo.SKUInStock,
-		Price:    task.CheckoutInfo.Price,
-		Quantity: 1,
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo:     user,
+		ItemName:     task.CheckoutInfo.ItemName,
+		Sku:          task.CheckoutInfo.SKUInStock,
+		Price:        task.CheckoutInfo.Price,
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
 	return success

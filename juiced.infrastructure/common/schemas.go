@@ -253,6 +253,7 @@ var checkoutsSchema = `
 		quantity INTEGER,
 		retailer TEXT,
 		profileName TEXT,
+		msToCheckout INTEGER,
 		time INTEGER
 	)
 `
