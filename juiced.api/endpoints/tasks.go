@@ -534,16 +534,29 @@ func CloneTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var task entities.Task
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		task, err := queries.GetTask(ID)
+		task, err = queries.GetTask(ID)
 		if err == nil {
 			task.SetID(uuid.New().String())
 			err = commands.CreateTask(task)
-			if err != nil {
+			if err == nil {
+				var taskGroup entities.TaskGroup
+				taskGroup, err = queries.GetTaskGroup(task.TaskGroupID)
+				taskGroup.TaskIDs = append(taskGroup.TaskIDs, task.ID)
+				if err == nil {
+					taskGroup, err = commands.UpdateTaskGroup(taskGroup.GroupID, taskGroup)
+					if err != nil {
+						errorsList = append(errorsList, errors.CreateTaskError+err.Error())
+					}
+				} else {
+					errorsList = append(errorsList, errors.CreateTaskError+err.Error())
+				}
+			} else {
 				errorsList = append(errorsList, errors.CreateTaskError+err.Error())
 			}
 		} else {
@@ -565,12 +578,13 @@ func StartTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var taskToStart entities.Task
+	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		taskToStart, err := queries.GetTask(ID)
+		taskToStart, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			started := taskStore.StartTask(&taskToStart)
