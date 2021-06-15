@@ -482,15 +482,12 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 			shippingAddress := &profile.ShippingAddress
 			shippingAddress.SetID(uuid.New().String())
 			shippingAddress.ProfileID = newProfileID
-			shippingAddress.ProfileGroupID = profile.ProfileGroupID
 			billingAddress := &profile.BillingAddress
 			billingAddress.SetID(uuid.New().String())
 			billingAddress.ProfileID = newProfileID
-			billingAddress.ProfileGroupID = profile.ProfileGroupID
 			creditCard := &profile.CreditCard
 			creditCard.SetID(uuid.New().String())
 			creditCard.ProfileID = newProfileID
-			creditCard.ProfileGroupID = profile.ProfileGroupID
 			err = commands.CreateProfile(profile)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())

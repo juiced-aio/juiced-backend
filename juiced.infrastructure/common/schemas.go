@@ -194,7 +194,7 @@ var profileGroupsSchema = `
 var profilesSchema = `
 	CREATE TABLE IF NOT EXISTS profiles (
 		ID TEXT,
-		profileGroupID TEXT,
+		profileGroupIDsJoined TEXT,
 		name TEXT,
 		email TEXT,
 		phoneNumber TEXT
@@ -235,7 +235,7 @@ var cardsSchema = `
 	CREATE TABLE IF NOT EXISTS cards (
 		ID TEXT,
 		profileID TEXT,
-		profileGroupID TEXT,
+		profileGroupIDsJoined TEXT,
 		cardHolderName TEXT,
 		cardNumber TEXT,
 		expMonth TEXT,
