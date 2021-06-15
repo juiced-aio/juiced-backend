@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"time"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -83,6 +85,7 @@ func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	if err == nil {
 		err = entities.ParseProfileGroup(profileGroup, body)
 		if err == nil {
+			profileGroup.CreationDate = time.Now().Unix()
 			err = commands.CreateProfileGroup(*profileGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
@@ -203,6 +206,7 @@ func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Reque
 		if err == nil {
 			newProfileGroup.SetGroupID(uuid.New().String())
 			newProfileGroup.SetName(newProfileGroup.Name + " (Copy " + common.RandID(4) + ")")
+			newProfileGroup.CreationDate = time.Now().Unix()
 			err = commands.CreateProfileGroup(newProfileGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
@@ -382,6 +386,7 @@ func CreateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 	if err == nil {
 		err = entities.ParseProfile(profile, body)
 		if err == nil {
+			profile.CreationDate = time.Now().Unix()
 			err = commands.CreateProfile(*profile)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())
@@ -479,6 +484,7 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 			newProfileID := uuid.New().String()
 			profile.SetID(newProfileID)
 			profile.SetName(profile.Name + " (Copy " + common.RandID(4) + ")")
+			profile.CreationDate = time.Now().Unix()
 			shippingAddress := &profile.ShippingAddress
 			shippingAddress.SetID(uuid.New().String())
 			shippingAddress.ProfileID = newProfileID

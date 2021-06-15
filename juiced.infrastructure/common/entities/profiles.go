@@ -79,6 +79,7 @@ type Profile struct {
 	ShippingAddress       Address  `json:"shippingAddress"`
 	BillingAddress        Address  `json:"billingAddress"`
 	CreditCard            Card     `json:"creditCard"`
+	CreationDate          int64    `json:"creationDate" db:"creationDate"`
 }
 
 // SetID updates the Profile's ID
@@ -149,6 +150,7 @@ type ProfileGroup struct {
 	Name             string   `json:"name" db:"name"`
 	ProfileIDs       []string `json:"profileIDs"`
 	ProfileIDsJoined string   `json:"profileIDsJoined" db:"profileIDsJoined"`
+	CreationDate     int64    `json:"creationDate" db:"creationDate"`
 }
 
 // AddProfileIDsToGroup adds the given ProfileIDs to the ProfileGroup

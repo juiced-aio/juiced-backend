@@ -18,13 +18,13 @@ func CreateProfileGroup(profileGroup entities.ProfileGroup) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO profileGroups (groupID, name, profileIDsJoined) VALUES (?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO profileGroups (groupID, name, profileIDsJoined, creationDate) VALUES (?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	profileIDsJoined := strings.Join(profileGroup.ProfileIDs, ",")
 
-	_, err = statement.Exec(profileGroup.GroupID, profileGroup.Name, profileIDsJoined)
+	_, err = statement.Exec(profileGroup.GroupID, profileGroup.Name, profileIDsJoined, profileGroup.CreationDate)
 	if err != nil {
 		return err
 	}
@@ -70,11 +70,9 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 		if err != nil {
 			return profileGroup, err
 		}
-		for _, profileGroupID := range profile.ProfileGroupIDs {
-			if profileID == profileGroup.GroupID {
-				profile.ProfileGroupIDs = RemoveFromSlice(profile.ProfileGroupIDs, profileGroupID)
-			}
-		}
+
+		profile.ProfileGroupIDs = RemoveFromSlice(profile.ProfileGroupIDs, groupID)
+
 		_, err = UpdateProfile(profile.ID, profile)
 		if err != nil {
 			return profileGroup, err
@@ -107,12 +105,20 @@ func CreateProfile(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
+<<<<<<< Updated upstream
 	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupIDsJoined, name, email, phoneNumber) VALUES (?, ?, ?, ?, ?)`)
+=======
+	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupIDsJoined, name, email, phoneNumber, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
+>>>>>>> Stashed changes
 	if err != nil {
 		return err
 	}
 
+<<<<<<< Updated upstream
 	_, err = statement.Exec(profile.ID, profile.ProfileGroupIDsJoined, profile.Name, profile.Email, profile.PhoneNumber)
+=======
+	_, err = statement.Exec(profile.ID, profile.ProfileGroupIDsJoined, profile.Name, profile.Email, profile.PhoneNumber, profile.CreationDate)
+>>>>>>> Stashed changes
 	if err != nil {
 		return err
 	}
