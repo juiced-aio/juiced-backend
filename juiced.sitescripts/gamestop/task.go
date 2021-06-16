@@ -100,8 +100,6 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	startTime := time.Now()
-
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	// 3. AddToCart
 	addedToCart := false
@@ -117,6 +115,8 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+
+	startTime := time.Now()
 	// 4. Checkout
 	gotCartInfo := false
 	for !gotCartInfo {
@@ -167,7 +167,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		placedOrder = task.PlaceOrder()
+		placedOrder = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -177,7 +177,7 @@ func (task *Task) RunTask() {
 
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
-	log.Println("TIME TO CHECK OUT: " + endTime.Sub(startTime).String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
@@ -580,7 +580,7 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // The final request to place the order
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder(startTime time.Time) bool {
 	placeOrderResponse := PlaceOrderResponse{}
 	form := url.Values{
 		"klarnaOrderId": {""},
@@ -639,15 +639,16 @@ func (task *Task) PlaceOrder() bool {
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask: task.Task,
-		Success:  success,
-		Content:  "",
-		Embeds:   task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo: user,
-		ItemName: task.CheckoutInfo.ItemName,
-		Sku:      task.CheckoutInfo.SKUInStock,
-		Price:    task.CheckoutInfo.Price,
-		Quantity: 1,
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo:     user,
+		ItemName:     task.CheckoutInfo.ItemName,
+		Sku:          task.CheckoutInfo.SKUInStock,
+		Price:        task.CheckoutInfo.Price,
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
 	return success

@@ -497,18 +497,19 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 // Processes each checkout by sending a webhook and logging the checkout
 func ProcessCheckout(pci ProcessCheckoutInfo) {
 	sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
-	SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity)
+	SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
 }
 
 // Logs the checkout
-func SendCheckout(task base.Task, itemName string, sku string, price int, quantity int) {
+func SendCheckout(task base.Task, itemName string, sku string, price int, quantity int, msToCheckout int64) {
 	commands.CreateCheckout(entities.Checkout{
-		ItemName:    itemName,
-		SKU:         sku,
-		Price:       price,
-		Quantity:    quantity,
-		Retailer:    task.Task.TaskRetailer,
-		ProfileName: task.Profile.Name,
-		Time:        time.Now().Unix(),
+		ItemName:     itemName,
+		SKU:          sku,
+		Price:        price,
+		Quantity:     quantity,
+		Retailer:     task.Task.TaskRetailer,
+		ProfileName:  task.Profile.Name,
+		MsToCheckout: msToCheckout,
+		Time:         time.Now().Unix(),
 	})
 }
