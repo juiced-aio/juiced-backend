@@ -328,6 +328,82 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 	json.NewEncoder(response).Encode(result)
 }
 
+// StartTaskGroupEndpoint handles the POST request at /api/task/group/{GroupID}/start
+func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var taskGroupToStart entities.TaskGroup
+	var err error
+	errorsList := make([]string, 0)
+
+	params := mux.Vars(request)
+	groupID, ok := params["GroupID"]
+	if ok {
+		taskGroupToStart, err = queries.GetTaskGroup(groupID)
+		if err == nil {
+			taskStore := stores.GetTaskStore()
+			started := taskStore.StartTaskGroup(&taskGroupToStart)
+			if !started {
+				errorsList = append(errorsList, errors.StartTaskError)
+			}
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError+err.Error())
+		}
+	} else {
+		errorsList = append(errorsList, errors.MissingParameterError)
+	}
+
+	taskGroupToStartWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroupToStart)
+	if err != nil {
+		errorsList = append(errorsList, errors.GetTaskError+err.Error())
+	}
+
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStartWithTasks}, Errors: make([]string, 0)}
+	if len(errorsList) > 0 {
+		response.WriteHeader(http.StatusBadRequest)
+		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
+	}
+	json.NewEncoder(response).Encode(result)
+}
+
+// StopTaskGroupEndpoint handles the POST request at /api/task/group/{GroupID}/stop
+func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	var taskGroupToStop entities.TaskGroup
+	var err error
+	errorsList := make([]string, 0)
+
+	params := mux.Vars(request)
+	groupID, ok := params["GroupID"]
+	if ok {
+		taskGroupToStop, err = queries.GetTaskGroup(groupID)
+		if err == nil {
+			taskStore := stores.GetTaskStore()
+			stopped := taskStore.StopTaskGroup(&taskGroupToStop)
+			if !stopped {
+				errorsList = append(errorsList, errors.StopTaskError)
+			}
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError+err.Error())
+		}
+	} else {
+		errorsList = append(errorsList, errors.MissingParameterError)
+	}
+
+	taskGroupToStopWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroupToStop)
+	if err != nil {
+		errorsList = append(errorsList, errors.GetTaskError+err.Error())
+	}
+
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStopWithTasks}, Errors: make([]string, 0)}
+	if len(errorsList) > 0 {
+		response.WriteHeader(http.StatusBadRequest)
+		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
+	}
+	json.NewEncoder(response).Encode(result)
+}
+
 // RemoveTasksEndpoint handles the POST request at api/task/group/{GroupID}/removeTasks
 func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
@@ -697,8 +773,8 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		taskToStop, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			started := taskStore.StopTask(&taskToStop)
-			if !started {
+			stopped := taskStore.StopTask(&taskToStop)
+			if !stopped {
 				errorsList = append(errorsList, errors.StopTaskError)
 			}
 		} else {

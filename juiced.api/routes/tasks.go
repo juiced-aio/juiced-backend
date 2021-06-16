@@ -117,6 +117,42 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
 	router.HandleFunc("/api/task/group/{GroupID}/clone", endpoints.CloneTaskGroupEndpoint).Methods("POST")
 
+	// swagger:operation POST /api/task/group/{GroupID}/start TaskGroup StartTaskGroupEndpoint
+	//
+	// Starts a TaskGroup's Monitor and all of its Tasks
+	//
+	// ---
+	// parameters:
+	// - name: GroupID
+	//   in: path
+	//   description: GroupID of TaskGroup to start
+	//   type: string
+	//   required: false
+	// responses:
+	//   '200':
+	//     description: TaskGroup response
+	//     schema:
+	//       "$ref": "#/responses/TaskGroupResponseSwagger"
+	router.HandleFunc("/api/task/group/{GroupID}/start", endpoints.StartTaskGroupEndpoint).Methods("POST")
+
+	// swagger:operation POST /api/task/group/{GroupID}/stop TaskGroup StopTaskGroupEndpoint
+	//
+	// Stops a TaskGroup's Monitor and all of its Tasks
+	//
+	// ---
+	// parameters:
+	// - name: GroupID
+	//   in: path
+	//   description: GroupID of TaskGroup to stop
+	//   type: string
+	//   required: false
+	// responses:
+	//   '200':
+	//     description: TaskGroup response
+	//     schema:
+	//       "$ref": "#/responses/TaskGroupResponseSwagger"
+	router.HandleFunc("/api/task/group/{GroupID}/stop", endpoints.StopTaskGroupEndpoint).Methods("POST")
+
 	// swagger:operation POST /api/task/group/{GroupID}/removeTasks TaskGroup RemoveTasksEndpoint
 	//
 	// Deletes Tasks from the group with GroupID {GroupID}.
