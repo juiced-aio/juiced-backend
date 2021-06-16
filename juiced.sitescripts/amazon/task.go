@@ -90,8 +90,6 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	startTime := time.Now()
-
 	switch task.CheckoutInfo.MonitorType {
 	case enums.SlowSKUMonitor:
 		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
@@ -112,6 +110,8 @@ func (task *Task) RunTask() {
 			}
 		}
 		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+
+		startTime := time.Now()
 		// 4. PlaceOrder
 		placedOrder := false
 		for !placedOrder {
@@ -130,6 +130,8 @@ func (task *Task) RunTask() {
 		}
 	case enums.FastSKUMonitor:
 		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+
+		startTime := time.Now()
 		// 3. PlaceOrder
 		placedOrder := false
 		for !placedOrder {

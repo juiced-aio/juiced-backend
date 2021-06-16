@@ -100,8 +100,6 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	startTime := time.Now()
-
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	// 3. AddToCart
 	addedToCart := false
@@ -117,6 +115,8 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+
+	startTime := time.Now()
 	// 4. Checkout
 	gotCartInfo := false
 	for !gotCartInfo {

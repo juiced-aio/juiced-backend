@@ -56,8 +56,6 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	startTime := time.Now()
-
 	//AddTocart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	AddToCart := false
@@ -72,6 +70,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
+	startTime := time.Now()
 	//GetCheckout
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
 	GetCheckout := false
