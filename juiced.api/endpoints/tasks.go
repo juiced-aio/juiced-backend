@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"time"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -86,6 +88,7 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	if err == nil {
 		err = entities.ParseTaskGroup(taskGroup, body)
 		if err == nil {
+			taskGroup.CreationDate = time.Now().Unix()
 			err = commands.CreateTaskGroup(*taskGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
@@ -206,6 +209,7 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		if err == nil {
 			newTaskGroup.SetGroupID(uuid.New().String())
 			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + common.RandID(4) + ")")
+			newTaskGroup.CreationDate = time.Now().Unix()
 			err = commands.CreateTaskGroup(newTaskGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
@@ -379,6 +383,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 							task.SetTaskProfileID(profileIDs[i])
 							for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
 								task.SetID(uuid.New().String())
+								task.CreationDate = time.Now().Unix()
 								err = commands.CreateTask(*task)
 								if err == nil {
 									oldTaskGroup, err := queries.GetTaskGroup(groupID)
@@ -473,6 +478,7 @@ func CloneTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		task, err := queries.GetTask(ID)
 		if err == nil {
 			task.SetID(uuid.New().String())
+			task.CreationDate = time.Now().Unix()
 			err = commands.CreateTask(task)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateTaskError+err.Error())

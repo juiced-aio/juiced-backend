@@ -18,13 +18,13 @@ func CreateProfileGroup(profileGroup entities.ProfileGroup) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO profileGroups (groupID, name, profileIDsJoined) VALUES (?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO profileGroups (groupID, name, profileIDsJoined, creationDate) VALUES (?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	profileIDsJoined := strings.Join(profileGroup.ProfileIDs, ",")
 
-	_, err = statement.Exec(profileGroup.GroupID, profileGroup.Name, profileIDsJoined)
+	_, err = statement.Exec(profileGroup.GroupID, profileGroup.Name, profileIDsJoined, profileGroup.CreationDate)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func CreateProfileGroup(profileGroup entities.ProfileGroup) error {
 		if err != nil {
 			return err
 		}
-		profile.ProfileGroupID = profileGroup.GroupID
+		profile.ProfileGroupIDs = append(profile.ProfileGroupIDs, profileGroup.GroupID)
 		_, err = UpdateProfile(profile.ID, profile)
 		if err != nil {
 			return err
@@ -63,14 +63,18 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	}
 	_, err = statement.Exec(groupID)
 
-	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	if profileGroup.ProfileIDsJoined != "" {
+		profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	}
 
 	for _, profileID := range profileGroup.ProfileIDs {
 		profile, err := queries.GetProfile(profileID)
 		if err != nil {
 			return profileGroup, err
 		}
-		profile.ProfileGroupID = ""
+
+		profile.ProfileGroupIDs = RemoveFromSlice(profile.ProfileGroupIDs, groupID)
+
 		_, err = UpdateProfile(profile.ID, profile)
 		if err != nil {
 			return profileGroup, err
@@ -103,12 +107,12 @@ func CreateProfile(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupID, name, email, phoneNumber) VALUES (?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupIDsJoined, name, email, phoneNumber, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.ID, profile.ProfileGroupID, profile.Name, profile.Email, profile.PhoneNumber)
+	_, err = statement.Exec(profile.ID, profile.ProfileGroupIDsJoined, profile.Name, profile.Email, profile.PhoneNumber, profile.CreationDate)
 	if err != nil {
 		return err
 	}
@@ -150,7 +154,7 @@ func UpdateProfile(ID string, newProfile entities.Profile) (entities.Profile, er
 	if err != nil {
 		return profile, err
 	}
-
+	newProfile.ProfileGroupIDsJoined = strings.Join(newProfile.ProfileGroupIDs, ",")
 	err = CreateProfile(newProfile)
 	if err != nil {
 		return profile, err

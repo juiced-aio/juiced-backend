@@ -19,6 +19,7 @@ type Task struct {
 	TaskQty          int              `json:"qty" db:"qty"`
 	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
 	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
+	CreationDate     int64            `json:"creationDate" db:"creationDate"`
 	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
 	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
@@ -125,14 +126,16 @@ type TaskGroup struct {
 	MonitorInput        string              `json:"input" db:"input"`
 	MonitorDelay        int                 `json:"delay" db:"delay"`
 	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
+	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
+	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
+	CreationDate        int64               `json:"creationDate" db:"creationDate"`
 	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
-	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
-	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
+
 	// Future sitescripts will have a field here
 }
 

@@ -305,9 +305,7 @@ func RemoveFromSlice(s []string, x string) []string {
 			position = i
 		}
 	}
-	if position == 0 {
-		return s
-	}
+
 	s[position] = s[len(s)-1]
 
 	return s[:len(s)-1]
