@@ -18,5 +18,11 @@ type HCaptchaToken struct {
 type GeeTestCaptchaToken struct {
 	URL   string
 	Proxy Proxy
-	Token string
+	Token GeeTestCaptchaTokenValues
+}
+
+type GeeTestCaptchaTokenValues struct {
+	Challenge string
+	Vaildate  string
+	SecCode   string
 }

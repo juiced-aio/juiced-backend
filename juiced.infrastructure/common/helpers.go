@@ -1,10 +1,12 @@
 package common
 
 import (
+	"fmt"
 	"math/rand"
 	"path/filepath"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
 	_ "github.com/mattn/go-sqlite3"
@@ -48,4 +50,16 @@ func InitDatabase() error {
 // GetDatabase retrieves the database connection
 func GetDatabase() *sqlx.DB {
 	return database
+}
+
+func ProxyCleaner(proxyDirty entities.Proxy) string {
+	if proxyDirty.Host == "" {
+		return ""
+	}
+	if proxyDirty.Username == "" && proxyDirty.Password == "" {
+		return fmt.Sprintf("http://%s:%s", proxyDirty.Host, proxyDirty.Port)
+	} else {
+		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
+	}
+
 }
