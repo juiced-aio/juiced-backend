@@ -63,7 +63,9 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	}
 	_, err = statement.Exec(groupID)
 
-	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	if profileGroup.ProfileIDsJoined != "" {
+		profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	}
 
 	for _, profileID := range profileGroup.ProfileIDs {
 		profile, err := queries.GetProfile(profileID)
@@ -105,20 +107,12 @@ func CreateProfile(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-<<<<<<< Updated upstream
-	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupIDsJoined, name, email, phoneNumber) VALUES (?, ?, ?, ?, ?)`)
-=======
 	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupIDsJoined, name, email, phoneNumber, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
->>>>>>> Stashed changes
 	if err != nil {
 		return err
 	}
 
-<<<<<<< Updated upstream
-	_, err = statement.Exec(profile.ID, profile.ProfileGroupIDsJoined, profile.Name, profile.Email, profile.PhoneNumber)
-=======
 	_, err = statement.Exec(profile.ID, profile.ProfileGroupIDsJoined, profile.Name, profile.Email, profile.PhoneNumber, profile.CreationDate)
->>>>>>> Stashed changes
 	if err != nil {
 		return err
 	}

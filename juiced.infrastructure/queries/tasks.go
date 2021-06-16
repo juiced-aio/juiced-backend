@@ -29,7 +29,9 @@ func GetAllTaskGroups() ([]entities.TaskGroup, error) {
 		if err != nil {
 			return taskGroups, err
 		}
-		tempTaskGroup.TaskIDs = strings.Split(tempTaskGroup.TaskIDsJoined, ",")
+		if tempTaskGroup.TaskIDsJoined != "" {
+			tempTaskGroup.TaskIDs = strings.Split(tempTaskGroup.TaskIDsJoined, ",")
+		}
 		tempTaskGroup, err = GetMonitorInfos(tempTaskGroup)
 		if err != nil {
 			return taskGroups, err
@@ -69,9 +71,10 @@ func GetTaskGroup(groupID string) (entities.TaskGroup, error) {
 			return taskGroup, err
 		}
 	}
+	if taskGroup.TaskIDsJoined != "" {
+		taskGroup.TaskIDs = strings.Split(taskGroup.TaskIDsJoined, ",")
 
-	taskGroup.TaskIDs = strings.Split(taskGroup.TaskIDsJoined, ",")
-
+	}
 	return GetMonitorInfos(taskGroup)
 }
 
@@ -95,7 +98,9 @@ func GetAllTasks() ([]entities.Task, error) {
 		if err != nil {
 			return tasks, err
 		}
-		tempTask.TaskSize = strings.Split(tempTask.TaskSizeJoined, ",")
+		if tempTask.TaskSizeJoined != "" {
+			tempTask.TaskSize = strings.Split(tempTask.TaskSizeJoined, ",")
+		}
 		tempTask, err = GetTaskInfos(tempTask)
 		if err != nil {
 			return tasks, err
@@ -135,9 +140,10 @@ func GetTask(ID string) (entities.Task, error) {
 			return task, err
 		}
 	}
+	if task.TaskSizeJoined != "" {
+		task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
 
-	task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
-
+	}
 	return GetTaskInfos(task)
 }
 

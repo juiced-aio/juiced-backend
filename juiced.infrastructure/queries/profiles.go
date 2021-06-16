@@ -29,8 +29,9 @@ func GetAllProfileGroups() ([]entities.ProfileGroup, error) {
 		if err != nil {
 			return profileGroups, err
 		}
-		tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
-
+		if tempProfileGroup.ProfileIDsJoined != "" {
+			tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
+		}
 	}
 	sort.SliceStable(profileGroups, func(i, j int) bool {
 		return profileGroups[i].CreationDate > profileGroups[j].CreationDate
@@ -64,7 +65,9 @@ func GetProfileGroup(groupID string) (entities.ProfileGroup, error) {
 		}
 	}
 
-	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	if profileGroup.ProfileIDsJoined != "" {
+		profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	}
 
 	return profileGroup, err
 }

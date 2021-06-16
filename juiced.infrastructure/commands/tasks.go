@@ -114,7 +114,9 @@ func RemoveTask(ID string) (entities.Task, error) {
 	}
 	_, err = statement.Exec(ID)
 
-	task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
+	if task.TaskSizeJoined != "" {
+		task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
+	}
 
 	return task, err
 }

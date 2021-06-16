@@ -389,7 +389,9 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 }
 
 func GetProfileInfo(profile entities.Profile) (entities.Profile, error) {
-	profile.ProfileGroupIDs = strings.Split(profile.ProfileGroupIDsJoined, ",")
+	if profile.ProfileGroupIDsJoined != "" {
+		profile.ProfileGroupIDs = strings.Split(profile.ProfileGroupIDsJoined, ",")
+	}
 	profile, err := GetShippingAddress(profile)
 	if err != nil {
 		return profile, err
