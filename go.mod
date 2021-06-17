@@ -22,6 +22,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/mergermarket/go-pkcs7 v0.0.0-20170926155232-153b18ea13c9
 	github.com/rs/cors v1.7.0
+	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5
 	gitlab.com/yawning/utls.git v0.0.12-1 // indirect
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
