@@ -646,39 +646,128 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	json.NewEncoder(response).Encode(result)
 }
 
-// UpdateTaskEndpoint handles the PUT request at /api/task/{ID}
-func UpdateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
+// UpdateTasksEndpoint handles the PUT request at /api/task/group/{groupID}/updateTasks
+func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var task entities.Task
+	var taskGroup entities.TaskGroup
+	var err error
 	errorsList := make([]string, 0)
 
-	params := mux.Vars(request)
-	ID, ok := params["ID"]
-	if ok {
-		newTask := &entities.Task{ID: ID}
+	type UpdateTasksRequest struct {
+		TaskIDs          []string                  `json:"taskIDs"`
+		ProfileID        string                    `json:"profileID"`
+		ProxyGroupID     string                    `json:"proxyGroupID"`
+		TargetTaskInfo   entities.TargetTaskInfo   `json:"targetTaskInfo"`
+		WalmartTaskInfo  entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
+		AmazonTaskInfo   entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
+		BestbuyTaskInfo  entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
+		GamestopTaskInfo entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
+		HottopicTaskInfo entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+	}
 
-		body, err := ioutil.ReadAll(request.Body)
+	params := mux.Vars(request)
+	groupID, ok := params["GroupID"]
+	if ok {
+		taskGroup, err = queries.GetTaskGroup(groupID)
 		if err == nil {
-			err = entities.ParseTask(newTask, body)
+			body, err := ioutil.ReadAll(request.Body)
 			if err == nil {
-				task, err = commands.UpdateTask(ID, *newTask)
-				if err != nil {
-					errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
+				updateTasksRequestInfo := UpdateTasksRequest{}
+				err = json.Unmarshal(body, &updateTasksRequestInfo)
+				if err == nil {
+					singleTask := len(updateTasksRequestInfo.TaskIDs) == 1
+					for _, taskID := range updateTasksRequestInfo.TaskIDs {
+						task, err := queries.GetTask(taskID)
+						if err == nil {
+							if updateTasksRequestInfo.ProfileID != "DO_NOT_UPDATE" {
+								task.TaskProfileID = updateTasksRequestInfo.ProfileID
+							}
+							if updateTasksRequestInfo.ProxyGroupID != "DO_NOT_UPDATE" {
+								task.TaskProxyGroupID = updateTasksRequestInfo.ProxyGroupID
+							}
+							switch taskGroup.MonitorRetailer {
+							case enums.Amazon:
+								if singleTask || updateTasksRequestInfo.AmazonTaskInfo.Email != "" {
+									task.AmazonTaskInfo.Email = updateTasksRequestInfo.AmazonTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.AmazonTaskInfo.Password != "" {
+									task.AmazonTaskInfo.Password = updateTasksRequestInfo.AmazonTaskInfo.Password
+								}
+
+							case enums.BestBuy:
+								if updateTasksRequestInfo.BestbuyTaskInfo.TaskType != "DO_NOT_UPDATE" {
+									task.BestbuyTaskInfo.TaskType = updateTasksRequestInfo.BestbuyTaskInfo.TaskType
+								}
+								if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Email != "" {
+									task.BestbuyTaskInfo.Email = updateTasksRequestInfo.BestbuyTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
+									task.BestbuyTaskInfo.Password = updateTasksRequestInfo.BestbuyTaskInfo.Password
+								}
+
+							case enums.GameStop:
+								if updateTasksRequestInfo.GamestopTaskInfo.TaskType != "DO_NOT_UPDATE" {
+									task.GamestopTaskInfo.TaskType = updateTasksRequestInfo.GamestopTaskInfo.TaskType
+								}
+								if singleTask || updateTasksRequestInfo.GamestopTaskInfo.Email != "" {
+									task.GamestopTaskInfo.Email = updateTasksRequestInfo.GamestopTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.GamestopTaskInfo.Password != "" {
+									task.GamestopTaskInfo.Password = updateTasksRequestInfo.GamestopTaskInfo.Password
+								}
+
+							case enums.HotTopic:
+								// TODO @silent
+
+							case enums.Target:
+								if updateTasksRequestInfo.TargetTaskInfo.CheckoutType != "DO_NOT_UPDATE" {
+									task.TargetTaskInfo.CheckoutType = updateTasksRequestInfo.TargetTaskInfo.CheckoutType
+								}
+								if updateTasksRequestInfo.TargetTaskInfo.PaymentType != "DO_NOT_UPDATE" {
+									task.TargetTaskInfo.PaymentType = updateTasksRequestInfo.TargetTaskInfo.PaymentType
+								}
+								if singleTask || updateTasksRequestInfo.TargetTaskInfo.Email != "" {
+									task.TargetTaskInfo.Email = updateTasksRequestInfo.TargetTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.TargetTaskInfo.Password != "" {
+									task.TargetTaskInfo.Password = updateTasksRequestInfo.TargetTaskInfo.Password
+								}
+
+							case enums.Walmart:
+
+							}
+							_, err = commands.UpdateTask(taskID, task)
+							if err != nil {
+								errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
+							}
+						} else {
+							errorsList = append(errorsList, errors.GetTaskError+err.Error())
+						}
+					}
+				} else {
+					errorsList = append(errorsList, errors.ParseUpdateTasksRequestError+err.Error())
 				}
 			} else {
-				errorsList = append(errorsList, errors.ParseTaskError+err.Error())
+				errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 			}
 		} else {
-			errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
+			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	result := &responses.TaskResponse{Success: true, Data: []entities.Task{task}, Errors: make([]string, 0)}
+
+	taskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
+	if err != nil {
+		errorsList = append(errorsList, errors.GetTaskError+err.Error())
+	}
+	data := []entities.TaskGroupWithTasks{taskGroupWithTasks}
+
+	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.TaskResponse{Success: false, Data: make([]entities.Task, 0), Errors: errorsList}
+		result = &responses.TaskGroupResponse{Success: false, Data: data, Errors: errorsList}
 	}
 	json.NewEncoder(response).Encode(result)
 }

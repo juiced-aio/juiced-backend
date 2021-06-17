@@ -30,6 +30,9 @@ const ParseTaskError = "Parsing the JSON into a Task returned an error: "
 // ParseDeleteTasksRequestError is the error encountere when parsing JSON into a DeleteTasksRequest object returns an error
 const ParseDeleteTasksRequestError = "Parsing the JSON into a DeleteTasksRequest returned an error: "
 
+// ParseUpdateTasksRequestError is the error encountere when parsing JSON into a UpdateTasksRequest object returns an error
+const ParseUpdateTasksRequestError = "Parsing the JSON into a UpdateTasksRequest returned an error: "
+
 // CreateTaskError is the error encountered when inserting a Task into the DB returns an error
 const CreateTaskError = "Inserting the Task into the DB returned an error: "
 
