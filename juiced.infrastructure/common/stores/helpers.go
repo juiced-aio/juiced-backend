@@ -9,21 +9,46 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 )
+
+func KeyErrors(settings entities.Settings, keyError string) error {
+	switch keyError {
+	case "BAD_2CAP_KEY":
+		settings.TwoCaptchaAPIKey = ""
+		_, err := commands.UpdateSettings(settings)
+		if err != nil {
+			return err
+		}
+	case "BAD_ANTICAP_KEY":
+		settings.AntiCaptchaAPIKey = ""
+		_, err := commands.UpdateSettings(settings)
+		if err != nil {
+			return err
+		}
+	case "BAD_CAPMONSTER_KEY":
+		settings.CapMonsterAPIKey = ""
+		_, err := commands.UpdateSettings(settings)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func CheckServices(settings entities.Settings) (captchaServices []string, captchaServiceCount int) {
 	if settings.TwoCaptchaAPIKey != "" {
 		captchaServices = append(captchaServices, settings.TwoCaptchaAPIKey)
 		captchaServiceCount++
-		if settings.AntiCaptchaAPIKey != "" {
-			captchaServices = append(captchaServices, settings.AntiCaptchaAPIKey)
-			captchaServiceCount++
-			if settings.CapMonsterAPIKey != "" {
-				captchaServices = append(captchaServices, settings.CapMonsterAPIKey)
-				captchaServiceCount++
-			}
-		}
+	}
+	if settings.AntiCaptchaAPIKey != "" {
+		captchaServices = append(captchaServices, settings.AntiCaptchaAPIKey)
+		captchaServiceCount++
+	}
+	if settings.CapMonsterAPIKey != "" {
+		captchaServices = append(captchaServices, settings.CapMonsterAPIKey)
+		captchaServiceCount++
 	}
 	return
 }
@@ -122,7 +147,7 @@ func AntiCaptchaReq(apiKey string, taskInfo AntiCaptchaTaskInfo) (AntiCaptchaRes
 	}
 
 	if antiCaptchaStart.Errorid != 0 {
-		return antiCaptchaResponse, errors.New("anticaptcha returned the error: " + antiCaptchaStart.ErrorCode)
+		return antiCaptchaResponse, errors.New(antiCaptchaStart.ErrorCode)
 	}
 	payloadBytes, err = json.Marshal(AntiCaptchaRequest{
 		Clientkey: apiKey,
@@ -155,7 +180,7 @@ func AntiCaptchaReq(apiKey string, taskInfo AntiCaptchaTaskInfo) (AntiCaptchaRes
 
 		resp.Body.Close()
 		if antiCaptchaResponse.Errorid != 0 {
-			return antiCaptchaResponse, errors.New("anticaptcha returned the error: " + antiCaptchaResponse.ErrorCode)
+			return antiCaptchaResponse, errors.New(antiCaptchaResponse.ErrorCode)
 		}
 		if antiCaptchaResponse.Status == "ready" {
 			ready = true
@@ -200,6 +225,9 @@ func CapMonsterReq(apiKey string, taskInfo CapMonsterTaskInfo) (CapMonsterRespon
 		return capMonsterResponse, err
 	}
 
+	if capMonsterStart.Errorid != 0 {
+		return capMonsterResponse, errors.New(capMonsterStart.Errorcode)
+	}
 	payloadBytes, err = json.Marshal(AntiCaptchaRequest{
 		Clientkey: apiKey,
 		Taskid:    capMonsterStart.TaskID,
