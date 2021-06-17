@@ -27,8 +27,8 @@ type TaskStore struct {
 	WalmartTasks  map[string]*walmart.Task
 	AmazonTasks   map[string]*amazon.Task
 	BestbuyTasks  map[string]*bestbuy.Task
-	GamestopTasks map[string]*gamestop.Task
 	HottopicTasks map[string]*hottopic.Task
+	GamestopTasks map[string]*gamestop.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -265,7 +265,6 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 			gamestopTask.Task.StopFlag = true
 		}
 		return true
-
 	}
 	return false
 }
@@ -279,8 +278,8 @@ func InitTaskStore(eventBus *events.EventBus) {
 		WalmartTasks:  make(map[string]*walmart.Task),
 		AmazonTasks:   make(map[string]*amazon.Task),
 		BestbuyTasks:  make(map[string]*bestbuy.Task),
-		GamestopTasks: make(map[string]*gamestop.Task),
 		HottopicTasks: make(map[string]*hottopic.Task),
+		GamestopTasks: make(map[string]*gamestop.Task),
 		EventBus:      eventBus,
 	}
 	channel := make(chan events.Event)

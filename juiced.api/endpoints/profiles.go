@@ -416,8 +416,13 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		profile, err = commands.RemoveProfile(ID)
-		if err != nil {
+		err = commands.RemoveTasksWithProfileID(ID)
+		if err == nil {
+			profile, err = commands.RemoveProfile(ID)
+			if err != nil {
+				errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
+			}
+		} else {
 			errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
 		}
 	} else {

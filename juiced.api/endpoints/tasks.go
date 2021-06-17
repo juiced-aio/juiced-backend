@@ -123,8 +123,28 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroup, err = commands.RemoveTaskGroup(groupID)
-		if err != nil {
+		taskGroup, err = queries.GetTaskGroup(groupID)
+		if err == nil {
+			monitorStore := stores.GetMonitorStore()
+			stopped := monitorStore.StopMonitor(&taskGroup)
+			if stopped {
+				for _, taskID := range taskGroup.TaskIDs {
+					taskToStop, err := queries.GetTask(taskID)
+					if err == nil {
+						taskStore := stores.GetTaskStore()
+						stopped := taskStore.StopTask(&taskToStop)
+						if !stopped {
+							errorsList = append(errorsList, errors.RemoveTaskGroupError+"failed to stop tasks within group")
+						}
+					}
+				}
+				// @silent: Would you like to remove the TaskGroup even if not all tasks have been stopped?
+				taskGroup, err = commands.RemoveTaskGroup(groupID)
+				if err != nil {
+					errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
+				}
+			}
+		} else {
 			errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
 		}
 	} else {
@@ -270,8 +290,15 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 					newTaskGroup, err = commands.UpdateTaskGroup(groupID, newTaskGroup)
 					if err == nil {
 						for i := 0; i < len(deleteTasksRequestInfo.TaskIDs); i++ {
-							_, err = commands.RemoveTask(deleteTasksRequestInfo.TaskIDs[i])
-							if err != nil {
+							task, err := queries.GetTask(deleteTasksRequestInfo.TaskIDs[i])
+							if err == nil {
+								taskStore := stores.GetTaskStore()
+								taskStore.StopTask(&task)
+								_, err = commands.RemoveTask(deleteTasksRequestInfo.TaskIDs[i])
+								if err != nil {
+									errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
+								}
+							} else {
 								errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
 							}
 						}

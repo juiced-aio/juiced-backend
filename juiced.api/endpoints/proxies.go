@@ -8,6 +8,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"encoding/json"
@@ -103,14 +104,27 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var proxyGroup entities.ProxyGroup
+	var taskGroup entities.TaskGroup
 	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		proxyGroup, err = commands.RemoveProxyGroup(groupID)
-		if err != nil {
+		taskGroup, err = queries.GetTaskGroupByProxyGroupID(groupID)
+		if err == nil {
+			monitorStore := stores.GetMonitorStore()
+			monitorStore.UpdateMonitorProxy(&taskGroup, entities.Proxy{})
+			err = commands.RemoveTasksWithProxyGroupID(groupID)
+			if err == nil {
+				proxyGroup, err = commands.RemoveProxyGroup(groupID)
+				if err != nil {
+					errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
+				}
+			} else {
+				errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
+			}
+		} else {
 			errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
 		}
 	} else {

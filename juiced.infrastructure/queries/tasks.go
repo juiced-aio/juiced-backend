@@ -78,6 +78,38 @@ func GetTaskGroup(groupID string) (entities.TaskGroup, error) {
 	return GetMonitorInfos(taskGroup)
 }
 
+// GetTaskGroupByProxyGroupID returns the TaskGroup object from the database with the given proxyGroupID (if it exists)
+func GetTaskGroupByProxyGroupID(proxyGroupID string) (entities.TaskGroup, error) {
+	taskGroup := entities.TaskGroup{}
+	database := common.GetDatabase()
+	if database == nil {
+		return taskGroup, errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex("SELECT * FROM taskGroups WHERE proxyGroupID = @p1")
+	if err != nil {
+		return taskGroup, err
+	}
+
+	rows, err := statement.Queryx(proxyGroupID)
+	if err != nil {
+		return taskGroup, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.StructScan(&taskGroup)
+		if err != nil {
+			return taskGroup, err
+		}
+	}
+	if taskGroup.TaskIDsJoined != "" {
+		taskGroup.TaskIDs = strings.Split(taskGroup.TaskIDsJoined, ",")
+
+	}
+	return GetMonitorInfos(taskGroup)
+}
+
 // GetAllTasks returns all Task objects from the database
 func GetAllTasks() ([]entities.Task, error) {
 	tasks := []entities.Task{}
