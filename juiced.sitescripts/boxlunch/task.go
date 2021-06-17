@@ -13,14 +13,14 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// CreateWalmartTask takes a Task entity and turns it into a Walmart Task
-func CreateboxlunchTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
-	walmartTask := Task{}
+// CreateBoxLunch takes a Task entity and turns it into a BoxLunch Task
+func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+	boxLunchTask := Task{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
-		return walmartTask, err
+		return boxLunchTask, err
 	}
-	walmartTask = Task{
+	boxLunchTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
@@ -29,7 +29,7 @@ func CreateboxlunchTask(task *entities.Task, profile entities.Profile, proxy ent
 			Client:   client,
 		},
 	}
-	return walmartTask, err
+	return boxLunchTask, err
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function

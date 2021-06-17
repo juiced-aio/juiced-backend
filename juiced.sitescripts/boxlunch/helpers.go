@@ -7,7 +7,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// AddBoxLunch adds Walmart-specific headers to the request
+// AddBoxLunch adds BoxLunch-specific headers to the request
 func AddBoxLunchHeaders(request *http.Request, referer ...string) {
 	util.AddBaseHeaders(request)
 	request.Header.Set("Accept", "*/*")

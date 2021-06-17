@@ -25,6 +25,7 @@ type Task struct {
 	BestbuyTaskInfo  BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
 	GamestopTaskInfo GamestopTaskInfo `json:"gamestopTaskInfo"`
 	HottopicTaskInfo HottopicTaskInfo `json:"hottopicTaskInfo"`
+	BoxlunchTaskInfo HottopicTaskInfo `json:"boxlunchTaskInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -131,6 +132,7 @@ type TaskGroup struct {
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
+	BoxlunchMonitorInfo BoxlunchMonitorInfo `json:"boxlunchMonitorInfo"`
 	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
 	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
 	// Future sitescripts will have a field here
@@ -209,10 +211,17 @@ type HottopicSingleMonitorInfo struct {
 	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
 	MonitorType enums.MonitorType `json:"monitorType" db:"monitorType"`
 }
+
 type HottopicMonitorInfo struct {
 	ID          string                      `json:"ID" db:"ID"`
 	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
 	Monitors    []HottopicSingleMonitorInfo `json:"monitors"`
+}
+
+type BoxlunchMonitorInfo struct {
+	ID          string                      `json:"ID" db:"ID"`
+	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []BoxLunchSingleMonitorInfo `json:"monitors"`
 }
 
 type GamestopSingleMonitorInfo struct {
