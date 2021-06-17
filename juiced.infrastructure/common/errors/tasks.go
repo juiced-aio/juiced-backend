@@ -50,3 +50,9 @@ const StartTaskError = "Starting the Task encountered an error."
 
 // StartTaskError is the error encountered when stopping a Task returns an error
 const StopTaskError = "Stopping the Task encountered an error."
+
+// StartMonitorError is the error encountered when starting a Monitor returns an error
+const StartMonitorError = "Starting the Monitor encountered an error."
+
+// StopMonitorError is the error encountered when stopping a Monitor returns an error
+const StopMonitorError = "Stopping the Monitor encountered an error."

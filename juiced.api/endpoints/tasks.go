@@ -176,24 +176,36 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		newTaskGroup = entities.TaskGroup{GroupID: groupID}
 		oldTaskGroup, err := queries.GetTaskGroup(groupID)
 		if err == nil {
-			body, err := ioutil.ReadAll(request.Body)
-			if err == nil {
-				err = entities.ParseTaskGroup(&newTaskGroup, body)
-				newTaskGroup.SetGroupID(oldTaskGroup.GroupID)
-				newTaskGroup.SetMonitorRetailer(oldTaskGroup.MonitorRetailer)
-				newTaskGroup.SetMonitorStatus(oldTaskGroup.MonitorStatus)
-				newTaskGroup.AddTasksToGroup(oldTaskGroup.TaskIDs)
+			monitorStore := stores.GetMonitorStore()
+			stopped := monitorStore.StopMonitor(&oldTaskGroup)
+			if stopped {
+				body, err := ioutil.ReadAll(request.Body)
 				if err == nil {
-					newTaskGroup, err = commands.UpdateTaskGroup(groupID, newTaskGroup)
-					if err != nil {
-						errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
+					err = entities.ParseTaskGroup(&newTaskGroup, body)
+					newTaskGroup.SetGroupID(oldTaskGroup.GroupID)
+					newTaskGroup.SetMonitorRetailer(oldTaskGroup.MonitorRetailer)
+					newTaskGroup.SetMonitorStatus(oldTaskGroup.MonitorStatus)
+					newTaskGroup.AddTasksToGroup(oldTaskGroup.TaskIDs)
+					if err == nil {
+						newTaskGroup, err = commands.UpdateTaskGroup(groupID, newTaskGroup)
+						if err == nil {
+							started := monitorStore.StartMonitor(&newTaskGroup)
+							if !started {
+								errorsList = append(errorsList, errors.StartMonitorError)
+							}
+						} else {
+							errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
+						}
+					} else {
+						errorsList = append(errorsList, errors.ParseTaskGroupError+err.Error())
 					}
 				} else {
-					errorsList = append(errorsList, errors.ParseTaskGroupError+err.Error())
+					errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 				}
 			} else {
-				errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
+				errorsList = append(errorsList, errors.StartMonitorError)
 			}
+
 		} else {
 			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
@@ -466,14 +478,29 @@ func UpdateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	ID, ok := params["ID"]
 	if ok {
 		newTask := &entities.Task{ID: ID}
-
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
 			err = entities.ParseTask(newTask, body)
 			if err == nil {
-				task, err = commands.UpdateTask(ID, *newTask)
-				if err != nil {
-					errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
+				task, err := queries.GetTask(ID)
+				if err == nil {
+					taskStore := stores.GetTaskStore()
+					stopped := taskStore.StopTask(&task)
+					if stopped {
+						task, err = commands.UpdateTask(ID, *newTask)
+						if err == nil {
+							started := taskStore.StartTask(&task)
+							if !started {
+								errorsList = append(errorsList, errors.StartTaskError)
+							}
+						} else {
+							errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
+						}
+					} else {
+						errorsList = append(errorsList, errors.StopTaskError)
+					}
+				} else {
+					errorsList = append(errorsList, errors.GetTaskError+err.Error())
 				}
 			} else {
 				errorsList = append(errorsList, errors.ParseTaskError+err.Error())
