@@ -134,7 +134,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						taskStore := stores.GetTaskStore()
 						stopped := taskStore.StopTask(&taskToStop)
 						if !stopped {
-							errorsList = append(errorsList, errors.RemoveTaskGroupError+"failed to stop tasks within group")
+							errorsList = append(errorsList, errors.StopTaskError)
 						}
 					}
 				}
