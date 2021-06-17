@@ -52,6 +52,13 @@ type HottopicStockData struct {
 	InStock []HotTopicSingleStockData
 }
 
+type BoxLunchSingleStockData struct {
+	PID string
+}
+
+type BoxLunchStockData struct {
+	InStock []BoxLunchSingleStockData
+}
 type GamestopSingleStockData struct {
 	SKU        string
 	Price      int

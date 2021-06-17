@@ -190,6 +190,16 @@ type BestbuyMonitorInfo struct {
 	Monitors    []BestbuySingleMonitorInfo `json:"monitors"`
 }
 
+type BoxLunchSingleMonitorInfo struct {
+	MonitorID   string            `json:"monitorID" db:"monitorID"`
+	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
+	Pid         string            `json:"pids" db:"pids"`
+	Size        string            `json:"size" db:"size"`
+	Color       string            `json:"color" db:"color"`
+	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
+	MonitorType enums.MonitorType `json:"monitorType" db:"monitorType"`
+}
+
 type HottopicSingleMonitorInfo struct {
 	MonitorID   string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
