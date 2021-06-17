@@ -10,6 +10,7 @@ import (
 
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/target"
@@ -29,6 +30,7 @@ type TaskStore struct {
 	BestbuyTasks  map[string]*bestbuy.Task
 	GamestopTasks map[string]*gamestop.Task
 	HottopicTasks map[string]*hottopic.Task
+	BoxlunchTasks map[string]*boxlunch.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -154,6 +156,27 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.HottopicTasks[task.ID] = &hottopicTask
+
+	case enums.BoxLunch:
+		// Check if task exists in store already
+		if _, ok := taskStore.BoxlunchTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if len(task.BoxlunchTaskInfo.Pids) == 0 {
+			return false
+		}
+		// Create task
+		boxlunchTask, err := boxlunch.CreateBoxlunchTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.BoxlunchTasks[task.ID] = &boxlunchTask
 
 	case enums.GameStop:
 		// Check if task exists in store already
