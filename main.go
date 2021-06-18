@@ -48,6 +48,7 @@ func main() {
 			go stores.InitTaskStore(eventBus)
 			stores.InitMonitorStore(eventBus)
 			stores.InitCaptchaStore(eventBus)
+			go util.DiscordWebhookQueue()
 			go api.StartServer()
 		}
 	}()

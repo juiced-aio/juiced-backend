@@ -10,6 +10,20 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// Removes the string x from the slice s
+func RemoveFromSlice(s []string, x string) []string {
+	var position int
+	for i, r := range s {
+		if r == x {
+			position = i
+		}
+	}
+
+	s[position] = s[len(s)-1]
+
+	return s[:len(s)-1]
+}
+
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 var runes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 

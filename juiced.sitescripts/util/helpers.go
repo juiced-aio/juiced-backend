@@ -494,7 +494,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 
 // Processes each checkout by sending a webhook and logging the checkout
 func ProcessCheckout(pci ProcessCheckoutInfo) {
-	sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
+	sec.QueueWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
 	SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
 }
 
