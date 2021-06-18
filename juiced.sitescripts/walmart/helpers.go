@@ -1,10 +1,14 @@
 package walmart
 
 import (
+	"net/url"
 	"strings"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/anaskhan96/soup"
@@ -23,6 +27,27 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	if len(referer) != 0 {
 		request.Header.Set("Referer", referer[0])
 	}
+}
+
+//Returns a PX cookie using Auth/Security/PXCap functions
+func GetPxCookie(_url string, proxy entities.Proxy) (*url.URL, []*http.Cookie) {
+	var cookies []*http.Cookie
+
+	//get user info
+	_, userinfo, _ := queries.GetUserInfo()
+
+	//make PX request
+	resp, _, _ := sec.PX(_url, util.ProxyCleaner(proxy), userinfo)
+	sec.PXCap(_url, util.ProxyCleaner(proxy), resp.SetID, resp.VID, resp.UUID, resp.PX3, userinfo)
+	cookie := &http.Cookie{
+		Name:   "_px3",
+		Value:  "",
+		Path:   "/",
+		Domain: ".walmart.com",
+	}
+	cookies = append(cookies, cookie)
+	u, _ := url.Parse(_url)
+	return u, cookies
 }
 
 //Converts a list of in-stock skus to a WarlmartSingleStockData structure.
