@@ -10,6 +10,7 @@ type UserInfo struct {
 	Email            string `json:"cABQyJDDb6" db:"email"`
 	LicenseKey       string `json:"q5izDieCbb" db:"licenseKey"`
 	DeviceName       string `json:"deviceName" db:"deviceName"`
+	UserVer          string `json:"userVer" db:"userVer"`
 	DiscordID        string `json:"sQzlETuNin" db:"discordID"`
 	DiscordUsername  string `json:"1x16bw24sz" db:"discordUsername"`
 	DiscordAvatarURL string `json:"9WMNTAhnxb" db:"discordAvatarURL"`
