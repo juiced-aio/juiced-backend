@@ -38,10 +38,10 @@ func GetPxCookie(_url string, proxy entities.Proxy) (*url.URL, []*http.Cookie) {
 
 	//make PX request
 	resp, _, _ := sec.PX(_url, util.ProxyCleaner(proxy), userinfo)
-	sec.PXCap(_url, util.ProxyCleaner(proxy), resp.SetID, resp.VID, resp.UUID, resp.PX3, userinfo)
+	cookieValue, _, _ := sec.PXCap(_url, util.ProxyCleaner(proxy), resp.SetID, resp.VID, resp.UUID, resp.PX3, userinfo)
 	cookie := &http.Cookie{
 		Name:   "_px3",
-		Value:  "",
+		Value:  cookieValue,
 		Path:   "/",
 		Domain: ".walmart.com",
 	}
