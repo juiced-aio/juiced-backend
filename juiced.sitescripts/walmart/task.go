@@ -1,12 +1,14 @@
 package walmart
 
 import (
+	"fmt"
 	"log"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
@@ -122,7 +124,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		setShippingInfo = task.GetCartInfo()
+		setShippingInfo = task.SetShippingInfo()
 		if !setShippingInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -136,7 +138,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		setPaymentInfo = task.GetCartInfo()
+		setPaymentInfo = task.SetPaymentInfo()
 		if !setPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -150,7 +152,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		placedOrder = task.GetCartInfo()
+		placedOrder = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -312,7 +314,7 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder(startTime time.Time) bool {
 	data := PlaceOrderRequest{
 		CvvInSession: true,
 		VoltagePayment: []VoltagePayment{{
@@ -327,7 +329,7 @@ func (task *Task) PlaceOrder() bool {
 
 	placeOrderResponse := PlaceOrderResponse{}
 
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                PlaceOrderEndpoint,
@@ -336,6 +338,38 @@ func (task *Task) PlaceOrder() bool {
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &placeOrderResponse,
 	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 
-	return err == nil
+	var status enums.OrderStatus
+	var success bool
+	switch resp.StatusCode {
+	case 200:
+		//see if were on success page#
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		status = enums.OrderStatusSuccess
+		success = true
+	default:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		status = enums.OrderStatusFailed
+		success = false
+	}
+
+	if success {
+		_, user, _ := queries.GetUserInfo()
+		util.ProcessCheckout(util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Content:      "",
+			Embeds:       task.CreateWalmartEmbed(status, task.ImageUrl),
+			UserInfo:     user,
+			ItemName:     task.ItemName,
+			Sku:          task.Sku,
+			Price:        task.ItemPrice,
+			Quantity:     1,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
+	return success
 }
