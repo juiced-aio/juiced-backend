@@ -587,6 +587,7 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var taskToStop entities.Task
+	var taskGroup entities.TaskGroup
 	var err error
 	errorsList := make([]string, 0)
 
@@ -596,8 +597,21 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		taskToStop, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			started := taskStore.StopTask(&taskToStop)
-			if !started {
+			stopped := taskStore.StopTask(&taskToStop)
+			if stopped {
+				taskGroup, err = queries.GetTaskGroupByTaskID(taskToStop.ID)
+				if err == nil {
+					if !taskStore.TasksRunning(taskGroup) {
+						monitorStore := stores.GetMonitorStore()
+						stopped = monitorStore.StopMonitor(&taskGroup)
+						if !stopped {
+							errorsList = append(errorsList, errors.StopMonitorError)
+						}
+					}
+				} else {
+					errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+				}
+			} else {
 				errorsList = append(errorsList, errors.StopTaskError)
 			}
 		} else {

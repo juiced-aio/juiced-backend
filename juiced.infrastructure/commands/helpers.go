@@ -360,18 +360,3 @@ func DeleteProfileInfos(ID string) error {
 	}
 	return DeleteCards(ID)
 }
-
-func RemoveFromSlice(s []string, x string) []string {
-	var position int
-	for i, r := range s {
-		if r == x {
-			position = i
-		}
-	}
-	if position == 0 {
-		return s
-	}
-	s[position] = s[len(s)-1]
-
-	return s[:len(s)-1]
-}

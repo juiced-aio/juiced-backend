@@ -269,6 +269,58 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 	return false
 }
 
+// StopTask sets the stop field for the given Task and returns true if successful
+func (taskStore *TaskStore) TasksRunning(taskGroup entities.TaskGroup) bool {
+	for _, taskID := range taskGroup.TaskIDs {
+		switch taskGroup.MonitorRetailer {
+		// Future sitescripts will have a case here
+		case enums.Target:
+			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
+				if !targetTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.Walmart:
+			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+				if !walmartTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.Amazon:
+			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
+				if !amazonTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.BestBuy:
+			if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
+				if !bestbuyTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.HotTopic:
+			if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
+				if !hottopicTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.GameStop:
+			if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
+				if !gamestopTask.Task.StopFlag {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
 var taskStore *TaskStore
 
 // InitTaskStore initializes the singleton instance of the TaskStore
