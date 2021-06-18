@@ -269,7 +269,7 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 	return false
 }
 
-// StopTask sets the stop field for the given Task and returns true if successful
+// TasksRunning checks to see if any tasks in the taskGroup are running, if so it returns true
 func (taskStore *TaskStore) TasksRunning(taskGroup entities.TaskGroup) bool {
 	for _, taskID := range taskGroup.TaskIDs {
 		switch taskGroup.MonitorRetailer {
