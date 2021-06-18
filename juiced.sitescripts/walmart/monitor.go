@@ -13,7 +13,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
-
 	"github.com/anaskhan96/soup"
 )
 
@@ -131,6 +130,9 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
 			fmt.Println("We are on the captcha page.")
+			url, cookie := GetPxCookie(resp.Request.URL.String(), monitor.Monitor.Proxy)
+			monitor.Monitor.Client.Jar.SetCookies(url, cookie)
+			fmt.Println("Cookie updated.")
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
 			inStockForShip = ConvertSkuListToWalmartSingleStock(skus)
@@ -193,6 +195,9 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
 			fmt.Println("We are on the captcha page.")
+			url, cookie := GetPxCookie(resp.Request.URL.String(), monitor.Monitor.Proxy)
+			monitor.Monitor.Client.Jar.SetCookies(url, cookie)
+			fmt.Println("Cookie updated.")
 		} else if strings.Contains(resp.Request.URL.String(), "walmart.com/ip/seort") {
 			fmt.Println("Invalid Sku")
 		} else {
