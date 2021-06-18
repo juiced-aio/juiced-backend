@@ -23,7 +23,6 @@ func (card *Card) UnmarshalJSON(data []byte) error {
 type Card struct {
 	ID             string `json:"ID" db:"ID"`
 	ProfileID      string `json:"profileID" db:"profileID"`
-	ProfileGroupID string `json:"profileGroupID" db:"profileGroupID"`
 	CardholderName string `json:"cardHolderName" db:"cardHolderName"`
 	CardNumber     string `json:"cardNumber" db:"cardNumber"`
 	ExpMonth       string `json:"expMonth" db:"expMonth"`
@@ -57,29 +56,30 @@ func (address *Address) SetID(ID string) {
 
 // Address is a class that holds details about a Profile's address
 type Address struct {
-	ID             string `json:"ID" db:"ID"`
-	ProfileID      string `json:"profileID" db:"profileID"`
-	ProfileGroupID string `json:"profileGroupID" db:"profileGroupID"`
-	FirstName      string `json:"firstName" db:"firstName"`
-	LastName       string `json:"lastName" db:"lastName"`
-	Address1       string `json:"address1" db:"address1"`
-	Address2       string `json:"address2" db:"address2"`
-	City           string `json:"city" db:"city"`
-	ZipCode        string `json:"zipCode" db:"zipCode"`
-	StateCode      string `json:"stateCode" db:"stateCode"`
-	CountryCode    string `json:"countryCode" db:"countryCode"`
+	ID          string `json:"ID" db:"ID"`
+	ProfileID   string `json:"profileID" db:"profileID"`
+	FirstName   string `json:"firstName" db:"firstName"`
+	LastName    string `json:"lastName" db:"lastName"`
+	Address1    string `json:"address1" db:"address1"`
+	Address2    string `json:"address2" db:"address2"`
+	City        string `json:"city" db:"city"`
+	ZipCode     string `json:"zipCode" db:"zipCode"`
+	StateCode   string `json:"stateCode" db:"stateCode"`
+	CountryCode string `json:"countryCode" db:"countryCode"`
 }
 
 // Profile is a class that holds details about a single profile
 type Profile struct {
-	ID              string  `json:"ID" db:"ID"`
-	ProfileGroupID  string  `json:"profileGroupID" db:"profileGroupID"`
-	Name            string  `json:"name" db:"name"`
-	Email           string  `json:"email" db:"email"`
-	PhoneNumber     string  `json:"phoneNumber" db:"phoneNumber"`
-	ShippingAddress Address `json:"shippingAddress"`
-	BillingAddress  Address `json:"billingAddress"`
-	CreditCard      Card    `json:"creditCard"`
+	ID                    string   `json:"ID" db:"ID"`
+	ProfileGroupIDs       []string `json:"profileGroupIDs" db:"profileGroupIDs"`
+	ProfileGroupIDsJoined string   `json:"profileGroupIDsJoined" db:"profileGroupIDsJoined"`
+	Name                  string   `json:"name" db:"name"`
+	Email                 string   `json:"email" db:"email"`
+	PhoneNumber           string   `json:"phoneNumber" db:"phoneNumber"`
+	ShippingAddress       Address  `json:"shippingAddress"`
+	BillingAddress        Address  `json:"billingAddress"`
+	CreditCard            Card     `json:"creditCard"`
+	CreationDate          int64    `json:"creationDate" db:"creationDate"`
 }
 
 // SetID updates the Profile's ID
@@ -150,6 +150,7 @@ type ProfileGroup struct {
 	Name             string   `json:"name" db:"name"`
 	ProfileIDs       []string `json:"profileIDs"`
 	ProfileIDsJoined string   `json:"profileIDsJoined" db:"profileIDsJoined"`
+	CreationDate     int64    `json:"creationDate" db:"creationDate"`
 }
 
 // AddProfileIDsToGroup adds the given ProfileIDs to the ProfileGroup

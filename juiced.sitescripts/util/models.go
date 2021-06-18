@@ -76,13 +76,14 @@ type SensorRequest struct {
 
 // All info needed for ProccessCheckout
 type ProcessCheckoutInfo struct {
-	BaseTask base.Task
-	Success  bool
-	Content  string
-	Embeds   []sec.DiscordEmbed
-	UserInfo entities.UserInfo
-	ItemName string
-	Sku      string
-	Price    int
-	Quantity int
+	BaseTask     base.Task
+	Success      bool
+	Content      string
+	Embeds       []sec.DiscordEmbed
+	UserInfo     entities.UserInfo
+	ItemName     string
+	Sku          string
+	Price        int
+	Quantity     int
+	MsToCheckout int64
 }

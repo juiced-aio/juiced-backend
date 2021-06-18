@@ -2,6 +2,7 @@ package queries
 
 import (
 	"errors"
+	"sort"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -35,7 +36,9 @@ func GetAllProfileGroups() ([]entities.ProfileGroup, error) {
 
 		profileGroups = append(profileGroups, tempProfileGroup)
 	}
-
+	sort.SliceStable(profileGroups, func(i, j int) bool {
+		return profileGroups[i].CreationDate > profileGroups[j].CreationDate
+	})
 	return profileGroups, err
 }
 
@@ -95,6 +98,10 @@ func GetAllProfiles() ([]entities.Profile, error) {
 		tempProfile, err = GetProfileInfo(tempProfile)
 		profiles = append(profiles, tempProfile)
 	}
+
+	sort.SliceStable(profiles, func(i, j int) bool {
+		return profiles[i].CreationDate > profiles[j].CreationDate
+	})
 
 	return profiles, err
 }

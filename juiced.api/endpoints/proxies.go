@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"time"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -76,6 +78,7 @@ func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 				proxy.ProxyGroupID = proxyGroup.GroupID
 				proxiesWithGroupID = append(proxiesWithGroupID, proxy)
 			}
+			proxyGroup.CreationDate = time.Now().Unix()
 			proxyGroup.Proxies = proxiesWithGroupID
 			err = commands.CreateProxyGroup(*proxyGroup)
 			if err != nil {
@@ -174,6 +177,7 @@ func CloneProxyGroupEndpoint(response http.ResponseWriter, request *http.Request
 			newGroupID := uuid.New().String()
 			proxyGroup.SetGroupID(newGroupID)
 			proxyGroup.SetName(proxyGroup.Name + " (Copy " + common.RandID(4) + ")")
+			proxyGroup.CreationDate = time.Now().Unix()
 			for i := 0; i < len(proxyGroup.Proxies); i++ {
 				proxy := &proxyGroup.Proxies[i]
 				proxy.SetID(uuid.New().String())

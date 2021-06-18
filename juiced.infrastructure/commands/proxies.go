@@ -17,12 +17,12 @@ func CreateProxyGroup(proxyGroup entities.ProxyGroup) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO proxyGroups (groupID, name) VALUES (?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO proxyGroups (groupID, name, creationDate) VALUES (?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(proxyGroup.GroupID, proxyGroup.Name)
+	_, err = statement.Exec(proxyGroup.GroupID, proxyGroup.Name, proxyGroup.CreationDate)
 	if err != nil {
 		return err
 	}

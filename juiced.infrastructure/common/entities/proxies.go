@@ -37,9 +37,10 @@ func (proxy *Proxy) SetID(ID string) {
 
 // ProxyGroup is a class that holds a list of proxies
 type ProxyGroup struct {
-	GroupID string  `json:"groupID" db:"groupID"`
-	Name    string  `json:"name" db:"name"`
-	Proxies []Proxy `json:"proxies"`
+	GroupID      string  `json:"groupID" db:"groupID"`
+	Name         string  `json:"name" db:"name"`
+	Proxies      []Proxy `json:"proxies"`
+	CreationDate int64   `json:"creationDate" db:"creationDate"`
 }
 
 // SetName updates the ProxyGroup's Name
