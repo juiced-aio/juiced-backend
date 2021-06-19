@@ -2,8 +2,6 @@ package util
 
 import (
 	"time"
-
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 )
 
 type AuthenticateRequest struct {
@@ -97,13 +95,6 @@ type Field struct {
 	Name   string `json:"lJ5cmXdF3L"`
 	Value  string `json:"LsD8aRXXXl"`
 	Inline string `json:"H4dLDoqOuW"`
-}
-type HookInfo struct {
-	ID       int
-	Success  bool
-	Content  string
-	Embeds   []DiscordEmbed
-	UserInfo entities.UserInfo
 }
 
 type DiscordWebhookResponse struct {

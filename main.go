@@ -9,7 +9,8 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-	"backend.juicedbot.io/juiced.security/auth/util"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	ws "backend.juicedbot.io/juiced.ws"
 )
 
@@ -61,7 +62,7 @@ func Heartbeat(eventBus *events.EventBus, userInfo entities.UserInfo) {
 	var err error
 	for {
 		if time.Since(lastChecked).Seconds() > 60 {
-			userInfo, err = util.Heartbeat(userInfo, 0)
+			userInfo, err = sec.Heartbeat(userInfo, 0)
 			if err != nil {
 				eventBus.PublishCloseEvent()
 			}

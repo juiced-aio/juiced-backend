@@ -307,45 +307,6 @@ func DecryptRefreshResponse(response EncryptedRefreshTokenResponse, timestamp in
 	return refreshResponse, nil
 }
 
-var hookChan = make(chan HookInfo)
-
-func QueueWebhook(success bool, content string, embeds []DiscordEmbed, userInfo entities.UserInfo) {
-	hookChan <- HookInfo{
-		Success:  success,
-		Content:  content,
-		Embeds:   embeds,
-		UserInfo: userInfo,
-	}
-}
-
-func DiscordWebhookQueue() {
-	var hookInfos []HookInfo
-	var hookCount int
-	go func() {
-		for {
-			hookInfo := <-hookChan
-			hookInfo.ID = hookCount
-			hookCount++
-			hookInfos = append(hookInfos, hookInfo)
-		}
-	}()
-
-	for {
-		for _, hook := range hookInfos {
-			DiscordWebhook(hook.Success, hook.Content, hook.Embeds, hook.UserInfo)
-			var position int
-			for i, r := range hookInfos {
-				if r.ID == hook.ID {
-					position = i
-				}
-			}
-			// Removing the hook from the slice
-			hookInfos = append(hookInfos[:position], hookInfos[position+1:]...)
-			time.Sleep(5 * time.Second)
-		}
-	}
-}
-
 func DiscordWebhook(success bool, content string, embeds []DiscordEmbed, userInfo entities.UserInfo) (DiscordWebhookResult, error) {
 	discordWebhookResponse := DiscordWebhookResponse{}
 	encryptedDiscordWebhookResponse := EncryptedDiscordWebhookResponse{}

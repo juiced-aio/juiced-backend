@@ -46,6 +46,13 @@ type DiscordWebhook struct {
 	Embeds  []Embed     `json:"embeds"`
 }
 
+type HookInfo struct {
+	ID      int
+	Success bool
+	Content string
+	Embeds  []Embed
+}
+
 type Embed struct {
 	Title     string    `json:"title"`
 	Color     int       `json:"color"`
