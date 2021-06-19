@@ -206,7 +206,13 @@ func DiscordWebhookQueue() {
 
 	for {
 		for _, hook := range hookInfos {
-			SendDiscordWebhook(settings.DiscordWebhook, hook.Success, hook.Embeds)
+			var webhookURL string
+			if hook.Success {
+				webhookURL = settings.SuccessDiscordWebhook
+			} else {
+				webhookURL = settings.FailureDiscordWebhook
+			}
+			SendDiscordWebhook(webhookURL, hook.Success, hook.Embeds)
 			var position int
 			for i, r := range hookInfos {
 				if r.ID == hook.ID {

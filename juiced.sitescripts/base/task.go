@@ -7,12 +7,11 @@ import (
 )
 
 type Task struct {
-	Task           *entities.Task
-	Profile        entities.Profile
-	Proxy          entities.Proxy
-	DiscordWebhook string
-	EventBus       *events.EventBus
-	Client         http.Client
-	StopFlag       bool
-	ErrorField     string
+	Task       *entities.Task
+	Profile    entities.Profile
+	Proxy      entities.Proxy
+	EventBus   *events.EventBus
+	Client     http.Client
+	StopFlag   bool
+	ErrorField string
 }

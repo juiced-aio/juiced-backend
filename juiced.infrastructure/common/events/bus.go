@@ -2,7 +2,6 @@ package events
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"sync"
 )
@@ -139,17 +138,11 @@ func (eb *EventBus) PublishProductEvent(retailer enums.Retailer, data interface{
 	eb.RM.RLock()
 	// By retrieving this right after picking up the product data, we ensure we have the latest webhook info
 	// without having to retrieve it once per task.
-	settings, err := queries.GetSettings()
-	discordWebhook := ""
-	if err != nil {
-		discordWebhook = settings.DiscordWebhook
-	}
 	event := Event{
 		EventType: ProductEventType,
 		ProductEvent: ProductEvent{
-			DiscordWebhook: discordWebhook,
-			Retailer:       retailer,
-			MonitorID:      monitorID,
+			Retailer:  retailer,
+			MonitorID: monitorID,
 		},
 	}
 	switch retailer {
