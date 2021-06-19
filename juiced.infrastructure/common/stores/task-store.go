@@ -270,7 +270,7 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 }
 
 // TasksRunning checks to see if any tasks in the taskGroup are running, if so it returns true
-func (taskStore *TaskStore) TasksRunning(taskGroup entities.TaskGroup) bool {
+func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 	for _, taskID := range taskGroup.TaskIDs {
 		switch taskGroup.MonitorRetailer {
 		// Future sitescripts will have a case here
@@ -318,6 +318,47 @@ func (taskStore *TaskStore) TasksRunning(taskGroup entities.TaskGroup) bool {
 		}
 	}
 
+	return false
+}
+
+func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.Proxy) bool {
+	switch task.TaskRetailer {
+	case enums.Target:
+		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
+			targetTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.Walmart:
+		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
+			walmartTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.Amazon:
+		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
+			amazonTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.BestBuy:
+		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
+			bestbuyTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.HotTopic:
+		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
+			hottopicTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
+			gamestopTask.Task.Proxy = proxy
+		}
+		return true
+	}
 	return false
 }
 

@@ -45,6 +45,13 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 		return taskGroup, err
 	}
 
+	for _, taskID := range taskGroup.TaskIDs {
+		_, err := RemoveTask(taskID)
+		if err != nil {
+			return taskGroup, err
+		}
+	}
+
 	statement, err := database.Preparex(`DELETE FROM taskGroups WHERE groupID = @p1`)
 	if err != nil {
 		return taskGroup, err
@@ -54,12 +61,6 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 		return taskGroup, err
 	}
 
-	for _, taskID := range taskGroup.TaskIDs {
-		_, err := RemoveTask(taskID)
-		if err != nil {
-			return taskGroup, err
-		}
-	}
 	err = DeleteMonitorInfos(groupID, taskGroup.MonitorRetailer)
 	return taskGroup, err
 
@@ -119,12 +120,15 @@ func RemoveTask(ID string) (entities.Task, error) {
 		return task, err
 	}
 	_, err = statement.Exec(ID)
+	if err != nil {
+		return task, err
+	}
 
 	if task.TaskSizeJoined != "" {
 		task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
 	}
 
-	return task, err
+	return task, DeleteTaskInfos(task.ID, task.TaskRetailer)
 }
 
 // UpdateTask updates the Task from the database with the given ID and returns it (if it exists)
@@ -145,31 +149,23 @@ func UpdateTask(ID string, newTask entities.Task) (entities.Task, error) {
 }
 
 // RemoveTasksWithProfileID removes any Tasks with the given profileID and returns any errors
-func RemoveTasksWithProfileID(profileID string) error {
+func RemoveTasksByProfileID(profileID string) error {
 	database := common.GetDatabase()
 	if database == nil {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`DELETE FROM tasks WHERE profileID = @p1`)
+	tasks, err := queries.GetTasksByProfileID(profileID)
 	if err != nil {
 		return err
 	}
-	_, err = statement.Exec(profileID)
-	return err
-}
 
-// RemoveTasksWithProxyGroupID removes any Tasks with the given proxyGroupID and returns any errors
-func RemoveTasksWithProxyGroupID(proxyGroupID string) error {
-	database := common.GetDatabase()
-	if database == nil {
-		return errors.New("database not initialized")
+	for _, task := range tasks {
+		_, err = RemoveTask(task.ID)
+		if err != nil {
+			return err
+		}
 	}
 
-	statement, err := database.Preparex(`DELETE FROM tasks WHERE proxyGroupID = @p1`)
-	if err != nil {
-		return err
-	}
-	_, err = statement.Exec(proxyGroupID)
 	return err
 }

@@ -37,7 +37,7 @@ func GetAllProxyGroups() ([]entities.ProxyGroup, error) {
 	}
 
 	sort.SliceStable(proxyGroups, func(i, j int) bool {
-		return proxyGroups[i].CreationDate > proxyGroups[j].CreationDate
+		return proxyGroups[i].CreationDate < proxyGroups[j].CreationDate
 	})
 
 	return proxyGroups, err

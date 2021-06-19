@@ -128,21 +128,30 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 			monitorStore := stores.GetMonitorStore()
 			stopped := monitorStore.StopMonitor(&taskGroup)
 			if stopped {
+				next := true
 				for _, taskID := range taskGroup.TaskIDs {
 					taskToStop, err := queries.GetTask(taskID)
 					if err == nil {
 						taskStore := stores.GetTaskStore()
 						stopped := taskStore.StopTask(&taskToStop)
 						if !stopped {
+							next = false
 							errorsList = append(errorsList, errors.StopTaskError)
+							break
 						}
+					} else {
+						errorsList = append(errorsList, errors.GetTaskError+err.Error())
+						break
 					}
 				}
-				// @silent: Would you like to remove the TaskGroup even if not all tasks have been stopped?
-				taskGroup, err = commands.RemoveTaskGroup(groupID)
-				if err != nil {
-					errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
+				if next {
+					taskGroup, err = commands.RemoveTaskGroup(groupID)
+					if err != nil {
+						errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
+					}
 				}
+			} else {
+				errorsList = append(errorsList, errors.StopMonitorError)
 			}
 		} else {
 			errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
@@ -301,10 +310,10 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 					newTaskGroup.SetTaskIDs(newTaskIDs)
 					newTaskGroup, err = commands.UpdateTaskGroup(groupID, newTaskGroup)
 					if err == nil {
+						taskStore := stores.GetTaskStore()
 						for i := 0; i < len(deleteTasksRequestInfo.TaskIDs); i++ {
 							task, err := queries.GetTask(deleteTasksRequestInfo.TaskIDs[i])
 							if err == nil {
-								taskStore := stores.GetTaskStore()
 								taskStore.StopTask(&task)
 								_, err = commands.RemoveTask(deleteTasksRequestInfo.TaskIDs[i])
 								if err != nil {
@@ -312,6 +321,13 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								}
 							} else {
 								errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
+							}
+						}
+						if !taskStore.TasksRunning(&newTaskGroup) {
+							monitorStore := stores.GetMonitorStore()
+							stopped := monitorStore.StopMonitor(&newTaskGroup)
+							if !stopped {
+								errorsList = append(errorsList, errors.StopMonitorError)
 							}
 						}
 					} else {
@@ -599,9 +615,9 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 			taskStore := stores.GetTaskStore()
 			stopped := taskStore.StopTask(&taskToStop)
 			if stopped {
-				taskGroup, err = queries.GetTaskGroupByTaskID(taskToStop.ID)
+				taskGroup, err = queries.GetTaskGroup(taskToStop.TaskGroupID)
 				if err == nil {
-					if !taskStore.TasksRunning(taskGroup) {
+					if !taskStore.TasksRunning(&taskGroup) {
 						monitorStore := stores.GetMonitorStore()
 						stopped = monitorStore.StopMonitor(&taskGroup)
 						if !stopped {
