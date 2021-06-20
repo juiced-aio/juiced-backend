@@ -511,3 +511,35 @@ func SendCheckout(task base.Task, itemName string, sku string, price int, quanti
 		Time:         time.Now().Unix(),
 	})
 }
+
+func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
+	var pxValues PXValues
+
+	_, userInfo, err := queries.GetUserInfo()
+	if err != nil {
+		return "", pxValues, err
+	}
+
+	pxResponse, _, err := sec.PX(site, ProxyCleaner(proxy), userInfo)
+	if err != nil {
+		return "", pxValues, err
+	}
+
+	return pxResponse.PX3, PXValues{
+		SetID: pxResponse.SetID,
+		UUID:  pxResponse.UUID,
+		VID:   pxResponse.SetID,
+	}, nil
+}
+
+func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) (string, error) {
+	var px3 string
+
+	_, userInfo, err := queries.GetUserInfo()
+	if err != nil {
+		return px3, err
+	}
+
+	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
+	return px3, err
+}

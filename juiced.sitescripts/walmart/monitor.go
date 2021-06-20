@@ -62,7 +62,11 @@ func (monitor *Monitor) RunMonitor() {
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
-
+	if monitor.PXValues.RefreshAt == 0 {
+		go monitor.RefreshPX3()
+		for monitor.PXValues.RefreshAt == 0 {
+		} // This ensures we don't continue until the PX cookie is set.
+	}
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
@@ -125,13 +129,13 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			fmt.Println("We are on the captcha page.")
-			url, cookie := GetPxCookie(resp.Request.URL.String(), monitor.Monitor.Proxy)
-			monitor.Monitor.Client.Jar.SetCookies(url, cookie)
+			err := SetPXCapCookie(resp.Request.URL.String(), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
 			fmt.Println("Cookie updated.")
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
@@ -194,9 +198,10 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			fmt.Println("We are on the captcha page.")
-			url, cookie := GetPxCookie(resp.Request.URL.String(), monitor.Monitor.Proxy)
-			monitor.Monitor.Client.Jar.SetCookies(url, cookie)
+			err := SetPXCapCookie(resp.Request.URL.String(), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
 			fmt.Println("Cookie updated.")
 		} else if strings.Contains(resp.Request.URL.String(), "walmart.com/ip/seort") {
 			fmt.Println("Invalid Sku")

@@ -1,14 +1,14 @@
 package walmart
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/anaskhan96/soup"
@@ -29,25 +29,29 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-//Returns a PX cookie using Auth/Security/PXCap functions
-func GetPxCookie(_url string, proxy entities.Proxy) (*url.URL, []*http.Cookie) {
+func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
+	token := "" // In the future, this will be replaced with something like util.RequestCaptchaToken(captchaURL). For now, just leave it as a blank string (it won't work, but we just want the infrastructure so we can update it once we have Captcha ready).
+	px3, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, token, proxy)
+	if err != nil {
+		fmt.Println("Error getting PXCap cookie: " + err.Error())
+		return err
+	}
 	var cookies []*http.Cookie
 
-	//get user info
-	_, userinfo, _ := queries.GetUserInfo()
-
-	//make PX request
-	resp, _, _ := sec.PX(_url, util.ProxyCleaner(proxy), userinfo)
-	cookieValue, _, _ := sec.PXCap(_url, util.ProxyCleaner(proxy), resp.SetID, resp.VID, resp.UUID, resp.PX3, userinfo)
 	cookie := &http.Cookie{
 		Name:   "_px3",
-		Value:  cookieValue,
+		Value:  px3,
 		Path:   "/",
 		Domain: ".walmart.com",
 	}
 	cookies = append(cookies, cookie)
-	u, _ := url.Parse(_url)
-	return u, cookies
+	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
+	if err != nil {
+		fmt.Println("Error parsing https://walmart.com/ to set PXCap cookie: " + err.Error())
+		return err
+	}
+	client.Jar.SetCookies(u, cookies)
+	return nil
 }
 
 //Converts a list of in-stock skus to a WarlmartSingleStockData structure.
@@ -83,5 +87,44 @@ func UrlExistsInResponse(resp soup.Root) bool {
 		return true
 	} else {
 		return false
+	}
+}
+
+// RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
+func (task *Task) RefreshPX3() {
+	// If the function panics due to a runtime error, recover and restart it
+	defer func() {
+		recover()
+		task.RefreshPX3()
+	}()
+
+	for {
+		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
+			_, pxValues, err := util.GetPXCookie("walmart", task.Task.Proxy)
+
+			if err != nil {
+				return // Eventually we'll want to handle this. But if we run into errors and keep requesting cookies, we might send a TON of requests to our API, and I don't want them to get mad at us for sending too many.
+			}
+			task.PXValues = pxValues
+		}
+	}
+}
+
+func (monitor *Monitor) RefreshPX3() {
+	// If the function panics due to a runtime error, recover and restart it
+	defer func() {
+		recover()
+		monitor.RefreshPX3()
+	}()
+
+	for {
+		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
+			_, pxValues, err := util.GetPXCookie("walmart", monitor.Monitor.Proxy)
+
+			if err != nil {
+				return // Eventually we'll want to handle this. But if we run into errors and keep requesting cookies, we might send a TON of requests to our API, and I don't want them to get mad at us for sending too many.
+			}
+			monitor.PXValues = pxValues
+		}
 	}
 }

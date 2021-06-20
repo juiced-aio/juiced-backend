@@ -3,6 +3,7 @@ package walmart
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // Endpoints
@@ -36,6 +37,7 @@ type Monitor struct {
 	Monitor     base.Monitor
 	MonitorType enums.MonitorType
 	SKUs        []string
+	PXValues    util.PXValues
 }
 
 // Task info
@@ -44,6 +46,7 @@ type Task struct {
 	OfferID  string
 	Sku      string
 	CardInfo CardInfo
+	PXValues util.PXValues
 }
 
 //Part of the Task struct
