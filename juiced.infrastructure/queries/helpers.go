@@ -138,8 +138,8 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 		if err != nil {
 			return taskGroup, err
 		}
-		defer rows.Close()
 
+		defer rows.Close()
 		for rows.Next() {
 			tempSingleMonitor := entities.TargetSingleMonitorInfo{}
 			err = rows.StructScan(&tempSingleMonitor)
@@ -154,11 +154,24 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 		if err != nil {
 			return taskGroup, err
 		}
-		taskGroup.WalmartMonitorInfo.SKUsJoined = strings.Join(taskGroup.WalmartMonitorInfo.SKUs, ",")
-		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
 		if err != nil {
 			return taskGroup, err
 		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.WalmartMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+
+		if taskGroup.WalmartMonitorInfo.SKUsJoined != "" {
+			taskGroup.WalmartMonitorInfo.SKUs = strings.Split(taskGroup.WalmartMonitorInfo.SKUsJoined, ",")
+		}
+
 	case enums.Amazon:
 		statement, err := database.Preparex(`SELECT * FROM amazonMonitorInfos WHERE taskGroupID = @p1`)
 		if err != nil {

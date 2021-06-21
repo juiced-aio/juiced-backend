@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -96,7 +95,6 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
-			fmt.Println(monitor)
 			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
 			if err != nil {
 				return err
@@ -275,7 +273,7 @@ func CreateShippingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO shippingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO shippingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -293,7 +291,7 @@ func CreateBillingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO billingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO billingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -311,7 +309,7 @@ func CreateCards(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO cards (ID, profileID, cardHolderName, cardNumber, expMonth, expYear, cvv, cardType) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO cards (ID, profileID, cardHolderName, cardNumber, expMonth, expYear, cvv, cardType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}

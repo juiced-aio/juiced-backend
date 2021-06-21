@@ -73,8 +73,8 @@ func GetTaskGroup(groupID string) (entities.TaskGroup, error) {
 	}
 	if taskGroup.TaskIDsJoined != "" {
 		taskGroup.TaskIDs = strings.Split(taskGroup.TaskIDsJoined, ",")
-
 	}
+
 	return GetMonitorInfos(taskGroup)
 }
 
@@ -273,8 +273,8 @@ func GetTask(ID string) (entities.Task, error) {
 	}
 	if task.TaskSizeJoined != "" {
 		task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
-
 	}
+
 	return GetTaskInfos(task)
 }
 

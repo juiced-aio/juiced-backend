@@ -180,6 +180,103 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 	return true
 }
 
+// StartTaskGroup runs the given TaskGroup's RunMonitor() function and the RunTask() function for each Task in the group and returns true if successful
+func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) bool {
+	// Start the task's TaskGroup (if it's already running, this will return true)
+	started := monitorStore.StartMonitor(taskGroup)
+	if !started {
+		return false
+	}
+
+	for _, taskID := range taskGroup.TaskIDs {
+		// Get the task
+		task, err := queries.GetTask(taskID)
+		if err != nil {
+			return false
+		}
+
+		// Add task to store (if it already exists, this will return true)
+		added := taskStore.AddTaskToStore(&task)
+		if !added {
+			return false
+		}
+
+		// If the Task is already running, then we're all set already
+		if task.TaskStatus == enums.TaskIdle {
+			// Otherwise, start the Task
+			switch task.TaskRetailer {
+			// Future sitescripts will have a case here
+			case enums.Target:
+				go taskStore.TargetTasks[task.ID].RunTask()
+
+			case enums.Walmart:
+				go taskStore.WalmartTasks[task.ID].RunTask()
+
+			case enums.Amazon:
+				go taskStore.AmazonTasks[task.ID].RunTask()
+
+			case enums.BestBuy:
+				go taskStore.BestbuyTasks[task.ID].RunTask()
+
+			case enums.HotTopic:
+				go taskStore.HottopicTasks[task.ID].RunTask()
+
+			case enums.GameStop:
+				go taskStore.GamestopTasks[task.ID].RunTask()
+			}
+		}
+	}
+
+	return true
+}
+
+// StopTaskGroup sets the stop field for the given TaskGroup's Monitor and each Task in the group and returns true if successful
+func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) bool {
+	// Stop the task's TaskGroup
+	stopped := monitorStore.StopMonitor(taskGroup)
+	if !stopped {
+		return false
+	}
+
+	for _, taskID := range taskGroup.TaskIDs {
+		switch taskGroup.MonitorRetailer {
+		// Future sitescripts will have a case here
+		case enums.Target:
+			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
+				targetTask.Task.StopFlag = true
+			}
+
+		case enums.Walmart:
+			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+				walmartTask.Task.StopFlag = true
+			}
+
+		case enums.Amazon:
+			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
+				amazonTask.Task.StopFlag = true
+			}
+
+		case enums.BestBuy:
+			if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
+				bestbuyTask.Task.StopFlag = true
+			}
+
+		case enums.HotTopic:
+			if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
+				hottopicTask.Task.StopFlag = true
+			}
+
+		case enums.GameStop:
+			if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
+				gamestopTask.Task.StopFlag = true
+			}
+
+		}
+	}
+
+	return true
+}
+
 // StartTask runs the RunTask() function for the given Task and returns true if successful
 func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
