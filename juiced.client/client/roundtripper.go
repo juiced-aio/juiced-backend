@@ -41,12 +41,6 @@ type roundTripper struct {
 	dialer            proxy.ContextDialer
 }
 
-var identityCerts []string
-
-func init() {
-	client, _ := NewClient(utls.HelloChrome_Auto)
-	client.Get("https://identity.juicedbot.io/")
-}
 func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	addr := rt.getDialTLSAddr(req)
 	if _, ok := rt.cachedTransports[addr]; !ok {
@@ -126,16 +120,7 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 		}
 		if addr == "identity.juicedbot.io:443" {
 			certFingerprint := hpkp.Fingerprint(cert)
-			if len(identityCerts) == 0 {
-				identityCerts = append(identityCerts, certFingerprint)
-			}
-			var goodCert bool
-			for _, identityCert := range identityCerts {
-				if identityCert == certFingerprint {
-					goodCert = true
-				}
-			}
-			if !goodCert {
+			if certFingerprint != "0Ugw2FeRziz9vmBmylwjswrF8pQ8icmeqRweSfkkGAQ=" && certFingerprint != "n5dIU+KFaI00Y/prmvaZhqXOquF72TlPANCLxCA9HE8=" {
 				conn.Close()
 				return nil, errors.New("bad proxy")
 			}
