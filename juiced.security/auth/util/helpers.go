@@ -1006,8 +1006,8 @@ func LogCheckout(itemName, sku, retailer string, price, quantity int, userInfo e
 	logCheckoutResponse := LogCheckoutResponse{}
 	encryptedLogCheckoutResponse := EncryptedLogCheckoutResponse{}
 
-	// endpoint := "https://identity.juicedbot.io/api/v1/juiced/c"
-	endpoint := "http://127.0.0.1:5000/api/v1/juiced/c"
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/c"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/c"
 
 	hwid, err := machineid.ProtectedID("juiced")
 	if err != nil {
