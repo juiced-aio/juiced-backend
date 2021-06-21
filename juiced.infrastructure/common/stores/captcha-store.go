@@ -228,11 +228,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 	}
 	wg.Wait()
 	err = KeyErrors(settings, keyError)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // RequestReCaptchaV3Token requests a ReCaptchaV3 token from all available APIs and the frontend
