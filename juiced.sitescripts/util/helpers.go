@@ -191,10 +191,6 @@ func DiscordWebhookQueue() {
 	var hookInfos []HookInfo
 	var hookCount int
 
-	settings, err := queries.GetSettings()
-	if err != nil {
-		return
-	}
 	go func() {
 		for {
 			hookInfo := <-hookChan
@@ -205,24 +201,21 @@ func DiscordWebhookQueue() {
 	}()
 
 	for {
-		for _, hook := range hookInfos {
-			var webhookURL string
-			if hook.Success {
-				webhookURL = settings.SuccessDiscordWebhook
-			} else {
-				webhookURL = settings.FailureDiscordWebhook
-			}
-			SendDiscordWebhook(webhookURL, hook.Success, hook.Embeds)
-			var position int
-			for i, r := range hookInfos {
-				if r.ID == hook.ID {
-					position = i
-				}
-			}
-			// Removing the hook from the slice
-			hookInfos = append(hookInfos[:position], hookInfos[position+1:]...)
-			time.Sleep(2*time.Second + (time.Second / 2))
+		hook := <-hookChan
+		settings, err := queries.GetSettings()
+		if err != nil {
+			return
 		}
+		var webhookURL string
+		if hook.Success {
+			webhookURL = settings.SuccessDiscordWebhook
+		} else {
+			webhookURL = settings.FailureDiscordWebhook
+		}
+		if webhookURL != "" {
+			SendDiscordWebhook(webhookURL, hook.Success, hook.Embeds)
+		}
+		time.Sleep(2*time.Second + (time.Second / 2))
 	}
 }
 
