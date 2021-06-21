@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -87,44 +86,5 @@ func UrlExistsInResponse(resp soup.Root) bool {
 		return true
 	} else {
 		return false
-	}
-}
-
-// RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
-func (task *Task) RefreshPX3() {
-	// If the function panics due to a runtime error, recover and restart it
-	defer func() {
-		recover()
-		task.RefreshPX3()
-	}()
-
-	for {
-		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			_, pxValues, err := util.GetPXCookie("walmart", task.Task.Proxy)
-
-			if err != nil {
-				return // Eventually we'll want to handle this. But if we run into errors and keep requesting cookies, we might send a TON of requests to our API, and I don't want them to get mad at us for sending too many.
-			}
-			task.PXValues = pxValues
-		}
-	}
-}
-
-func (monitor *Monitor) RefreshPX3() {
-	// If the function panics due to a runtime error, recover and restart it
-	defer func() {
-		recover()
-		monitor.RefreshPX3()
-	}()
-
-	for {
-		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			_, pxValues, err := util.GetPXCookie("walmart", monitor.Monitor.Proxy)
-
-			if err != nil {
-				return // Eventually we'll want to handle this. But if we run into errors and keep requesting cookies, we might send a TON of requests to our API, and I don't want them to get mad at us for sending too many.
-			}
-			monitor.PXValues = pxValues
-		}
 	}
 }

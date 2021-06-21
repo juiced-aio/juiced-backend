@@ -102,6 +102,26 @@ func (monitor *Monitor) RunMonitor() {
 	}
 }
 
+// RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
+func (monitor *Monitor) RefreshPX3() {
+	// If the function panics due to a runtime error, recover and restart it
+	defer func() {
+		recover()
+		monitor.RefreshPX3()
+	}()
+
+	for {
+		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
+			_, pxValues, err := util.GetPXCookie("walmart", monitor.Monitor.Proxy)
+
+			if err != nil {
+				return // Eventually we'll want to handle this. But if we run into errors and keep requesting cookies, we might send a TON of requests to our API, and I don't want them to get mad at us for sending too many.
+			}
+			monitor.PXValues = pxValues
+		}
+	}
+}
+
 //This is for checking if a list of Skus are instock. Here we also check if there is a maximum price.
 func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string) {
 	inStockForShip := make([]events.WalmartSingleStockData, 0)

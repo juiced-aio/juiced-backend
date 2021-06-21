@@ -32,6 +32,26 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 	return walmartTask, err
 }
 
+// RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
+func (task *Task) RefreshPX3() {
+	// If the function panics due to a runtime error, recover and restart it
+	defer func() {
+		recover()
+		task.RefreshPX3()
+	}()
+
+	for {
+		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
+			_, pxValues, err := util.GetPXCookie("walmart", task.Task.Proxy)
+
+			if err != nil {
+				return // Eventually we'll want to handle this. But if we run into errors and keep requesting cookies, we might send a TON of requests to our API, and I don't want them to get mad at us for sending too many.
+			}
+			task.PXValues = pxValues
+		}
+	}
+}
+
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
 	task.Task.Task.SetTaskStatus(status)
