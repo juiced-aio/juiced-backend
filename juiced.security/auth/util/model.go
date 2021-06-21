@@ -1,6 +1,8 @@
 package util
 
-import "time"
+import (
+	"time"
+)
 
 type AuthenticateRequest struct {
 	ActivationToken string `json:"908tqy5VI2"`

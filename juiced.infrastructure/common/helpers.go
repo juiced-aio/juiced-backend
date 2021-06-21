@@ -1,9 +1,12 @@
 package common
 
 import (
+	"errors"
 	"fmt"
 	"math/rand"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -12,8 +15,49 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// Returns true if it finds the string x in the slice s
+func InSlice(s []string, x string) bool {
+	for _, i := range s {
+		if i == x {
+			return true
+		}
+	}
+	return false
+}
+
+// Removes the string x from the slice s
+func RemoveFromSlice(s []string, x string) []string {
+	var position int
+	for i, r := range s {
+		if r == x {
+			position = i
+		}
+	}
+
+	s[position] = s[len(s)-1]
+
+	return s[:len(s)-1]
+}
+
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 var runes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+func FindInString(str string, start string, end string) (string, error) {
+	comp := regexp.MustCompile(fmt.Sprintf("%v(.*?)%v", start, end))
+	comp.MatchString(str)
+
+	o := comp.FindStringSubmatch(str)
+	if len(o) == 0 {
+		return "", errors.New("string not found")
+	}
+	parsed := o[1]
+	if parsed == "" {
+		return parsed, errors.New("string not found")
+	}
+
+	return parsed, nil
+
+}
 
 // RandID returns a random n-digit ID of digits and uppercase letters
 func RandID(n int) string {
@@ -40,7 +84,18 @@ func InitDatabase() error {
 	if err != nil {
 		return err
 	}
+
 	for _, schema := range schemas {
+		missing := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
+		if missing != "" {
+			missingSplit := strings.Split(missing, "|")
+			tableName, _ := FindInString(schema, "EXISTS ", " \\(")
+			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v", tableName, missingSplit[0], missingSplit[1]))
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+		}
 		_, err = database.Exec(schema)
 	}
 
@@ -61,5 +116,42 @@ func ProxyCleaner(proxyDirty entities.Proxy) string {
 	} else {
 		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
 	}
+}
 
+func ParseColumns(schema string) (columnNames []string) {
+	schema = strings.ReplaceAll(schema, "\n", "")
+	schema = strings.ReplaceAll(schema, "\t", "")
+	inside, _ := FindInString(schema, "\\(", "\\)")
+	columns := strings.Split(inside, ",")
+	for _, column := range columns {
+		columnSplit := strings.Split(column, " ")
+		columnNames = append(columnNames, columnSplit[0]+"|"+columnSplit[1])
+	}
+	return
+}
+
+func GetCurrentColumns(schema string) (columnNames []string) {
+	tableName, _ := FindInString(schema, "EXISTS ", " \\(")
+	rows, _ := database.Queryx("PRAGMA table_info(" + tableName + ");")
+
+	for rows.Next() {
+		column, _ := rows.SliceScan()
+		columnNames = append(columnNames, column[1].(string))
+	}
+	return
+}
+
+func CompareColumns(x []string, y []string) string {
+	for i := range x {
+		var inside bool
+		for _, name := range y {
+			if name == strings.Split(x[i], "|")[0] {
+				inside = true
+			}
+		}
+		if !inside {
+			return x[i]
+		}
+	}
+	return ""
 }

@@ -1,11 +1,14 @@
 package endpoints
 
 import (
+	"time"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"encoding/json"
@@ -76,6 +79,7 @@ func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 				proxy.ProxyGroupID = proxyGroup.GroupID
 				proxiesWithGroupID = append(proxiesWithGroupID, proxy)
 			}
+			proxyGroup.CreationDate = time.Now().Unix()
 			proxyGroup.Proxies = proxiesWithGroupID
 			err = commands.CreateProxyGroup(*proxyGroup)
 			if err != nil {
@@ -100,14 +104,48 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var proxyGroup entities.ProxyGroup
-	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		proxyGroup, err = commands.RemoveProxyGroup(groupID)
-		if err != nil {
+		taskGroups, err := queries.GetTaskGroupsByProxyGroupID(groupID)
+		if err == nil {
+			next := true
+			monitorStore := stores.GetMonitorStore()
+			for _, taskGroup := range taskGroups {
+				updated := monitorStore.UpdateMonitorProxy(&taskGroup, entities.Proxy{})
+				if !updated {
+					next = false
+				}
+			}
+			if next {
+				tasks, err := queries.GetTasksByProxyGroupID(groupID)
+				if err == nil {
+					next := true
+					taskStore := stores.GetTaskStore()
+					for _, task := range tasks {
+						updated := taskStore.UpdateTaskProxy(&task, entities.Proxy{})
+						if !updated {
+							next = false
+							break
+						}
+					}
+					if next {
+						proxyGroup, err = commands.RemoveProxyGroup(groupID)
+						if err != nil {
+							errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
+						}
+					} else {
+						errorsList = append(errorsList, errors.RemoveProxyGroupError+"error while updating a tasks proxy")
+					}
+				} else {
+					errorsList = append(errorsList, errors.GetTaskError+err.Error())
+				}
+			} else {
+				errorsList = append(errorsList, errors.RemoveProxyGroupError+"error while updating a taskgroups proxy")
+			}
+		} else {
 			errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
 		}
 	} else {
@@ -132,7 +170,7 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		newProxyGroup := entities.ProxyGroup{GroupID: groupID}
+		newProxyGroup = entities.ProxyGroup{GroupID: groupID}
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
 			err = entities.ParseProxyGroup(&newProxyGroup, body)
@@ -174,6 +212,7 @@ func CloneProxyGroupEndpoint(response http.ResponseWriter, request *http.Request
 			newGroupID := uuid.New().String()
 			proxyGroup.SetGroupID(newGroupID)
 			proxyGroup.SetName(proxyGroup.Name + " (Copy " + common.RandID(4) + ")")
+			proxyGroup.CreationDate = time.Now().Unix()
 			for i := 0; i < len(proxyGroup.Proxies); i++ {
 				proxy := &proxyGroup.Proxies[i]
 				proxy.SetID(uuid.New().String())

@@ -1,19 +1,5 @@
 package walmart
 
-// GetPXCookieRequest is the request sent by the GetPXCookie function
-type GetPXCookieRequest struct {
-	Proxy string `json:"proxy"`
-}
-
-// GetPXCapCookieRequest is the request sent by the GetPXCapCookie function
-type GetPXCapCookieRequest struct {
-	Proxy string `json:"proxy"`
-	SetId string `json:"setID"`
-	Vid   string `json:"vid"`
-	Uuid  string `json:"uuid"`
-	Token string `json:"token"`
-}
-
 // AddToCartRequest is the request sent by the AddToCart function
 type AddToCartRequest struct {
 	OfferID               string `json:"offerId"`

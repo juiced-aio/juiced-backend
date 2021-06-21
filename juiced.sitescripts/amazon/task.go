@@ -110,6 +110,8 @@ func (task *Task) RunTask() {
 			}
 		}
 		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+
+		startTime := time.Now()
 		// 4. PlaceOrder
 		placedOrder := false
 		for !placedOrder {
@@ -118,7 +120,7 @@ func (task *Task) RunTask() {
 			if needToStop {
 				return
 			}
-			placedOrder = task.PlaceOrder()
+			placedOrder = task.PlaceOrder(startTime)
 			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -128,6 +130,8 @@ func (task *Task) RunTask() {
 		}
 	case enums.FastSKUMonitor:
 		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+
+		startTime := time.Now()
 		// 3. PlaceOrder
 		placedOrder := false
 		for !placedOrder {
@@ -136,7 +140,7 @@ func (task *Task) RunTask() {
 			if needToStop {
 				return
 			}
-			placedOrder = task.PlaceOrder()
+			placedOrder = task.PlaceOrder(startTime)
 			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -489,7 +493,7 @@ func (task *Task) AddToCart() bool {
 }
 
 // Places the order
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder(startTime time.Time) bool {
 
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
@@ -567,15 +571,16 @@ func (task *Task) PlaceOrder() bool {
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask: task.Task,
-		Success:  success,
-		Content:  "",
-		Embeds:   task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo: user,
-		ItemName: task.TaskInfo.ItemName,
-		Sku:      task.TaskInfo.ASIN,
-		Price:    task.CheckoutInfo.Price,
-		Quantity: 1,
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo:     user,
+		ItemName:     task.TaskInfo.ItemName,
+		Sku:          task.TaskInfo.ASIN,
+		Price:        task.CheckoutInfo.Price,
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
 	return success

@@ -1,11 +1,14 @@
 package endpoints
 
 import (
+	"time"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"encoding/json"
@@ -83,6 +86,7 @@ func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	if err == nil {
 		err = entities.ParseProfileGroup(profileGroup, body)
 		if err == nil {
+			profileGroup.CreationDate = time.Now().Unix()
 			err = commands.CreateProfileGroup(*profileGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
@@ -203,6 +207,7 @@ func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Reque
 		if err == nil {
 			newProfileGroup.SetGroupID(uuid.New().String())
 			newProfileGroup.SetName(newProfileGroup.Name + " (Copy " + common.RandID(4) + ")")
+			newProfileGroup.CreationDate = time.Now().Unix()
 			err = commands.CreateProfileGroup(newProfileGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
@@ -382,6 +387,7 @@ func CreateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 	if err == nil {
 		err = entities.ParseProfile(profile, body)
 		if err == nil {
+			profile.CreationDate = time.Now().Unix()
 			err = commands.CreateProfile(*profile)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())
@@ -405,15 +411,37 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var profile entities.Profile
-	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		profile, err = commands.RemoveProfile(ID)
-		if err != nil {
-			errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
+		tasks, err := queries.GetTasksByProfileID(ID)
+		if err == nil {
+			next := true
+			taskStore := stores.GetTaskStore()
+			for _, task := range tasks {
+				stopped := taskStore.StopTask(&task)
+				if !stopped {
+					next = false
+					break
+				}
+			}
+			if next {
+				err = commands.RemoveTasksByProfileID(ID)
+				if err == nil {
+					profile, err = commands.RemoveProfile(ID)
+					if err != nil {
+						errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
+					}
+				} else {
+					errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
+				}
+			} else {
+				errorsList = append(errorsList, errors.StopTaskError)
+			}
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError)
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
@@ -479,18 +507,16 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 			newProfileID := uuid.New().String()
 			profile.SetID(newProfileID)
 			profile.SetName(profile.Name + " (Copy " + common.RandID(4) + ")")
+			profile.CreationDate = time.Now().Unix()
 			shippingAddress := &profile.ShippingAddress
 			shippingAddress.SetID(uuid.New().String())
 			shippingAddress.ProfileID = newProfileID
-			shippingAddress.ProfileGroupID = profile.ProfileGroupID
 			billingAddress := &profile.BillingAddress
 			billingAddress.SetID(uuid.New().String())
 			billingAddress.ProfileID = newProfileID
-			billingAddress.ProfileGroupID = profile.ProfileGroupID
 			creditCard := &profile.CreditCard
 			creditCard.SetID(uuid.New().String())
 			creditCard.ProfileID = newProfileID
-			creditCard.ProfileGroupID = profile.ProfileGroupID
 			err = commands.CreateProfile(profile)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())

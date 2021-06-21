@@ -2,6 +2,7 @@ package queries
 
 import (
 	"errors"
+	"sort"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -34,6 +35,11 @@ func GetAllProxyGroups() ([]entities.ProxyGroup, error) {
 		proxyGroups = append(proxyGroups, tempProxyGroup)
 
 	}
+
+	sort.SliceStable(proxyGroups, func(i, j int) bool {
+		return proxyGroups[i].CreationDate < proxyGroups[j].CreationDate
+	})
+
 	return proxyGroups, err
 }
 
