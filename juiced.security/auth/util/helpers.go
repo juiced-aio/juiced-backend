@@ -1002,6 +1002,161 @@ func DecryptAkamaiResponse(response EncryptedAkamaiResponse, timestamp int64) (A
 	return akamaiResponse, nil
 }
 
+func LogCheckout(itemName, sku, retailer string, price, quantity int, userInfo entities.UserInfo) (LogCheckoutResult, error) {
+	logCheckoutResponse := LogCheckoutResponse{}
+	encryptedLogCheckoutResponse := EncryptedLogCheckoutResponse{}
+
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/c"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/c"
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_HWID, err
+	}
+
+	bIV := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(bIV); err != nil {
+		return ERROR_LOG_CHECKOUT_CREATE_IV, err
+	}
+
+	key := LOG_CHECKOUT_ENCRYPTION_KEY
+
+	timestamp := time.Now().Unix()
+	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_TIMESTAMP, err
+	}
+
+	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
+
+	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_ACTIVATION_TOKEN, err
+	}
+	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_HWID, err
+	}
+	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_DEVICE_NAME, err
+	}
+
+	encryptedItemName, err := Aes256Encrypt(itemName, key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_ITEM_NAME, err
+	}
+	encryptedSKU, err := Aes256Encrypt(sku, key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_SKU, err
+	}
+	encryptedPrice, err := Aes256Encrypt(fmt.Sprint(price), key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_PRICE, err
+	}
+	encryptedQuantity, err := Aes256Encrypt(fmt.Sprint(quantity), key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_QUANTITY, err
+	}
+	encryptedRetailer, err := Aes256Encrypt(retailer, key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_RETAILER, err
+	}
+	encryptedTime, err := Aes256Encrypt(fmt.Sprint(timestamp), key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_TIME, err
+	}
+
+	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[:2], key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_A, err
+	}
+	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[2:6], key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_E, err
+	}
+	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[6:8], key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_B, err
+	}
+	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[8:17], key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_D, err
+	}
+	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[17:], key)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_C, err
+	}
+
+	logCheckoutRequest := LogCheckoutRequest{
+		HWID:            encryptedHWID,
+		DeviceName:      encryptedDeviceName,
+		ActivationToken: encryptedActivationToken,
+		ItemName:        encryptedItemName,
+		SKU:             encryptedSKU,
+		Price:           encryptedPrice,
+		Quantity:        encryptedQuantity,
+		Retailer:        encryptedRetailer,
+		Time:            encryptedTime,
+	}
+
+	data, _ := json.Marshal(logCheckoutRequest)
+	payload := bytes.NewBuffer(data)
+	request, _ := http.NewRequest("POST", endpoint, payload)
+	request.Header.Add("x-j-w", encryptedTimestamp)
+	request.Header.Add("x-j-a", encryptedHeaderA)
+	request.Header.Add("x-j-b", encryptedHeaderB)
+	request.Header.Add("x-j-c", encryptedHeaderC)
+	request.Header.Add("x-j-d", encryptedHeaderD)
+	request.Header.Add("x-j-e", encryptedHeaderE)
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_REQUEST, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_READ_BODY, err
+	}
+
+	json.Unmarshal(body, &encryptedLogCheckoutResponse)
+
+	logCheckoutResponse, err = DecryptLogCheckoutResponse(encryptedLogCheckoutResponse, timestamp)
+	if err != nil {
+		return ERROR_LOG_CHECKOUT_DECRYPT_RESPONSE, err
+	}
+
+	if !logCheckoutResponse.Success {
+		return ERROR_AKAMAI_FAILED, errors.New(logCheckoutResponse.ErrorMessage)
+	}
+
+	return SUCCESS_AKAMAI, nil
+}
+
+func DecryptLogCheckoutResponse(response EncryptedLogCheckoutResponse, timestamp int64) (LogCheckoutResponse, error) {
+	logCheckoutResponse := LogCheckoutResponse{}
+
+	key := LOG_CHECKOUT_DECRYPTION_KEY
+
+	success, err := Aes256Decrypt(response.Success, key)
+	if err != nil {
+		return logCheckoutResponse, err
+	}
+	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	if err != nil {
+		return logCheckoutResponse, err
+	}
+
+	logCheckoutResponse = LogCheckoutResponse{
+		Success:      success == "true",
+		ErrorMessage: errorMessage,
+	}
+
+	return logCheckoutResponse, nil
+}
+
 func Heartbeat(userInfo entities.UserInfo, retries int) (entities.UserInfo, error) {
 	errCode, err := Authenticate(userInfo)
 	if err == nil {

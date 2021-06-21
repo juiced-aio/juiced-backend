@@ -979,6 +979,7 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		UserInfo:     user,
 		ItemName:     task.CheckoutInfo.ItemName,
 		Sku:          task.CheckoutInfo.SKUInStock,
+		Retailer:     enums.BestBuy,
 		Price:        task.CheckoutInfo.Price,
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
