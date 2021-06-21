@@ -6,6 +6,7 @@ var userInfoSchema = `
 		email TEXT,
 		licenseKey TEXT,
 		deviceName TEXT,
+		userVer TEXT,
 		discordID TEXT,
 		discordUsername TEXT,
 		discordAvatarURL TEXT,
