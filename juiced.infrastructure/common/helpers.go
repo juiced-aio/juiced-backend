@@ -85,6 +85,7 @@ func InitDatabase() error {
 	}
 
 	for _, schema := range schemas {
+		_, err = database.Exec(schema)
 		missing := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
 		if missing != "" {
 			missingSplit := strings.Split(missing, "|")
@@ -95,7 +96,6 @@ func InitDatabase() error {
 				return err
 			}
 		}
-		_, err = database.Exec(schema)
 	}
 
 	return err

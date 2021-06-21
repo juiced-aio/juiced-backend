@@ -18,6 +18,7 @@ func StartServer() {
 	routes.RouteProfilesEndpoints(router)
 	routes.RouteTasksEndpoints(router)
 	routes.RouteCheckoutsEndpoints(router)
+	routes.RouteSettingsEndpoints(router)
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"http://localhost:3000"},
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE"},
