@@ -17,6 +17,7 @@ type MonitorEventType = string
 const (
 	MonitorStart  MonitorEventType = "MonitorStart"
 	MonitorUpdate MonitorEventType = "MonitorUpdate"
+	MonitorFail   MonitorEventType = "MonitorFail"
 	MonitorStop   MonitorEventType = "MonitorStop"
 )
 
@@ -50,6 +51,7 @@ const (
 	TaskStart    TaskEventType = "TaskStart"
 	TaskUpdate   TaskEventType = "TaskUpdate"
 	TaskStop     TaskEventType = "TaskStop"
+	TaskFail     TaskEventType = "TaskFail"
 	TaskComplete TaskEventType = "TaskComplete"
 )
 

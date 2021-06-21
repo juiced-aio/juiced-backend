@@ -79,7 +79,8 @@ func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a task failed
+		task.Task.StopFlag = true
+		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)

@@ -63,7 +63,8 @@ func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a monitor failed
+		monitor.Monitor.StopFlag = true
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
