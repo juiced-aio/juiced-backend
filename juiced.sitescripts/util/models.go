@@ -87,3 +87,10 @@ type ProcessCheckoutInfo struct {
 	Quantity     int
 	MsToCheckout int64
 }
+
+type PXValues struct {
+	RefreshAt int64
+	SetID     string
+	VID       string
+	UUID      string
+}
