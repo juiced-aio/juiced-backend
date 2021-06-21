@@ -23,11 +23,11 @@ func UpdateSettings(newSettings entities.Settings) (entities.Settings, error) {
 		return settings, err
 	}
 
-	statement, err := database.Preparex(`INSERT INTO settings (id, discordWebhook, twoCaptchaAPIKey, antiCaptchaAPIKey, capMonsterAPIKey) VALUES (?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO settings (id, successDiscordWebhook, failureDiscordWebhook, twoCaptchaAPIKey, antiCaptchaAPIKey, capMonsterAPIKey) VALUES (?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return settings, err
 	}
-	_, err = statement.Exec(0, settings.DiscordWebhook, settings.TwoCaptchaAPIKey, settings.AntiCaptchaAPIKey, settings.CapMonsterAPIKey)
+	_, err = statement.Exec(0, settings.SuccessDiscordWebhook, settings.FailureDiscordWebhook, settings.TwoCaptchaAPIKey, settings.AntiCaptchaAPIKey, settings.CapMonsterAPIKey)
 	if err != nil {
 		return settings, err
 	}

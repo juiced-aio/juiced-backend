@@ -488,7 +488,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 						} else {
 							targetTask.TCIN = inStockForShip[rand.Intn(len(inStockForShip))]
 						}
-						targetTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
 
@@ -497,7 +496,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 				for _, walmartTask := range taskStore.WalmartTasks {
 					if walmartTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
 						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Sku
-						walmartTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
 
@@ -524,7 +522,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 					if bestbuyTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
 						bestbuyTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
 						bestbuyTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
-						bestbuyTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
 
@@ -546,7 +543,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 						gamestopTask.CheckoutInfo.PID = inStock[rand.Intn(len(inStock))].PID
 						gamestopTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
 						gamestopTask.CheckoutInfo.ProductURL = inStock[rand.Intn(len(inStock))].ProductURL
-						gamestopTask.Task.DiscordWebhook = event.ProductEvent.DiscordWebhook
 					}
 				}
 			}
