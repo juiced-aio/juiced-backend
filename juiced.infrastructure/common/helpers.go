@@ -14,6 +14,16 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+// Returns true if it finds the string x in the slice s
+func InSlice(s []string, x string) bool {
+	for _, i := range s {
+		if i == x {
+			return true
+		}
+	}
+	return false
+}
+
 // Removes the string x from the slice s
 func RemoveFromSlice(s []string, x string) []string {
 	var position int

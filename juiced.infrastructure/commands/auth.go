@@ -24,6 +24,7 @@ func SetUserInfo(userInfo entities.UserInfo) error {
 		SET email = ?,
 			licenseKey = ?,
 			deviceName = ?,
+			userVer = ?,
 			discordID = ?,
 			discordUsername = ?,
 			discordAvatarURL = ?, 
@@ -35,7 +36,7 @@ func SetUserInfo(userInfo entities.UserInfo) error {
 
 	if numRows > 0 && (existingUserInfo.Email == "" || err != nil) {
 		_, err := database.Exec(userInfoInsert,
-			userInfo.Email, userInfo.LicenseKey, userInfo.DeviceName,
+			userInfo.Email, userInfo.LicenseKey, userInfo.DeviceName, userInfo.UserVer,
 			userInfo.DiscordID, userInfo.DiscordUsername, userInfo.DiscordAvatarURL,
 			userInfo.ActivationToken, userInfo.RefreshToken, userInfo.ExpiresAt)
 		if err == nil {
@@ -44,16 +45,15 @@ func SetUserInfo(userInfo entities.UserInfo) error {
 	}
 
 	userInfoInsert = `
-		INSERT INTO userInfo (
-			ID, email, licenseKey, deviceName,
-			discordID, discordUsername, discordAvatarURL, 
-			activationToken, refreshToken, expiresAt
-		) VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	INSERT INTO userInfo (
+		ID, email, licenseKey, deviceName, userVer,
+		discordID, discordUsername, discordAvatarURL, 
+		activationToken, refreshToken, expiresAt
+	) VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err = database.Exec(userInfoInsert,
-		userInfo.Email, userInfo.LicenseKey, userInfo.DeviceName,
+		userInfo.Email, userInfo.LicenseKey, userInfo.DeviceName, userInfo.UserVer,
 		userInfo.DiscordID, userInfo.DiscordUsername, userInfo.DiscordAvatarURL,
 		userInfo.ActivationToken, userInfo.RefreshToken, userInfo.ExpiresAt)
-
 	return err
 }

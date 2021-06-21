@@ -23,8 +23,8 @@ type MonitorStore struct {
 	WalmartMonitors  map[string]*walmart.Monitor
 	AmazonMonitors   map[string]*amazon.Monitor
 	BestbuyMonitors  map[string]*bestbuy.Monitor
-	GamestopMonitors map[string]*gamestop.Monitor
 	HottopicMonitors map[string]*hottopic.Monitor
+	GamestopMonitors map[string]*gamestop.Monitor
 	EventBus         *events.EventBus
 }
 
@@ -250,6 +250,50 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 	return false
 }
 
+// UpdateMonitorProxy will update the given monitor with the given proxy and return true if successful
+func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup, proxy entities.Proxy) bool {
+	switch monitor.MonitorRetailer {
+	// Future sitescripts will have a case here
+	case enums.Target:
+		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+			targetMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.Walmart:
+		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+			walmartMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.Amazon:
+		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+			amazonMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.BestBuy:
+		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+			bestbuyMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.HotTopic:
+		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+			hottopicMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.GameStop:
+		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+			gamestopMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	}
+	return false
+}
+
 var monitorStore *MonitorStore
 
 // InitMonitorStore initializes the singleton instance of the Store
@@ -259,8 +303,8 @@ func InitMonitorStore(eventBus *events.EventBus) {
 		WalmartMonitors:  make(map[string]*walmart.Monitor),
 		AmazonMonitors:   make(map[string]*amazon.Monitor),
 		BestbuyMonitors:  make(map[string]*bestbuy.Monitor),
-		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		HottopicMonitors: make(map[string]*hottopic.Monitor),
+		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		EventBus:         eventBus,
 	}
 }

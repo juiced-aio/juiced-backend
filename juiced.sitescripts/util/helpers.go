@@ -320,30 +320,6 @@ func Randomizer(s string) string {
 
 }
 
-// Returns true if it finds the string x in the slice s
-func InSlice(s []string, x string) bool {
-	for _, i := range s {
-		if i == x {
-			return true
-		}
-	}
-	return false
-}
-
-// Removes the string x from the slice s
-func RemoveFromSlice(s []string, x string) []string {
-	var position int
-	for i, r := range s {
-		if r == x {
-			position = i
-		}
-	}
-
-	s[position] = s[len(s)-1]
-
-	return s[:len(s)-1]
-}
-
 // Function to generate valid abck cookies using an API
 func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpoint string) error {
 	var ParsedBase, _ = url.Parse(BaseEndpoint)
@@ -571,4 +547,36 @@ func SendCheckout(task base.Task, itemName string, sku string, price int, quanti
 		MsToCheckout: msToCheckout,
 		Time:         time.Now().Unix(),
 	})
+}
+
+func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
+	var pxValues PXValues
+
+	_, userInfo, err := queries.GetUserInfo()
+	if err != nil {
+		return "", pxValues, err
+	}
+
+	pxResponse, _, err := sec.PX(site, ProxyCleaner(proxy), userInfo)
+	if err != nil {
+		return "", pxValues, err
+	}
+
+	return pxResponse.PX3, PXValues{
+		SetID: pxResponse.SetID,
+		UUID:  pxResponse.UUID,
+		VID:   pxResponse.SetID,
+	}, nil
+}
+
+func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) (string, error) {
+	var px3 string
+
+	_, userInfo, err := queries.GetUserInfo()
+	if err != nil {
+		return px3, err
+	}
+
+	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
+	return px3, err
 }
