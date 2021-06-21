@@ -188,18 +188,6 @@ func QueueWebhook(success bool, content string, embeds []Embed) {
 }
 
 func DiscordWebhookQueue() {
-	var hookInfos []HookInfo
-	var hookCount int
-
-	go func() {
-		for {
-			hookInfo := <-hookChan
-			hookInfo.ID = hookCount
-			hookCount++
-			hookInfos = append(hookInfos, hookInfo)
-		}
-	}()
-
 	for {
 		hook := <-hookChan
 		settings, err := queries.GetSettings()

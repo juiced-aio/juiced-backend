@@ -47,7 +47,6 @@ type DiscordWebhook struct {
 }
 
 type HookInfo struct {
-	ID      int
 	Success bool
 	Content string
 	Embeds  []Embed
