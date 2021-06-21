@@ -27,8 +27,8 @@ type TaskStore struct {
 	WalmartTasks  map[string]*walmart.Task
 	AmazonTasks   map[string]*amazon.Task
 	BestbuyTasks  map[string]*bestbuy.Task
-	GamestopTasks map[string]*gamestop.Task
 	HottopicTasks map[string]*hottopic.Task
+	GamestopTasks map[string]*gamestop.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -362,7 +362,99 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 			gamestopTask.Task.StopFlag = true
 		}
 		return true
+	}
+	return false
+}
 
+// TasksRunning checks to see if any tasks in the taskGroup are running, if so it returns true
+func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
+	for _, taskID := range taskGroup.TaskIDs {
+		switch taskGroup.MonitorRetailer {
+		// Future sitescripts will have a case here
+		case enums.Target:
+			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
+				if !targetTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.Walmart:
+			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+				if !walmartTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.Amazon:
+			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
+				if !amazonTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.BestBuy:
+			if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
+				if !bestbuyTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.HotTopic:
+			if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
+				if !hottopicTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.GameStop:
+			if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
+				if !gamestopTask.Task.StopFlag {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.Proxy) bool {
+	switch task.TaskRetailer {
+	case enums.Target:
+		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
+			targetTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.Walmart:
+		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
+			walmartTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.Amazon:
+		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
+			amazonTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.BestBuy:
+		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
+			bestbuyTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.HotTopic:
+		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
+			hottopicTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
+			gamestopTask.Task.Proxy = proxy
+		}
+		return true
 	}
 	return false
 }
@@ -376,8 +468,8 @@ func InitTaskStore(eventBus *events.EventBus) {
 		WalmartTasks:  make(map[string]*walmart.Task),
 		AmazonTasks:   make(map[string]*amazon.Task),
 		BestbuyTasks:  make(map[string]*bestbuy.Task),
-		GamestopTasks: make(map[string]*gamestop.Task),
 		HottopicTasks: make(map[string]*hottopic.Task),
+		GamestopTasks: make(map[string]*gamestop.Task),
 		EventBus:      eventBus,
 	}
 	channel := make(chan events.Event)

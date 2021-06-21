@@ -124,8 +124,37 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroup, err = commands.RemoveTaskGroup(groupID)
-		if err != nil {
+		taskGroup, err = queries.GetTaskGroup(groupID)
+		if err == nil {
+			monitorStore := stores.GetMonitorStore()
+			stopped := monitorStore.StopMonitor(&taskGroup)
+			if stopped {
+				next := true
+				for _, taskID := range taskGroup.TaskIDs {
+					taskToStop, err := queries.GetTask(taskID)
+					if err == nil {
+						taskStore := stores.GetTaskStore()
+						stopped := taskStore.StopTask(&taskToStop)
+						if !stopped {
+							next = false
+							errorsList = append(errorsList, errors.StopTaskError)
+							break
+						}
+					} else {
+						errorsList = append(errorsList, errors.GetTaskError+err.Error())
+						break
+					}
+				}
+				if next {
+					taskGroup, err = commands.RemoveTaskGroup(groupID)
+					if err != nil {
+						errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
+					}
+				}
+			} else {
+				errorsList = append(errorsList, errors.StopMonitorError)
+			}
+		} else {
 			errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
 		}
 	} else {
@@ -248,11 +277,12 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
 					}
 				} else {
-					errorsList = append(errorsList, errors.ParseTaskGroupError+err.Error())
+					errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 				}
 			} else {
-				errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
+				errorsList = append(errorsList, errors.StartMonitorError)
 			}
+
 		} else {
 			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
@@ -443,10 +473,24 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 					newTaskGroup.SetTaskIDs(newTaskIDs)
 					newTaskGroup, err = commands.UpdateTaskGroup(groupID, newTaskGroup)
 					if err == nil {
+						taskStore := stores.GetTaskStore()
 						for i := 0; i < len(deleteTasksRequestInfo.TaskIDs); i++ {
-							_, err = commands.RemoveTask(deleteTasksRequestInfo.TaskIDs[i])
-							if err != nil {
+							task, err := queries.GetTask(deleteTasksRequestInfo.TaskIDs[i])
+							if err == nil {
+								taskStore.StopTask(&task)
+								_, err = commands.RemoveTask(deleteTasksRequestInfo.TaskIDs[i])
+								if err != nil {
+									errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
+								}
+							} else {
 								errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
+							}
+						}
+						if !taskStore.TasksRunning(&newTaskGroup) {
+							monitorStore := stores.GetMonitorStore()
+							stopped := monitorStore.StopMonitor(&newTaskGroup)
+							if !stopped {
+								errorsList = append(errorsList, errors.StopMonitorError)
 							}
 						}
 					} else {
@@ -858,6 +902,7 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var taskToStop entities.Task
+	var taskGroup entities.TaskGroup
 	var err error
 	errorsList := make([]string, 0)
 
@@ -868,7 +913,20 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			stopped := taskStore.StopTask(&taskToStop)
-			if !stopped {
+			if stopped {
+				taskGroup, err = queries.GetTaskGroup(taskToStop.TaskGroupID)
+				if err == nil {
+					if !taskStore.TasksRunning(&taskGroup) {
+						monitorStore := stores.GetMonitorStore()
+						stopped = monitorStore.StopMonitor(&taskGroup)
+						if !stopped {
+							errorsList = append(errorsList, errors.StopMonitorError)
+						}
+					}
+				} else {
+					errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+				}
+			} else {
 				errorsList = append(errorsList, errors.StopTaskError)
 			}
 		} else {

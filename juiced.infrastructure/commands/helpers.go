@@ -234,6 +234,38 @@ func CreateTaskInfos(task entities.Task) error {
 	}
 	return nil
 }
+func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
+	var taskInfoSchema string
+
+	switch retailer {
+	case enums.Target:
+		taskInfoSchema = "targetTaskInfos"
+	case enums.Walmart:
+		taskInfoSchema = "walmartTaskInfos"
+	case enums.Amazon:
+		taskInfoSchema = "amazonTaskInfos"
+	case enums.BestBuy:
+		taskInfoSchema = "bestbuyTaskInfos"
+	case enums.GameStop:
+		taskInfoSchema = "gamestopTaskInfos"
+	}
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`DELETE FROM ` + taskInfoSchema + ` WHERE taskID = @p1`)
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(taskID)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
 
 func CreateShippingAddresses(profile entities.Profile) error {
 	database := common.GetDatabase()
@@ -357,19 +389,4 @@ func DeleteProfileInfos(ID string) error {
 		return err
 	}
 	return DeleteCards(ID)
-}
-
-func RemoveFromSlice(s []string, x string) []string {
-	var position int
-	for i, r := range s {
-		if r == x {
-			position = i
-		}
-	}
-	if position == 0 {
-		return s
-	}
-	s[position] = s[len(s)-1]
-
-	return s[:len(s)-1]
 }
