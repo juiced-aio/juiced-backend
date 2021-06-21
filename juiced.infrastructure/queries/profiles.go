@@ -29,12 +29,15 @@ func GetAllProfileGroups() ([]entities.ProfileGroup, error) {
 		if err != nil {
 			return profileGroups, err
 		}
+
 		if tempProfileGroup.ProfileIDsJoined != "" {
 			tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
 		}
+
+		profileGroups = append(profileGroups, tempProfileGroup)
 	}
 	sort.SliceStable(profileGroups, func(i, j int) bool {
-		return profileGroups[i].CreationDate > profileGroups[j].CreationDate
+		return profileGroups[i].CreationDate < profileGroups[j].CreationDate
 	})
 	return profileGroups, err
 }
@@ -97,7 +100,7 @@ func GetAllProfiles() ([]entities.Profile, error) {
 	}
 
 	sort.SliceStable(profiles, func(i, j int) bool {
-		return profiles[i].CreationDate > profiles[j].CreationDate
+		return profiles[i].CreationDate < profiles[j].CreationDate
 	})
 
 	return profiles, err

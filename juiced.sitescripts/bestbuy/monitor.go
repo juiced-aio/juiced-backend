@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -140,13 +141,13 @@ func (monitor *Monitor) GetSKUStock() bool {
 
 			if monitorResponse[i].Sku.Buttonstate.Buttonstate == "ADD_TO_CART" {
 				price := int(monitorResponse[i].Sku.Price.Currentprice)
-				if (monitor.SKUWithInfo[sku].MaxPrice > price || monitor.SKUWithInfo[sku].MaxPrice == -1) && !util.InSlice(monitor.SKUsSentToTask, sku) {
+				if (monitor.SKUWithInfo[sku].MaxPrice > price || monitor.SKUWithInfo[sku].MaxPrice == -1) && !common.InSlice(monitor.SKUsSentToTask, sku) {
 					stockData.SKU = sku
 					stockData.Price = int(monitorResponse[i].Sku.Price.Currentprice)
 					monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
 				}
 			} else {
-				monitor.SKUsSentToTask = util.RemoveFromSlice(monitor.SKUsSentToTask, sku)
+				monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 			}
 		}
 	}

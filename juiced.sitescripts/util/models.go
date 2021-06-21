@@ -46,6 +46,12 @@ type DiscordWebhook struct {
 	Embeds  []Embed     `json:"embeds"`
 }
 
+type HookInfo struct {
+	Success bool
+	Content string
+	Embeds  []Embed
+}
+
 type Embed struct {
 	Title     string    `json:"title"`
 	Color     int       `json:"color"`
@@ -86,4 +92,11 @@ type ProcessCheckoutInfo struct {
 	Price        int
 	Quantity     int
 	MsToCheckout int64
+}
+
+type PXValues struct {
+	RefreshAt int64
+	SetID     string
+	VID       string
+	UUID      string
 }

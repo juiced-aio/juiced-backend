@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -118,7 +119,7 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 	for _, asin := range monitor.ASINs {
-		if !util.InSlice(monitor.RunningMonitors, asin) {
+		if !common.InSlice(monitor.RunningMonitors, asin) {
 			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
 			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
 			go func(t string) {
@@ -142,7 +143,7 @@ func (monitor *Monitor) RunMonitor() {
 					if needToStop {
 						return
 					}
-					monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, t)
+					monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, t)
 					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
 					monitor.SendToTasks()
 				} else {

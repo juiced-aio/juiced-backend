@@ -8,6 +8,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"encoding/json"
@@ -410,15 +411,37 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var profile entities.Profile
-	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		profile, err = commands.RemoveProfile(ID)
-		if err != nil {
-			errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
+		tasks, err := queries.GetTasksByProfileID(ID)
+		if err == nil {
+			next := true
+			taskStore := stores.GetTaskStore()
+			for _, task := range tasks {
+				stopped := taskStore.StopTask(&task)
+				if !stopped {
+					next = false
+					break
+				}
+			}
+			if next {
+				err = commands.RemoveTasksByProfileID(ID)
+				if err == nil {
+					profile, err = commands.RemoveProfile(ID)
+					if err != nil {
+						errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
+					}
+				} else {
+					errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
+				}
+			} else {
+				errorsList = append(errorsList, errors.StopTaskError)
+			}
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError)
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)

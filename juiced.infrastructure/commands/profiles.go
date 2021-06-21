@@ -73,7 +73,7 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 			return profileGroup, err
 		}
 
-		profile.ProfileGroupIDs = RemoveFromSlice(profile.ProfileGroupIDs, groupID)
+		profile.ProfileGroupIDs = common.RemoveFromSlice(profile.ProfileGroupIDs, groupID)
 
 		_, err = UpdateProfile(profile.ID, profile)
 		if err != nil {

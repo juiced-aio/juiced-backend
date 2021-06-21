@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -77,7 +78,7 @@ func (monitor *Monitor) RunMonitor() {
 			if needToStop {
 				return
 			}
-			monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
 			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
 			monitor.SendToTasks()
 		}

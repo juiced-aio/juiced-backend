@@ -1,9 +1,12 @@
 package walmart
 
 import (
+	"fmt"
+	"net/url"
 	"strings"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
@@ -23,6 +26,50 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	if len(referer) != 0 {
 		request.Header.Set("Referer", referer[0])
 	}
+}
+
+func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, error) {
+	px3, pxValues, err := util.GetPXCookie("walmart", proxy)
+	if err != nil {
+		fmt.Println("Error getting PX cookie: " + err.Error())
+		return pxValues, err
+	}
+	cookie := &http.Cookie{
+		Name:   "_px3",
+		Value:  px3,
+		Path:   "/",
+		Domain: ".walmart.com",
+	}
+	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
+	if err != nil {
+		fmt.Println("Error parsing https://walmart.com/ to set PX cookie: " + err.Error())
+		return pxValues, err
+	}
+	client.Jar.SetCookies(u, []*http.Cookie{cookie})
+	return pxValues, nil
+}
+
+func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
+	token := "" // TODO @silent
+	px3, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, token, proxy)
+	if err != nil {
+		fmt.Println("Error getting PXCap cookie: " + err.Error())
+		return err
+	}
+
+	cookie := &http.Cookie{
+		Name:   "_px3",
+		Value:  px3,
+		Path:   "/",
+		Domain: ".walmart.com",
+	}
+	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
+	if err != nil {
+		fmt.Println("Error parsing https://walmart.com/ to set PXCap cookie: " + err.Error())
+		return err
+	}
+	client.Jar.SetCookies(u, []*http.Cookie{cookie})
+	return nil
 }
 
 //Converts a list of in-stock skus to a WarlmartSingleStockData structure.

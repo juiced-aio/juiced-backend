@@ -177,8 +177,38 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	return response, newBody, nil
 }
 
+var hookChan = make(chan HookInfo)
+
+func QueueWebhook(success bool, content string, embeds []Embed) {
+	hookChan <- HookInfo{
+		Success: success,
+		Content: content,
+		Embeds:  embeds,
+	}
+}
+
+func DiscordWebhookQueue() {
+	for {
+		hook := <-hookChan
+		settings, err := queries.GetSettings()
+		if err != nil {
+			return
+		}
+		var webhookURL string
+		if hook.Success {
+			webhookURL = settings.SuccessDiscordWebhook
+		} else {
+			webhookURL = settings.FailureDiscordWebhook
+		}
+		if webhookURL != "" {
+			SendDiscordWebhook(webhookURL, hook.Success, hook.Embeds)
+		}
+		time.Sleep(2*time.Second + (time.Second / 2))
+	}
+}
+
 // SendDiscordWebhook sends checkout information to the Discord Webhook
-func SendDiscordWebhook(discordWebhook string, success bool, fields []Field, imageURL string) bool {
+func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) bool {
 	client := http.Client{
 		Transport: &http.Transport{},
 	}
@@ -189,7 +219,10 @@ func SendDiscordWebhook(discordWebhook string, success bool, fields []Field, ima
 		AddHeadersFunction: func(request *http.Request, e ...string) {
 			request.Header.Set("content-type", "application/json")
 		},
-		RequestBodyStruct: CreateDiscordWebhook(success, fields, imageURL),
+		RequestBodyStruct: DiscordWebhook{
+			Content: nil,
+			Embeds:  embeds,
+		},
 	})
 	if err != nil {
 		return false
@@ -285,30 +318,6 @@ func Randomizer(s string) string {
 	}
 	return ""
 
-}
-
-// Returns true if it finds the string x in the slice s
-func InSlice(s []string, x string) bool {
-	for _, i := range s {
-		if i == x {
-			return true
-		}
-	}
-	return false
-}
-
-// Removes the string x from the slice s
-func RemoveFromSlice(s []string, x string) []string {
-	var position int
-	for i, r := range s {
-		if r == x {
-			position = i
-		}
-	}
-
-	s[position] = s[len(s)-1]
-
-	return s[:len(s)-1]
 }
 
 // Function to generate valid abck cookies using an API
@@ -492,10 +501,38 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	return errors.New(resp.Status)
 }
 
+func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
+	for _, secEmbed := range secEmbeds {
+		tempEmbed := Embed{
+			Title: secEmbed.Title,
+			Color: secEmbed.Color,
+			Footer: Footer{
+				Text:    secEmbed.Footer.Text,
+				IconURL: secEmbed.Footer.IconURL,
+			},
+			Timestamp: secEmbed.Timestamp,
+			Thumbnail: Thumbnail{
+				URL: secEmbed.Thumbnail.URL,
+			},
+		}
+		for _, secField := range secEmbed.Fields {
+			tempEmbed.Fields = append(tempEmbed.Fields, Field{
+				Name:   secField.Name,
+				Value:  secField.Value,
+				Inline: secField.Inline,
+			})
+		}
+		embeds = append(embeds, tempEmbed)
+
+	}
+	return
+}
+
 // Processes each checkout by sending a webhook and logging the checkout
 func ProcessCheckout(pci ProcessCheckoutInfo) {
-	sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
-	SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
+	go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
+	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
+	go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
 }
 
 // Logs the checkout
@@ -510,4 +547,36 @@ func SendCheckout(task base.Task, itemName string, sku string, price int, quanti
 		MsToCheckout: msToCheckout,
 		Time:         time.Now().Unix(),
 	})
+}
+
+func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
+	var pxValues PXValues
+
+	_, userInfo, err := queries.GetUserInfo()
+	if err != nil {
+		return "", pxValues, err
+	}
+
+	pxResponse, _, err := sec.PX(site, ProxyCleaner(proxy), userInfo)
+	if err != nil {
+		return "", pxValues, err
+	}
+
+	return pxResponse.PX3, PXValues{
+		SetID: pxResponse.SetID,
+		UUID:  pxResponse.UUID,
+		VID:   pxResponse.SetID,
+	}, nil
+}
+
+func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) (string, error) {
+	var px3 string
+
+	_, userInfo, err := queries.GetUserInfo()
+	if err != nil {
+		return px3, err
+	}
+
+	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
+	return px3, err
 }
