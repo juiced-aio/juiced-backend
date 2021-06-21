@@ -80,7 +80,7 @@ type SensorRequest struct {
 	SensorData string `json:"sensor_data"`
 }
 
-// All info needed for ProccessCheckout
+// All info needed for ProcessCheckout
 type ProcessCheckoutInfo struct {
 	BaseTask     base.Task
 	Success      bool
@@ -89,6 +89,7 @@ type ProcessCheckoutInfo struct {
 	UserInfo     entities.UserInfo
 	ItemName     string
 	Sku          string
+	Retailer     string
 	Price        int
 	Quantity     int
 	MsToCheckout int64

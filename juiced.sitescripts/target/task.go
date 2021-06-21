@@ -615,6 +615,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 		UserInfo:     user,
 		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
 		Sku:          task.TCIN,
+		Retailer:     enums.Target,
 		Price:        int(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
