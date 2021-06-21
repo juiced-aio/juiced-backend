@@ -65,7 +65,7 @@ func (monitor *Monitor) RunMonitor() {
 	if monitor.PXValues.RefreshAt == 0 {
 		go monitor.RefreshPX3()
 		for monitor.PXValues.RefreshAt == 0 {
-		} // This ensures we don't continue until the PX cookie is set.
+		}
 	}
 	needToStop := monitor.CheckForStop()
 	if needToStop {
@@ -104,7 +104,6 @@ func (monitor *Monitor) RunMonitor() {
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
 func (monitor *Monitor) RefreshPX3() {
-	// If the function panics due to a runtime error, recover and restart it
 	defer func() {
 		recover()
 		monitor.RefreshPX3()

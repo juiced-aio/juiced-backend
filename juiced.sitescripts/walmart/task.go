@@ -34,7 +34,6 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
 func (task *Task) RefreshPX3() {
-	// If the function panics due to a runtime error, recover and restart it
 	defer func() {
 		recover()
 		task.RefreshPX3()
