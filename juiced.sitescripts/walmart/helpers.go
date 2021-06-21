@@ -28,14 +28,34 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	}
 }
 
+func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, error) {
+	px3, pxValues, err := util.GetPXCookie("walmart", proxy)
+	if err != nil {
+		fmt.Println("Error getting PX cookie: " + err.Error())
+		return pxValues, err
+	}
+	cookie := &http.Cookie{
+		Name:   "_px3",
+		Value:  px3,
+		Path:   "/",
+		Domain: ".walmart.com",
+	}
+	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
+	if err != nil {
+		fmt.Println("Error parsing https://walmart.com/ to set PX cookie: " + err.Error())
+		return pxValues, err
+	}
+	client.Jar.SetCookies(u, []*http.Cookie{cookie})
+	return pxValues, nil
+}
+
 func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
-	token := "" // In the future, this will be replaced with something like util.RequestCaptchaToken(captchaURL). For now, just leave it as a blank string (it won't work, but we just want the infrastructure so we can update it once we have Captcha ready).
+	token := "" // TODO @silent
 	px3, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, token, proxy)
 	if err != nil {
 		fmt.Println("Error getting PXCap cookie: " + err.Error())
 		return err
 	}
-	var cookies []*http.Cookie
 
 	cookie := &http.Cookie{
 		Name:   "_px3",
@@ -43,13 +63,12 @@ func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.P
 		Path:   "/",
 		Domain: ".walmart.com",
 	}
-	cookies = append(cookies, cookie)
 	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
 	if err != nil {
 		fmt.Println("Error parsing https://walmart.com/ to set PXCap cookie: " + err.Error())
 		return err
 	}
-	client.Jar.SetCookies(u, cookies)
+	client.Jar.SetCookies(u, []*http.Cookie{cookie})
 	return nil
 }
 

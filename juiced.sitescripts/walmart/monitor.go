@@ -111,10 +111,10 @@ func (monitor *Monitor) RefreshPX3() {
 
 	for {
 		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			_, pxValues, err := util.GetPXCookie("walmart", monitor.Monitor.Proxy)
+			pxValues, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client)
 
 			if err != nil {
-				return // Eventually we'll want to handle this. But if we run into errors and keep requesting cookies, we might send a TON of requests to our API, and I don't want them to get mad at us for sending too many.
+				return // TODO @silent
 			}
 			monitor.PXValues = pxValues
 		}
