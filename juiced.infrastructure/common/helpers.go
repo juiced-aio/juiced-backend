@@ -27,16 +27,17 @@ func InSlice(s []string, x string) bool {
 
 // Removes the string x from the slice s
 func RemoveFromSlice(s []string, x string) []string {
-	var position int
-	for i, r := range s {
-		if r == x {
-			position = i
+	if InSlice(s, x) {
+		var position int
+		for i, r := range s {
+			if r == x {
+				position = i
+			}
 		}
+		return append(s[:position], s[position+1:]...)
 	}
 
-	s[position] = s[len(s)-1]
-
-	return s[:len(s)-1]
+	return s
 }
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
