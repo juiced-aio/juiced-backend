@@ -68,25 +68,31 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 	for _, pid := range monitor.Pids {
-		somethingInStock := false
+		stockData := HotTopicInStockData{}
 		switch monitor.PidWithInfo[pid.Pid].MonitorType {
 		case enums.SKUMonitor:
-			somethingInStock = monitor.StockMonitor(pid)
+			stockData = monitor.StockMonitor(pid)
 		}
-		if somethingInStock {
+		if stockData.PID != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
 				return
 			}
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
-			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-			monitor.SendToTasks()
+			var inSlice bool
+			for _, monitorStock := range monitor.InStock {
+				inSlice = monitorStock.PID == stockData.PID
+			}
+			if !inSlice {
+				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
+				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+			}
 		}
 
 	}
 }
 
-func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
+func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
+	stockData := HotTopicInStockData{}
 	BuildEndpoint := MonitorEndpoint + pid.Pid
 
 	//Values have to be exact and case sensistive
@@ -126,24 +132,23 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 	})
 	if err != nil {
 		fmt.Println(err)
+		return stockData
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
-		stockInfo := monitor.StockInfo(body, pid)
-		return stockInfo
+		return monitor.StockInfo(body, pid)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate)
-		return false
+		return stockData
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
-		return false
+		return stockData
 	}
 }
 
-func (monitor *Monitor) StockInfo(body string, pid PidSingle) bool {
+func (monitor *Monitor) StockInfo(body string, pid PidSingle) HotTopicInStockData {
+	stockData := HotTopicInStockData{}
 	doc := soup.HTMLParse(body)
 
 	ShipTable := doc.Find("div", "class", "method-descr__label")
@@ -153,7 +158,7 @@ func (monitor *Monitor) StockInfo(body string, pid PidSingle) bool {
 	}
 	if !InStock {
 		//not instock or backorder return false
-		return InStock
+		return stockData
 	}
 
 	//We are in stock for this size/color, lets check price is in budget.
@@ -163,20 +168,11 @@ func (monitor *Monitor) StockInfo(body string, pid PidSingle) bool {
 
 	if !InBudget {
 		//not in budget return false
-		return InBudget
+		return stockData
 	}
 
 	//we are in stock and in budget
-	monitor.EventInfo = events.HotTopicSingleStockData{
+	return HotTopicInStockData{
 		PID: pid.Pid,
 	}
-
-	//EventInfo updated now we return true
-	return true
-}
-func (monitor *Monitor) SendToTasks() {
-	data := events.HottopicStockData{
-		InStock: []events.HotTopicSingleStockData{monitor.EventInfo},
-	}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.HotTopic, data, monitor.Monitor.TaskGroup.GroupID)
 }

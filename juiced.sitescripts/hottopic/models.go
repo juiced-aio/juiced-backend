@@ -2,7 +2,6 @@ package hottopic
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -42,8 +41,12 @@ type Monitor struct {
 	Monitor         base.Monitor
 	RunningMonitors []string
 	Pids            []PidSingle
-	EventInfo       events.HotTopicSingleStockData
+	InStock         []HotTopicInStockData
 	PidWithInfo     map[string]entities.HottopicSingleMonitorInfo
+}
+
+type HotTopicInStockData struct {
+	PID string
 }
 
 type PidSingle struct {

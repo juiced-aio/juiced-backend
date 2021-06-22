@@ -204,26 +204,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) bool {
 		// If the Task is already running, then we're all set already
 		if task.TaskStatus == enums.TaskIdle {
 			// Otherwise, start the Task
-			switch task.TaskRetailer {
-			// Future sitescripts will have a case here
-			case enums.Target:
-				go taskStore.TargetTasks[task.ID].RunTask()
-
-			case enums.Walmart:
-				go taskStore.WalmartTasks[task.ID].RunTask()
-
-			case enums.Amazon:
-				go taskStore.AmazonTasks[task.ID].RunTask()
-
-			case enums.BestBuy:
-				go taskStore.BestbuyTasks[task.ID].RunTask()
-
-			case enums.HotTopic:
-				go taskStore.HottopicTasks[task.ID].RunTask()
-
-			case enums.GameStop:
-				go taskStore.GamestopTasks[task.ID].RunTask()
-			}
+			taskStore.RunTask(task.TaskRetailer, task.ID)
 		}
 	}
 
@@ -300,26 +281,7 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	}
 
 	// Otherwise, start the Task
-	switch task.TaskRetailer {
-	// Future sitescripts will have a case here
-	case enums.Target:
-		go taskStore.TargetTasks[task.ID].RunTask()
-
-	case enums.Walmart:
-		go taskStore.WalmartTasks[task.ID].RunTask()
-
-	case enums.Amazon:
-		go taskStore.AmazonTasks[task.ID].RunTask()
-
-	case enums.BestBuy:
-		go taskStore.BestbuyTasks[task.ID].RunTask()
-
-	case enums.HotTopic:
-		go taskStore.HottopicTasks[task.ID].RunTask()
-
-	case enums.GameStop:
-		go taskStore.GamestopTasks[task.ID].RunTask()
-	}
+	taskStore.RunTask(task.TaskRetailer, task.ID)
 	return true
 }
 
@@ -459,6 +421,29 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.
 	return false
 }
 
+func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
+	switch retailer {
+	// Future sitescripts will have a case here
+	case enums.Target:
+		go taskStore.TargetTasks[taskID].RunTask()
+
+	case enums.Walmart:
+		go taskStore.WalmartTasks[taskID].RunTask()
+
+	case enums.Amazon:
+		go taskStore.AmazonTasks[taskID].RunTask()
+
+	case enums.BestBuy:
+		go taskStore.BestbuyTasks[taskID].RunTask()
+
+	case enums.HotTopic:
+		go taskStore.HottopicTasks[taskID].RunTask()
+
+	case enums.GameStop:
+		go taskStore.GamestopTasks[taskID].RunTask()
+	}
+}
+
 var taskStore *TaskStore
 
 // InitTaskStore initializes the singleton instance of the TaskStore
@@ -471,82 +456,6 @@ func InitTaskStore(eventBus *events.EventBus) {
 		HottopicTasks: make(map[string]*hottopic.Task),
 		GamestopTasks: make(map[string]*gamestop.Task),
 		EventBus:      eventBus,
-	}
-	channel := make(chan events.Event)
-	eventBus.Subscribe(channel)
-	for {
-		event := <-channel
-		if event.EventType == events.ProductEventType {
-			switch event.ProductEvent.Retailer {
-			case enums.Target:
-				inStockForPickup := event.ProductEvent.TargetData.InStockForPickup
-				inStockForShip := event.ProductEvent.TargetData.InStockForShip
-				for _, targetTask := range taskStore.TargetTasks {
-					if targetTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(inStockForPickup) > 0 {
-							targetTask.TCIN = inStockForPickup[rand.Intn(len(inStockForPickup))]
-						} else {
-							targetTask.TCIN = inStockForShip[rand.Intn(len(inStockForShip))]
-						}
-					}
-				}
-
-			case enums.Walmart:
-				inStockForShip := event.ProductEvent.WalmartData.InStockForShip
-				for _, walmartTask := range taskStore.WalmartTasks {
-					if walmartTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						walmartTask.Sku = inStockForShip[rand.Intn(len(inStockForShip))].Sku
-					}
-				}
-
-			case enums.Amazon:
-				inStock := event.ProductEvent.AmazonData.InStock
-				for _, amazonTask := range taskStore.AmazonTasks {
-					if amazonTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						amazonTask.TaskInfo.ASIN = inStock[rand.Intn(len(inStock))].ASIN
-						amazonTask.TaskInfo.OfferID = inStock[rand.Intn(len(inStock))].OfferID
-						amazonTask.TaskInfo.ItemName = inStock[rand.Intn(len(inStock))].ItemName
-						amazonTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
-						amazonTask.CheckoutInfo.AntiCsrf = inStock[rand.Intn(len(inStock))].AntiCsrf
-						amazonTask.CheckoutInfo.PID = inStock[rand.Intn(len(inStock))].PID
-						amazonTask.CheckoutInfo.RID = inStock[rand.Intn(len(inStock))].RID
-						amazonTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
-						amazonTask.CheckoutInfo.UA = inStock[rand.Intn(len(inStock))].UA
-						amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(inStock[rand.Intn(len(inStock))].MonitorType)
-					}
-				}
-
-			case enums.BestBuy:
-				inStock := event.ProductEvent.BestbuyData.InStock
-				for _, bestbuyTask := range taskStore.BestbuyTasks {
-					if bestbuyTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						bestbuyTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
-						bestbuyTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
-					}
-				}
-
-			case enums.HotTopic:
-				inStock := event.ProductEvent.HottopicData.InStock
-				for _, hotTopicTask := range taskStore.HottopicTasks {
-					if hotTopicTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						hotTopicTask.Pid = inStock[rand.Intn(len(inStock))].PID
-					}
-				}
-
-			case enums.GameStop:
-				inStock := event.ProductEvent.GamestopData.InStock
-				for _, gamestopTask := range taskStore.GamestopTasks {
-					if gamestopTask.Task.Task.TaskGroupID == event.ProductEvent.MonitorID {
-						gamestopTask.CheckoutInfo.SKUInStock = inStock[rand.Intn(len(inStock))].SKU
-						gamestopTask.CheckoutInfo.Price = inStock[rand.Intn(len(inStock))].Price
-						gamestopTask.CheckoutInfo.ItemName = inStock[rand.Intn(len(inStock))].ItemName
-						gamestopTask.CheckoutInfo.PID = inStock[rand.Intn(len(inStock))].PID
-						gamestopTask.CheckoutInfo.ImageURL = inStock[rand.Intn(len(inStock))].ImageURL
-						gamestopTask.CheckoutInfo.ProductURL = inStock[rand.Intn(len(inStock))].ProductURL
-					}
-				}
-			}
-		}
 	}
 }
 

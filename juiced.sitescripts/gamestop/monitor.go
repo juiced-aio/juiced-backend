@@ -98,20 +98,32 @@ func (monitor *Monitor) RunMonitor() {
 					// TODO @silent: Re-run this specific monitor
 				}()
 
-				somethingInStock := monitor.GetSKUStock(t)
+				stockData := monitor.GetSKUStock(t)
 
-				if somethingInStock {
+				if stockData.SKU != "" {
 					needToStop := monitor.CheckForStop()
 					if needToStop {
 						return
 					}
-					monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, t)
-					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-					monitor.SendToTasks()
+					var inSlice bool
+					for _, monitorStock := range monitor.InStock {
+						inSlice = monitorStock.SKU == stockData.SKU
+					}
+					if !inSlice {
+						monitor.InStock = append(monitor.InStock, stockData)
+						monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, t)
+						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+					}
 				} else {
 					if len(monitor.RunningMonitors) > 0 {
 						if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
 							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+						}
+					}
+					for i, monitorStock := range monitor.InStock {
+						if monitorStock.SKU == stockData.SKU {
+							monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+							break
 						}
 					}
 					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
@@ -125,7 +137,8 @@ func (monitor *Monitor) RunMonitor() {
 }
 
 // Checks if the item is instock and fills the monitors EventInfo if so
-func (monitor *Monitor) GetSKUStock(sku string) bool {
+func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
+	stockData := GamestopInStockData{}
 	monitorResponse := MonitorResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
@@ -150,7 +163,6 @@ func (monitor *Monitor) GetSKUStock(sku string) bool {
 		fmt.Println(err.Error())
 	}
 
-	stockData := events.GamestopSingleStockData{}
 	switch resp.StatusCode {
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
@@ -172,30 +184,20 @@ func (monitor *Monitor) GetSKUStock(sku string) bool {
 				stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
 
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
-
-				monitor.EventInfo = stockData
-				return true
+				return stockData
 			} else {
-				return false
+				return stockData
 			}
 
 		case "Not Available":
 			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
-			return false
+			return stockData
 		default:
 			fmt.Println(monitorResponse.Gtmdata.Productinfo.Availability)
-			return false
+			return stockData
 		}
 	default:
-		return false
+		return stockData
 	}
 
-}
-
-// SendToTasks sends the product info to tasks
-func (monitor *Monitor) SendToTasks() {
-	data := events.GamestopStockData{
-		InStock: []events.GamestopSingleStockData{monitor.EventInfo},
-	}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.GameStop, data, monitor.Monitor.TaskGroup.GroupID)
 }

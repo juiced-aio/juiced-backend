@@ -72,7 +72,7 @@ func (monitor *Monitor) RunMonitor() {
 	if needToStop {
 		return
 	}
-	inStockForShip := []events.WalmartSingleStockData{}
+	inStockForShip := []WalmartInStockData{}
 	outOfStockForShip := make([]string, 0)
 
 	switch monitor.MonitorType {
@@ -91,7 +91,7 @@ func (monitor *Monitor) RunMonitor() {
 			return
 		}
 		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-		monitor.SendToTasks(inStockForShip)
+		monitor.InStockForShip = inStockForShip
 	} else {
 		if len(outOfStockForShip) > 0 {
 			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
@@ -123,8 +123,8 @@ func (monitor *Monitor) RefreshPX3() {
 }
 
 //This is for checking if a list of Skus are instock. Here we also check if there is a maximum price.
-func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string) {
-	inStockForShip := make([]events.WalmartSingleStockData, 0)
+func (monitor *Monitor) GetSkuStock() ([]WalmartInStockData, []string) {
+	inStockForShip := make([]WalmartInStockData, 0)
 	outOfStockForShip := make([]string, 0)
 	var skus []string
 
@@ -159,11 +159,28 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 			fmt.Println("Cookie updated.")
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
-			inStockForShip = ConvertSkuListToWalmartSingleStock(skus)
+			for _, thisStock := range ConvertSkuListToWalmartSingleStock(skus) {
+				var inSlice bool
+				for _, monitorStock := range monitor.InStockForShip {
+					if monitorStock.Sku == thisStock.Sku {
+						inSlice = true
+					}
+				}
+				if !inSlice {
+					inStockForShip = append(inStockForShip, thisStock)
+				}
+			}
 		} else {
 			responseBody := soup.HTMLParse(string(body))
 			if !UrlExistsInResponse(responseBody) {
-				fmt.Println("All requested items are out of stock.")
+				for _, sku := range skus {
+					for i, monitorStock := range monitor.InStockForShip {
+						if monitorStock.Sku == sku {
+							monitor.InStockForShip = append(monitor.InStockForShip[:i], monitor.InStockForShip[i+1:]...)
+							break
+						}
+					}
+				}
 				outOfStockForShip = skus
 			} else {
 				foundItems := ParseInstockSku(responseBody)
@@ -175,7 +192,15 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 						}
 					}
 				}
-				inStockForShip = ConvertSkuListToWalmartSingleStock(foundItems)
+				for _, thisStock := range ConvertSkuListToWalmartSingleStock(foundItems) {
+					var inSlice bool
+					for _, monitorStock := range monitor.InStockForShip {
+						inSlice = monitorStock.Sku == thisStock.Sku
+					}
+					if !inSlice {
+						inStockForShip = append(inStockForShip, thisStock)
+					}
+				}
 				fmt.Print(inStockForShip)
 				fmt.Println(" items are in-stock")
 			}
@@ -241,9 +266,4 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
 	}
 	return price
-}
-
-func (monitor *Monitor) SendToTasks(inStockForShip []events.WalmartSingleStockData) {
-	data := events.WalmartStockData{InStockForShip: inStockForShip}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.Walmart, data, monitor.Monitor.TaskGroup.GroupID)
 }
