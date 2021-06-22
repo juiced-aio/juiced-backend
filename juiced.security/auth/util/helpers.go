@@ -1211,17 +1211,17 @@ func Aes256Decrypt(encryptedText string, key string) (string, error) {
 	}
 
 	if len(cipherText) < aes.BlockSize {
-		return "", errors.New("cipher text is too short")
+		return "", &CipherTextTooShortError{}
 	}
 	iv := cipherText[:aes.BlockSize]
 	cipherText = cipherText[aes.BlockSize:]
 	if len(cipherText)%aes.BlockSize != 0 {
-		return "", errors.New("cipher text not a multiple of the block size")
+		return "", &CipherTextNotMultipleOfBlockSizeError{}
 	}
 
 	mode := cipher.NewCBCDecrypter(block, iv)
 	mode.CryptBlocks(cipherText, cipherText)
 
-	cipherText, _ = pkcs7.Unpad(cipherText, aes.BlockSize)
-	return fmt.Sprintf("%s", cipherText), nil
+	cipherText, err = pkcs7.Unpad(cipherText, aes.BlockSize)
+	return string(cipherText), err
 }
