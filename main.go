@@ -53,30 +53,27 @@ func main() {
 			go util.DiscordWebhookQueue()
 			go api.StartServer()
 
-			err := client.Login("855966802831343616")
-			if err != nil {
-				eventBus.PublishCloseEvent()
-			}
-
-			start := time.Now()
-			err = client.SetActivity(client.Activity{
-				Details:    "Beta-" + userInfo.UserVer,
-				LargeImage: "main-juiced",
-				LargeText:  "Juiced AIO",
-				SmallImage: "",
-				SmallText:  "",
-				Timestamps: &client.Timestamps{
-					Start: &start,
-				},
-				Buttons: []*client.Button{
-					{
-						Label: "Website",
-						Url:   "https://dash.juicedbot.io/",
+			err := client.Login("856936229223006248")
+			// No need to close the app if Discord RPC doesn't work. It's not a necessary feature.
+			// If it breaks for everyone at once for some reason, don't want to entirely break the app without a hotfix.
+			if err == nil {
+				start := time.Now()
+				client.SetActivity(client.Activity{
+					Details:    "Beta - " + userInfo.UserVer, // TODO @silent -- Show the application version, rather than the backend version
+					LargeImage: "main-juiced",
+					LargeText:  "Juiced",
+					SmallImage: "",
+					SmallText:  "",
+					Timestamps: &client.Timestamps{
+						Start: &start,
 					},
-				},
-			})
-			if err != nil {
-				eventBus.PublishCloseEvent()
+					Buttons: []*client.Button{
+						{
+							Label: "Dashboard",
+							Url:   "https://dash.juicedbot.io/",
+						},
+					},
+				})
 			}
 		}
 	}()
