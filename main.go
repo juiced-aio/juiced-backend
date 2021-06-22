@@ -12,6 +12,7 @@ import (
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	ws "backend.juicedbot.io/juiced.ws"
+	"github.com/hugolgst/rich-go/client"
 )
 
 func main() {
@@ -51,6 +52,32 @@ func main() {
 			stores.InitCaptchaStore(eventBus)
 			go util.DiscordWebhookQueue()
 			go api.StartServer()
+
+			err := client.Login("855966802831343616")
+			if err != nil {
+				eventBus.PublishCloseEvent()
+			}
+
+			start := time.Now()
+			err = client.SetActivity(client.Activity{
+				Details:    "Beta-" + userInfo.UserVer,
+				LargeImage: "main-juiced",
+				LargeText:  "Juiced AIO",
+				SmallImage: "",
+				SmallText:  "",
+				Timestamps: &client.Timestamps{
+					Start: &start,
+				},
+				Buttons: []*client.Button{
+					{
+						Label: "Website",
+						Url:   "https://dash.juicedbot.io/",
+					},
+				},
+			})
+			if err != nil {
+				eventBus.PublishCloseEvent()
+			}
 		}
 	}()
 	for {
