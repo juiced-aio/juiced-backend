@@ -7,7 +7,6 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/anaskhan96/soup"
@@ -73,9 +72,9 @@ func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.P
 }
 
 //Converts a list of in-stock skus to a WarlmartSingleStockData structure.
-func ConvertSkuListToWalmartSingleStock(skuCodes []string) []events.WalmartSingleStockData {
-	inStock := events.WalmartSingleStockData{}
-	inStockForShip := make([]events.WalmartSingleStockData, 0)
+func ConvertSkuListToWalmartSingleStock(skuCodes []string) []WalmartInStockData {
+	inStock := WalmartInStockData{}
+	inStockForShip := make([]WalmartInStockData, 0)
 
 	for i := 0; i < len(skuCodes); i++ {
 		inStock.Sku = skuCodes[i]

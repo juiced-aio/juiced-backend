@@ -38,11 +38,13 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor       base.Monitor
-	MonitorType   enums.MonitorType
-	TCINs         []string
-	StoreID       string
-	TCINsWithInfo map[string]entities.TargetSingleMonitorInfo
+	Monitor          base.Monitor
+	MonitorType      enums.MonitorType
+	TCINs            []string
+	StoreID          string
+	TCINsWithInfo    map[string]entities.TargetSingleMonitorInfo
+	InStockForShip   []string
+	InStockForPickup []string
 }
 
 // Task info
