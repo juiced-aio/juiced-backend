@@ -87,7 +87,6 @@ func InitDatabase() error {
 	for _, schema := range schemas {
 		_, err = database.Exec(schema)
 		tableName, _ := FindInString(schema, "EXISTS ", " \\(")
-		fmt.Println(tableName)
 		missing, extra := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
 		for i := range missing {
 			missingSplit := strings.Split(missing[i], "|")
