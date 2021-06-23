@@ -297,21 +297,25 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 // TODO: Test the efficiency of these functions.
 // It's technically O(n^2), but most users won't have more than 5-10 task groups running at once, tops.
 func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
-	for monitorID, amazonMonitor := range monitorStore.AmazonMonitors {
-		taskGroup := amazonMonitor.Monitor.TaskGroup
-		for _, taskID := range taskGroup.TaskIDs {
-			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
-				if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
-					amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ASIN
-					amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].OfferID
-					amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ItemName
-					amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].Price
-					amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].AntiCsrf
-					amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].PID
-					amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].RID
-					amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ImageURL
-					amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].UA
-					amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].MonitorType)
+	for {
+		for monitorID, amazonMonitor := range monitorStore.AmazonMonitors {
+			if len(amazonMonitor.InStock) > 0 {
+				taskGroup := amazonMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
+						if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
+							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ASIN
+							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].OfferID
+							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ItemName
+							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].Price
+							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].AntiCsrf
+							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].PID
+							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].RID
+							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ImageURL
+							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].UA
+							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].MonitorType)
+						}
+					}
 				}
 			}
 		}
@@ -319,13 +323,17 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 }
 
 func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
-	for monitorID, bestbuyMonitor := range monitorStore.BestbuyMonitors {
-		taskGroup := bestbuyMonitor.Monitor.TaskGroup
-		for _, taskID := range taskGroup.TaskIDs {
-			if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
-				if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
-					bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].SKU
-					bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].Price
+	for {
+		for monitorID, bestbuyMonitor := range monitorStore.BestbuyMonitors {
+			if len(bestbuyMonitor.InStock) > 0 {
+				taskGroup := bestbuyMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
+						if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
+							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].SKU
+							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].Price
+						}
+					}
 				}
 			}
 		}
@@ -333,17 +341,21 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 }
 
 func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
-	for monitorID, gamestopMonitor := range monitorStore.GamestopMonitors {
-		taskGroup := gamestopMonitor.Monitor.TaskGroup
-		for _, taskID := range taskGroup.TaskIDs {
-			if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
-				if ok && gamestopTask.Task.Task.TaskGroupID == monitorID {
-					gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].SKU
-					gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].Price
-					gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ItemName
-					gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].PID
-					gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ImageURL
-					gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ProductURL
+	for {
+		for monitorID, gamestopMonitor := range monitorStore.GamestopMonitors {
+			if len(gamestopMonitor.InStock) > 0 {
+				taskGroup := gamestopMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
+						if ok && gamestopTask.Task.Task.TaskGroupID == monitorID {
+							gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].SKU
+							gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].Price
+							gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ItemName
+							gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].PID
+							gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ImageURL
+							gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ProductURL
+						}
+					}
 				}
 			}
 		}
@@ -351,12 +363,16 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 }
 
 func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
-	for monitorID, hottopicMonitor := range monitorStore.HottopicMonitors {
-		taskGroup := hottopicMonitor.Monitor.TaskGroup
-		for _, taskID := range taskGroup.TaskIDs {
-			if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
-				if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
-					hottopicTask.Pid = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].PID
+	for {
+		for monitorID, hottopicMonitor := range monitorStore.HottopicMonitors {
+			if len(hottopicMonitor.InStock) > 0 {
+				taskGroup := hottopicMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
+						if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
+							hottopicTask.Pid = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].PID
+						}
+					}
 				}
 			}
 		}
@@ -364,15 +380,19 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 }
 
 func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
-	for monitorID, targetMonitor := range monitorStore.TargetMonitors {
-		taskGroup := targetMonitor.Monitor.TaskGroup
-		for _, taskID := range taskGroup.TaskIDs {
-			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
-				if ok && targetTask.Task.Task.TaskGroupID == monitorID {
-					if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(targetMonitor.InStockForPickup) > 0 {
-						targetTask.TCIN = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
-					} else {
-						targetTask.TCIN = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
+	for {
+		for monitorID, targetMonitor := range monitorStore.TargetMonitors {
+			if len(targetMonitor.InStockForPickup) > 0 || len(targetMonitor.InStockForShip) > 0 {
+				taskGroup := targetMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
+						if ok && targetTask.Task.Task.TaskGroupID == monitorID {
+							if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(targetMonitor.InStockForPickup) > 0 {
+								targetTask.TCIN = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
+							} else {
+								targetTask.TCIN = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
+							}
+						}
 					}
 				}
 			}
@@ -381,12 +401,16 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 }
 
 func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
-	for monitorID, walmartMonitor := range monitorStore.WalmartMonitors {
-		taskGroup := walmartMonitor.Monitor.TaskGroup
-		for _, taskID := range taskGroup.TaskIDs {
-			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
-				if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
-					walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
+	for {
+		for monitorID, walmartMonitor := range monitorStore.WalmartMonitors {
+			if len(walmartMonitor.InStockForShip) > 0 {
+				taskGroup := walmartMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
+							walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
+						}
+					}
 				}
 			}
 		}
