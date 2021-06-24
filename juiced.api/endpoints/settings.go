@@ -42,9 +42,29 @@ func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request)
 	if err == nil {
 		err = entities.ParseSettings(&newSettings, body)
 		if err == nil {
-			newSettings, err = commands.UpdateSettings(newSettings)
-			if err != nil {
-				errorsList = append(errorsList, errors.UpdateSettingsError+err.Error())
+			currentSettings, err := queries.GetSettings()
+			if err == nil {
+				if newSettings.SuccessDiscordWebhook == "-1" {
+					newSettings.SuccessDiscordWebhook = currentSettings.SuccessDiscordWebhook
+				}
+				if newSettings.FailureDiscordWebhook == "-1" {
+					newSettings.FailureDiscordWebhook = currentSettings.FailureDiscordWebhook
+				}
+				if newSettings.TwoCaptchaAPIKey == "-1" {
+					newSettings.TwoCaptchaAPIKey = currentSettings.TwoCaptchaAPIKey
+				}
+				if newSettings.AntiCaptchaAPIKey == "-1" {
+					newSettings.AntiCaptchaAPIKey = currentSettings.AntiCaptchaAPIKey
+				}
+				if newSettings.CapMonsterAPIKey == "-1" {
+					newSettings.CapMonsterAPIKey = currentSettings.CapMonsterAPIKey
+				}
+				newSettings, err = commands.UpdateSettings(newSettings)
+				if err != nil {
+					errorsList = append(errorsList, errors.UpdateSettingsError+err.Error())
+				}
+			} else {
+				errorsList = append(errorsList, errors.GetSettingsError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.ParseSettingsError+err.Error())

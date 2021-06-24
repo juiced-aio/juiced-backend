@@ -45,6 +45,13 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 		return taskGroup, err
 	}
 
+	for _, taskID := range taskGroup.TaskIDs {
+		_, err := RemoveTask(taskID)
+		if err != nil {
+			return taskGroup, err
+		}
+	}
+
 	statement, err := database.Preparex(`DELETE FROM taskGroups WHERE groupID = @p1`)
 	if err != nil {
 		return taskGroup, err
@@ -113,12 +120,15 @@ func RemoveTask(ID string) (entities.Task, error) {
 		return task, err
 	}
 	_, err = statement.Exec(ID)
+	if err != nil {
+		return task, err
+	}
 
 	if task.TaskSizeJoined != "" {
 		task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
 	}
 
-	return task, err
+	return task, DeleteTaskInfos(task.ID, task.TaskRetailer)
 }
 
 // UpdateTask updates the Task from the database with the given ID and returns it (if it exists)
@@ -136,4 +146,26 @@ func UpdateTask(ID string, newTask entities.Task) (entities.Task, error) {
 	}
 
 	return task, err
+}
+
+// RemoveTasksWithProfileID removes any Tasks with the given profileID and returns any errors
+func RemoveTasksByProfileID(profileID string) error {
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	tasks, err := queries.GetTasksByProfileID(profileID)
+	if err != nil {
+		return err
+	}
+
+	for _, task := range tasks {
+		_, err = RemoveTask(task.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
 }

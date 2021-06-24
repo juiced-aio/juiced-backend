@@ -6,6 +6,7 @@ var userInfoSchema = `
 		email TEXT,
 		licenseKey TEXT,
 		deviceName TEXT,
+		userVer TEXT,
 		discordID TEXT,
 		discordUsername TEXT,
 		discordAvatarURL TEXT,
@@ -263,7 +264,8 @@ var checkoutsSchema = `
 var settingsSchema = `
 	CREATE TABLE IF NOT EXISTS settings (
 		id TEXT,
-		discordWebhook TEXT,
+		successDiscordWebhook TEXT,
+		failureDiscordWebhook TEXT,
 		twoCaptchaAPIKey TEXT,
 		antiCaptchaAPIKey TEXT,
 		capMonsterAPIKey TEXT

@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -118,7 +119,7 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 	for _, asin := range monitor.ASINs {
-		if !util.InSlice(monitor.RunningMonitors, asin) {
+		if !common.InSlice(monitor.RunningMonitors, asin) {
 			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
 			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
 			go func(t string) {
@@ -128,27 +129,39 @@ func (monitor *Monitor) RunMonitor() {
 					// TODO @silent: Re-run this specific monitor
 				}()
 
-				somethingInStock := false
+				stockData := AmazonInStockData{}
 				switch monitor.ASINWithInfo[t].MonitorType {
 				case enums.SlowSKUMonitor:
-					somethingInStock = monitor.TurboMonitor(t)
+					stockData = monitor.TurboMonitor(t)
 
 				case enums.FastSKUMonitor:
-					somethingInStock = monitor.OFIDMonitor(t)
+					stockData = monitor.OFIDMonitor(t)
 				}
 
-				if somethingInStock {
+				if stockData.ASIN != "" {
 					needToStop := monitor.CheckForStop()
 					if needToStop {
 						return
 					}
-					monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, t)
-					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-					monitor.SendToTasks()
+					monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, t)
+					var inSlice bool
+					for _, monitorStock := range monitor.InStock {
+						inSlice = monitorStock.ASIN == stockData.ASIN
+					}
+					if !inSlice {
+						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+						monitor.InStock = append(monitor.InStock, stockData)
+					}
 				} else {
 					if len(monitor.RunningMonitors) > 0 {
 						if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
 							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+						}
+					}
+					for i, monitorStock := range monitor.InStock {
+						if monitorStock.ASIN == stockData.ASIN {
+							monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+							break
 						}
 					}
 					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
@@ -163,8 +176,9 @@ func (monitor *Monitor) RunMonitor() {
 
 // A lot of the stuff that I'm doing either seems useless or dumb but Cloudfront is Ai based and the more entropy/randomness you add to every request
 // the better.
-func (monitor *Monitor) TurboMonitor(asin string) bool {
+func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 	var client http.Client
+	stockData := AmazonInStockData{}
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	if currentEndpoint == "https://smile.amazon.com" {
 		client = monitor.AccountClient
@@ -198,28 +212,28 @@ func (monitor *Monitor) TurboMonitor(asin string) bool {
 
 	switch resp.StatusCode {
 	case 200:
-		test := monitor.StockInfo(resp, body, asin)
-		fmt.Println(test)
-		return test
+		stockData = monitor.StockInfo(resp, body, asin)
+		return stockData
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate)
-		return false
+		return stockData
 	case 503:
 		fmt.Println("Dogs of Amazon")
 		monitor.BecomeGuest()
-		return false
+		return stockData
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
-		return false
+		return stockData
 	}
 
 }
 
 // Scraping the info from the page, since we are rotating between two page types I have to check each value in two different places
-func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
+func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) AmazonInStockData {
+	stockData := AmazonInStockData{}
 	if strings.Contains(body, "automated access") {
 		fmt.Println("Captcha")
-		return false
+		return stockData
 	}
 	doc := soup.HTMLParse(body)
 	ua := resp.Request.UserAgent()
@@ -231,7 +245,7 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
 
 	if strings.Contains(resp.Request.URL.String(), "aod") {
 		if doc.Find("input", "name", "offeringID.1").Error != nil {
-			return false
+			return stockData
 		}
 		ofid = doc.Find("input", "name", "offeringID.1").Attrs()["value"]
 		merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
@@ -243,11 +257,11 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
 		} else {
 			ofid, err = util.FindInString(body, `name="offerListingId" value="`, `"`)
 			if err != nil {
-				return false
+				return stockData
 			}
 		}
 		if doc.Find("input", "name", "merchantID").Error != nil {
-			return false
+			return stockData
 		}
 		merchantID = doc.Find("input", "name", "merchantID").Attrs()["value"]
 		priceStr = doc.Find("span", "class", "a-price-whole").Text()
@@ -262,7 +276,7 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
 			if err != nil {
 				itemName, err = util.FindInString(title, "AmazonSmile:", ":")
 				if err != nil {
-					return false
+					return stockData
 				}
 			}
 		}
@@ -270,17 +284,17 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
 
 	if ofid == "" {
 		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return false
+		return stockData
 	}
 	if merchantID != "ATVPDKIKX0DER" {
 		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return false
+		return stockData
 	}
 
 	price, _ := strconv.Atoi(priceStr)
 	inBudget := monitor.ASINWithInfo[asin].MaxPrice > price || monitor.ASINWithInfo[asin].MaxPrice == -1
 	if inBudget {
-		monitor.EventInfo = events.AmazonSingleStockData{
+		stockData = AmazonInStockData{
 			ASIN:        asin,
 			OfferID:     ofid,
 			Price:       price,
@@ -290,12 +304,13 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) bool {
 		}
 	}
 
-	return inBudget
+	return stockData
 }
 
 // Takes the task OfferID, ASIN, and SavedAddressID then tries adding that item to the cart,
 // this is also known as OfferID mode.
-func (monitor *Monitor) OFIDMonitor(asin string) bool {
+func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
+	stockData := AmazonInStockData{}
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"isAsync":         {"1"},
@@ -348,19 +363,19 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 
 		err = doc.Find("input", "name", "anti-csrftoken-a2z").Error
 		if err != nil {
-			return false
+			return stockData
 		}
 		antiCSRF := doc.Find("input", "name", "anti-csrftoken-a2z").Attrs()["value"]
 
 		pid, err := util.FindInString(body, `currentPurchaseId":"`, `"`)
 		if err != nil {
 			fmt.Println("Could not find PID")
-			return false
+			return stockData
 		}
 		rid, err := util.FindInString(body, `var ue_id = '`, `'`)
 		if err != nil {
 			fmt.Println("Could not find RID")
-			return false
+			return stockData
 		}
 		images := doc.FindAll("img")
 		for _, source := range images {
@@ -369,7 +384,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 			}
 		}
 
-		monitor.EventInfo = events.AmazonSingleStockData{
+		stockData = AmazonInStockData{
 			ASIN:        asin,
 			OfferID:     monitor.ASINWithInfo[asin].OFID,
 			AntiCsrf:    antiCSRF,
@@ -380,16 +395,16 @@ func (monitor *Monitor) OFIDMonitor(asin string) bool {
 			MonitorType: enums.FastSKUMonitor,
 		}
 
-		return true
+		return stockData
 	case 503:
 		fmt.Println("Dogs of Amazon (503)")
-		return false
+		return stockData
 	case 403:
 		fmt.Println("SessionID expired")
-		return false
+		return stockData
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
-		return false
+		return stockData
 
 	}
 }
@@ -426,12 +441,4 @@ func (monitor *Monitor) BecomeGuest() bool {
 	default:
 		return false
 	}
-}
-
-// SendToTasks sends the product info to tasks
-func (monitor *Monitor) SendToTasks() {
-	data := events.AmazonStockData{
-		InStock: []events.AmazonSingleStockData{monitor.EventInfo},
-	}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.Amazon, data, monitor.Monitor.TaskGroup.GroupID)
 }

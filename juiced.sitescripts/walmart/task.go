@@ -3,6 +3,7 @@ package walmart
 import (
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -30,6 +31,25 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 		},
 	}
 	return walmartTask, err
+}
+
+// RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
+func (task *Task) RefreshPX3() {
+	defer func() {
+		recover()
+		task.RefreshPX3()
+	}()
+
+	for {
+		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
+			pxValues, err := SetPXCookie(task.Task.Proxy, &task.Task.Client)
+
+			if err != nil {
+				return // TODO @silent
+			}
+			task.PXValues = pxValues
+		}
+	}
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -60,10 +80,14 @@ func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a task failed
+		task.Task.StopFlag = true
+		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
+	go task.RefreshPX3()
+	for task.PXValues.RefreshAt == 0 {
+	}
 	// 1. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
@@ -182,15 +206,13 @@ func (task *Task) WaitForMonitor() bool {
 
 // AddToCart sends a post request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
+	addToCartResponse := AddToCartResponse{}
 	data := AddToCartRequest{
 		OfferID:               task.OfferID,
 		Quantity:              1,
 		ShipMethodDefaultRule: "SHIP_RULE_1",
 	}
-
-	addToCartResponse := AddToCartResponse{}
-
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -202,7 +224,20 @@ func (task *Task) AddToCart() bool {
 	if err != nil || addToCartResponse.Cart.ItemCount == 0 {
 		return false
 	}
-
+	switch resp.StatusCode {
+	case 200:
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
+		}
+	case 404:
+		fmt.Printf("We have a bad response:%v", resp.Status)
+	default:
+		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+	}
 	return true
 }
 
@@ -219,8 +254,7 @@ func (task *Task) GetCartInfo() bool {
 		CustomerType:  "",
 		AffiliateInfo: "",
 	}
-
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                GetCartInfoEndpoint,
@@ -228,20 +262,52 @@ func (task *Task) GetCartInfo() bool {
 		Referer:            GetCartInfoReferer,
 		RequestBodyStruct:  data,
 	})
-
+	if err != nil {
+		return false
+	}
+	switch resp.StatusCode {
+	case 200:
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
+		}
+	case 404:
+		fmt.Printf("We have a bad response:%v", resp.Status)
+	default:
+		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+	}
 	return err == nil
 }
 
 // SetPCID sets the PCID cookie
 func (task *Task) SetPCID() bool {
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetPcidEndpoint,
 		AddHeadersFunction: AddWalmartHeaders,
 		Referer:            SetPcidReferer,
 	})
-
+	if err != nil {
+		return false
+	}
+	switch resp.StatusCode {
+	case 200:
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
+		}
+	case 404:
+		fmt.Printf("We have a bad response:%v", resp.Status)
+	default:
+		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+	}
 	return err == nil
 }
 
@@ -261,8 +327,7 @@ func (task *Task) SetShippingInfo() bool {
 		AddressType:        "RESIDENTIAL",
 		ChangedFields:      []string{""},
 	}
-
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetShippingInfoEndpoint,
@@ -270,7 +335,23 @@ func (task *Task) SetShippingInfo() bool {
 		Referer:            SetShippingInfoReferer,
 		RequestBodyStruct:  data,
 	})
-
+	if err != nil {
+		return false
+	}
+	switch resp.StatusCode {
+	case 200:
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
+		}
+	case 404:
+		fmt.Printf("We have a bad response:%v", resp.Status)
+	default:
+		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+	}
 	return err == nil
 }
 
@@ -300,8 +381,7 @@ func (task *Task) SetPaymentInfo() bool {
 		}},
 		true,
 	}
-
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetPaymentInfoEndpoint,
@@ -309,7 +389,23 @@ func (task *Task) SetPaymentInfo() bool {
 		Referer:            SetPaymentInfoReferer,
 		RequestBodyStruct:  data,
 	})
-
+	if err != nil {
+		return false
+	}
+	switch resp.StatusCode {
+	case 200:
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
+		}
+	case 404:
+		fmt.Printf("We have a bad response:%v", resp.Status)
+	default:
+		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+	}
 	return err == nil
 }
 
@@ -346,10 +442,18 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 	var success bool
 	switch resp.StatusCode {
 	case 200:
-		//see if were on success page#
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
-		status = enums.OrderStatusSuccess
-		success = true
+		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
+		} else {
+			//see if were on success page#
+			task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+			status = enums.OrderStatusSuccess
+			success = true
+		}
 	default:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 		status = enums.OrderStatusFailed

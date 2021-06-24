@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -96,7 +95,6 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
-			fmt.Println(monitor)
 			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
 			if err != nil {
 				return err
@@ -236,6 +234,38 @@ func CreateTaskInfos(task entities.Task) error {
 	}
 	return nil
 }
+func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
+	var taskInfoSchema string
+
+	switch retailer {
+	case enums.Target:
+		taskInfoSchema = "targetTaskInfos"
+	case enums.Walmart:
+		taskInfoSchema = "walmartTaskInfos"
+	case enums.Amazon:
+		taskInfoSchema = "amazonTaskInfos"
+	case enums.BestBuy:
+		taskInfoSchema = "bestbuyTaskInfos"
+	case enums.GameStop:
+		taskInfoSchema = "gamestopTaskInfos"
+	}
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`DELETE FROM ` + taskInfoSchema + ` WHERE taskID = @p1`)
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(taskID)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
 
 func CreateShippingAddresses(profile entities.Profile) error {
 	database := common.GetDatabase()
@@ -243,7 +273,7 @@ func CreateShippingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO shippingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO shippingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -261,7 +291,7 @@ func CreateBillingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO billingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO billingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -279,7 +309,7 @@ func CreateCards(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO cards (ID, profileID, cardHolderName, cardNumber, expMonth, expYear, cvv, cardType) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO cards (ID, profileID, cardHolderName, cardNumber, expMonth, expYear, cvv, cardType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
@@ -359,19 +389,4 @@ func DeleteProfileInfos(ID string) error {
 		return err
 	}
 	return DeleteCards(ID)
-}
-
-func RemoveFromSlice(s []string, x string) []string {
-	var position int
-	for i, r := range s {
-		if r == x {
-			position = i
-		}
-	}
-	if position == 0 {
-		return s
-	}
-	s[position] = s[len(s)-1]
-
-	return s[:len(s)-1]
 }

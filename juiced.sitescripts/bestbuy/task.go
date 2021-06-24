@@ -72,7 +72,8 @@ func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a task failed
+		task.Task.StopFlag = true
+		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
 
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
@@ -979,6 +980,7 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		UserInfo:     user,
 		ItemName:     task.CheckoutInfo.ItemName,
 		Sku:          task.CheckoutInfo.SKUInStock,
+		Retailer:     enums.BestBuy,
 		Price:        task.CheckoutInfo.Price,
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),

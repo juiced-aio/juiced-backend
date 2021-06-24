@@ -13,7 +13,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
-
 	"github.com/anaskhan96/soup"
 )
 
@@ -57,18 +56,23 @@ func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a monitor failed
+		monitor.Monitor.StopFlag = true
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
 	}
-
+	if monitor.PXValues.RefreshAt == 0 {
+		go monitor.RefreshPX3()
+		for monitor.PXValues.RefreshAt == 0 {
+		}
+	}
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
-	inStockForShip := []events.WalmartSingleStockData{}
+	inStockForShip := []WalmartInStockData{}
 	outOfStockForShip := make([]string, 0)
 
 	switch monitor.MonitorType {
@@ -87,7 +91,7 @@ func (monitor *Monitor) RunMonitor() {
 			return
 		}
 		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-		monitor.SendToTasks(inStockForShip)
+		monitor.InStockForShip = inStockForShip
 	} else {
 		if len(outOfStockForShip) > 0 {
 			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
@@ -99,9 +103,28 @@ func (monitor *Monitor) RunMonitor() {
 	}
 }
 
+// RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
+func (monitor *Monitor) RefreshPX3() {
+	defer func() {
+		recover()
+		monitor.RefreshPX3()
+	}()
+
+	for {
+		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
+			pxValues, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client)
+
+			if err != nil {
+				return // TODO @silent
+			}
+			monitor.PXValues = pxValues
+		}
+	}
+}
+
 //This is for checking if a list of Skus are instock. Here we also check if there is a maximum price.
-func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string) {
-	inStockForShip := make([]events.WalmartSingleStockData, 0)
+func (monitor *Monitor) GetSkuStock() ([]WalmartInStockData, []string) {
+	inStockForShip := make([]WalmartInStockData, 0)
 	outOfStockForShip := make([]string, 0)
 	var skus []string
 
@@ -126,18 +149,38 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			fmt.Println("We are on the captcha page.")
+			err := SetPXCapCookie(resp.Request.URL.String(), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
 		} else if strings.Contains(resp.Request.URL.String(), "cart") {
 			fmt.Println("All requested items are in-stock.")
-			inStockForShip = ConvertSkuListToWalmartSingleStock(skus)
+			for _, thisStock := range ConvertSkuListToWalmartSingleStock(skus) {
+				var inSlice bool
+				for _, monitorStock := range monitor.InStockForShip {
+					if monitorStock.Sku == thisStock.Sku {
+						inSlice = true
+					}
+				}
+				if !inSlice {
+					inStockForShip = append(inStockForShip, thisStock)
+				}
+			}
 		} else {
 			responseBody := soup.HTMLParse(string(body))
 			if !UrlExistsInResponse(responseBody) {
-				fmt.Println("All requested items are out of stock.")
+				for _, sku := range skus {
+					for i, monitorStock := range monitor.InStockForShip {
+						if monitorStock.Sku == sku {
+							monitor.InStockForShip = append(monitor.InStockForShip[:i], monitor.InStockForShip[i+1:]...)
+							break
+						}
+					}
+				}
 				outOfStockForShip = skus
 			} else {
 				foundItems := ParseInstockSku(responseBody)
@@ -149,7 +192,15 @@ func (monitor *Monitor) GetSkuStock() ([]events.WalmartSingleStockData, []string
 						}
 					}
 				}
-				inStockForShip = ConvertSkuListToWalmartSingleStock(foundItems)
+				for _, thisStock := range ConvertSkuListToWalmartSingleStock(foundItems) {
+					var inSlice bool
+					for _, monitorStock := range monitor.InStockForShip {
+						inSlice = monitorStock.Sku == thisStock.Sku
+					}
+					if !inSlice {
+						inStockForShip = append(inStockForShip, thisStock)
+					}
+				}
 				fmt.Print(inStockForShip)
 				fmt.Println(" items are in-stock")
 			}
@@ -192,7 +243,11 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			fmt.Println("We are on the captcha page.")
+			err := SetPXCapCookie(resp.Request.URL.String(), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			fmt.Println("Cookie updated.")
 		} else if strings.Contains(resp.Request.URL.String(), "walmart.com/ip/seort") {
 			fmt.Println("Invalid Sku")
 		} else {
@@ -211,9 +266,4 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
 	}
 	return price
-}
-
-func (monitor *Monitor) SendToTasks(inStockForShip []events.WalmartSingleStockData) {
-	data := events.WalmartStockData{InStockForShip: inStockForShip}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.Walmart, data, monitor.Monitor.TaskGroup.GroupID)
 }

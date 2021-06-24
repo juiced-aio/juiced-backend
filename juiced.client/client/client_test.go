@@ -30,7 +30,7 @@ func readAndClose(r io.ReadCloser) ([]byte, error) {
 const Chrome83Hash = "b32309a26951912be7dba376398abc3b"
 
 //, "http://localhost:8888"
-var client, _ = NewClient(tls.HelloChrome_Auto, "http://209.127.191.180:9279") // cannot throw an error because there is no proxy
+var client, _ = NewClient(tls.HelloChrome_Auto) // cannot throw an error because there is no proxy
 
 func TestCClient_JA3(t *testing.T) {
 	os.Setenv("JUICED_MODE", "DEV")

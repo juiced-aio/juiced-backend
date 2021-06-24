@@ -11,23 +11,22 @@ import (
 )
 
 // UpdateSettings updates the Settings object in the database
-func UpdateSettings(newSettings entities.Settings) (entities.Settings, error) {
-	settings := entities.Settings{}
+func UpdateSettings(settings entities.Settings) (entities.Settings, error) {
 	database := common.GetDatabase()
 	if database == nil {
 		return settings, errors.New("database not initialized")
 	}
 
-	_, err := database.Exec("DELETE FROM tasks")
+	_, err := database.Exec("DELETE FROM settings")
 	if err != nil {
 		return settings, err
 	}
 
-	statement, err := database.Preparex(`INSERT INTO settings (id, discordWebhook, twoCaptchaAPIKey, antiCaptchaAPIKey, capMonsterAPIKey) VALUES (?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO settings (id, successDiscordWebhook, failureDiscordWebhook, twoCaptchaAPIKey, antiCaptchaAPIKey, capMonsterAPIKey) VALUES (?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return settings, err
 	}
-	_, err = statement.Exec(0, settings.DiscordWebhook, settings.TwoCaptchaAPIKey, settings.AntiCaptchaAPIKey, settings.CapMonsterAPIKey)
+	_, err = statement.Exec(0, settings.SuccessDiscordWebhook, settings.FailureDiscordWebhook, settings.TwoCaptchaAPIKey, settings.AntiCaptchaAPIKey, settings.CapMonsterAPIKey)
 	if err != nil {
 		return settings, err
 	}

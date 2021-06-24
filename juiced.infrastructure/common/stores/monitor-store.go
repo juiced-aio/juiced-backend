@@ -23,8 +23,8 @@ type MonitorStore struct {
 	WalmartMonitors  map[string]*walmart.Monitor
 	AmazonMonitors   map[string]*amazon.Monitor
 	BestbuyMonitors  map[string]*bestbuy.Monitor
-	GamestopMonitors map[string]*gamestop.Monitor
 	HottopicMonitors map[string]*hottopic.Monitor
+	GamestopMonitors map[string]*gamestop.Monitor
 	EventBus         *events.EventBus
 }
 
@@ -250,6 +250,173 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 	return false
 }
 
+// UpdateMonitorProxy will update the given monitor with the given proxy and return true if successful
+func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup, proxy entities.Proxy) bool {
+	switch monitor.MonitorRetailer {
+	// Future sitescripts will have a case here
+	case enums.Target:
+		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+			targetMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.Walmart:
+		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+			walmartMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.Amazon:
+		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+			amazonMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.BestBuy:
+		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+			bestbuyMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.HotTopic:
+		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+			hottopicMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	case enums.GameStop:
+		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+			gamestopMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
+	}
+	return false
+}
+
+// TODO: Test the efficiency of these functions.
+// It's technically O(n^2), but most users won't have more than 5-10 task groups running at once, tops.
+func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
+	for {
+		for monitorID, amazonMonitor := range monitorStore.AmazonMonitors {
+			if len(amazonMonitor.InStock) > 0 {
+				taskGroup := amazonMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
+						if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
+							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ASIN
+							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].OfferID
+							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ItemName
+							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].Price
+							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].AntiCsrf
+							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].PID
+							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].RID
+							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ImageURL
+							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].UA
+							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].MonitorType)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
+	for {
+		for monitorID, bestbuyMonitor := range monitorStore.BestbuyMonitors {
+			if len(bestbuyMonitor.InStock) > 0 {
+				taskGroup := bestbuyMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
+						if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
+							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].SKU
+							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].Price
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
+	for {
+		for monitorID, gamestopMonitor := range monitorStore.GamestopMonitors {
+			if len(gamestopMonitor.InStock) > 0 {
+				taskGroup := gamestopMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
+						if ok && gamestopTask.Task.Task.TaskGroupID == monitorID {
+							gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].SKU
+							gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].Price
+							gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ItemName
+							gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].PID
+							gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ImageURL
+							gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ProductURL
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
+	for {
+		for monitorID, hottopicMonitor := range monitorStore.HottopicMonitors {
+			if len(hottopicMonitor.InStock) > 0 {
+				taskGroup := hottopicMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
+						if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
+							hottopicTask.Pid = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].PID
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
+	for {
+		for monitorID, targetMonitor := range monitorStore.TargetMonitors {
+			if len(targetMonitor.InStockForPickup) > 0 || len(targetMonitor.InStockForShip) > 0 {
+				taskGroup := targetMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
+						if ok && targetTask.Task.Task.TaskGroupID == monitorID {
+							if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(targetMonitor.InStockForPickup) > 0 {
+								targetTask.TCIN = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
+							} else {
+								targetTask.TCIN = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
+	for {
+		for monitorID, walmartMonitor := range monitorStore.WalmartMonitors {
+			if len(walmartMonitor.InStockForShip) > 0 {
+				taskGroup := walmartMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
+							walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 var monitorStore *MonitorStore
 
 // InitMonitorStore initializes the singleton instance of the Store
@@ -259,10 +426,17 @@ func InitMonitorStore(eventBus *events.EventBus) {
 		WalmartMonitors:  make(map[string]*walmart.Monitor),
 		AmazonMonitors:   make(map[string]*amazon.Monitor),
 		BestbuyMonitors:  make(map[string]*bestbuy.Monitor),
-		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		HottopicMonitors: make(map[string]*hottopic.Monitor),
+		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		EventBus:         eventBus,
 	}
+
+	go monitorStore.CheckAmazonMonitorStock()
+	go monitorStore.CheckBestBuyMonitorStock()
+	go monitorStore.CheckGameStopMonitorStock()
+	go monitorStore.CheckHotTopicMonitorStock()
+	go monitorStore.CheckTargetMonitorStock()
+	go monitorStore.CheckWalmartMonitorStock()
 }
 
 // GetMonitorStore returns the singleton instance of the EventBus

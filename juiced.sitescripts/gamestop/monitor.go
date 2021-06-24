@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -75,7 +76,8 @@ func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a monitor failed
+		monitor.Monitor.StopFlag = true
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -86,7 +88,7 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 	for _, sku := range monitor.SKUs {
-		if !util.InSlice(monitor.RunningMonitors, sku) {
+		if !common.InSlice(monitor.RunningMonitors, sku) {
 			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
 			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
 			go func(t string) {
@@ -96,20 +98,32 @@ func (monitor *Monitor) RunMonitor() {
 					// TODO @silent: Re-run this specific monitor
 				}()
 
-				somethingInStock := monitor.GetSKUStock(t)
+				stockData := monitor.GetSKUStock(t)
 
-				if somethingInStock {
+				if stockData.SKU != "" {
 					needToStop := monitor.CheckForStop()
 					if needToStop {
 						return
 					}
-					monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, t)
-					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-					monitor.SendToTasks()
+					var inSlice bool
+					for _, monitorStock := range monitor.InStock {
+						inSlice = monitorStock.SKU == stockData.SKU
+					}
+					if !inSlice {
+						monitor.InStock = append(monitor.InStock, stockData)
+						monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, t)
+						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+					}
 				} else {
 					if len(monitor.RunningMonitors) > 0 {
 						if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
 							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+						}
+					}
+					for i, monitorStock := range monitor.InStock {
+						if monitorStock.SKU == stockData.SKU {
+							monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+							break
 						}
 					}
 					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
@@ -123,7 +137,8 @@ func (monitor *Monitor) RunMonitor() {
 }
 
 // Checks if the item is instock and fills the monitors EventInfo if so
-func (monitor *Monitor) GetSKUStock(sku string) bool {
+func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
+	stockData := GamestopInStockData{}
 	monitorResponse := MonitorResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
@@ -148,7 +163,6 @@ func (monitor *Monitor) GetSKUStock(sku string) bool {
 		fmt.Println(err.Error())
 	}
 
-	stockData := events.GamestopSingleStockData{}
 	switch resp.StatusCode {
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
@@ -170,30 +184,20 @@ func (monitor *Monitor) GetSKUStock(sku string) bool {
 				stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
 
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
-
-				monitor.EventInfo = stockData
-				return true
+				return stockData
 			} else {
-				return false
+				return stockData
 			}
 
 		case "Not Available":
-			monitor.SKUsSentToTask = util.RemoveFromSlice(monitor.SKUsSentToTask, sku)
-			return false
+			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
+			return stockData
 		default:
 			fmt.Println(monitorResponse.Gtmdata.Productinfo.Availability)
-			return false
+			return stockData
 		}
 	default:
-		return false
+		return stockData
 	}
 
-}
-
-// SendToTasks sends the product info to tasks
-func (monitor *Monitor) SendToTasks() {
-	data := events.GamestopStockData{
-		InStock: []events.GamestopSingleStockData{monitor.EventInfo},
-	}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.GameStop, data, monitor.Monitor.TaskGroup.GroupID)
 }

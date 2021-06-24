@@ -2,12 +2,13 @@ package walmart
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
@@ -28,10 +29,54 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	}
 }
 
+func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, error) {
+	px3, pxValues, err := util.GetPXCookie("walmart", proxy)
+	if err != nil {
+		fmt.Println("Error getting PX cookie: " + err.Error())
+		return pxValues, err
+	}
+	cookie := &http.Cookie{
+		Name:   "_px3",
+		Value:  px3,
+		Path:   "/",
+		Domain: ".walmart.com",
+	}
+	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
+	if err != nil {
+		fmt.Println("Error parsing https://walmart.com/ to set PX cookie: " + err.Error())
+		return pxValues, err
+	}
+	client.Jar.SetCookies(u, []*http.Cookie{cookie})
+	return pxValues, nil
+}
+
+func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
+	token := "" // TODO @silent
+	px3, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, token, proxy)
+	if err != nil {
+		fmt.Println("Error getting PXCap cookie: " + err.Error())
+		return err
+	}
+
+	cookie := &http.Cookie{
+		Name:   "_px3",
+		Value:  px3,
+		Path:   "/",
+		Domain: ".walmart.com",
+	}
+	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
+	if err != nil {
+		fmt.Println("Error parsing https://walmart.com/ to set PXCap cookie: " + err.Error())
+		return err
+	}
+	client.Jar.SetCookies(u, []*http.Cookie{cookie})
+	return nil
+}
+
 //Converts a list of in-stock skus to a WarlmartSingleStockData structure.
-func ConvertSkuListToWalmartSingleStock(skuCodes []string) []events.WalmartSingleStockData {
-	inStock := events.WalmartSingleStockData{}
-	inStockForShip := make([]events.WalmartSingleStockData, 0)
+func ConvertSkuListToWalmartSingleStock(skuCodes []string) []WalmartInStockData {
+	inStock := WalmartInStockData{}
+	inStockForShip := make([]WalmartInStockData, 0)
 
 	for i := 0; i < len(skuCodes); i++ {
 		inStock.Sku = skuCodes[i]

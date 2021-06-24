@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -63,7 +64,8 @@ func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a monitor failed
+		monitor.Monitor.StopFlag = true
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -99,8 +101,8 @@ func (monitor *Monitor) RunMonitor() {
 		if needToStop {
 			return
 		}
-		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-		monitor.SendToTasks(inStockForShip, inStockForPickup)
+		monitor.InStockForShip = inStockForShip
+		monitor.InStockForPickup = inStockForPickup
 	} else {
 		if len(outOfStockForShip) > 0 || len(outOfStockForPickup) > 0 {
 			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
@@ -143,11 +145,14 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	switch resp.StatusCode {
 	case 200:
 		for _, product := range getTCINStockResponse.Data.ProductSummaries {
+			TCINWithType := product.TCIN + "|" + monitor.TCINsWithInfo[product.TCIN].CheckoutType
 			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" && monitor.CheckPrice(product.TCIN) {
-				TCINWithType := product.TCIN + "|" + monitor.TCINsWithInfo[product.TCIN].CheckoutType
-				inStockForShip = append(inStockForShip, TCINWithType)
+				if !common.InSlice(monitor.InStockForShip, TCINWithType) {
+					inStockForShip = append(inStockForShip, TCINWithType)
+				}
 			} else {
 				outOfStockForShip = append(outOfStockForShip, product.TCIN)
+				monitor.InStockForShip = common.RemoveFromSlice(monitor.InStockForShip, TCINWithType)
 			}
 			for _, store := range product.Fulfillment.StoreOptions {
 				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID && monitor.CheckPrice(product.TCIN) {
@@ -155,6 +160,7 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 					inStockForPickup = append(inStockForPickup, TCINWithType)
 				} else {
 					outOfStockForPickup = append(outOfStockForPickup, product.TCIN)
+					monitor.InStockForPickup = common.RemoveFromSlice(monitor.InStockForPickup, TCINWithType)
 				}
 			}
 			switch monitor.TCINsWithInfo[product.TCIN].CheckoutType {
@@ -198,10 +204,4 @@ func (monitor *Monitor) CheckPrice(sku string) bool {
 	}
 
 	return monitor.TCINsWithInfo[sku].MaxPrice > int(checkPriceResponse.Data.Product.Price.CurrentRetail) || monitor.TCINsWithInfo[sku].MaxPrice == -1
-}
-
-// SendToTasks sends the product info to tasks
-func (monitor *Monitor) SendToTasks(inStockForShip []string, inStockForPickup []string) {
-	data := events.TargetStockData{InStockForShip: inStockForShip, InStockForPickup: inStockForPickup}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.Target, data, monitor.Monitor.TaskGroup.GroupID)
 }

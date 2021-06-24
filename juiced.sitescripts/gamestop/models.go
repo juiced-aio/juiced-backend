@@ -7,7 +7,6 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -39,8 +38,17 @@ type Monitor struct {
 	RunningMonitors []string
 	OutOfStockSKUs  []string
 	SKUs            []string
-	EventInfo       events.GamestopSingleStockData
+	InStock         []GamestopInStockData
 	SKUWithInfo     map[string]entities.GamestopSingleMonitorInfo
+}
+
+type GamestopInStockData struct {
+	SKU        string
+	Price      int
+	ItemName   string
+	PID        string
+	ImageURL   string
+	ProductURL string
 }
 
 var DefaultRawHeaders = [][2]string{
