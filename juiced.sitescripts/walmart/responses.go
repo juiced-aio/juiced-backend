@@ -9,7 +9,23 @@ type GetPXCookieResponse struct {
 
 // AddToCartResponse is returned by the AddToCart endpoint
 type AddToCartResponse struct {
-	Cart Cart `json:"cart"`
+	Cart  Cart `json:"cart"`
+	Items []struct {
+		Quantity int     `json:"quantity"`
+		Price    float32 `json:"price"`
+		Name     string  `json:"name"`
+		Seller   struct {
+			Name string
+			Type string
+			Id   string
+		} `json:"seller"`
+		Assets struct {
+			Primary []struct {
+				Num60  string `json:"60"`
+				Num100 string `json:"100"`
+			} `json:"primary"`
+		} `json:"assets"`
+	} `json:"items"`
 }
 
 // GetCartInfoResponse is returned by the GetCartInfo endpoint

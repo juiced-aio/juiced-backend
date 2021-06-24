@@ -233,6 +233,9 @@ func (task *Task) AddToCart() bool {
 			}
 			fmt.Println("Cookie updated.")
 		}
+		task.CheckoutInfo.ItemName = addToCartResponse.Items[0].Name
+		task.CheckoutInfo.ImageUrl = addToCartResponse.Items[0].Assets.Primary[0].Num60
+		task.CheckoutInfo.ItemPrice = int(addToCartResponse.Items[0].Price)
 	case 404:
 		fmt.Printf("We have a bad response:%v", resp.Status)
 	default:
@@ -448,16 +451,23 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 				fmt.Println(err.Error())
 			}
 			fmt.Println("Cookie updated.")
-		} else {
-			//see if were on success page#
-			task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
-			status = enums.OrderStatusSuccess
-			success = true
 		}
+		//see if were on success page
+		if resp.ContentLength > 1000 { //success... Needs more clarity and testing.
+			success = true
+		} else {
+			success = false
+		}
+
 	default:
+		success = false
+	}
+	if success {
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		status = enums.OrderStatusSuccess
+	} else {
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 		status = enums.OrderStatusFailed
-		success = false
 	}
 
 	if success {

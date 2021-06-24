@@ -60,7 +60,6 @@ type CheckoutInfo struct {
 	ItemPrice int
 	ItemName  string
 	ImageUrl  string
-	OfferID   string
 }
 
 //Part of the Task struct
