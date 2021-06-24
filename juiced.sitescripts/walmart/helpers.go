@@ -65,7 +65,7 @@ func UrlExistsInResponse(resp soup.Root) bool {
 }
 
 // Creates a embed for the DiscordWebhook function
-func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+func (task *Task) CreateWalmartEmbed(status enums.OrderStatus) []sec.DiscordEmbed {
 	embeds := []sec.DiscordEmbed{
 		{
 			Fields: []sec.DiscordField{
@@ -76,7 +76,7 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.ItemPrice),
+					Value:  "$" + fmt.Sprint(task.CheckoutInfo.ItemPrice),
 					Inline: true,
 				},
 				{
@@ -86,7 +86,7 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:  "Product Name:",
-					Value: task.ItemName,
+					Value: task.CheckoutInfo.ItemName,
 				},
 
 				{
@@ -111,19 +111,19 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
 		embeds[0].Color = 16742912
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
+			URL: task.CheckoutInfo.ImageUrl,
 		}
 	case enums.OrderStatusDeclined:
 		embeds[0].Title = ":lemon: Card Declined :lemon:"
 		embeds[0].Color = 16766464
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
+			URL: task.CheckoutInfo.ImageUrl,
 		}
 	case enums.OrderStatusFailed:
 		embeds[0].Title = ":apple: Failed to Place Order :apple:"
 		embeds[0].Color = 14495044
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
+			URL: task.CheckoutInfo.ImageUrl,
 		}
 	}
 	return embeds

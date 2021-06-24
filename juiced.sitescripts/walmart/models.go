@@ -40,13 +40,17 @@ type Monitor struct {
 
 // Task info
 type Task struct {
-	Task      base.Task
-	OfferID   string
-	Sku       string
+	Task         base.Task
+	OfferID      string
+	Sku          string
+	CardInfo     CardInfo
+	CheckoutInfo CheckoutInfo
+}
+
+type CheckoutInfo struct {
 	ItemPrice int
 	ItemName  string
 	ImageUrl  string
-	CardInfo  CardInfo
 }
 
 //Part of the Task struct
