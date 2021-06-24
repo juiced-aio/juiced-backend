@@ -53,18 +53,14 @@ type Task struct {
 	Sku          string
 	CardInfo     CardInfo
 	CheckoutInfo CheckoutInfo
-	PxValues     util.PXValues
+	PXValues     util.PXValues
 }
 
 type CheckoutInfo struct {
 	ItemPrice int
 	ItemName  string
 	ImageUrl  string
-	Task      base.Task
 	OfferID   string
-	Sku       string
-	CardInfo  CardInfo
-	PXValues  util.PXValues
 }
 
 //Part of the Task struct
