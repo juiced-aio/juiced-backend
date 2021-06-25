@@ -87,17 +87,22 @@ func InitDatabase() error {
 	}
 
 	for _, schema := range schemas {
-		missing := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
-		if missing != "" {
-			missingSplit := strings.Split(missing, "|")
-			tableName, _ := FindInString(schema, "EXISTS ", " \\(")
+		_, err = database.Exec(schema)
+		tableName, _ := FindInString(schema, "EXISTS ", " \\(")
+		missing, extra := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
+		for i := range missing {
+			missingSplit := strings.Split(missing[i], "|")
 			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v", tableName, missingSplit[0], missingSplit[1]))
 			if err != nil {
-				fmt.Println(err)
 				return err
 			}
 		}
-		_, err = database.Exec(schema)
+		for i := range extra {
+			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v DROP COLUMN %v", tableName, extra[i]))
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return err
@@ -142,7 +147,9 @@ func GetCurrentColumns(schema string) (columnNames []string) {
 	return
 }
 
-func CompareColumns(x []string, y []string) string {
+func CompareColumns(x []string, y []string) ([]string, []string) {
+	var missing []string
+	var extra []string
 	for i := range x {
 		var inside bool
 		for _, name := range y {
@@ -151,8 +158,20 @@ func CompareColumns(x []string, y []string) string {
 			}
 		}
 		if !inside {
-			return x[i]
+			missing = append(missing, x[i])
 		}
 	}
-	return ""
+	for i := range y {
+		var inside bool
+		for _, name := range x {
+			if strings.Split(name, "|")[0] == y[i] {
+				inside = true
+			}
+		}
+		if !inside {
+			extra = append(extra, y[i])
+		}
+	}
+
+	return missing, extra
 }

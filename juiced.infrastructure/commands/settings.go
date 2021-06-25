@@ -11,14 +11,13 @@ import (
 )
 
 // UpdateSettings updates the Settings object in the database
-func UpdateSettings(newSettings entities.Settings) (entities.Settings, error) {
-	settings := entities.Settings{}
+func UpdateSettings(settings entities.Settings) (entities.Settings, error) {
 	database := common.GetDatabase()
 	if database == nil {
 		return settings, errors.New("database not initialized")
 	}
 
-	_, err := database.Exec("DELETE FROM tasks")
+	_, err := database.Exec("DELETE FROM settings")
 	if err != nil {
 		return settings, err
 	}

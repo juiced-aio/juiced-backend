@@ -34,10 +34,16 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor     base.Monitor
-	MonitorType enums.MonitorType
-	SKUs        []string
-	PXValues    util.PXValues
+	Monitor        base.Monitor
+	MonitorType    enums.MonitorType
+	SKUs           []string
+	InStockForShip []WalmartInStockData
+	PXValues       util.PXValues
+}
+
+type WalmartInStockData struct {
+	Sku     string `json:"sku"`
+	OfferID string `json:"offerID"`
 }
 
 // Task info

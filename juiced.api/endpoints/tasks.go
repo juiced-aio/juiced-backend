@@ -478,10 +478,6 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 							task, err := queries.GetTask(deleteTasksRequestInfo.TaskIDs[i])
 							if err == nil {
 								taskStore.StopTask(&task)
-								_, err = commands.RemoveTask(deleteTasksRequestInfo.TaskIDs[i])
-								if err != nil {
-									errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
-								}
 							} else {
 								errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
 							}

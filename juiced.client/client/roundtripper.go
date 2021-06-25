@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/proxy"
 
 	utls "github.com/Titanium-ctrl/utls"
+	"github.com/tam7t/hpkp"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http2"
@@ -116,6 +117,13 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 		if os.Getenv("JUICED_MODE") != "DEV" && (strings.Contains(stringedCert, "charles") || strings.Contains(stringedCert, "fiddler") || strings.Contains(stringedCert, "mitm") || strings.Contains(stringedCert, "postman")) {
 			conn.Close()
 			return nil, errors.New("bad proxy")
+		}
+		if addr == "identity.juicedbot.io:443" {
+			certFingerprint := hpkp.Fingerprint(cert)
+			if certFingerprint != "0Ugw2FeRziz9vmBmylwjswrF8pQ8icmeqRweSfkkGAQ=" && certFingerprint != "n5dIU+KFaI00Y/prmvaZhqXOquF72TlPANCLxCA9HE8=" {
+				conn.Close()
+				return nil, errors.New("bad proxy")
+			}
 		}
 	}
 

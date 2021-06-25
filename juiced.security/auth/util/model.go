@@ -193,3 +193,37 @@ type AkamaiAPIResponse struct {
 	SensorData string `json:"9QuV8IpkJQ"`
 	Pixel      string `json:"iqB8qihe20"`
 }
+
+type LogCheckoutRequest struct {
+	ActivationToken string `json:"ptZ53SiiQW"`
+	HWID            string `json:"x5NiPKFWkP"`
+	DeviceName      string `json:"zVqXRQQhuc"`
+	ItemName        string `json:"ulELqqNEg0"`
+	SKU             string `json:"Rhh0GnBcqi"`
+	Price           string `json:"XHrSoP2INk"`
+	Quantity        string `json:"Fz3CXmjhQK"`
+	Retailer        string `json:"70bNkW66e7"`
+	Time            string `json:"2UToCFetlm"`
+}
+
+type LogCheckoutResponse struct {
+	Success      bool   `json:"K6bgiizRNv"`
+	ErrorMessage string `json:"1brGHMkymR"`
+}
+
+type EncryptedLogCheckoutResponse struct {
+	Success      string `json:"K6bgiizRNv"`
+	ErrorMessage string `json:"1brGHMkymR"`
+}
+
+type CipherTextTooShortError struct{}
+
+func (e *CipherTextTooShortError) Error() string {
+	return "cipher text is too short"
+}
+
+type CipherTextNotMultipleOfBlockSizeError struct{}
+
+func (e *CipherTextNotMultipleOfBlockSizeError) Error() string {
+	return "cipher text not a multiple of the block size"
+}

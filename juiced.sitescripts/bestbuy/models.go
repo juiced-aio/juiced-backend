@@ -7,7 +7,6 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -43,8 +42,13 @@ type Monitor struct {
 	RunningMonitors []string
 	OutOfStockSKUs  []string
 	SKUs            []string
-	EventInfo       events.BestbuySingleStockData
+	InStock         []BestbuyInStockData
 	SKUWithInfo     map[string]entities.BestbuySingleMonitorInfo
+}
+
+type BestbuyInStockData struct {
+	SKU   string
+	Price int
 }
 
 var DefaultRawHeaders = [][2]string{

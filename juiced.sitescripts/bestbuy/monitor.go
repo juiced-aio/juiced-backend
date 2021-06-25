@@ -62,7 +62,8 @@ func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		recover()
-		// TODO @silent: Let the UI know that a monitor failed
+		monitor.Monitor.StopFlag = true
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -85,27 +86,41 @@ func (monitor *Monitor) RunMonitor() {
 		}
 	}
 
-	somethingInStock := monitor.GetSKUStock()
+	stockData := monitor.GetSKUStock()
 
-	if somethingInStock {
+	if stockData.SKU != "" {
 		needToStop := monitor.CheckForStop()
 		if needToStop {
 			return
 		}
-		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-		monitor.SendToTasks()
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.SKU == stockData.SKU
+		}
+		if !inSlice {
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+		}
 	} else {
 		if len(monitor.RunningMonitors) > 0 {
 			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
 				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
 			}
 		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.SKU == stockData.SKU {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
+			}
+		}
+
 		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 		monitor.RunMonitor()
 	}
 }
 
-func (monitor *Monitor) GetSKUStock() bool {
+func (monitor *Monitor) GetSKUStock() BestbuyInStockData {
+	stockData := BestbuyInStockData{}
 	skus := url.PathEscape(strings.Join(monitor.SKUs, ","))
 	monitorResponse := MonitorResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -132,7 +147,6 @@ func (monitor *Monitor) GetSKUStock() bool {
 		fmt.Println(err.Error())
 	}
 
-	stockData := events.BestbuySingleStockData{}
 	switch resp.StatusCode {
 	case 200:
 		for i := range monitorResponse {
@@ -152,15 +166,5 @@ func (monitor *Monitor) GetSKUStock() bool {
 		}
 	}
 
-	monitor.EventInfo = stockData
-
-	return stockData.SKU != ""
-}
-
-// SendToTasks sends the product info to tasks
-func (monitor *Monitor) SendToTasks() {
-	data := events.BestbuyStockData{
-		InStock: []events.BestbuySingleStockData{monitor.EventInfo},
-	}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.BestBuy, data, monitor.Monitor.TaskGroup.GroupID)
+	return stockData
 }
