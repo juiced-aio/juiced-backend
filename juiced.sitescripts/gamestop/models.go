@@ -138,6 +138,7 @@ type Product struct {
 }
 
 type Productinfo struct {
+	SKU          string `json:"sku"`
 	Productid    string `json:"productID"`
 	Name         string `json:"name"`
 	Availability string `json:"availability"`

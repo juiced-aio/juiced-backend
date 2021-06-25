@@ -164,14 +164,14 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
-	// TODO @Humphrey: Don't retry if declined
 	placedOrder := false
+	declined := false
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || declined {
 			return
 		}
-		placedOrder = task.PlaceOrder(startTime)
+		placedOrder, declined = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -475,9 +475,12 @@ func (task *Task) AddToCart() bool {
 					}
 				}
 			} else {
-				// TODO @Humphrey: use default task delay if guest mode, 3 second delay if account mode
 				//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
-				time.Sleep(3 * time.Second)
+				if task.TaskType == enums.TaskTypeGuest {
+					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+				} else {
+					time.Sleep(3 * time.Second)
+				}
 			}
 		}
 
@@ -528,6 +531,14 @@ func (task *Task) Checkout() bool {
 
 // SetShippingInfo sets the shipping info in checkout
 func (task *Task) SetShippingInfo() bool {
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+			}
+		}
+	}
 	setShippingRequest := SetShippingRequest{
 		Phonenumber:     task.Task.Profile.PhoneNumber,
 		Smsnotifynumber: "",
@@ -611,6 +622,7 @@ func (task *Task) SetShippingInfo() bool {
 	if resp.StatusCode != 200 {
 		log.Println(606)
 		log.Println(resp.StatusCode)
+		util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
 		return false
 	}
 
@@ -660,14 +672,21 @@ func (task *Task) SetShippingInfo() bool {
 	case 200:
 		return true
 	default:
+		util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
 		return false
 	}
 }
 
 // SetPaymentInfo sets the payment info in checkout
 func (task *Task) SetPaymentInfo() bool {
-	util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
-
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+			}
+		}
+	}
 	billing := Billingaddress{
 		Country:             task.Task.Profile.BillingAddress.CountryCode,
 		Useaddressasbilling: true,
@@ -740,6 +759,7 @@ func (task *Task) SetPaymentInfo() bool {
 	}
 
 	if resp.StatusCode != 200 {
+		util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 		return false
 	}
 
@@ -782,6 +802,7 @@ func (task *Task) SetPaymentInfo() bool {
 	}
 
 	if resp.StatusCode != 200 {
+		util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 		return false
 	}
 
@@ -848,7 +869,15 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
-func (task *Task) PlaceOrder(startTime time.Time) bool {
+func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+			}
+		}
+	}
 	data, err := json.Marshal(PlaceOrderRequest{
 		Orderid: task.CheckoutInfo.ID,
 		Threedsecurestatus: Threedsecurestatus{
@@ -857,7 +886,7 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 	})
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false
+		return false, false
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -887,11 +916,11 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false
+		return false, false
 	}
 
 	if resp.StatusCode != 200 {
-		return false
+		return false, false
 	}
 
 	data, _ = json.Marshal(Browserinfo{
@@ -931,11 +960,12 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false
+		return false, false
 	}
 
 	var status enums.OrderStatus
 	var success bool
+	var declined bool
 	switch resp.StatusCode {
 	case 200:
 		for _, cookie := range resp.Cookies() {
@@ -954,6 +984,7 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 			case "CC_AUTH_FAILURE":
 				fmt.Println("Card declined")
 				status = enums.OrderStatusDeclined
+				declined = true
 			default:
 				fmt.Println("Failed to Checkout")
 				status = enums.OrderStatusFailed
@@ -969,7 +1000,7 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false
+		return false, declined
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
@@ -986,5 +1017,5 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return success
+	return success, declined
 }

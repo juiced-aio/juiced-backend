@@ -30,7 +30,7 @@ import (
 // 		TODO @silent: Mid-checkout sellout errors may have to propagate back up to the monitor
 
 // CreateTargetTask takes a Task entity and turns it into a Target Task
-func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, paymentType enums.PaymentType) (Task, error) {
+func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, storeID string, paymentType enums.PaymentType) (Task, error) {
 	targetTask := Task{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
@@ -50,6 +50,7 @@ func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entit
 			Password:       password,
 			PaymentType:    paymentType,
 			DefaultCardCVV: profile.CreditCard.CVV,
+			StoreID:        storeID,
 		},
 	}
 	return targetTask, err
@@ -205,7 +206,7 @@ func (task *Task) Login() bool {
 
 	u := launcher.New().
 		Set(flags.Flag("headless")).
-		// Delete(flags.Flag("--headless")).
+		//Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
 		Set(flags.Flag("disable-background-networking")).
@@ -309,7 +310,7 @@ func (task *Task) RefreshLogin() {
 			}
 
 			switch resp.StatusCode {
-			case 200:
+			case 201:
 				claims := &LoginJWT{}
 
 				new(jwt.Parser).ParseUnverified(string(refreshLoginResponse.AccessToken), claims)
@@ -342,7 +343,11 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.TCIN != "" {
+		if task.TCINType != "" {
+			tcinWithType := strings.Split(task.TCINType, "|")
+
+			task.TCINType = tcinWithType[1]
+			task.TCIN = tcinWithType[0]
 			return false
 		}
 	}
@@ -352,24 +357,15 @@ func (task *Task) WaitForMonitor() bool {
 func (task *Task) AddToCart() bool {
 	var data []byte
 	var err error
-	tcinWithType := strings.Split(task.TCIN, "|")
 
-	task.TCINType = tcinWithType[1]
-	task.TCIN = tcinWithType[0]
-
-	shipReq, err := json.Marshal(AddToCartPickupRequest{
+	shipReq, err := json.Marshal(AddToCartShipRequest{
 		CartType:        "REGULAR",
-		ChannelID:       "10",
+		ChannelID:       "90",
 		ShoppingContext: "DIGITAL",
 		CartItem: CartItem{
 			TCIN:          task.TCIN,
 			Quantity:      task.Task.Task.TaskQty,
-			ItemChannelID: "90",
-		},
-		Fulfillment: CartFulfillment{
-			Type:       enums.CheckoutTypePICKUP,
-			LocationID: task.AccountInfo.StoreID,
-			ShipMethod: "STORE_PICKUP",
+			ItemChannelID: "10",
 		},
 	})
 	pickupReq, err := json.Marshal(AddToCartPickupRequest{
@@ -450,7 +446,7 @@ func (task *Task) GetCartInfo() bool {
 	}
 
 	switch resp.StatusCode {
-	case 200:
+	case 201:
 		task.AccountInfo.CartInfo = getCartInfoResponse
 		return true
 	default:
@@ -503,7 +499,7 @@ func (task *Task) SetShippingInfo() bool {
 func (task *Task) SetPaymentInfo() bool {
 	var data []byte
 	var err error
-	endpoint := SetPaymentInfoNEWEndpoint
+	var endpoint string
 	if task.AccountInfo.PaymentType == enums.PaymentTypeSAVED && len(task.AccountInfo.CartInfo.PaymentInstructions) > 0 {
 		data, err = json.Marshal(SetPaymentInfoSavedRequest{
 			CartID:      task.AccountInfo.CartID,
@@ -537,6 +533,7 @@ func (task *Task) SetPaymentInfo() bool {
 				Country:      task.Task.Profile.BillingAddress.CountryCode,
 			},
 		})
+		endpoint = fmt.Sprintf(SetPaymentInfoNEWEndpoint, task.AccountInfo.CartInfo.PaymentInstructions[0].PaymentInstructionID)
 	}
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {

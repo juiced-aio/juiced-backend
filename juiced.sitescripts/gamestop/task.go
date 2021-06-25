@@ -74,7 +74,6 @@ func (task *Task) RunTask() {
 		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
 
-	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login / Become a guest
 	sessionMade := false
 	for !sessionMade {
@@ -84,8 +83,10 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
+			task.PublishEvent(enums.SettingUp, enums.TaskStart)
 			sessionMade = BecomeGuest(&task.Task.Client)
 		}
 

@@ -41,6 +41,7 @@ type TargetTaskInfo struct {
 	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
 	Email        string             `json:"email" db:"email"`
 	Password     string             `json:"password" db:"password"`
+	StoreID      string             `json:"storeID" db:"storeID"`
 	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
 }
 
@@ -153,6 +154,7 @@ type TargetMonitorInfo struct {
 	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
 	Monitors    []TargetSingleMonitorInfo `json:"monitors"`
 	StoreID     string                    `json:"storeID" db:"storeID"`
+	MonitorType enums.MonitorType         `json:"monitorType" db:"monitorType"`
 }
 
 type WalmartMonitorInfo struct {

@@ -388,9 +388,17 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 					if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
 						if ok && targetTask.Task.Task.TaskGroupID == monitorID {
 							if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(targetMonitor.InStockForPickup) > 0 {
-								targetTask.TCIN = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
+								targetTask.TCINType = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
+								targetTask.AccountInfo.StoreID = targetMonitor.StoreID
+							} else if targetTask.CheckoutType == enums.CheckoutTypeSHIP && len(targetMonitor.InStockForShip) > 0 {
+								targetTask.TCINType = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
 							} else {
-								targetTask.TCIN = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
+								if len(targetMonitor.InStockForShip) > 0 {
+									targetTask.TCINType = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
+								} else if len(targetMonitor.InStockForPickup) > 0 {
+									targetTask.TCINType = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
+									targetTask.AccountInfo.StoreID = targetMonitor.StoreID
+								}
 							}
 						}
 					}

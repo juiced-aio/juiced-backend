@@ -20,13 +20,13 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 	monitorID := uuid.New().String()
 	switch taskGroup.MonitorRetailer {
 	case enums.Target:
-		statement, err := database.Preparex(`INSERT INTO targetMonitorInfos (ID, taskGroupID, storeID) VALUES (?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO targetMonitorInfos (ID, taskGroupID, storeID, monitorType) VALUES (?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.TargetMonitorInfo.ID = monitorID
 		taskGroup.TargetMonitorInfo.TaskGroupID = taskGroup.GroupID
-		_, err = statement.Exec(taskGroup.TargetMonitorInfo.ID, taskGroup.TargetMonitorInfo.TaskGroupID, taskGroup.TargetMonitorInfo.StoreID)
+		_, err = statement.Exec(taskGroup.TargetMonitorInfo.ID, taskGroup.TargetMonitorInfo.TaskGroupID, taskGroup.TargetMonitorInfo.StoreID, taskGroup.TargetMonitorInfo.MonitorType)
 		if err != nil {
 			return err
 		}

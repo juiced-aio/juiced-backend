@@ -66,7 +66,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Create task
-		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
+		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.StoreID, task.TargetTaskInfo.PaymentType)
 		if err != nil {
 			return false
 		}
@@ -164,10 +164,13 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		if queryError {
 			return false
 		}
+
 		// Make sure necessary fields exist
-		if task.GamestopTaskInfo.TaskType == "" || task.GamestopTaskInfo.Email == "" || task.GamestopTaskInfo.Password == "" {
+		emptyString := ""
+		if task.GamestopTaskInfo.TaskType == emptyString || (task.GamestopTaskInfo.TaskType == enums.TaskTypeAccount && (task.GamestopTaskInfo.Email == emptyString || task.GamestopTaskInfo.Password == emptyString)) {
 			return false
 		}
+
 		// Create task
 		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxy, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
 		if err != nil {
@@ -269,6 +272,7 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	if !started {
 		return false
 	}
+
 	// Add task to store (if it already exists, this will return true)
 	added := taskStore.AddTaskToStore(task)
 	if !added {

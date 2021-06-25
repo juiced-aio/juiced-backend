@@ -29,7 +29,7 @@ const (
 	SetShippingInfoEndpoint     = "https://carts.target.com/web_checkouts/v1/cart_shipping_addresses/%s?field_groups=ADDRESSES%%2CPAYMENT_INSTRUCTIONS&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
 	SetShippingInfoReferer      = "https://www.target.com/co-delivery"
 	SetPaymentInfoSAVEDEndpoint = "https://carts.target.com/checkout_payments/v1/payment_instructions/%s/?key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
-	SetPaymentInfoNEWEndpoint   = "https://carts.target.com/checkout_payments/v1/payment_instructions?key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
+	SetPaymentInfoNEWEndpoint   = "https://carts.target.com/checkout_payments/v1/payment_instructions/%s?key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
 	SetPaymentInfoSAVEDReferer  = "https://www.target.com/co-review"
 	SetPaymentInfoNEWReferer    = "https://www.target.com/co-payment"
 	PlaceOrderEndpoint          = "https://carts.target.com/web_checkouts/v1/checkout?field_groups=ADDRESSES%2CCART%2CCART_ITEMS%2CDELIVERY_WINDOWS%2CPAYMENT_INSTRUCTIONS%2CPICKUP_INSTRUCTIONS%2CPROMOTION_CODES%2CSUMMARY&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"

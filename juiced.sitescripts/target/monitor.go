@@ -1,6 +1,7 @@
 package target
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -37,6 +38,7 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, ev
 		TCINs:         tcins,
 		StoreID:       monitor.StoreID,
 		TCINsWithInfo: storedTargetMonitors,
+		MonitorType:   monitor.MonitorType,
 	}
 	return targetMonitor, err
 }
@@ -63,9 +65,10 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		monitor.Monitor.StopFlag = true
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+		if recover() != "" {
+			monitor.Monitor.StopFlag = true
+			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+		}
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -79,6 +82,7 @@ func (monitor *Monitor) RunMonitor() {
 	outOfStockForShip := make([]string, 0)
 	inStockForPickup := make([]string, 0)
 	outOfStockForPickup := make([]string, 0)
+
 	switch monitor.MonitorType {
 	case enums.SKUMonitor:
 		inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup = monitor.GetTCINStock()
@@ -86,6 +90,8 @@ func (monitor *Monitor) RunMonitor() {
 		// inStockForShip, inStockForPickup = monitor.GetURLStock()
 	case enums.KeywordMonitor:
 		// inStockForShip, inStockForPickup = monitor.GetKeywordStock()
+	default:
+		inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup = monitor.GetTCINStock()
 	}
 
 	somethingInStock := false
@@ -101,6 +107,7 @@ func (monitor *Monitor) RunMonitor() {
 		if needToStop {
 			return
 		}
+
 		monitor.InStockForShip = inStockForShip
 		monitor.InStockForPickup = inStockForPickup
 	} else {
@@ -109,6 +116,7 @@ func (monitor *Monitor) RunMonitor() {
 				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
 			}
 		}
+
 		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 		monitor.RunMonitor()
 	}
@@ -120,13 +128,20 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 	outOfStockForShip := make([]string, 0)
 	inStockForPickup := make([]string, 0)
 	outOfStockForPickup := make([]string, 0)
+	getTCINStockRequest := map[string]string{}
+	if monitor.StoreID != "" {
+		fmt.Println(monitor.StoreID)
+		getTCINStockRequest = GetTCINStockRequestToMap(GetTCINStockRequest{
+			Key:                      "ff457966e64d5e877fdbad070f276d18ecec4a01",
+			TCINs:                    strings.Join(monitor.TCINs, ","),
+			StoreID:                  monitor.StoreID,
+			ScheduledDeliveryStoreID: monitor.StoreID,
+		})
+	} else {
+		getTCINStockRequest["key"] = "ff457966e64d5e877fdbad070f276d18ecec4a01"
+		getTCINStockRequest["tcins"] = strings.Join(monitor.TCINs, ",")
+	}
 
-	getTCINStockRequest := GetTCINStockRequestToMap(GetTCINStockRequest{
-		Key:                      "ff457966e64d5e877fdbad070f276d18ecec4a01",
-		TCINs:                    strings.Join(monitor.TCINs, ","),
-		StoreID:                  monitor.StoreID,
-		ScheduledDeliveryStoreID: monitor.StoreID,
-	})
 	getTCINStockResponse := GetTCINStockResponse{}
 
 	params := util.CreateParams(getTCINStockRequest)
@@ -176,15 +191,19 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 }
 
 func (monitor *Monitor) CheckPrice(sku string) bool {
-
+	var storeID string
+	storeID = monitor.StoreID
+	if monitor.StoreID == "" {
+		storeID = "1"
+	}
 	params := util.CreateParams(map[string]string{
 		"key":                             "ff457966e64d5e877fdbad070f276d18ecec4a01",
 		"tcin":                            sku,
-		"store_id":                        monitor.StoreID,
+		"store_id":                        storeID,
 		"has_store_id":                    "true",
-		"pricing_store_id":                monitor.StoreID,
+		"pricing_store_id":                storeID,
 		"has_pricing_store_id":            "true",
-		"scheduled_delivery_store_id":     monitor.StoreID,
+		"scheduled_delivery_store_id":     storeID,
 		"has_scheduled_delivery_store_id": "true",
 		"has_financing_options":           "true",
 	})

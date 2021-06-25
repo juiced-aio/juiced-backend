@@ -95,7 +95,8 @@ var targetMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
 		ID TEXT,
 		taskGroupID TEXT,
-		storeID TEXT
+		storeID TEXT,
+		monitorType TEXT
 	)
 `
 
