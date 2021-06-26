@@ -470,20 +470,18 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		status = enums.OrderStatusFailed
 	}
 
-	if success {
-		_, user, _ := queries.GetUserInfo()
-		util.ProcessCheckout(util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Content:      "",
-			Embeds:       task.CreateWalmartEmbed(status),
-			UserInfo:     user,
-			ItemName:     task.CheckoutInfo.ItemName,
-			Sku:          task.Sku,
-			Price:        task.CheckoutInfo.ItemPrice,
-			Quantity:     1,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
-	}
+	_, user, _ := queries.GetUserInfo()
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateWalmartEmbed(status),
+		UserInfo:     user,
+		ItemName:     task.CheckoutInfo.ItemName,
+		Sku:          task.Sku,
+		Price:        task.CheckoutInfo.ItemPrice,
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 	return success
 }
