@@ -585,8 +585,11 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) 
 	}
 
 	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
+	if err != nil {
+		return "", err
+	}
 	if px3 == "" {
 		return GetPXCapCookie(site, setID, vid, uuid, token, proxy)
 	}
-	return px3, err
+	return px3, nil
 }
