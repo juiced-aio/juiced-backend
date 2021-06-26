@@ -1,7 +1,8 @@
-package stores
+package captcha
 
 import (
 	"errors"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,19 +56,23 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 				return *token, nil
 			}
 		}
+		log.Println(sitekey)
 		// Otherwise, request a token
 		tempSitekey, ok := enums.ReCaptchaSitekeys[retailer]
+		log.Println(tempSitekey)
 		retailerSitekey := ""
 		if !ok {
 			// If the sitekey cannot be extracted from our list, the sitekey parameter is required
 			if len(sitekey) == 0 {
 				return nil, errors.New("sitekey is a required parameter for this retailer")
 			} else {
+				log.Println(sitekey[0])
 				retailerSitekey = sitekey[0]
 			}
 		} else {
 			retailerSitekey = string(tempSitekey)
 		}
+		log.Println(retailerSitekey)
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}

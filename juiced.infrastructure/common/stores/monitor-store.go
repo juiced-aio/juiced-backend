@@ -416,7 +416,12 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 			if len(walmartMonitor.InStockForShip) > 0 {
 				taskGroup := walmartMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
+					log.Println(taskID)
 					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+						log.Println(taskID)
+						log.Println(ok)
+						log.Println(walmartTask.Task.Task.TaskGroupID)
+						log.Println(monitorID)
 						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
 							walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
 						}
