@@ -1,7 +1,6 @@
 package gamestop
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/url"
@@ -69,9 +68,11 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		task.Task.StopFlag = true
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
 	// 1. Login / Become a guest
@@ -164,12 +165,17 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
 	placedOrder := false
+	var status enums.OrderStatus
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		placedOrder = task.PlaceOrder(startTime)
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+
+		placedOrder, status = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -181,7 +187,15 @@ func (task *Task) RunTask() {
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
+
 }
 
 // Logs the main client in
@@ -427,90 +441,11 @@ func (task *Task) SetShippingInfo() bool {
 
 }
 
-// Leaving this here for now incase NewAbck doesn't workout
-func (task *Task) GetAbck() bool {
-	var abckCookie string
-	var akamaiResponse AkamaiResponse
-	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-	form := url.Values{
-		"authKey":        {"UFBfkndVOYYGZ58Uu8Mv49TrODCEiVE0gKpOAj679Z0dJoQThi9wGpoq6tpIRvrR"},
-		"pageurl":        {"https://www.gamestop.com"},
-		"skipkact":       {"true"},
-		"skipmact":       {"true"},
-		"onblur":         {"false"},
-		"onfocus":        {"false"},
-		"abck":           {abckCookie},
-		"sensordatalink": {"https://www.gamestop.com/webcontent/de13b139ui242f1ac76f82d4de634d"},
-		"ver":            {"1.7"},
-		"firstpost":      {"true"},
-		"pixelid":        {""},
-		"pixelg":         {""},
-		"json":           {"true"},
-	}
-	_, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "POST",
-		URL:    GenEndpoint,
-		RawHeaders: [][2]string{
-			{"Content-Type", "application/x-www-form-urlencoded"},
-			{"User-Agent", "Juiced/1.0"},
-			{"Accept", "*/*"},
-			{"Accept-Encoding", "gzip, deflate, br"},
-			{"Connection", "keep-alive"},
-			{"Content-Length", fmt.Sprint(len(form.Encode()))},
-		},
-		Data:               []byte(form.Encode()),
-		ResponseBodyStruct: &akamaiResponse,
-	})
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	sensorRequest := SensorRequest{
-		SensorData: akamaiResponse.Sensordata,
-	}
-	data, _ := json.Marshal(sensorRequest)
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", "https://www.gamestop.com"},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", CheckoutEndpoint + "/"},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data:               data,
-		ResponseBodyStruct: &akamaiResponse,
-	})
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	switch resp.StatusCode {
-	case 201:
-		return true
-	}
-	return false
-}
-
 // Setting the payment for the order
 func (task *Task) SetPaymentInfo() bool {
 	// Not sure how this will work for gamestop compared to bestbuy, it will be a small change after testing if it's a problem
-	util.NewAbck(&task.Task.Client, CheckoutEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	util.NewAbck(&task.Task.Client, PaymentEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+
 	// Format is not 02 instead just 2
 	if task.Task.Profile.CreditCard.ExpMonth[0:1] == "0" {
 		task.Task.Profile.CreditCard.ExpMonth = task.Task.Profile.CreditCard.ExpMonth[1:]
@@ -582,7 +517,8 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // The final request to place the order
-func (task *Task) PlaceOrder(startTime time.Time) bool {
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	var status enums.OrderStatus
 	placeOrderResponse := PlaceOrderResponse{}
 	form := url.Values{
 		"klarnaOrderId": {""},
@@ -610,11 +546,11 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		Data:               []byte(form.Encode()),
 		ResponseBodyStruct: &placeOrderResponse,
 	})
-	if err != nil {
-		fmt.Println(err.Error())
+	ok := util.HandleErrors(err, util.RequestDoError)
+	if !ok {
+		return false, status
 	}
 
-	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -637,7 +573,7 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false
+		return false, status
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
@@ -654,6 +590,6 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return success
+	return success, status
 
 }

@@ -284,6 +284,39 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 		return true
 	}
 
+	switch task.TaskRetailer {
+	// Future sitescripts will have a case here
+	case enums.Target:
+		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
+			targetTask.Task.StopFlag = false
+		}
+
+	case enums.Walmart:
+		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
+			walmartTask.Task.StopFlag = false
+		}
+
+	case enums.Amazon:
+		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
+			amazonTask.Task.StopFlag = false
+		}
+
+	case enums.BestBuy:
+		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
+			bestbuyTask.Task.StopFlag = false
+		}
+
+	case enums.HotTopic:
+		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
+			hottopicTask.Task.StopFlag = false
+		}
+
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
+			gamestopTask.Task.StopFlag = false
+		}
+	}
+
 	// Otherwise, start the Task
 	taskStore.RunTask(task.TaskRetailer, task.ID)
 	return true

@@ -78,9 +78,11 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		task.Task.StopFlag = true
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
@@ -175,7 +177,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		placedOrder = task.GetCartInfo()
+		placedOrder = task.PlaceOrder()
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}

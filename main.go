@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
@@ -9,13 +12,18 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
+
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
+
 	ws "backend.juicedbot.io/juiced.ws"
 	"github.com/hugolgst/rich-go/client"
 )
 
 func main() {
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 	// Initalize the event bus
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
@@ -77,8 +85,7 @@ func main() {
 			}
 		}
 	}()
-	for {
-	}
+	select {}
 }
 
 func Heartbeat(eventBus *events.EventBus, userInfo entities.UserInfo) {

@@ -86,9 +86,11 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		task.Task.StopFlag = true
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
@@ -181,10 +183,13 @@ func (task *Task) RunTask() {
 	var status enums.OrderStatus
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop || status == enums.OrderStatusDeclined {
+		if needToStop {
 			return
 		}
-		status, placedOrder = task.PlaceOrder(startTime)
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		placedOrder, status = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -195,8 +200,15 @@ func (task *Task) RunTask() {
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
 
 // Login logs the user in and sets the task's cookies for the logged in user
@@ -562,7 +574,7 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	var status enums.OrderStatus
 	placeOrderRequest := PlaceOrderRequest{
 		CartType:  "REGULAR",
@@ -579,7 +591,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 		ResponseBodyStruct: &placeOrderResponse,
 	})
 	if err != nil {
-		return status, false
+		return false, status
 	}
 
 	// TODO: Handle various responses
@@ -602,7 +614,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return status, success
+		return success, status
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
@@ -619,5 +631,5 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return status, success
+	return success, status
 }

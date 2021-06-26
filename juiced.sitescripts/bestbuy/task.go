@@ -17,6 +17,8 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
+
+	browser "github.com/eddycjy/fake-useragent"
 	"github.com/google/uuid"
 )
 
@@ -71,12 +73,13 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		task.Task.StopFlag = true
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
-	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login / Become a guest
 	sessionMade := false
 	for !sessionMade {
@@ -86,8 +89,10 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
+			task.PublishEvent(enums.SettingUp, enums.TaskStart)
 			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
@@ -115,6 +120,10 @@ func (task *Task) RunTask() {
 		if !addedToCart {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
+	}
+	needToStop = task.CheckForStop()
+	if needToStop {
+		return
 	}
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
@@ -165,13 +174,16 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
 	placedOrder := false
-	declined := false
+	var status enums.OrderStatus
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop || declined {
+		if needToStop {
 			return
 		}
-		placedOrder, declined = task.PlaceOrder(startTime)
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		placedOrder, status = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -183,7 +195,15 @@ func (task *Task) RunTask() {
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
+
 }
 
 // Login logs the task's client into the account specified
@@ -373,6 +393,10 @@ func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
 	var handled bool
 	for !handled {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return true
+		}
 		for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
@@ -392,7 +416,7 @@ func (task *Task) AddToCart() bool {
 				{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 				{"accept", "application/json"},
 				{"sec-ch-ua-mobile", "?0"},
-				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+				{"user-agent", browser.Chrome()},
 				{"content-type", "application/json; charset=UTF-8"},
 				{"origin", BaseEndpoint},
 				{"sec-fetch-site", "same-origin"},
@@ -419,9 +443,12 @@ func (task *Task) AddToCart() bool {
 			times, err := CheckTime(a2TransactionCode)
 			if err != nil {
 				fmt.Println(err.Error())
+				return false
 			}
 			fmt.Println(times)
-			if times < 5 {
+			if times < 6 {
+				// @silent: I added these just because, I think the users will like something like this though
+				task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Joining Queue", enums.TaskUpdate)
 				for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 					if cookie.Name == "_abck" {
 						validator, _ := util.FindInString(cookie.Value, "~", "~")
@@ -431,7 +458,28 @@ func (task *Task) AddToCart() bool {
 					}
 				}
 				fmt.Println("Joining Queue")
-				time.Sleep(time.Duration(times*60000) * time.Millisecond)
+				queueChan := make(chan bool)
+				go func() {
+					time.Sleep(time.Duration(times*60000) * time.Millisecond)
+					queueChan <- true
+				}()
+				go func() {
+					for {
+						queueChan <- false
+						time.Sleep(1 * time.Millisecond)
+					}
+				}()
+				for {
+					qaf := <-queueChan
+					if qaf {
+						break
+					}
+					needToStop := task.CheckForStop()
+					if needToStop {
+						return true
+					}
+				}
+				task.PublishEvent("Queue is up", enums.TaskUpdate)
 				fmt.Println("Out of Queue")
 				addToCartResponse = AddToCartResponse{}
 				resp, _, err := util.MakeRequest(&util.Request{
@@ -473,14 +521,22 @@ func (task *Task) AddToCart() bool {
 					case "CONSTRAINED_ITEM":
 						fmt.Println("Requeued")
 					}
+
 				}
 			} else {
+				task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Retrying", enums.TaskUpdate)
 				//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
 				if task.TaskType == enums.TaskTypeGuest {
 					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 				} else {
 					time.Sleep(3 * time.Second)
 				}
+			}
+		case 500:
+			if task.TaskType == enums.TaskTypeGuest {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			} else {
+				time.Sleep(3 * time.Second)
 			}
 		}
 
@@ -869,7 +925,8 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
-func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	var status enums.OrderStatus
 	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
@@ -886,7 +943,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
 	})
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false, false
+		return false, status
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -916,11 +973,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false, false
+		return false, status
 	}
 
 	if resp.StatusCode != 200 {
-		return false, false
+		return false, status
 	}
 
 	data, _ = json.Marshal(Browserinfo{
@@ -960,12 +1017,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false, false
+		return false, status
 	}
 
-	var status enums.OrderStatus
 	var success bool
-	var declined bool
+
 	switch resp.StatusCode {
 	case 200:
 		for _, cookie := range resp.Cookies() {
@@ -984,7 +1040,6 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
 			case "CC_AUTH_FAILURE":
 				fmt.Println("Card declined")
 				status = enums.OrderStatusDeclined
-				declined = true
 			default:
 				fmt.Println("Failed to Checkout")
 				status = enums.OrderStatusFailed
@@ -1000,7 +1055,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false, declined
+		return false, status
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
@@ -1017,5 +1072,5 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool) {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return success, declined
+	return success, status
 }

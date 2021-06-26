@@ -75,7 +75,7 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != "" {
+		if recover() != nil {
 			monitor.Monitor.StopFlag = true
 			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 		}
