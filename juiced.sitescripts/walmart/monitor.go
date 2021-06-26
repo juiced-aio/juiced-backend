@@ -77,7 +77,7 @@ func (monitor *Monitor) RunMonitor() {
 
 	switch monitor.MonitorType {
 	case enums.SKUMonitor:
-		inStockForShip, outOfStockForShip = monitor.GetSkuStock()
+		inStockForShip, outOfStockForShip = monitor.GetSkuStock(monitor.SKUs)
 	}
 
 	somethingInStock := false
@@ -124,10 +124,9 @@ func (monitor *Monitor) RefreshPX3() {
 }
 
 //This is for checking if a list of Skus are instock. Here we also check if there is a maximum price.
-func (monitor *Monitor) GetSkuStock() ([]WalmartInStockData, []string) {
+func (monitor *Monitor) GetSkuStock(skus []string) ([]WalmartInStockData, []string) {
 	inStockForShip := make([]WalmartInStockData, 0)
 	outOfStockForShip := make([]string, 0)
-	var skus []string
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
@@ -153,8 +152,7 @@ func (monitor *Monitor) GetSkuStock() ([]WalmartInStockData, []string) {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			log.Println(resp.Request.URL.String())
-			err := SetPXCapCookie(resp.Request.URL.String(), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -245,7 +243,7 @@ func (monitor *Monitor) GetPrice(Sku string) int {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(resp.Request.URL.String(), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}

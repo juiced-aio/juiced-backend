@@ -44,6 +44,7 @@ func (task *Task) RefreshPX3() {
 			pxValues, err := SetPXCookie(task.Task.Proxy, &task.Task.Client)
 
 			if err != nil {
+				log.Println("Error setting px cookie for task: " + err.Error())
 				return // TODO @silent
 			}
 			task.PXValues = pxValues
@@ -85,11 +86,12 @@ func (task *Task) RunTask() {
 		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	go task.RefreshPX3()
 	for task.PXValues.RefreshAt == 0 {
 	}
+
 	// 1. WaitForMonitor
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
@@ -241,7 +243,7 @@ func (task *Task) AddToCart() bool {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -282,7 +284,7 @@ func (task *Task) GetCartInfo() bool {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -311,7 +313,7 @@ func (task *Task) SetPCID() bool {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -355,7 +357,7 @@ func (task *Task) SetShippingInfo() bool {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -422,7 +424,7 @@ func (task *Task) SetPaymentInfo() bool {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
@@ -465,7 +467,7 @@ func (task *Task) PlaceOrder() bool {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(resp.Request.URL.String(), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 			if err != nil {
 				fmt.Println(err.Error())
 			}

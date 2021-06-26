@@ -1,12 +1,15 @@
 package walmart
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/anaskhan96/soup"
@@ -49,8 +52,22 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, erro
 }
 
 func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
-	token := "" // TODO @silent
-	px3, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, token, proxy)
+	var token interface{} = nil
+	var err error
+	for token == nil {
+		token, err = captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Walmart, captchaURL, proxy, enums.WalmartSitekey)
+		if err != nil {
+			fmt.Println("Error getting ReCaptcha v2 Token: " + err.Error())
+			return err
+		}
+	}
+	tokenString, ok := token.(string)
+	if !ok {
+		err = errors.New("token is not a string")
+		fmt.Println("Error getting ReCaptcha v2 Token: " + err.Error())
+		return err
+	}
+	px3, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, tokenString, proxy)
 	if err != nil {
 		fmt.Println("Error getting PXCap cookie: " + err.Error())
 		return err
