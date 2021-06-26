@@ -565,6 +565,10 @@ func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
 		return "", pxValues, err
 	}
 
+	if pxResponse.PX3 == "" || pxResponse.SetID == "" || pxResponse.UUID == "" || pxResponse.VID == "" {
+		return GetPXCookie(site, proxy)
+	}
+
 	return pxResponse.PX3, PXValues{
 		SetID: pxResponse.SetID,
 		UUID:  pxResponse.UUID,
@@ -581,5 +585,8 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) 
 	}
 
 	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
+	if px3 == "" {
+		return GetPXCapCookie(site, setID, vid, uuid, token, proxy)
+	}
 	return px3, err
 }
