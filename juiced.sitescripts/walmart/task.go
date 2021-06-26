@@ -202,6 +202,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.OfferID != "" && task.Sku != "" {
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 

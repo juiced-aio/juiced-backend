@@ -287,6 +287,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.CheckoutInfo.SKUInStock != "" {
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 

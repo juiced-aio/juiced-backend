@@ -188,6 +188,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.Pid != "" {
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 

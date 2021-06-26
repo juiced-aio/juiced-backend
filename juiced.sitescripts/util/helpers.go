@@ -152,7 +152,9 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	body, err := ioutil.ReadAll(response.Body)
 	if os.Getenv("JUICED_LOG") == "LOG" {
 		log.Println("RESPONSE STATUS CODE: " + fmt.Sprint(response.StatusCode))
-		log.Println("RESPONSE BODY: " + string(body) + "\n")
+		if response.Header.Get("Content-Type") != "text/html;charset=UTF-8" {
+			log.Println("RESPONSE BODY: " + string(body) + "\n")
+		}
 		log.Println("RESPONSE HEADERS:")
 		for header, values := range response.Header {
 			log.Println(header + ": " + strings.Join(values, ","))

@@ -362,6 +362,7 @@ func (task *Task) WaitForMonitor() bool {
 			task.TCIN = tcinWithType[0]
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 

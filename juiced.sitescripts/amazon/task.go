@@ -418,8 +418,8 @@ func (task *Task) WaitForMonitor() bool {
 		if task.CheckoutInfo.MonitorType != emptyString {
 			return false
 		}
-		// @silent: Why sleeping here?
-		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		// I see why now
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 

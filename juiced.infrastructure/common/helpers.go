@@ -26,6 +26,9 @@ func InSlice(s []string, x string) bool {
 
 // Removes the string x from the slice s
 func RemoveFromSlice(s []string, x string) []string {
+	if !InSlice(s, x) {
+		return s
+	}
 	var position int
 	for i, r := range s {
 		if r == x {
