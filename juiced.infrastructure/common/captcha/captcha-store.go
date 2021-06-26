@@ -2,7 +2,6 @@ package captcha
 
 import (
 	"errors"
-	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -56,23 +55,19 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 				return *token, nil
 			}
 		}
-		log.Println(sitekey)
 		// Otherwise, request a token
 		tempSitekey, ok := enums.ReCaptchaSitekeys[retailer]
-		log.Println(tempSitekey)
 		retailerSitekey := ""
 		if !ok {
 			// If the sitekey cannot be extracted from our list, the sitekey parameter is required
 			if len(sitekey) == 0 {
 				return nil, errors.New("sitekey is a required parameter for this retailer")
 			} else {
-				log.Println(sitekey[0])
 				retailerSitekey = sitekey[0]
 			}
 		} else {
 			retailerSitekey = string(tempSitekey)
 		}
-		log.Println(retailerSitekey)
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
@@ -131,6 +126,47 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
 		err = RequestHCaptchaToken(retailerSitekey, url, proxy, retailer)
+	case enums.GeeTestCaptcha:
+		// TODO @silent
+	}
+	// If none are available, return nil -- the Task requesting a captcha should poll this function frequently until successful
+	return nil, err
+}
+
+// PollCaptchaTokens returns a Captcha token from the store if one is available
+func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, url string, proxy entities.Proxy) (interface{}, error) {
+	var err error
+	switch captchaType {
+	case enums.ReCaptchaV2:
+		tokens := captchaStore.ReCaptchaV2Tokens[retailer]
+		for index, token := range tokens {
+			if token.URL == url && token.Proxy.ID == proxy.ID {
+				// If a valid token exists, remove it from the list of tokens and return it
+				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
+				captchaStore.ReCaptchaV2Tokens[retailer] = tokens[:len(tokens)-1]
+				return *token, nil
+			}
+		}
+	case enums.ReCaptchaV3:
+		tokens := captchaStore.ReCaptchaV3Tokens[retailer]
+		for index, token := range tokens {
+			if token.URL == url && token.Proxy.ID == proxy.ID {
+				// If a valid token exists, remove it from the list of tokens and return it
+				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
+				captchaStore.ReCaptchaV3Tokens[retailer] = tokens[:len(tokens)-1]
+				return *token, nil
+			}
+		}
+	case enums.HCaptcha:
+		tokens := captchaStore.HCaptchaTokens[retailer]
+		for index, token := range tokens {
+			if token.URL == url && token.Proxy.ID == proxy.ID {
+				// If a valid token exists, remove it from the list of tokens and return it
+				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
+				captchaStore.HCaptchaTokens[retailer] = tokens[:len(tokens)-1]
+				return *token, nil
+			}
+		}
 	case enums.GeeTestCaptcha:
 		// TODO @silent
 	}
