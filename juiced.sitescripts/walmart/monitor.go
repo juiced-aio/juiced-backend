@@ -75,7 +75,7 @@ func (monitor *Monitor) RunMonitor() {
 
 	switch monitor.MonitorType {
 	case enums.SKUMonitor:
-		stockData, outOfStockForShip = monitor.GetSkuStock(monitor.SKUs[0])
+		stockData, outOfStockForShip = monitor.GetSkuStock(monitor.SKUs[0]) // TODO @silent
 	}
 
 	somethingInStock := false

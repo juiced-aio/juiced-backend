@@ -1,8 +1,10 @@
 package walmart
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"strings"
 	"time"
 
@@ -87,12 +89,25 @@ func (task *Task) RunTask() {
 		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
 
+	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()
 	for task.PXValues.RefreshAt == 0 {
 	}
 
+	setup := false
+	for !setup {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		setup = task.Setup()
+		if !setup {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
 	// 1. WaitForMonitor
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
@@ -132,7 +147,8 @@ func (task *Task) RunTask() {
 		}
 		gotCartInfo = task.GetCartInfo()
 		if !gotCartInfo {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			return
+			// time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
@@ -158,7 +174,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		setShippingInfo = task.GetCartInfo()
+		setShippingInfo = task.SetShippingInfo()
 		if !setShippingInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -179,7 +195,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		setPaymentInfo = task.GetCartInfo()
+		setPaymentInfo = task.SetPaymentInfo()
 		if !setPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -193,7 +209,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		placedOrder = task.GetCartInfo()
+		placedOrder = task.PlaceOrder()
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -221,20 +237,50 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
-func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) {
+func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
+	task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate)
 	captchaURL := resp.Request.URL.String()
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL
 	}
 	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Println(err.Error())
+		return false
 	} else {
-		fmt.Println("Cookie updated.")
+		log.Println("Cookie updated.")
+		return true
 	}
 }
 
-// AddToCart sends a post request to the AddToCartEndpoint with an AddToCartRequest body
+// Setup sends a GET request to the BaseEndpoint
+func (task *Task) Setup() bool {
+	_, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    BaseEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+		},
+	})
+	if err != nil {
+		log.Println("Setup error: " + err.Error())
+	}
+
+	return err == nil
+}
+
+// AddToCart sends a POST request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
 	data := AddToCartRequest{
@@ -242,40 +288,62 @@ func (task *Task) AddToCart() bool {
 		Quantity:              1,
 		ShipMethodDefaultRule: "SHIP_RULE_1",
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client:             task.Task.Client,
-		Method:             "POST",
-		URL:                AddToCartEndpoint,
-		AddHeadersFunction: AddWalmartHeaders,
-		Referer:            AddToCartReferer + "ip/" + task.Sku,
-		RequestBodyStruct:  data,
-		ResponseBodyStruct: &addToCartResponse,
-	})
+	dataStr, err := json.Marshal(data)
 	if err != nil {
 		log.Println("ATC Request Error: " + err.Error())
 		return false
 	}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    AddToCartEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"referer", AddToCartReferer + "ip/" + task.Sku + "/sellers"},
+		},
+		RequestBodyStruct:  data,
+		ResponseBodyStruct: &addToCartResponse,
+	})
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (addToCartResponse.RedirectURL != "" && strings.Contains(addToCartResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, addToCartResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+		}
+		return false
+	}
+	if err != nil {
+		log.Println("ATC Request Error: " + err.Error())
+		return false
+	}
+
 	switch resp.StatusCode {
-	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (addToCartResponse.RedirectURL != "" && strings.Contains(addToCartResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, addToCartResponse.RedirectURL)
-		} else if addToCartResponse.Cart.ItemCount > 0 {
-			return true
-		}
-	case 412:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (addToCartResponse.RedirectURL != "" && strings.Contains(addToCartResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, addToCartResponse.RedirectURL)
-		}
 	case 404:
-		fmt.Printf("Not Found: %v\n", resp.Status)
+		log.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && addToCartResponse.Cart.ItemCount > 0 {
+		return true
 	}
 	return false
 }
 
 // GetCartInfo is required for setting the PCID cookie
 func (task *Task) GetCartInfo() bool {
+	u, _ := url.Parse("https://walmart.com/")
+	log.Println(task.Task.Client.Jar.Cookies(u))
 	getCartInfoResponse := GetCartInfoResponse{}
 	data := GetCartInfoRequest{
 		StoreListIds:  []StoreList{},
@@ -288,33 +356,53 @@ func (task *Task) GetCartInfo() bool {
 		CustomerType:  "",
 		AffiliateInfo: "",
 	}
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		log.Println("GetCartInfo Request Error: " + err.Error())
+		return false
+	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client:             task.Task.Client,
-		Method:             "POST",
-		URL:                GetCartInfoEndpoint,
-		AddHeadersFunction: AddWalmartHeaders,
-		Referer:            GetCartInfoReferer,
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    GetCartInfoEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"referer", GetCartInfoReferer},
+		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &getCartInfoResponse,
 	})
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (getCartInfoResponse.RedirectURL != "" && strings.Contains(getCartInfoResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, getCartInfoResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+		}
+	}
 	if err != nil {
+		log.Println("GetCartInfo Request Error: " + err.Error())
 		return false
 	}
+
 	switch resp.StatusCode {
-	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (getCartInfoResponse.RedirectURL != "" && strings.Contains(getCartInfoResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, getCartInfoResponse.RedirectURL)
-		} else {
-			return true
-		}
-	case 412:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (getCartInfoResponse.RedirectURL != "" && strings.Contains(getCartInfoResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, getCartInfoResponse.RedirectURL)
-		}
 	case 404:
-		fmt.Printf("Not Found: %v\n", resp.Status)
+		log.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
 	}
 	return false
 }
@@ -323,31 +411,46 @@ func (task *Task) GetCartInfo() bool {
 func (task *Task) SetPCID() bool {
 	setPCIDResponse := SetPCIDResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client:             task.Task.Client,
-		Method:             "POST",
-		URL:                SetPcidEndpoint,
-		AddHeadersFunction: AddWalmartHeaders,
-		Referer:            SetPcidReferer,
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    SetPcidEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-length", "0"},
+			{"referer", SetPcidReferer},
+		},
 		ResponseBodyStruct: setPCIDResponse,
 	})
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, setPCIDResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+		}
+	}
 	if err != nil {
+		log.Println("SetPCID Request Error: " + err.Error())
 		return false
 	}
+
 	switch resp.StatusCode {
-	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, setPCIDResponse.RedirectURL)
-		} else {
-			return true
-		}
-	case 412:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, setPCIDResponse.RedirectURL)
-		}
 	case 404:
-		fmt.Printf("Not Found: %v\n", resp.Status)
+		log.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
 	}
 	return false
 }
@@ -369,33 +472,53 @@ func (task *Task) SetShippingInfo() bool {
 		AddressType:        "RESIDENTIAL",
 		ChangedFields:      []string{""},
 	}
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		log.Println("SetShippingInfo Request Error: " + err.Error())
+		return false
+	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client:             task.Task.Client,
-		Method:             "POST",
-		URL:                SetShippingInfoEndpoint,
-		AddHeadersFunction: AddWalmartHeaders,
-		Referer:            SetShippingInfoReferer,
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    SetShippingInfoEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"referer", SetShippingInfoReferer},
+		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: setShippingInfoResponse,
 	})
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+		}
+	}
 	if err != nil {
+		log.Println("SetShippingInfo Request Error: " + err.Error())
 		return false
 	}
+
 	switch resp.StatusCode {
-	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
-		} else {
-			return true
-		}
-	case 412:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
-		}
 	case 404:
-		fmt.Printf("Not Found: %v\n", resp.Status)
+		log.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
 	}
 	return false
 }
@@ -440,33 +563,53 @@ func (task *Task) SetPaymentInfo() bool {
 		}},
 		true,
 	}
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		log.Println("SetPaymentInfo Request Error: " + err.Error())
+		return false
+	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client:             task.Task.Client,
-		Method:             "POST",
-		URL:                SetPaymentInfoEndpoint,
-		AddHeadersFunction: AddWalmartHeaders,
-		Referer:            SetPaymentInfoReferer,
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    SetPaymentInfoEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"referer", SetPaymentInfoReferer},
+		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: setPaymentInfoResponse,
 	})
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+		}
+	}
 	if err != nil {
+		log.Println("SetPaymentInfo Request Error: " + err.Error())
 		return false
 	}
+
 	switch resp.StatusCode {
-	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
-		} else {
-			return true
-		}
-	case 412:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
-		}
 	case 404:
-		fmt.Printf("Not Found: %v\n", resp.Status)
+		log.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
 	}
 	return false
 }
@@ -485,33 +628,53 @@ func (task *Task) PlaceOrder() bool {
 			Phase:          task.CardInfo.Phase,
 		}},
 	}
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		log.Println("PlaceOrder Request Error: " + err.Error())
+		return false
+	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client:             task.Task.Client,
-		Method:             "POST",
-		URL:                PlaceOrderEndpoint,
-		AddHeadersFunction: AddWalmartHeaders,
-		Referer:            PlaceOrderReferer,
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    PlaceOrderEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"referer", PlaceOrderReferer},
+		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &placeOrderResponse,
 	})
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (placeOrderResponse.RedirectURL != "" && strings.Contains(placeOrderResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, placeOrderResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+		}
+	}
 	if err != nil {
+		log.Println("PlaceOrder Request Error: " + err.Error())
 		return false
 	}
+
 	switch resp.StatusCode {
-	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (placeOrderResponse.RedirectURL != "" && strings.Contains(placeOrderResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, placeOrderResponse.RedirectURL)
-		} else {
-			return true
-		}
-	case 412:
-		if strings.Contains(resp.Request.URL.String(), "blocked") || (placeOrderResponse.RedirectURL != "" && strings.Contains(placeOrderResponse.RedirectURL, "blocked")) {
-			task.HandlePXCap(resp, placeOrderResponse.RedirectURL)
-		}
 	case 404:
-		fmt.Printf("Not Found: %v\n", resp.Status)
+		log.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
 	}
 	return false
 }
