@@ -2,6 +2,7 @@ package captcha
 
 import (
 	"errors"
+	"log"
 	"strconv"
 	"strings"
 	"sync"
@@ -71,7 +72,7 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		err = RequestReCaptchaV2Token(retailerSitekey, url, proxy, retailer)
+		go RequestReCaptchaV2Token(retailerSitekey, url, proxy, retailer)
 	case enums.ReCaptchaV3:
 		tokens := captchaStore.ReCaptchaV3Tokens[retailer]
 		for index, token := range tokens {
@@ -98,7 +99,7 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		err = RequestReCaptchaV3Token(retailerSitekey, url, proxy, retailer)
+		go RequestReCaptchaV3Token(retailerSitekey, url, proxy, retailer)
 	case enums.HCaptcha:
 		tokens := captchaStore.HCaptchaTokens[retailer]
 		for index, token := range tokens {
@@ -125,7 +126,7 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		err = RequestHCaptchaToken(retailerSitekey, url, proxy, retailer)
+		go RequestHCaptchaToken(retailerSitekey, url, proxy, retailer)
 	case enums.GeeTestCaptcha:
 		// TODO @silent
 	}
@@ -134,8 +135,7 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 }
 
 // PollCaptchaTokens returns a Captcha token from the store if one is available
-func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, url string, proxy entities.Proxy) (interface{}, error) {
-	var err error
+func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, url string, proxy entities.Proxy) interface{} {
 	switch captchaType {
 	case enums.ReCaptchaV2:
 		tokens := captchaStore.ReCaptchaV2Tokens[retailer]
@@ -144,7 +144,7 @@ func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, u
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
 				captchaStore.ReCaptchaV2Tokens[retailer] = tokens[:len(tokens)-1]
-				return *token, nil
+				return *token
 			}
 		}
 	case enums.ReCaptchaV3:
@@ -154,7 +154,7 @@ func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, u
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
 				captchaStore.ReCaptchaV3Tokens[retailer] = tokens[:len(tokens)-1]
-				return *token, nil
+				return *token
 			}
 		}
 	case enums.HCaptcha:
@@ -164,14 +164,14 @@ func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, u
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
 				captchaStore.HCaptchaTokens[retailer] = tokens[:len(tokens)-1]
-				return *token, nil
+				return *token
 			}
 		}
 	case enums.GeeTestCaptcha:
 		// TODO @silent
 	}
 	// If none are available, return nil -- the Task requesting a captcha should poll this function frequently until successful
-	return nil, err
+	return nil
 }
 
 // RequestReCaptchaV2Token requests a ReCaptchaV2 token from all available APIs and the frontend
@@ -190,8 +190,15 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 		case settings.TwoCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
-				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=userrecaptcha&googlekey="+sitekey+"&pageurl="+url+"&proxy="+common.ProxyCleaner(proxy)+"&proxytype=http")
+				log.Println("Requesting 2Captcha token")
+				endpoint := "https://2captcha.com/in.php?key=" + settings.TwoCaptchaAPIKey + "&method=userrecaptcha&googlekey=" + sitekey + "&pageurl=" + url
+				if proxy.Host != "" {
+					endpoint += "&proxy=" + common.ProxyCleaner(proxy) + "&proxytype=http"
+				}
+				var token string
+				token, err = TwoCaptchaReq(settings.TwoCaptchaAPIKey, endpoint)
 				if err != nil {
+					log.Println("Error retrieving ReCaptchaV2 from 2Captcha: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {
 						keyError = BadTwoCapKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -210,15 +217,23 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 		case settings.AntiCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
-				port, err := strconv.Atoi(proxy.Port)
-				if err != nil {
-					return
+				log.Println("Requesting AntiCaptcha token")
+				port := 0
+				proxyType := ""
+				if proxy.Port != "" {
+					proxyType = "http"
+					port, err = strconv.Atoi(proxy.Port)
+					if err != nil {
+						log.Println(err.Error())
+						return
+					}
 				}
-				antiCaptchaResponse, err := AntiCaptchaReq(settings.AntiCaptchaAPIKey, AntiCaptchaTaskInfo{
+				var antiCaptchaResponse AntiCaptchaResponse
+				antiCaptchaResponse, err = AntiCaptchaReq(settings.AntiCaptchaAPIKey, AntiCaptchaTaskInfo{
 					Type:          "RecaptchaV2Task",
 					Websiteurl:    url,
 					Websitekey:    sitekey,
-					Proxytype:     "http",
+					Proxytype:     proxyType,
 					Proxyaddress:  proxy.Host,
 					Proxyport:     port,
 					Proxylogin:    proxy.Username,
@@ -226,6 +241,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
+					log.Println("Error retrieving ReCaptchaV2 from AntiCaptcha: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
 						keyError = BadAntiCapKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -245,15 +261,23 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 		case settings.CapMonsterAPIKey:
 			go func() {
 				defer wg.Done()
-				port, err := strconv.Atoi(proxy.Port)
-				if err != nil {
-					return
+				log.Println("Requesting CapMonster token")
+				port := 0
+				proxyType := ""
+				if proxy.Port != "" {
+					proxyType = "http"
+					port, err = strconv.Atoi(proxy.Port)
+					if err != nil {
+						log.Println(err.Error())
+						return
+					}
 				}
-				capMonsterResponse, err := CapMonsterReq(settings.CapMonsterAPIKey, CapMonsterTaskInfo{
+				var capMonsterResponse CapMonsterResponse
+				capMonsterResponse, err = CapMonsterReq(settings.CapMonsterAPIKey, CapMonsterTaskInfo{
 					Type:          "NoCaptchaTask",
 					Websiteurl:    url,
 					Websitekey:    sitekey,
-					Proxytype:     "http",
+					Proxytype:     proxyType,
 					Proxyaddress:  proxy.Host,
 					Proxyport:     port,
 					Proxylogin:    proxy.Username,
@@ -261,6 +285,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
+					log.Println("Error retrieving ReCaptchaV2 from CapMonster: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
 						keyError = BadCapMonKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -280,10 +305,14 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 		}
 	}
 	wg.Wait()
+	if err != nil {
+		return err
+	}
 	err = KeyErrors(settings, keyError, enums.ReCaptchaV2)
 	return err
 }
 
+// TODO @silent: Make changes to match v2 function
 // RequestReCaptchaV3Token requests a ReCaptchaV3 token from all available APIs and the frontend
 func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, retailer enums.Retailer) error {
 	settings, err := queries.GetSettings()
@@ -304,6 +333,7 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 				defer wg.Done()
 				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=userrecaptcha&googlekey="+sitekey+"&pageurl="+url+"&version=v3")
 				if err != nil {
+					log.Println("Error retrieving ReCaptchaV3 from 2Captcha: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {
 						keyError = BadTwoCapKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -331,6 +361,7 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 					IsEnterprise: false,
 				})
 				if err != nil {
+					log.Println("Error retrieving ReCaptchaV3 from AntiCaptcha: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
 						keyError = BadAntiCapKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -358,6 +389,7 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 					MinScore:   0.7,
 				})
 				if err != nil {
+					log.Println("Error retrieving ReCaptchaV3 from CapMonster: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
 						keyError = BadCapMonKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -385,6 +417,7 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 	return nil
 }
 
+// TODO @silent: Make changes to match v2 function
 // RequestHCaptchaToken requests a HCaptcha token from all available APIs and the frontend
 func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, retailer enums.Retailer) error {
 	settings, err := queries.GetSettings()
@@ -405,6 +438,7 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 
 				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=hcaptcha&sitekey="+sitekey+"&pageurl="+url+"&proxy="+common.ProxyCleaner(proxy)+"&proxytype=http")
 				if err != nil {
+					log.Println("Error retrieving HCaptcha from 2Captcha: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {
 						keyError = BadTwoCapKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -439,6 +473,7 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
+					log.Println("Error retrieving HCaptcha from AntiCaptcha: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
 						keyError = BadAntiCapKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
@@ -474,6 +509,7 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
+					log.Println("Error retrieving HCaptcha from CapMonster: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
 						keyError = BadCapMonKeyError
 					} else if err.Error() == "ERROR_ZERO_BALANCE" {
