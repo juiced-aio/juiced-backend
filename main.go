@@ -5,6 +5,7 @@ import (
 
 	api "backend.juicedbot.io/juiced.api"
 	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
@@ -49,7 +50,7 @@ func main() {
 			go Heartbeat(eventBus, userInfo)
 			go stores.InitTaskStore(eventBus)
 			stores.InitMonitorStore(eventBus)
-			stores.InitCaptchaStore(eventBus)
+			captcha.InitCaptchaStore(eventBus)
 			go util.DiscordWebhookQueue()
 			go api.StartServer()
 
