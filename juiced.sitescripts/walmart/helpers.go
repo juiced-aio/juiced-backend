@@ -3,8 +3,10 @@ package walmart
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
@@ -52,15 +54,25 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, erro
 }
 
 func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
-	var token interface{} = nil
-	var err error
+	log.Println("Requesting Captcha token")
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Walmart, captchaURL, proxy)
+	if err != nil {
+		return err
+	}
+
+	if token == nil {
+		log.Println("No tokens available, waiting until one is available")
+	}
+
 	for token == nil {
-		token, err = captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Walmart, captchaURL, proxy, enums.WalmartSitekey)
+		token, err = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Walmart, captchaURL, proxy)
 		if err != nil {
 			fmt.Println("Error getting ReCaptcha v2 Token: " + err.Error())
 			return err
 		}
+		time.Sleep(1 * time.Second / 10)
 	}
+	log.Println("Received Captcha token")
 	tokenString, ok := token.(string)
 	if !ok {
 		err = errors.New("token is not a string")
@@ -88,19 +100,6 @@ func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.P
 	return nil
 }
 
-//Converts a list of in-stock skus to a WarlmartSingleStockData structure.
-func ConvertSkuListToWalmartSingleStock(skuCodes []string) []WalmartInStockData {
-	inStock := WalmartInStockData{}
-	inStockForShip := make([]WalmartInStockData, 0)
-
-	for i := 0; i < len(skuCodes); i++ {
-		inStock.Sku = skuCodes[i]
-		inStockForShip = append(inStockForShip, inStock)
-	}
-
-	return inStockForShip
-}
-
 //Parses the response from the monitor and retrieves the Sku codes, then returns as an list of strings
 func ParseInstockSku(resp soup.Root) []string {
 	inStockForShip := make([]string, 0)
@@ -112,14 +111,4 @@ func ParseInstockSku(resp soup.Root) []string {
 	}
 
 	return inStockForShip
-}
-
-//Checks if the URL in the monitors response is present, to indicate if any items are in-stock.
-func UrlExistsInResponse(resp soup.Root) bool {
-	val := resp.Find("a", "class", "btn-compact")
-	if val.Error == nil {
-		return true
-	} else {
-		return false
-	}
 }

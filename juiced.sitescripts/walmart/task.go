@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -220,6 +221,19 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
+func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) {
+	captchaURL := resp.Request.URL.String()
+	if redirectURL != "" {
+		captchaURL = BaseEndpoint + redirectURL
+	}
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+	if err != nil {
+		fmt.Println(err.Error())
+	} else {
+		fmt.Println("Cookie updated.")
+	}
+}
+
 // AddToCart sends a post request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
@@ -237,28 +251,32 @@ func (task *Task) AddToCart() bool {
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &addToCartResponse,
 	})
-	if err != nil || addToCartResponse.Cart.ItemCount == 0 {
+	if err != nil {
+		log.Println("ATC Request Error: " + err.Error())
 		return false
 	}
 	switch resp.StatusCode {
 	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (addToCartResponse.RedirectURL != "" && strings.Contains(addToCartResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, addToCartResponse.RedirectURL)
+		} else if addToCartResponse.Cart.ItemCount > 0 {
+			return true
+		}
+	case 412:
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (addToCartResponse.RedirectURL != "" && strings.Contains(addToCartResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, addToCartResponse.RedirectURL)
 		}
 	case 404:
-		fmt.Printf("We have a bad response:%v", resp.Status)
+		fmt.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
-	return true
+	return false
 }
 
 // GetCartInfo is required for setting the PCID cookie
 func (task *Task) GetCartInfo() bool {
+	getCartInfoResponse := GetCartInfoResponse{}
 	data := GetCartInfoRequest{
 		StoreListIds:  []StoreList{},
 		ZipCode:       task.Task.Profile.ShippingAddress.ZipCode,
@@ -277,58 +295,66 @@ func (task *Task) GetCartInfo() bool {
 		AddHeadersFunction: AddWalmartHeaders,
 		Referer:            GetCartInfoReferer,
 		RequestBodyStruct:  data,
+		ResponseBodyStruct: &getCartInfoResponse,
 	})
 	if err != nil {
 		return false
 	}
 	switch resp.StatusCode {
 	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (getCartInfoResponse.RedirectURL != "" && strings.Contains(getCartInfoResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, getCartInfoResponse.RedirectURL)
+		} else {
+			return true
+		}
+	case 412:
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (getCartInfoResponse.RedirectURL != "" && strings.Contains(getCartInfoResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, getCartInfoResponse.RedirectURL)
 		}
 	case 404:
-		fmt.Printf("We have a bad response:%v", resp.Status)
+		fmt.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
-	return err == nil
+	return false
 }
 
 // SetPCID sets the PCID cookie
 func (task *Task) SetPCID() bool {
+	setPCIDResponse := SetPCIDResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SetPcidEndpoint,
 		AddHeadersFunction: AddWalmartHeaders,
 		Referer:            SetPcidReferer,
+		ResponseBodyStruct: setPCIDResponse,
 	})
 	if err != nil {
 		return false
 	}
 	switch resp.StatusCode {
 	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, setPCIDResponse.RedirectURL)
+		} else {
+			return true
+		}
+	case 412:
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, setPCIDResponse.RedirectURL)
 		}
 	case 404:
-		fmt.Printf("We have a bad response:%v", resp.Status)
+		fmt.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
-	return err == nil
+	return false
 }
 
 // SetShippingInfo sets the shipping address
 func (task *Task) SetShippingInfo() bool {
+	setShippingInfoResponse := SetShippingInfoResponse{}
 	data := SetShippingInfoRequest{
 		AddressLineOne:     task.Task.Profile.ShippingAddress.Address1,
 		City:               task.Task.Profile.ShippingAddress.City,
@@ -350,25 +376,28 @@ func (task *Task) SetShippingInfo() bool {
 		AddHeadersFunction: AddWalmartHeaders,
 		Referer:            SetShippingInfoReferer,
 		RequestBodyStruct:  data,
+		ResponseBodyStruct: setShippingInfoResponse,
 	})
 	if err != nil {
 		return false
 	}
 	switch resp.StatusCode {
 	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
+		} else {
+			return true
+		}
+	case 412:
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
 		}
 	case 404:
-		fmt.Printf("We have a bad response:%v", resp.Status)
+		fmt.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
-	return err == nil
+	return false
 }
 
 // WaitForEncryptedPaymentInfo waits until the Monitor has sent the info to the task to continue
@@ -386,6 +415,7 @@ func (task *Task) WaitForEncryptedPaymentInfo() bool {
 
 // SetPaymentInfo sets the payment info to prepare for placing an order
 func (task *Task) SetPaymentInfo() bool {
+	setPaymentInfoResponse := SetPaymentInfoResponse{}
 	data := PaymentsRequest{
 		[]Payment{{
 			PaymentType:    "CreditCard",
@@ -417,25 +447,28 @@ func (task *Task) SetPaymentInfo() bool {
 		AddHeadersFunction: AddWalmartHeaders,
 		Referer:            SetPaymentInfoReferer,
 		RequestBodyStruct:  data,
+		ResponseBodyStruct: setPaymentInfoResponse,
 	})
 	if err != nil {
 		return false
 	}
 	switch resp.StatusCode {
 	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
+		} else {
+			return true
+		}
+	case 412:
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
 		}
 	case 404:
-		fmt.Printf("We have a bad response:%v", resp.Status)
+		fmt.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
-	return err == nil
+	return false
 }
 
 // PlaceOrder completes the checkout process
@@ -466,17 +499,19 @@ func (task *Task) PlaceOrder() bool {
 	}
 	switch resp.StatusCode {
 	case 200:
-		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (placeOrderResponse.RedirectURL != "" && strings.Contains(placeOrderResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, placeOrderResponse.RedirectURL)
+		} else {
+			return true
+		}
+	case 412:
+		if strings.Contains(resp.Request.URL.String(), "blocked") || (placeOrderResponse.RedirectURL != "" && strings.Contains(placeOrderResponse.RedirectURL, "blocked")) {
+			task.HandlePXCap(resp, placeOrderResponse.RedirectURL)
 		}
 	case 404:
-		fmt.Printf("We have a bad response:%v", resp.Status)
+		fmt.Printf("Not Found: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
-	return err == nil
+	return false
 }
