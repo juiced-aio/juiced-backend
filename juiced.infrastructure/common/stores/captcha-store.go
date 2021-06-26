@@ -139,7 +139,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 	if err != nil {
 		return err
 	}
-	var keyError string
+	keyError := CaptchaSuccess
 	captchaServices, captchaServiceCount := CheckServices(settings)
 	wg := sync.WaitGroup{}
 	wg.Add(captchaServiceCount)
@@ -151,8 +151,12 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 				defer wg.Done()
 				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=userrecaptcha&googlekey="+sitekey+"&pageurl="+url+"&proxy="+common.ProxyCleaner(proxy)+"&proxytype=http")
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_2CAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {
+						keyError = BadTwoCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = TwoCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -181,8 +185,12 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_ANTICAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
+						keyError = BadAntiCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = AntiCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -212,8 +220,12 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_CAPMONSTER_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
+						keyError = BadCapMonKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = CapMonZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -227,7 +239,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 		}
 	}
 	wg.Wait()
-	err = KeyErrors(settings, keyError)
+	err = KeyErrors(settings, keyError, enums.ReCaptchaV2)
 	return err
 }
 
@@ -238,7 +250,7 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 		return err
 	}
 
-	var keyError string
+	keyError := CaptchaSuccess
 	captchaServices, captchaServiceCount := CheckServices(settings)
 	wg := sync.WaitGroup{}
 	wg.Add(captchaServiceCount)
@@ -251,8 +263,12 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 				defer wg.Done()
 				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=userrecaptcha&googlekey="+sitekey+"&pageurl="+url+"&version=v3")
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_2CAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {
+						keyError = BadTwoCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = TwoCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -274,8 +290,12 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 					IsEnterprise: false,
 				})
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_ANTICAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
+						keyError = BadAntiCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = AntiCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -297,8 +317,12 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 					MinScore:   0.7,
 				})
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_CAPMONSTER_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
+						keyError = BadCapMonKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = CapMonZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -312,7 +336,7 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 		}
 	}
 	wg.Wait()
-	err = KeyErrors(settings, keyError)
+	err = KeyErrors(settings, keyError, enums.ReCaptchaV3)
 	if err != nil {
 		return err
 	}
@@ -327,7 +351,7 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 		return err
 	}
 
-	var keyError string
+	keyError := CaptchaSuccess
 	captchaServices, captchaServiceCount := CheckServices(settings)
 	wg := sync.WaitGroup{}
 	wg.Add(captchaServiceCount)
@@ -340,8 +364,12 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 
 				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=hcaptcha&sitekey="+sitekey+"&pageurl="+url+"&proxy="+common.ProxyCleaner(proxy)+"&proxytype=http")
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_2CAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {
+						keyError = BadTwoCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = TwoCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -370,8 +398,12 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_ANTICAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
+						keyError = BadAntiCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = AntiCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -401,8 +433,12 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_CAPMONSTER_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
+						keyError = BadCapMonKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = CapMonZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -416,7 +452,7 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 		}
 	}
 	wg.Wait()
-	err = KeyErrors(settings, keyError)
+	err = KeyErrors(settings, keyError, enums.HCaptcha)
 	if err != nil {
 		return err
 	}
@@ -431,7 +467,7 @@ func RequestGeeTestCaptchaToken(sitekey string, url string, challenge string, pr
 		return err
 	}
 
-	var keyError string
+	keyError := CaptchaSuccess
 	captchaServices, captchaServiceCount := CheckServices(settings)
 	wg := sync.WaitGroup{}
 	wg.Add(captchaServiceCount)
@@ -443,8 +479,12 @@ func RequestGeeTestCaptchaToken(sitekey string, url string, challenge string, pr
 				defer wg.Done()
 				valuesJoined, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=geetest&gt="+sitekey+"&challenge="+challenge+"&pageurl="+url+"&version=v3")
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_2CAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {
+						keyError = BadTwoCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = TwoCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -479,8 +519,12 @@ func RequestGeeTestCaptchaToken(sitekey string, url string, challenge string, pr
 					Useragent:     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 				})
 				if err != nil {
-					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_ZERO_BALANCE" {
-						keyError = "BAD_ANTICAP_KEY"
+					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" {
+						keyError = BadAntiCapKeyError
+					} else if err.Error() == "ERROR_ZERO_BALANCE" {
+						keyError = AntiCapZeroBalanceError
+					} else {
+						keyError = err.Error()
 					}
 					return
 				}
@@ -501,7 +545,7 @@ func RequestGeeTestCaptchaToken(sitekey string, url string, challenge string, pr
 		}
 	}
 	wg.Wait()
-	err = KeyErrors(settings, keyError)
+	err = KeyErrors(settings, keyError, enums.GeeTestCaptcha)
 	if err != nil {
 		return err
 	}

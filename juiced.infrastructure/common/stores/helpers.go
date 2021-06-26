@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -11,30 +12,50 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
-func KeyErrors(settings entities.Settings, keyError string) error {
+type CaptchaAPIError struct {
+	CaptchaType enums.CaptchaType
+	CaptchaAPI  enums.CaptchaAPI
+	Err         error
+}
+
+func (r *CaptchaAPIError) Error() string {
+	return fmt.Sprintf("%s encountered an error requesting a %s Captcha: %v", r.CaptchaType, r.CaptchaAPI, r.Err)
+}
+
+func KeyErrors(settings entities.Settings, keyError KeyError, captchaType enums.CaptchaType) error {
+	if keyError == CaptchaSuccess {
+		return nil
+	}
+
 	switch keyError {
-	case "BAD_2CAP_KEY":
+	case BadTwoCapKeyError:
 		settings.TwoCaptchaAPIKey = ""
 		_, err := commands.UpdateSettings(settings)
 		if err != nil {
 			return err
 		}
-	case "BAD_ANTICAP_KEY":
+	case BadAntiCapKeyError:
 		settings.AntiCaptchaAPIKey = ""
 		_, err := commands.UpdateSettings(settings)
 		if err != nil {
 			return err
 		}
-	case "BAD_CAPMONSTER_KEY":
+	case BadCapMonKeyError:
 		settings.CapMonsterAPIKey = ""
 		_, err := commands.UpdateSettings(settings)
 		if err != nil {
 			return err
 		}
 	}
-	return nil
+
+	return &CaptchaAPIError{
+		CaptchaType: captchaType,
+		CaptchaAPI:  enums.TwoCaptcha,
+		Err:         errors.New(keyError),
+	}
 }
 
 func CheckServices(settings entities.Settings) (captchaServices []string, captchaServiceCount int) {

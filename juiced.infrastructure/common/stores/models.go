@@ -1,5 +1,17 @@
 package stores
 
+type KeyError = string
+
+const (
+	CaptchaSuccess          KeyError = "CAPTCHA_SUCCESS"
+	BadTwoCapKeyError       KeyError = "BAD_2CAP_KEY"
+	TwoCapZeroBalanceError  KeyError = "2CAP_ZERO_BAL"
+	BadAntiCapKeyError      KeyError = "BAD_ANTICAP_KEY"
+	AntiCapZeroBalanceError KeyError = "ANTICAP_ZERO_BAL"
+	BadCapMonKeyError       KeyError = "BAD_CAPMON_KEY"
+	CapMonZeroBalanceError  KeyError = "CAPMON_ZERO_BAL"
+)
+
 type AntiCaptchaTask struct {
 	Clientkey string              `json:"clientKey"`
 	Task      AntiCaptchaTaskInfo `json:"task"`
