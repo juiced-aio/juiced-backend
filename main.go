@@ -1,9 +1,6 @@
 package main
 
 import (
-	"log"
-	"net/http"
-	_ "net/http/pprof"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
@@ -21,9 +18,6 @@ import (
 )
 
 func main() {
-	go func() {
-		log.Println(http.ListenAndServe("localhost:6060", nil))
-	}()
 	// Initalize the event bus
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
