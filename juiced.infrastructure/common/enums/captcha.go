@@ -9,6 +9,14 @@ const (
 	GeeTestCaptcha CaptchaType = "GeeTestCaptcha"
 )
 
+type CaptchaAPI = string
+
+const (
+	TwoCaptcha  CaptchaAPI = "2Captcha"
+	AntiCaptcha CaptchaAPI = "AntiCaptcha"
+	CapMonster  CaptchaAPI = "CapMonster"
+)
+
 type ReCaptchaSitekey = string
 
 const (
