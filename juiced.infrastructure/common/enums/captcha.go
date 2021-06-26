@@ -20,7 +20,7 @@ const (
 type ReCaptchaSitekey = string
 
 const (
-	WalmartSitekey   ReCaptchaSitekey = ""
+	WalmartSitekey   ReCaptchaSitekey = "6Lc8-RIaAAAAAPWSm2FVTyBg-Zkz2UjsWWfrkgYN"
 	HotWheelsSitekey ReCaptchaSitekey = "6LeXJ7oUAAAAAHIpfRvgjs3lcJiO_zMC1LAZWlSz"
 )
 
