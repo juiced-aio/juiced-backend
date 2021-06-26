@@ -249,6 +249,9 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 	case enums.GameStop:
 		taskInfoSchema = "gamestopTaskInfos"
 	}
+	if taskInfoSchema == "" {
+		return nil
+	}
 	database := common.GetDatabase()
 	if database == nil {
 		return errors.New("database not initialized")

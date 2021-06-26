@@ -146,7 +146,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 					}
 				}
 				if next {
-					taskGroup, err = commands.RemoveTaskGroup(groupID)
+					taskGroup, err = commands.RemoveTaskGroup(groupID, true)
 					if err != nil {
 						errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
 					}
