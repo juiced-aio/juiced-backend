@@ -47,6 +47,7 @@ func (task *Task) RefreshPX3() {
 				return // TODO @silent
 			}
 			task.PXValues = pxValues
+			task.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
 	}
 }
@@ -73,8 +74,9 @@ func (task *Task) CheckForStop() bool {
 //		3. GetCartInfo
 // 		4. SetPCID
 //		5. SetShippingInfo
-//		6. SetPaymentInfo
-//		7. PlaceOrder
+// 		6. WaitForEncryptedPaymentInfo
+//		7. SetPaymentInfo
+//		8. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -110,6 +112,12 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
+
+	cardInfo := EncryptCardInfo{
+		CardNumber: task.Task.Profile.CreditCard.CardNumber,
+		CardCVV:    task.Task.Profile.CreditCard.CVV,
+	}
+	task.Task.EventBus.PublishTaskEvent("WALMART_ENCRYPTION", enums.TaskUpdate, cardInfo, task.Task.Task.ID)
 
 	// 3. GetCartInfo
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
@@ -153,7 +161,14 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 6. SetPaymentInfo
+	// 6. WaitForEncryptedPaymentInfo
+	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)
+	needToStop = task.WaitForEncryptedPaymentInfo()
+	if needToStop {
+		return
+	}
+
+	// 7. SetPaymentInfo
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	setPaymentInfo := false
 	for !setPaymentInfo {
@@ -167,7 +182,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 7. PlaceOrder
+	// 8. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	placedOrder := false
 	for !placedOrder {
@@ -352,6 +367,19 @@ func (task *Task) SetShippingInfo() bool {
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
 	}
 	return err == nil
+}
+
+// WaitForEncryptedPaymentInfo waits until the Monitor has sent the info to the task to continue
+func (task *Task) WaitForEncryptedPaymentInfo() bool {
+	for {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return true
+		}
+		if task.CardInfo.EncryptedPan != "" {
+			return false
+		}
+	}
 }
 
 // SetPaymentInfo sets the payment info to prepare for placing an order

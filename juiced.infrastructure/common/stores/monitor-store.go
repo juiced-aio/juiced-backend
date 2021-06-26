@@ -1,7 +1,9 @@
 package stores
 
 import (
+	"log"
 	"math/rand"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -36,6 +38,8 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 	if monitor.MonitorProxyGroupID != "" {
 		proxyGroup, err := queries.GetProxyGroup(monitor.MonitorProxyGroupID)
 		if err != nil {
+			log.Println(5)
+			log.Println(err.Error())
 			queryError = true
 		}
 		proxy = proxyGroup.Proxies[rand.Intn(len(proxyGroup.Proxies))]
@@ -70,16 +74,20 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 		// Only return false on a query error if the monitor doesn't exist in the store already
 		if queryError {
+			log.Println(6)
 			return false
 		}
 		// Make sure necessary fields exist
 		emptyString := ""
 		if monitor.WalmartMonitorInfo.MonitorType == emptyString || len(monitor.WalmartMonitorInfo.SKUs) == 0 {
+			log.Println(7)
 			return false
 		}
 		// Create monitor
 		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxy, monitorStore.EventBus, monitor.WalmartMonitorInfo.MonitorType, monitor.WalmartMonitorInfo.SKUs)
 		if err != nil {
+			log.Println(8)
+			log.Println(err.Error())
 			return false
 		}
 		// Add task to store
@@ -173,6 +181,7 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 	// Add monitor to store (if it already exists, this will return true)
 	added := monitorStore.AddMonitorToStore(monitor)
 	if !added {
+		log.Println(4)
 		return false
 	}
 
@@ -403,6 +412,7 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 	for {
 		for monitorID, walmartMonitor := range monitorStore.WalmartMonitors {
+			log.Println(walmartMonitor.InStockForShip)
 			if len(walmartMonitor.InStockForShip) > 0 {
 				taskGroup := walmartMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
@@ -414,6 +424,7 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 				}
 			}
 		}
+		time.Sleep(3 * time.Second)
 	}
 }
 

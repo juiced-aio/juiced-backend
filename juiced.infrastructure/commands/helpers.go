@@ -43,14 +43,14 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 	case enums.Walmart:
-		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID, skusJoined, maxPrice) VALUES (?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID, monitorType, skusJoined, maxPrice) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.WalmartMonitorInfo.ID = monitorID
 		taskGroup.WalmartMonitorInfo.TaskGroupID = taskGroup.GroupID
 		taskGroup.WalmartMonitorInfo.SKUsJoined = strings.Join(taskGroup.WalmartMonitorInfo.SKUs, ",")
-		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
+		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.MonitorType, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
 		if err != nil {
 			return err
 		}

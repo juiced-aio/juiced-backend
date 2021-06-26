@@ -65,6 +65,11 @@ type CardInfo struct {
 	PiHash         string `json:"piHash"`
 }
 
+type EncryptCardInfo struct {
+	CardNumber string `json:"cardNumber"`
+	CardCVV    string `json:"cardCVV"`
+}
+
 //Used in AddToCart function
 type Cart struct {
 	ItemCount int `json:"itemCount"`

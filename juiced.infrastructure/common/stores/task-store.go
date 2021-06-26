@@ -1,6 +1,7 @@
 package stores
 
 import (
+	"log"
 	"math/rand"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -185,6 +186,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) bool {
 	// Start the task's TaskGroup (if it's already running, this will return true)
 	started := monitorStore.StartMonitor(taskGroup)
 	if !started {
+		log.Println(9)
 		return false
 	}
 
@@ -192,12 +194,15 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) bool {
 		// Get the task
 		task, err := queries.GetTask(taskID)
 		if err != nil {
+			log.Println(10)
+			log.Println(err.Error())
 			return false
 		}
 
 		// Add task to store (if it already exists, this will return true)
 		added := taskStore.AddTaskToStore(&task)
 		if !added {
+			log.Println(10)
 			return false
 		}
 
@@ -262,16 +267,20 @@ func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) bool {
 func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
 	if err != nil {
+		log.Println(1)
+		log.Println(err.Error())
 		return false
 	}
 	// Start the task's TaskGroup (if it's already running, this will return true)
 	started := monitorStore.StartMonitor(&taskGroup)
 	if !started {
+		log.Println(2)
 		return false
 	}
 	// Add task to store (if it already exists, this will return true)
 	added := taskStore.AddTaskToStore(task)
 	if !added {
+		log.Println(3)
 		return false
 	}
 

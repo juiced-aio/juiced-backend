@@ -118,6 +118,7 @@ func (monitor *Monitor) RefreshPX3() {
 				return // TODO @silent
 			}
 			monitor.PXValues = pxValues
+			monitor.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
 	}
 }
@@ -152,6 +153,7 @@ func (monitor *Monitor) GetSkuStock() ([]WalmartInStockData, []string) {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
+			log.Println(resp.Request.URL.String())
 			err := SetPXCapCookie(resp.Request.URL.String(), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
 			if err != nil {
 				fmt.Println(err.Error())

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -641,6 +642,8 @@ func DecryptPXResponse(response EncryptedPXResponse, timestamp int64) (PXRespons
 		},
 		ErrorMessage: errorMessage,
 	}
+
+	log.Println(pxResponse)
 
 	return pxResponse, nil
 }
