@@ -187,21 +187,39 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
+		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+			amazonMonitor.Monitor.StopFlag = false
+		}
 		go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.BestBuy:
+		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+			bestbuyMonitor.Monitor.StopFlag = false
+		}
 		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.GameStop:
+		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+			gamestopMonitor.Monitor.StopFlag = false
+		}
 		go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.HotTopic:
+		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+			hottopicMonitor.Monitor.StopFlag = false
+		}
 		go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Target:
+		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+			targetMonitor.Monitor.StopFlag = false
+		}
 		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Walmart:
+		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+			walmartMonitor.Monitor.StopFlag = false
+		}
 		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
 	}
 
@@ -224,15 +242,15 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 		}
 		return true
 
-	case enums.HotTopic:
-		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
-			hottopicMonitor.Monitor.StopFlag = true
-		}
-		return true
-
 	case enums.GameStop:
 		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
 			gamestopMonitor.Monitor.StopFlag = true
+		}
+		return true
+
+	case enums.HotTopic:
+		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+			hottopicMonitor.Monitor.StopFlag = true
 		}
 		return true
 
