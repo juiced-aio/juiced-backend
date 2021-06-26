@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
 	_ "github.com/mattn/go-sqlite3"
@@ -26,16 +27,17 @@ func InSlice(s []string, x string) bool {
 
 // Removes the string x from the slice s
 func RemoveFromSlice(s []string, x string) []string {
-	var position int
-	for i, r := range s {
-		if r == x {
-			position = i
+	if InSlice(s, x) {
+		var position int
+		for i, r := range s {
+			if r == x {
+				position = i
+			}
 		}
+		return append(s[:position], s[position+1:]...)
 	}
 
-	s[position] = s[len(s)-1]
-
-	return s[:len(s)-1]
+	return s
 }
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -109,6 +111,17 @@ func InitDatabase() error {
 // GetDatabase retrieves the database connection
 func GetDatabase() *sqlx.DB {
 	return database
+}
+
+func ProxyCleaner(proxyDirty entities.Proxy) string {
+	if proxyDirty.Host == "" {
+		return ""
+	}
+	if proxyDirty.Username == "" && proxyDirty.Password == "" {
+		return fmt.Sprintf("http://%s:%s", proxyDirty.Host, proxyDirty.Port)
+	} else {
+		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
+	}
 }
 
 func ParseColumns(schema string) (columnNames []string) {
