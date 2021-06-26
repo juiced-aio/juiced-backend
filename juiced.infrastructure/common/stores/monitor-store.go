@@ -328,6 +328,7 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 				}
 			}
 		}
+		time.Sleep(1 * time.Second / 10)
 	}
 }
 
@@ -346,6 +347,7 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 				}
 			}
 		}
+		time.Sleep(1 * time.Second / 10)
 	}
 }
 
@@ -368,6 +370,7 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 				}
 			}
 		}
+		time.Sleep(1 * time.Second / 10)
 	}
 }
 
@@ -385,6 +388,7 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 				}
 			}
 		}
+		time.Sleep(1 * time.Second / 10)
 	}
 }
 
@@ -406,30 +410,26 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 				}
 			}
 		}
+		time.Sleep(1 * time.Second / 10)
 	}
 }
 
 func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 	for {
 		for monitorID, walmartMonitor := range monitorStore.WalmartMonitors {
-			log.Println(walmartMonitor.InStockForShip)
 			if len(walmartMonitor.InStockForShip) > 0 {
 				taskGroup := walmartMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					log.Println(taskID)
 					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
-						log.Println(taskID)
-						log.Println(ok)
-						log.Println(walmartTask.Task.Task.TaskGroupID)
-						log.Println(monitorID)
 						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
 							walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
+							walmartTask.OfferID = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].OfferID
 						}
 					}
 				}
 			}
 		}
-		time.Sleep(3 * time.Second)
+		time.Sleep(1 * time.Second / 10)
 	}
 }
 
