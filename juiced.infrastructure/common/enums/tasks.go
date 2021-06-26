@@ -31,6 +31,7 @@ const (
 	LoggingIn           TaskStatus = "Logging in"
 	SettingUp           TaskStatus = "Setting up task"
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
+	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
 	AddingToCart        TaskStatus = "Adding to cart"
 	GettingCartInfo     TaskStatus = "Getting cart info"
 	SettingCartInfo     TaskStatus = "Setting cart info"
