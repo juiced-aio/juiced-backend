@@ -417,6 +417,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	}
 	data, _ = json.Marshal(sensorRequest)
 
+	sensorResponse := SensorResponse{}
 	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
@@ -436,12 +437,17 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:               data,
+		ResponseBodyStruct: &sensorResponse,
 	})
 	if err != nil {
 		return err
 	}
-
+	if ParsedBase.Host == "www.gamestop.com" {
+		if sensorResponse.Success {
+			return err
+		}
+	}
 	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			abckCookie = cookie.Value
