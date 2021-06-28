@@ -152,7 +152,8 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 4. SetPCID
+	//* PCID is now a cookie returned from the GetCartInfo above
+	/* // 4. SetPCID
 	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
 	setPCID := false
 	for !setPCID {
@@ -164,7 +165,7 @@ func (task *Task) RunTask() {
 		if !setPCID {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
-	}
+	} */
 
 	// 5. SetShippingInfo
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
@@ -396,6 +397,7 @@ func (task *Task) GetCartInfo() bool {
 	}
 
 	switch resp.StatusCode {
+	case 201:
 	case 404:
 		log.Printf("Not Found: %v\n", resp.Status)
 	default:
@@ -469,8 +471,8 @@ func (task *Task) SetShippingInfo() bool {
 		PostalCode:         task.Task.Profile.ShippingAddress.ZipCode,
 		State:              task.Task.Profile.ShippingAddress.StateCode,
 		CountryCode:        task.Task.Profile.ShippingAddress.CountryCode,
-		AddressType:        "RESIDENTIAL",
-		ChangedFields:      []string{""},
+		ChangedFields:      []string{},
+		Storelist:          []Storelist{},
 	}
 	dataStr, err := json.Marshal(data)
 	if err != nil {
@@ -482,23 +484,26 @@ func (task *Task) SetShippingInfo() bool {
 		Method: "POST",
 		URL:    SetShippingInfoEndpoint,
 		RawHeaders: [][2]string{
-			{"accept", "application/json"},
+			{"accept", "application/json, text/javascript, */*; q=0.01"},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"content-type", "application/json"},
+			{"origin", "https://www.walmart.com"},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
 			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "document"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-site", "none"},
-			{"sec-fetch-user", "?1"},
+			{"sec-fetch-dest", "empty"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-site", "same-origin"},
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 			{"content-length", fmt.Sprint(len(dataStr))},
 			{"referer", SetShippingInfoReferer},
+			{"wm_cvv_in_session", "true"},
+			{"wm_vertical_id", "0"},
+			{"inkiru_precedence", "false"},
 		},
 		RequestBodyStruct:  data,
-		ResponseBodyStruct: setShippingInfoResponse,
+		ResponseBodyStruct: &setShippingInfoResponse,
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
@@ -512,6 +517,7 @@ func (task *Task) SetShippingInfo() bool {
 	}
 
 	switch resp.StatusCode {
+	case 200:
 	case 404:
 		log.Printf("Not Found: %v\n", resp.Status)
 	default:

@@ -114,7 +114,7 @@ type StoreList struct {
 
 //Part of the GetCartInfoResponse response
 type Summary struct {
-	SubTotal      string `json:"subTotal"`
-	GrandTotal    string `json:"grandTotal"`
-	QuantityTotal string `json:"quantityTotal"`
+	SubTotal      float64 `json:"subTotal"`
+	GrandTotal    float64 `json:"grandTotal"`
+	QuantityTotal int     `json:"quantityTotal"`
 }
