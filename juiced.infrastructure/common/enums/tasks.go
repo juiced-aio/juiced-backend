@@ -37,6 +37,7 @@ const (
 	SettingCartInfo     TaskStatus = "Setting cart info"
 	GettingShippingInfo TaskStatus = "Getting shipping info"
 	SettingShippingInfo TaskStatus = "Setting shipping info"
+	EncryptingCardInfo  TaskStatus = "Encrypting card details"
 	GettingBillingInfo  TaskStatus = "Getting billing info"
 	SettingBillingInfo  TaskStatus = "Setting billing info"
 	GettingOrderInfo    TaskStatus = "Getting order info"

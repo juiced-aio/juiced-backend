@@ -235,9 +235,9 @@ func (monitor *Monitor) GetSkuStock(sku string) (WalmartInStockData, []string) {
 			}
 		}
 	case 404:
-		fmt.Printf("We have a bad response:%v", resp.Status)
+		fmt.Printf("We have a bad response: %v\n", resp.Status)
 	default:
-		fmt.Printf("Unkown Code:%v", resp.StatusCode)
+		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
 
 	return stockData, outOfStockForShip

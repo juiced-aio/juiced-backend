@@ -10,6 +10,9 @@ import (
 const (
 	BaseEndpoint = "https://www.walmart.com/"
 
+	PIEEndpoint = "https://securedataweb.walmart.com/pie/v1/wmcom_us_vtg_pie/getkey.js?bust="
+	PIEReferer  = "https://www.walmart.com/"
+
 	AddToCartEndpoint = "https://www.walmart.com/api/v3/cart/guest/:CID/items"
 	AddToCartReferer  = "https://www.walmart.com/"
 
@@ -60,13 +63,22 @@ type CardInfo struct {
 	EncryptedPan   string `json:"encryptedPan"`
 	IntegrityCheck string `json:"integrityCheck"`
 	KeyId          string `json:"keyId"`
-	Phase          string `json:"phase"`
+	Phase          int    `json:"phase"`
 	PiHash         string `json:"piHash"`
 }
 
 type EncryptCardInfo struct {
-	CardNumber string `json:"cardNumber"`
-	CardCVV    string `json:"cardCVV"`
+	CardNumber string    `json:"cardNumber"`
+	CardCVV    string    `json:"cardCVV"`
+	PIEValues  PIEValues `json:"PIE"`
+}
+
+type PIEValues struct {
+	L     int    `json:"L"`
+	E     int    `json:"E"`
+	K     string `json:"K"`
+	KeyID string `json:"key_id"`
+	Phase int    `json:"phase"`
 }
 
 //Used in AddToCart function
@@ -81,7 +93,7 @@ type VoltagePayment struct {
 	EncryptedPan   string `json:"encryptedPan"`
 	IntegrityCheck string `json:"integrityCheck"`
 	KeyId          string `json:"keyId"`
-	Phase          string `json:"phase"`
+	Phase          int    `json:"phase"`
 }
 
 //used in SetPaymentInfo
@@ -103,7 +115,7 @@ type Payment struct {
 	EncryptedCvv   string `json:"encryptedCvv"`
 	IntegrityCheck string `json:"integrityCheck"`
 	KeyId          string `json:"keyId"`
-	Phase          string `json:"phase"`
+	Phase          int    `json:"phase"`
 	PiHash         string `json:"piHash"`
 }
 

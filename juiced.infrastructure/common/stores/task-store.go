@@ -431,6 +431,12 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.
 	return false
 }
 
+func (taskStore *TaskStore) SetWalmartCardDetails(taskID string, cardInfo walmart.CardInfo) {
+	if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+		walmartTask.CardInfo = cardInfo
+	}
+}
+
 func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 	switch retailer {
 	// Future sitescripts will have a case here

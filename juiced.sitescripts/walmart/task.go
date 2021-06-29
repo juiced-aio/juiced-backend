@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -131,11 +131,21 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	cardInfo := EncryptCardInfo{
-		CardNumber: task.Task.Profile.CreditCard.CardNumber,
-		CardCVV:    task.Task.Profile.CreditCard.CVV,
-	}
-	task.Task.EventBus.PublishTaskEvent("WALMART_ENCRYPTION", enums.TaskUpdate, cardInfo, task.Task.Task.ID)
+	go func() {
+		pieValues := PIEValues{}
+		for pieValues.K == "" {
+			pieValues = task.GetPIEValues()
+			if pieValues.K == "" {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			}
+		}
+		cardInfo := EncryptCardInfo{
+			CardNumber: task.Task.Profile.CreditCard.CardNumber,
+			CardCVV:    task.Task.Profile.CreditCard.CVV,
+			PIEValues:  pieValues,
+		}
+		task.Task.EventBus.PublishTaskEvent(enums.EncryptingCardInfo, enums.TaskUpdate, cardInfo, task.Task.Task.ID)
+	}()
 
 	// 3. GetCartInfo
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
@@ -147,25 +157,9 @@ func (task *Task) RunTask() {
 		}
 		gotCartInfo = task.GetCartInfo()
 		if !gotCartInfo {
-			return
-			// time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-
-	//* PCID is now a cookie returned from the GetCartInfo above
-	/* // 4. SetPCID
-	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
-	setPCID := false
-	for !setPCID {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		setPCID = task.SetPCID()
-		if !setPCID {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
-	} */
+	}
 
 	// 5. SetShippingInfo
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
@@ -281,6 +275,69 @@ func (task *Task) Setup() bool {
 	return err == nil
 }
 
+func (task *Task) GetPIEValues() PIEValues {
+	pieValues := PIEValues{}
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    PIEEndpoint + fmt.Sprint(time.Now().Unix()),
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"referer", PIEReferer},
+		},
+	})
+
+	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return pieValues
+	}
+
+	LStr, err := util.FindInString(body, "PIE.L = ", ";")
+	if err != nil || LStr == "" {
+		return pieValues
+	}
+	L, err := strconv.Atoi(LStr)
+	if err != nil {
+		return pieValues
+	}
+	EStr, err := util.FindInString(body, "PIE.E = ", ";")
+	if err != nil || EStr == "" {
+		return pieValues
+	}
+	E, err := strconv.Atoi(EStr)
+	if err != nil {
+		return pieValues
+	}
+	K, err := util.FindInString(body, `PIE.K = "`, `";`)
+	if err != nil || K == "" {
+		return pieValues
+	}
+	KeyID, err := util.FindInString(body, `PIE.key_id = "`, `";`)
+	if err != nil || KeyID == "" {
+		return pieValues
+	}
+
+	pieValues = PIEValues{
+		L:     L,
+		E:     E,
+		K:     K,
+		KeyID: KeyID,
+		Phase: 0,
+	}
+
+	return pieValues
+}
+
 // AddToCart sends a POST request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
@@ -343,8 +400,6 @@ func (task *Task) AddToCart() bool {
 
 // GetCartInfo is required for setting the PCID cookie
 func (task *Task) GetCartInfo() bool {
-	u, _ := url.Parse("https://walmart.com/")
-	log.Println(task.Task.Client.Jar.Cookies(u))
 	getCartInfoResponse := GetCartInfoResponse{}
 	data := GetCartInfoRequest{
 		StoreListIds:  []StoreList{},
@@ -595,7 +650,7 @@ func (task *Task) SetPaymentInfo() bool {
 			{"referer", SetPaymentInfoReferer},
 		},
 		RequestBodyStruct:  data,
-		ResponseBodyStruct: setPaymentInfoResponse,
+		ResponseBodyStruct: &setPaymentInfoResponse,
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
