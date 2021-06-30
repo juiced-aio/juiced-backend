@@ -57,7 +57,7 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, erro
 
 func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
 	log.Println("Requesting Captcha token")
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Walmart, captchaURL, proxy)
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Walmart, captchaURL, "", 0, proxy)
 	if err != nil {
 		fmt.Println("Error getting ReCaptcha v2 Token: " + err.Error())
 		return err

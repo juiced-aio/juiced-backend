@@ -72,6 +72,9 @@ func CheckServices(settings entities.Settings) (captchaServices []string, captch
 		captchaServices = append(captchaServices, settings.CapMonsterAPIKey)
 		captchaServiceCount++
 	}
+	if settings.AYCDAccessToken != "" && settings.AYCDAPIKey != "" {
+		captchaServices = append(captchaServices, settings.AYCDAccessToken+"|"+settings.AYCDAPIKey)
+	}
 	return
 }
 
@@ -306,4 +309,31 @@ func CapMonsterReq(apiKey string, taskInfo CapMonsterTaskInfo) (CapMonsterRespon
 	}
 
 	return capMonsterResponse, err
+}
+
+func ParseProxy(proxyStr string) (entities.Proxy, error) {
+	proxy := entities.Proxy{}
+
+	proxySplit := strings.Split(proxyStr, ":")
+	if len(proxySplit) != 2 && len(proxySplit) != 4 {
+		return proxy, errors.New("bad proxy")
+	}
+
+	username := ""
+	if len(proxySplit) == 4 {
+		username = proxySplit[2]
+	}
+	password := ""
+	if len(proxySplit) == 4 {
+		password = proxySplit[3]
+	}
+
+	proxy = entities.Proxy{
+		Host:     proxySplit[0],
+		Port:     proxySplit[1],
+		Username: username,
+		Password: password,
+	}
+
+	return proxy, nil
 }

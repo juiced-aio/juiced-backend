@@ -15,6 +15,7 @@ const (
 	TwoCaptcha  CaptchaAPI = "2Captcha"
 	AntiCaptcha CaptchaAPI = "AntiCaptcha"
 	CapMonster  CaptchaAPI = "CapMonster"
+	AYCD        CaptchaAPI = "AYCD"
 )
 
 type ReCaptchaSitekey = string

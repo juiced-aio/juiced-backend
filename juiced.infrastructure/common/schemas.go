@@ -269,7 +269,9 @@ var settingsSchema = `
 		failureDiscordWebhook TEXT,
 		twoCaptchaAPIKey TEXT,
 		antiCaptchaAPIKey TEXT,
-		capMonsterAPIKey TEXT
+		capMonsterAPIKey TEXT,
+		aycdAccessToken TEXT,
+		aycdAPIKey TEXT,
 	)
 `
 

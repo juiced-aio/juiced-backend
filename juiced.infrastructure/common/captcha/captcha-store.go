@@ -6,22 +6,26 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"gitlab.com/aycd-inc/autosolve-clients/autosolve-client-go"
 	// Future sitescripts will be imported here
 )
 
 // CaptchaStore stores information about valid Captcha tokens
 type CaptchaStore struct {
-	ReCaptchaV2Tokens    map[enums.Retailer][]*entities.ReCaptchaToken
-	ReCaptchaV3Tokens    map[enums.Retailer][]*entities.ReCaptchaToken
-	HCaptchaTokens       map[enums.Retailer][]*entities.HCaptchaToken
-	GeeTestCaptchaTokens map[enums.Retailer][]*entities.GeeTestCaptchaToken
-	EventBus             *events.EventBus
+	ReCaptchaV2Tokens     map[enums.Retailer][]*entities.ReCaptchaToken
+	ReCaptchaV3Tokens     map[enums.Retailer][]*entities.ReCaptchaToken
+	HCaptchaTokens        map[enums.Retailer][]*entities.HCaptchaToken
+	GeeTestCaptchaTokens  map[enums.Retailer][]*entities.GeeTestCaptchaToken
+	AYCDReCaptchaV2Tokens map[enums.Retailer][]*entities.ReCaptchaToken
+	AYCDReCaptchaV3Tokens map[enums.Retailer][]*entities.ReCaptchaToken
+	EventBus              *events.EventBus
 }
 
 var captchaStore *CaptchaStore
@@ -29,11 +33,13 @@ var captchaStore *CaptchaStore
 // InitCaptchaStore initializes the singleton instance of the Store
 func InitCaptchaStore(eventBus *events.EventBus) {
 	captchaStore = &CaptchaStore{
-		ReCaptchaV2Tokens:    make(map[enums.Retailer][]*entities.ReCaptchaToken),
-		ReCaptchaV3Tokens:    make(map[enums.Retailer][]*entities.ReCaptchaToken),
-		HCaptchaTokens:       make(map[enums.Retailer][]*entities.HCaptchaToken),
-		GeeTestCaptchaTokens: make(map[enums.Retailer][]*entities.GeeTestCaptchaToken),
-		EventBus:             eventBus,
+		ReCaptchaV2Tokens:     make(map[enums.Retailer][]*entities.ReCaptchaToken),
+		ReCaptchaV3Tokens:     make(map[enums.Retailer][]*entities.ReCaptchaToken),
+		HCaptchaTokens:        make(map[enums.Retailer][]*entities.HCaptchaToken),
+		GeeTestCaptchaTokens:  make(map[enums.Retailer][]*entities.GeeTestCaptchaToken),
+		AYCDReCaptchaV2Tokens: make(map[enums.Retailer][]*entities.ReCaptchaToken),
+		AYCDReCaptchaV3Tokens: make(map[enums.Retailer][]*entities.ReCaptchaToken),
+		EventBus:              eventBus,
 	}
 }
 
@@ -42,8 +48,9 @@ func GetCaptchaStore() *CaptchaStore {
 	return captchaStore
 }
 
+// TODO @silent: Instead of passing in all of these variables, create a struct called RequestCaptchaTokenInfo that has all of them (since some are not required for all Captcha types/retailers)
 // RequestCaptchaToken returns a Captcha token from the Store, or requests one if none are available
-func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer, url string, proxy entities.Proxy, sitekey ...string) (interface{}, error) {
+func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer, url, action string, minScore float32, proxy entities.Proxy, sitekey ...string) (interface{}, error) {
 	var err error
 	switch captchaType {
 	case enums.ReCaptchaV2:
@@ -53,6 +60,15 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
 				captchaStore.ReCaptchaV2Tokens[retailer] = tokens[:len(tokens)-1]
+				return *token, nil
+			}
+		}
+		tokens = captchaStore.AYCDReCaptchaV2Tokens[retailer]
+		for index, token := range tokens {
+			if token.URL == url && token.Proxy.ID == proxy.ID {
+				// If a valid token exists, remove it from the list of tokens and return it
+				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
+				captchaStore.AYCDReCaptchaV2Tokens[retailer] = tokens[:len(tokens)-1]
 				return *token, nil
 			}
 		}
@@ -83,6 +99,15 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 				return *token, nil
 			}
 		}
+		tokens = captchaStore.AYCDReCaptchaV3Tokens[retailer]
+		for index, token := range tokens {
+			if token.URL == url && token.Proxy.ID == proxy.ID {
+				// If a valid token exists, remove it from the list of tokens and return it
+				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
+				captchaStore.AYCDReCaptchaV3Tokens[retailer] = tokens[:len(tokens)-1]
+				return *token, nil
+			}
+		}
 		// Otherwise, request a token
 		tempSitekey, ok := enums.ReCaptchaSitekeys[retailer]
 		retailerSitekey := ""
@@ -99,7 +124,7 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		go RequestReCaptchaV3Token(retailerSitekey, url, proxy, retailer)
+		go RequestReCaptchaV3Token(retailerSitekey, url, action, minScore, proxy, retailer)
 	case enums.HCaptcha:
 		tokens := captchaStore.HCaptchaTokens[retailer]
 		for index, token := range tokens {
@@ -187,6 +212,41 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 
 	for _, service := range captchaServices {
 		switch service {
+		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+			go func() {
+				defer wg.Done()
+				startWait := time.Now()
+				// If AYCD is Connecting or Reconnecting, we can wait for a bit (I have it at 30 seconds before the function says fuck it)
+				for aycdStatus == autosolve.Connecting || aycdStatus == autosolve.Reconnecting {
+					time.Sleep(1 * time.Second / 10)
+					if time.Since(startWait) > 30*time.Second {
+						return
+					}
+				}
+				// Once it's either Connected or Disconnected, ensure that it's Connected
+				if aycdStatus != autosolve.Connected {
+					return
+				}
+
+				proxyStr := ""
+				if proxy.Host != "" && proxy.Port != "" {
+					proxyStr = proxy.Host + ":" + proxy.Port
+				}
+				if proxy.Username != "" && proxy.Password != "" {
+					proxyStr += ":" + proxy.Username + ":" + proxy.Password
+				}
+				// Because we store tokens based on retailer (allowing any task to use the token as long as the URL and Proxy match), we can just pass the retailer in as the TaskID
+				// We also need to differentiate between V2 and V3 tokens, so append that to the retailer
+				taskInfo := autosolve.CaptchaTokenRequest{
+					TaskId:  retailer + "|V2",
+					Url:     url,
+					SiteKey: sitekey,
+					Version: autosolve.ReCaptchaV2Checkbox, // TODO @silent: Infrastructure for differing between invisible and checkbox
+					Proxy:   proxyStr,
+					// ProxyRequired: ?, // TODO @silent: Get some more info about this
+				}
+				autosolve.SendTokenRequest(taskInfo)
+			}()
 		case settings.TwoCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
@@ -314,7 +374,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 
 // TODO @silent: Make changes to match v2 function
 // RequestReCaptchaV3Token requests a ReCaptchaV3 token from all available APIs and the frontend
-func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, retailer enums.Retailer) error {
+func RequestReCaptchaV3Token(sitekey, action, url string, minScore float32, proxy entities.Proxy, retailer enums.Retailer) error {
 	settings, err := queries.GetSettings()
 	if err != nil {
 		return err
@@ -328,6 +388,44 @@ func RequestReCaptchaV3Token(sitekey string, url string, proxy entities.Proxy, r
 	// None of the Captcha services support proxies on ReCaptchaV3
 	for _, service := range captchaServices {
 		switch service {
+		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+			go func() {
+				defer wg.Done()
+				startWait := time.Now()
+				// If AYCD is Connecting or Reconnecting, we can wait for a bit (I have it at 30 seconds before the function says fuck it)
+				for aycdStatus == autosolve.Connecting || aycdStatus == autosolve.Reconnecting {
+					time.Sleep(1 * time.Second / 10)
+					if time.Now().Sub(startWait) > 30*time.Second {
+						return
+					}
+				}
+				// Once it's either Connected or Disconnected, ensure that it's Connected
+				if aycdStatus != autosolve.Connected {
+					return
+				}
+
+				proxyStr := ""
+				if proxy.Host != "" && proxy.Port != "" {
+					proxyStr = proxy.Host + ":" + proxy.Port
+				}
+				if proxy.Username != "" && proxy.Password != "" {
+					proxyStr += ":" + proxy.Username + ":" + proxy.Password
+				}
+
+				// Because we store tokens based on retailer (allowing any task to use the token as long as the URL and Proxy match), we can just pass the retailer in as the TaskID
+				// We also need to differentiate between V2 and V3 tokens, so append that to the retailer
+				taskInfo := autosolve.CaptchaTokenRequest{
+					TaskId:   retailer + "|V3",
+					Url:      url,
+					SiteKey:  sitekey,
+					Version:  autosolve.ReCaptchaV3,
+					Action:   action,
+					MinScore: minScore,
+					Proxy:    proxyStr,
+					// ProxyRequired: ?, // TODO @silent: Get some more info about this
+				}
+				autosolve.SendTokenRequest(taskInfo)
+			}()
 		case settings.TwoCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
@@ -432,6 +530,8 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 
 	for _, service := range captchaServices {
 		switch service {
+		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+
 		case settings.TwoCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
@@ -551,6 +651,8 @@ func RequestGeeTestCaptchaToken(sitekey string, url string, challenge string, pr
 
 	for _, service := range captchaServices {
 		switch service {
+		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+
 		case settings.TwoCaptchaAPIKey:
 			go func() {
 				defer wg.Done()

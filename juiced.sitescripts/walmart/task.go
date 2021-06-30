@@ -23,6 +23,11 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 	if err != nil {
 		return walmartTask, err
 	}
+
+	if task.TaskDelay == 0 {
+		task.TaskDelay = 2000
+	}
+
 	walmartTask = Task{
 		Task: base.Task{
 			Task:     task,
@@ -160,6 +165,20 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
+
+	// // 4. SetPCID
+	// task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	// setPCID := false
+	// for !setPCID {
+	// 	needToStop := task.CheckForStop()
+	// 	if needToStop {
+	// 		return
+	// 	}
+	// 	setPCID = task.SetPCID()
+	// 	if !setPCID {
+	// 		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+	// 	}
+	// }
 
 	// 5. SetShippingInfo
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
@@ -487,7 +506,7 @@ func (task *Task) SetPCID() bool {
 			{"content-length", "0"},
 			{"referer", SetPcidReferer},
 		},
-		ResponseBodyStruct: setPCIDResponse,
+		ResponseBodyStruct: &setPCIDResponse,
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setPCIDResponse.RedirectURL)

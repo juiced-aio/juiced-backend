@@ -51,10 +51,24 @@ func main() {
 			go stores.InitTaskStore(eventBus)
 			stores.InitMonitorStore(eventBus)
 			captcha.InitCaptchaStore(eventBus)
+			err := captcha.InitAycd()
+			if err == nil {
+				settings, err := queries.GetSettings()
+				if err == nil {
+					if settings.AYCDAccessToken != "" && settings.AYCDAPIKey != "" {
+						err = captcha.ConnectToAycd(settings.AYCDAccessToken, settings.AYCDAPIKey)
+						if err != nil {
+							// TODO @silent: Handle
+						}
+					}
+				}
+			} else {
+				// TODO @silent: Handle
+			}
 			go util.DiscordWebhookQueue()
 			go api.StartServer()
 
-			err := client.Login("856936229223006248")
+			err = client.Login("856936229223006248")
 			// No need to close the app if Discord RPC doesn't work. It's not a necessary feature.
 			// If it breaks for everyone at once for some reason, don't want to entirely break the app without a hotfix.
 			if err == nil {
