@@ -34,7 +34,7 @@ const (
 	PlaceOrderEndpoint = "https://www.walmart.com/api/checkout/v3/contract/:PCID/order"
 	PlaceOrderReferer  = "https://www.walmart.com/checkout/"
 
-	MonitorEndpoint = "https://walmart.com/ip/%s/sellers"
+	MonitorEndpoint = "https://www.walmart.com/ip/%s/sellers"
 )
 
 // Monitor info
@@ -68,6 +68,7 @@ type CardInfo struct {
 	KeyId          string `json:"keyId"`
 	Phase          int    `json:"phase"`
 	PiHash         string `json:"piHash"`
+	PaymentType    string `json:"paymentType"`
 }
 
 type EncryptCardInfo struct {
@@ -111,6 +112,7 @@ type Payment struct {
 	AddressLineOne string `json:"addressLineOne"`
 	AddressLineTwo string `json:"addressLineTwo"`
 	City           string `json:"city"`
+	AddressType    string `json:"addressType"`
 	FirstName      string `json:"firstName"`
 	LastName       string `json:"lastName"`
 	ExpiryMonth    string `json:"expiryMonth"`

@@ -32,6 +32,7 @@ type SetShippingInfoResponse struct {
 
 type SetCreditCardResponse struct {
 	PiHash      string `json:"piHash"`
+	PaymentType string `json:"paymentType"`
 	RedirectURL string `json:"redirectUrl"`
 }
 
@@ -42,7 +43,7 @@ type SetPaymentInfoResponse struct {
 
 // PlaceOrderResponse is returned by the PlaceOrder endpoint
 type PlaceOrderResponse struct {
-	StatusCode  string `json:"statusCode"`
+	StatusCode  int    `json:"statusCode"`
 	Code        string `json:"code"`
 	RedirectURL string `json:"redirectUrl"`
 }
