@@ -1,8 +1,11 @@
 package endpoints
 
 import (
+	"log"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
@@ -59,9 +62,30 @@ func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request)
 				if newSettings.CapMonsterAPIKey == "-1" {
 					newSettings.CapMonsterAPIKey = currentSettings.CapMonsterAPIKey
 				}
+				aycdChanged := false
+				if newSettings.AYCDAccessToken == "-1" {
+					newSettings.AYCDAccessToken = currentSettings.AYCDAccessToken
+				} else {
+					aycdChanged = true
+				}
+				if newSettings.AYCDAPIKey == "-1" {
+					newSettings.AYCDAPIKey = currentSettings.AYCDAPIKey
+				} else {
+					aycdChanged = true
+				}
 				newSettings, err = commands.UpdateSettings(newSettings)
 				if err != nil {
 					errorsList = append(errorsList, errors.UpdateSettingsError+err.Error())
+				} else {
+					if aycdChanged && newSettings.AYCDAccessToken != "" && newSettings.AYCDAPIKey != "" {
+						err = captcha.ConnectToAycd(newSettings.AYCDAccessToken, newSettings.AYCDAPIKey)
+						if err != nil {
+							// TODO @silent: Handle
+							log.Println("Error connecting to AYCD with new credentials: " + err.Error())
+						} else {
+							log.Println("Connected to AYCD with new credentials.")
+						}
+					}
 				}
 			} else {
 				errorsList = append(errorsList, errors.GetSettingsError+err.Error())

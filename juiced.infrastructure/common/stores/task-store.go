@@ -362,7 +362,8 @@ func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
 		}
 		return true
 	}
-	return false
+
+	return true
 }
 
 // TasksRunning checks to see if any tasks in the taskGroup are running, if so it returns true
@@ -456,6 +457,12 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.
 		return true
 	}
 	return false
+}
+
+func (taskStore *TaskStore) SetWalmartCardDetails(taskID string, cardInfo walmart.CardInfo) {
+	if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+		walmartTask.CardInfo = cardInfo
+	}
 }
 
 func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {

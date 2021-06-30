@@ -1,6 +1,7 @@
 package stores
 
 import (
+	"log"
 	"math/rand"
 	"time"
 
@@ -58,6 +59,8 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxy, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
 		if err != nil {
+			log.Println(8)
+			log.Println(err.Error())
 			return false
 		}
 
@@ -175,6 +178,7 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 	// Add monitor to store (if it already exists, this will return true)
 	added := monitorStore.AddMonitorToStore(monitor)
 	if !added {
+		log.Println(4)
 		return false
 	}
 
@@ -339,7 +343,7 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second / 100)
 	}
 }
 
@@ -358,7 +362,7 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second / 100)
 	}
 }
 
@@ -381,7 +385,7 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second / 100)
 	}
 }
 
@@ -399,7 +403,7 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second / 100)
 	}
 }
 
@@ -429,7 +433,7 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second / 100)
 	}
 }
 
@@ -442,13 +446,13 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
 						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
 							walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
+							walmartTask.OfferID = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].OfferID
 						}
 					}
 				}
 			}
 		}
-		// Loops were causing 100% cpu usage, had to use pprof
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Second / 100)
 	}
 }
 

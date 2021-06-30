@@ -15,16 +15,15 @@ import (
 	"strings"
 	"time"
 
+	cclient "backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
-	"backend.juicedbot.io/juiced.sitescripts/base"
-
-	cclient "backend.juicedbot.io/juiced.client/client"
+	utls "backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-	tls "github.com/Titanium-ctrl/utls"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
 // CreateClient creates an HTTP client
@@ -32,12 +31,12 @@ func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
 	var client http.Client
 	var err error
 	if len(proxy) > 0 {
-		client, err = cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy[0]))
+		client, err = cclient.NewClient(utls.HelloChrome_90, ProxyCleaner(proxy[0]))
 		if err != nil {
 			return client, err
 		}
 	} else {
-		client, err = cclient.NewClient(tls.HelloChrome_83)
+		client, err = cclient.NewClient(utls.HelloChrome_90)
 		if err != nil {
 			return client, err
 		}
@@ -573,6 +572,10 @@ func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
 		return "", pxValues, err
 	}
 
+	if pxResponse.PX3 == "" || pxResponse.SetID == "" || pxResponse.UUID == "" || pxResponse.VID == "" {
+		return GetPXCookie(site, proxy)
+	}
+
 	return pxResponse.PX3, PXValues{
 		SetID: pxResponse.SetID,
 		UUID:  pxResponse.UUID,
@@ -589,5 +592,11 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) 
 	}
 
 	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
-	return px3, err
+	if err != nil {
+		return "", err
+	}
+	if px3 == "" {
+		return GetPXCapCookie(site, setID, vid, uuid, token, proxy)
+	}
+	return px3, nil
 }

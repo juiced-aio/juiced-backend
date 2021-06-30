@@ -10,6 +10,8 @@ type Settings struct {
 	TwoCaptchaAPIKey      string `json:"twoCaptchaAPIKey" db:"twoCaptchaAPIKey"`
 	AntiCaptchaAPIKey     string `json:"antiCaptchaAPIKey" db:"antiCaptchaAPIKey"`
 	CapMonsterAPIKey      string `json:"capMonsterAPIKey" db:"capMonsterAPIKey"`
+	AYCDAccessToken       string `json:"aycdAccessToken" db:"aycdAccessToken"`
+	AYCDAPIKey            string `json:"aycdAPIKey" db:"aycdAPIKey"`
 }
 
 // ParseSettings returns a Settings object parsed from a JSON bytes array
