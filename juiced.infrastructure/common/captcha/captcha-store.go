@@ -172,6 +172,15 @@ func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, u
 				return *token
 			}
 		}
+		tokens = captchaStore.AYCDReCaptchaV2Tokens[retailer]
+		for index, token := range tokens {
+			if token.URL == url && token.Proxy.ID == proxy.ID {
+				// If a valid token exists, remove it from the list of tokens and return it
+				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
+				captchaStore.AYCDReCaptchaV2Tokens[retailer] = tokens[:len(tokens)-1]
+				return *token
+			}
+		}
 	case enums.ReCaptchaV3:
 		tokens := captchaStore.ReCaptchaV3Tokens[retailer]
 		for index, token := range tokens {
@@ -179,6 +188,15 @@ func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, u
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
 				captchaStore.ReCaptchaV3Tokens[retailer] = tokens[:len(tokens)-1]
+				return *token
+			}
+		}
+		tokens = captchaStore.AYCDReCaptchaV3Tokens[retailer]
+		for index, token := range tokens {
+			if token.URL == url && token.Proxy.ID == proxy.ID {
+				// If a valid token exists, remove it from the list of tokens and return it
+				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
+				captchaStore.AYCDReCaptchaV3Tokens[retailer] = tokens[:len(tokens)-1]
 				return *token
 			}
 		}
@@ -531,7 +549,9 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 	for _, service := range captchaServices {
 		switch service {
 		case enums.AYCD:
-
+			go func() {
+				defer wg.Done()
+			}()
 		case settings.TwoCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
@@ -652,7 +672,9 @@ func RequestGeeTestCaptchaToken(sitekey string, url string, challenge string, pr
 	for _, service := range captchaServices {
 		switch service {
 		case enums.AYCD:
-
+			go func() {
+				defer wg.Done()
+			}()
 		case settings.TwoCaptchaAPIKey:
 			go func() {
 				defer wg.Done()

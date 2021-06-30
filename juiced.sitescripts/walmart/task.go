@@ -375,13 +375,21 @@ func (task *Task) GetPIEValues() PIEValues {
 	if err != nil || KeyID == "" {
 		return pieValues
 	}
+	phaseStr, err := util.FindInString(body, "PIE.phase = ", ";")
+	if err != nil || phaseStr == "" {
+		return pieValues
+	}
+	phase, err := strconv.Atoi(phaseStr)
+	if err != nil {
+		return pieValues
+	}
 
 	pieValues = PIEValues{
 		L:     L,
 		E:     E,
 		K:     K,
 		KeyID: KeyID,
-		Phase: 0,
+		Phase: phase,
 	}
 
 	return pieValues

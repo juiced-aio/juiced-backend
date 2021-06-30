@@ -8,16 +8,21 @@ import (
 	"gitlab.com/aycd-inc/autosolve-clients/autosolve-client-go"
 )
 
+var JUICED_CLIENT_ID = "Juiced-AIO-4d1c6af4-6bc3-4443-beae-892f218d2c17"
 var aycdStatus = autosolve.Disconnected
 
 func InitAycd() error {
 	// Establishes listener function to receive token responses
 	var tokenListener autosolve.CaptchaTokenResponseListener = func(tokenResponse autosolve.CaptchaTokenResponse) {
-		proxy, err := ParseProxy(tokenResponse.Request.Proxy)
-		if err != nil {
-			// TODO @silent: Handle
-			// (This shouldn't really fail, since we validate the Proxy entity that is passed into the autosolve Request initially)
-			// (But still good to handle regardless)
+		proxy := entities.Proxy{}
+		var err error
+		if tokenResponse.Request.Proxy != "" {
+			proxy, err = ParseProxy(tokenResponse.Request.Proxy)
+			if err != nil {
+				// TODO @silent: Handle
+				// (This shouldn't really fail, since we validate the Proxy entity that is passed into the autosolve Request initially)
+				// (But still good to handle regardless)
+			}
 		}
 
 		if !strings.Contains(tokenResponse.TaskId, "|") {
@@ -57,7 +62,7 @@ func InitAycd() error {
 		// TODO @silent: Handle
 	}
 
-	return autosolve.Load("your-client-id", tokenListener, tokenCancelListener, statusListener, errorListener)
+	return autosolve.Load(JUICED_CLIENT_ID, tokenListener, tokenCancelListener, statusListener, errorListener)
 }
 
 func ConnectToAycd(accessToken, apiKey string) error {

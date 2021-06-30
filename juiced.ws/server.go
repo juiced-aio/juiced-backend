@@ -70,7 +70,9 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			log.Println("Error receiving message from frontend: " + err.Error())
+			if err.Error() != "websocket: close 1001 (going away)" {
+				log.Println("Error receiving message from frontend: " + err.Error())
+			}
 			// delete(clients, conn)
 			break
 		} else {
