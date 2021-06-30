@@ -72,16 +72,17 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("Error receiving message from frontend: " + err.Error())
 			// delete(clients, conn)
-			break
-		}
-		incomingMessage := IncomingMessage{}
-		err = json.Unmarshal(message, &incomingMessage)
-		if err != nil {
-			log.Println("Error reading message from frontend: " + err.Error())
-		}
-		if incomingMessage.EventType == "WalmartEncryptionEvent" {
-			taskStore := stores.GetTaskStore()
-			taskStore.SetWalmartCardDetails(incomingMessage.TaskID, incomingMessage.CardDetails)
+			// break
+		} else {
+			incomingMessage := IncomingMessage{}
+			err = json.Unmarshal(message, &incomingMessage)
+			if err != nil {
+				log.Println("Error reading message from frontend: " + err.Error())
+			}
+			if incomingMessage.EventType == "WalmartEncryptionEvent" {
+				taskStore := stores.GetTaskStore()
+				taskStore.SetWalmartCardDetails(incomingMessage.TaskID, incomingMessage.CardDetails)
+			}
 		}
 		// err = conn.WriteMessage(mt, message)
 		// if err != nil {
