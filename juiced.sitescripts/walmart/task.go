@@ -12,6 +12,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
@@ -84,8 +85,9 @@ func (task *Task) CheckForStop() bool {
 // 		4. SetPCID
 //		5. SetShippingInfo
 // 		6. WaitForEncryptedPaymentInfo
-//		7. SetPaymentInfo
-//		8. PlaceOrder
+//		7. SetCreditCard
+//		8. SetPaymentInfo
+//		9. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -97,6 +99,7 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()
 	for task.PXValues.RefreshAt == 0 {
+		time.Sleep(1 * time.Millisecond)
 	}
 
 	setup := false
@@ -201,8 +204,24 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	// 7. SetPaymentInfo
+	// * @silent: The piHash that this SetCreditCard is returning isn't needed but it may help with cancels in the future so it will take some testing during beta,
+	// * but for now we should just comment it out
+
+	// 7. SetCreditCard
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	/* setCreditCard := false
+	for !setCreditCard {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		setCreditCard = task.SetCreditCard()
+		if !setCreditCard {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	} */
+
+	// 8. SetPaymentInfo
 	setPaymentInfo := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
@@ -215,15 +234,19 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 8. PlaceOrder
+	// 9. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	placedOrder := false
+	var status enums.OrderStatus
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		placedOrder = task.PlaceOrder()
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		placedOrder, status = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -235,7 +258,14 @@ func (task *Task) RunTask() {
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -558,23 +588,22 @@ func (task *Task) SetShippingInfo() bool {
 		Method: "POST",
 		URL:    SetShippingInfoEndpoint,
 		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"pragma", "no-cache"},
+			{"cache-control", "no-cache"},
 			{"accept", "application/json, text/javascript, */*; q=0.01"},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
+			{"inkiru_precedence", "false"},
+			{"wm_cvv_in_session", "true"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"wm_vertical_id", "0"},
 			{"content-type", "application/json"},
 			{"origin", "https://www.walmart.com"},
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "empty"},
-			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-site", "same-origin"},
-			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
-			{"content-length", fmt.Sprint(len(dataStr))},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
 			{"referer", SetShippingInfoReferer},
-			{"wm_cvv_in_session", "true"},
-			{"wm_vertical_id", "0"},
-			{"inkiru_precedence", "false"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &setShippingInfoResponse,
@@ -616,13 +645,93 @@ func (task *Task) WaitForEncryptedPaymentInfo() bool {
 	}
 }
 
+// SetCreditCard sets the CreditCard and also returns the PiHash needed for SetPaymentInfo
+func (task *Task) SetCreditCard() bool {
+	setCreditCardResponse := SetCreditCardResponse{}
+	data := Payment{
+		EncryptedPan:   task.CardInfo.EncryptedPan,
+		EncryptedCvv:   task.CardInfo.EncryptedCvv,
+		IntegrityCheck: task.CardInfo.IntegrityCheck,
+		KeyId:          task.CardInfo.KeyId,
+		Phase:          task.CardInfo.Phase,
+		State:          task.Task.Profile.BillingAddress.StateCode,
+		PostalCode:     task.Task.Profile.BillingAddress.ZipCode,
+		AddressLineOne: task.Task.Profile.BillingAddress.Address1,
+		AddressLineTwo: task.Task.Profile.BillingAddress.Address2,
+		City:           task.Task.Profile.BillingAddress.City,
+		AddressType:    "RESIDENTIAL",
+		FirstName:      task.Task.Profile.BillingAddress.FirstName,
+		LastName:       task.Task.Profile.BillingAddress.LastName,
+		ExpiryMonth:    task.Task.Profile.CreditCard.ExpMonth,
+		ExpiryYear:     task.Task.Profile.CreditCard.ExpYear,
+		Phone:          task.Task.Profile.PhoneNumber,
+		CardType:       strings.ToUpper(task.Task.Profile.CreditCard.CardType),
+		IsGuest:        true, // No login yet
+	}
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		log.Println("SetCreditCard Request Error: " + err.Error())
+		return false
+	}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    SetCreditCardEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"pragma", "no-cache"},
+			{"cache-control", "no-cache"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"accept", "application/json"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-type", "application/json"},
+			{"origin", "https://www.walmart.com"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", SetCreditCardReferer},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		RequestBodyStruct:  data,
+		ResponseBodyStruct: &setCreditCardResponse,
+	})
+
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (setCreditCardResponse.RedirectURL != "" && strings.Contains(setCreditCardResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, setCreditCardResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+		}
+	}
+	if err != nil {
+		log.Println("SetCreditCard Request Error: " + err.Error())
+		return false
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		task.CardInfo.PiHash = setCreditCardResponse.PiHash
+		task.CardInfo.PaymentType = setCreditCardResponse.PaymentType
+	case 404:
+		log.Printf("Not Found: %v\n", resp.Status)
+	default:
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
+	}
+	return false
+}
+
 // SetPaymentInfo sets the payment info to prepare for placing an order
 func (task *Task) SetPaymentInfo() bool {
+	task.CardInfo.PaymentType = "CREDITCARD"
 	setPaymentInfoResponse := SetPaymentInfoResponse{}
-	data := PaymentsRequest{
-		[]Payment{{
-			PaymentType:    "CreditCard",
-			CardType:       task.Task.Profile.CreditCard.CardType,
+	data := SubmitPaymentRequest{
+		[]SubmitPayment{{
+			PaymentType:    task.CardInfo.PaymentType,
+			CardType:       strings.ToUpper(task.Task.Profile.CreditCard.CardType),
 			FirstName:      task.Task.Profile.BillingAddress.FirstName,
 			LastName:       task.Task.Profile.BillingAddress.LastName,
 			AddressLineOne: task.Task.Profile.BillingAddress.Address1,
@@ -653,20 +762,26 @@ func (task *Task) SetPaymentInfo() bool {
 		Method: "POST",
 		URL:    SetPaymentInfoEndpoint,
 		RawHeaders: [][2]string{
-			{"accept", "application/json"},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-			{"content-type", "application/json"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"pragma", "no-cache"},
+			{"cache-control", "no-cache"},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"inkiru_precedence", "false"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "document"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-site", "none"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-type", "application/json"},
+			{"accept", "application/json"},
+			{"wm_cvv_in_session", "true"},
+			{"wm_vertical_id", "0"},
+			{"origin", "https://www.walmart.com"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", SetPaymentInfoReferer},
 			{"sec-fetch-user", "?1"},
 			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
-			{"content-length", fmt.Sprint(len(dataStr))},
-			{"referer", SetPaymentInfoReferer},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &setPaymentInfoResponse,
@@ -695,7 +810,8 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	var status enums.OrderStatus
 	placeOrderResponse := PlaceOrderResponse{}
 	data := PlaceOrderRequest{
 		CvvInSession: true,
@@ -711,27 +827,31 @@ func (task *Task) PlaceOrder() bool {
 	dataStr, err := json.Marshal(data)
 	if err != nil {
 		log.Println("PlaceOrder Request Error: " + err.Error())
-		return false
+		return false, status
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
-		Method: "POST",
+		Method: "PUT",
 		URL:    PlaceOrderEndpoint,
 		RawHeaders: [][2]string{
-			{"accept", "application/json"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"pragma", "no-cache"},
+			{"cache-control", "no-cache"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"accept", "application/json, text/javascript, */*; q=0.01"},
+			{"inkiru_precedence", "false"},
+			{"wm_cvv_in_session", "true"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"wm_vertical_id", "0"},
+			{"content-type", "application/json"},
+			{"origin", "https://www.walmart.com"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", PlaceOrderReferer},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"content-type", "application/json"},
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
 			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "document"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-site", "none"},
-			{"sec-fetch-user", "?1"},
-			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
-			{"content-length", fmt.Sprint(len(dataStr))},
-			{"referer", PlaceOrderReferer},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &placeOrderResponse,
@@ -744,17 +864,43 @@ func (task *Task) PlaceOrder() bool {
 	}
 	if err != nil {
 		log.Println("PlaceOrder Request Error: " + err.Error())
-		return false
+		return false, status
 	}
-
+	var success bool
 	switch resp.StatusCode {
+	case 400:
+		status = enums.OrderStatusDeclined
 	case 404:
+		status = enums.OrderStatusFailed
 		log.Printf("Not Found: %v\n", resp.Status)
 	default:
+		status = enums.OrderStatusFailed
 		log.Printf("Unknown Code: %v\n", resp.StatusCode)
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return true
+		success = true
+		status = enums.OrderStatusSuccess
 	}
-	return false
+
+	_, user, err := queries.GetUserInfo()
+	if err != nil {
+		fmt.Println("Could not get user info")
+		return false, status
+	}
+
+	util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateWalmartEmbed(status, "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=457&height=467"),
+		UserInfo:     user,
+		ItemName:     "NaN", // TODO: @TeHNiC, I saw you finished the webhooks in another branch I just don't want to copy it here and take credit
+		Sku:          task.Sku,
+		Retailer:     enums.Walmart,
+		Price:        0, // TODO: @TeHNiC
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
+	return success, status
 }

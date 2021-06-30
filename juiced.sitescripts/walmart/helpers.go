@@ -12,8 +12,8 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
-
 	"github.com/anaskhan96/soup"
 )
 
@@ -87,20 +87,26 @@ func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.P
 
 	log.Println("Retrieved PX3 cookie: " + px3)
 
-	cookie := &http.Cookie{
+	px3Cookie := &http.Cookie{
 		Name:   "_px3",
 		Value:  px3,
 		Path:   "/",
 		Domain: ".walmart.com",
 	}
-	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
+	u, err := url.Parse("https://www.walmart.com/") // This should never error, but just to be safe let's handle the error
 	if err != nil {
-		log.Println("Error parsing https://walmart.com/ to set PXCap cookie: " + err.Error())
+		log.Println("Error parsing https://www.walmart.com/ to set PXCap cookie: " + err.Error())
 		return err
 	}
-	cookies := client.Jar.Cookies(u)
-	cookies = append(cookies, cookie)
-	client.Jar.SetCookies(u, cookies)
+	oldCookies := client.Jar.Cookies(u)
+	newCookies := []*http.Cookie{}
+	for _, oldCookie := range oldCookies {
+		if oldCookie.Name != "_px3" {
+			newCookies = append(newCookies, oldCookie)
+		}
+	}
+	newCookies = append(newCookies, px3Cookie)
+	client.Jar.SetCookies(u, newCookies)
 	return nil
 }
 
@@ -115,4 +121,66 @@ func ParseInstockSku(resp soup.Root) []string {
 	}
 
 	return inStockForShip
+}
+
+// Creates a embed for the DiscordWebhook function
+func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	embeds := []sec.DiscordEmbed{
+		{
+			Fields: []sec.DiscordField{
+				{
+					Name:   "Site:",
+					Value:  "Walmart",
+					Inline: true,
+				},
+				{
+					Name:   "Price:",
+					Value:  "$" + fmt.Sprint(0), // TODO: @TeHNiC
+					Inline: true,
+				},
+				{
+					Name:   "Product SKU:",
+					Value:  fmt.Sprintf("[%v](https://www.walmart.com/ip/%v)", task.Sku, task.Sku),
+					Inline: true,
+				},
+				{
+					Name:  "Product Name:",
+					Value: "NaN", // TODO: @TeHNiC
+				},
+				{
+					Name:  "Proxy:",
+					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+				},
+			},
+			Footer: sec.DiscordFooter{
+				Text:    "Juiced AIO",
+				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
+			},
+			Timestamp: time.Now(),
+		},
+	}
+
+	switch status {
+	case enums.OrderStatusSuccess:
+		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
+		embeds[0].Color = 16742912
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+	case enums.OrderStatusDeclined:
+		embeds[0].Title = ":lemon: Card Declined :lemon:"
+		embeds[0].Color = 16766464
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+	case enums.OrderStatusFailed:
+		embeds[0].Title = ":apple: Failed to Place Order :apple:"
+		embeds[0].Color = 14495044
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+	}
+
+	return embeds
+
 }

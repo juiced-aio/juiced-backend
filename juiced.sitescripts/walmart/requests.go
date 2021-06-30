@@ -88,8 +88,8 @@ type PlaceOrderRequest struct {
 	VoltagePayment []VoltagePayment `json:"voltagePayments"`
 }
 
-//PaymentsRequest is the request sent by the Payments function
-type PaymentsRequest struct {
-	Payments     []Payment `json:"payments"`
-	CvvInSession bool      `json:"cvvInSession"`
+//SubmitPaymentRequest is the request sent by the Payments function
+type SubmitPaymentRequest struct {
+	Payments     []SubmitPayment `json:"payments"`
+	CvvInSession bool            `json:"cvvInSession"`
 }

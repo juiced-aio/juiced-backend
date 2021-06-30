@@ -25,13 +25,16 @@ const (
 	SetShippingInfoEndpoint = "https://www.walmart.com/api/checkout/v3/contract/:PCID/shipping-address"
 	SetShippingInfoReferer  = "https://www.walmart.com/checkout/"
 
+	SetCreditCardEndpoint = "https://www.walmart.com/api/checkout-customer/:CID/credit-card"
+	SetCreditCardReferer  = "https://www.walmart.com/checkout/"
+
 	SetPaymentInfoEndpoint = "https://www.walmart.com/api/checkout/v3/contract/:PCID/payment"
 	SetPaymentInfoReferer  = "https://www.walmart.com/checkout/"
 
 	PlaceOrderEndpoint = "https://www.walmart.com/api/checkout/v3/contract/:PCID/order"
 	PlaceOrderReferer  = "https://www.walmart.com/checkout/"
 
-	MonitorEndpoint = "https://walmart.com/ip/%s/sellers"
+	MonitorEndpoint = "https://www.walmart.com/ip/%s/sellers"
 )
 
 // Monitor info
@@ -65,6 +68,7 @@ type CardInfo struct {
 	KeyId          string `json:"keyId"`
 	Phase          int    `json:"phase"`
 	PiHash         string `json:"piHash"`
+	PaymentType    string `json:"paymentType"`
 }
 
 type EncryptCardInfo struct {
@@ -96,8 +100,30 @@ type VoltagePayment struct {
 	Phase          int    `json:"phase"`
 }
 
-//used in SetPaymentInfo
+// used in SetCreditCard
 type Payment struct {
+	EncryptedPan   string `json:"encryptedPan"`
+	EncryptedCvv   string `json:"encryptedCvv"`
+	IntegrityCheck string `json:"integrityCheck"`
+	KeyId          string `json:"keyId"`
+	Phase          int    `json:"phase"`
+	State          string `json:"state"`
+	PostalCode     string `json:"postalCode"`
+	AddressLineOne string `json:"addressLineOne"`
+	AddressLineTwo string `json:"addressLineTwo"`
+	City           string `json:"city"`
+	AddressType    string `json:"addressType"`
+	FirstName      string `json:"firstName"`
+	LastName       string `json:"lastName"`
+	ExpiryMonth    string `json:"expiryMonth"`
+	ExpiryYear     string `json:"expiryYear"`
+	Phone          string `json:"phone"`
+	CardType       string `json:"cardType"`
+	IsGuest        bool   `json:"isGuest"`
+}
+
+//used in SetPaymentInfo
+type SubmitPayment struct {
 	PaymentType    string `json:"paymentType"`
 	CardType       string `json:"cardType"`
 	FirstName      string `json:"firstName"`
