@@ -10,6 +10,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
+	github.com/dsnet/compress v0.0.1
 	github.com/eddycjy/fake-useragent v0.2.0
 	github.com/go-rod/rod v0.99.1
 	github.com/go-rod/stealth v0.4.2
@@ -24,8 +25,9 @@ require (
 	github.com/mergermarket/go-pkcs7 v0.0.0-20170926155232-153b18ea13c9
 	github.com/rs/cors v1.7.0
 	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5
-	gitlab.com/yawning/utls.git v0.0.12-1 // indirect
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad // indirect
+	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec
+	gitlab.com/yawning/utls.git v0.0.12-1
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b // indirect
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56

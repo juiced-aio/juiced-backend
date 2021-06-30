@@ -30,6 +30,11 @@ type SetShippingInfoResponse struct {
 	RedirectURL string `json:"redirectUrl"`
 }
 
+type SetCreditCardResponse struct {
+	PiHash      string `json:"piHash"`
+	RedirectURL string `json:"redirectUrl"`
+}
+
 // SetPaymentInfoResponse is returned by the SetPaymentInfo endpoint
 type SetPaymentInfoResponse struct {
 	RedirectURL string `json:"redirectUrl"`

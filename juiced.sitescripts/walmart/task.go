@@ -79,8 +79,9 @@ func (task *Task) CheckForStop() bool {
 // 		4. SetPCID
 //		5. SetShippingInfo
 // 		6. WaitForEncryptedPaymentInfo
-//		7. SetPaymentInfo
-//		8. PlaceOrder
+//		7. SetCreditCard
+//		8. SetPaymentInfo
+//		9. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -182,8 +183,21 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	// 7. SetPaymentInfo
+	// 7. SetCreditCard
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	setCreditCard := false
+	for !setCreditCard {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		setCreditCard = task.SetCreditCard()
+		if !setCreditCard {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 8. SetPaymentInfo
 	setPaymentInfo := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
@@ -196,7 +210,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 8. PlaceOrder
+	// 9. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	placedOrder := false
 	for !placedOrder {
@@ -597,11 +611,86 @@ func (task *Task) WaitForEncryptedPaymentInfo() bool {
 	}
 }
 
+// SetCreditCard sets the CreditCard and also returns the PiHash needed for SetPaymentInfo
+func (task *Task) SetCreditCard() bool {
+	setCreditCardResponse := SetCreditCardResponse{}
+	data := Payment{
+		EncryptedPan:   task.CardInfo.EncryptedPan,
+		EncryptedCvv:   task.CardInfo.EncryptedCvv,
+		IntegrityCheck: task.CardInfo.IntegrityCheck,
+		KeyId:          task.CardInfo.KeyId,
+		Phase:          task.CardInfo.Phase,
+		State:          task.Task.Profile.BillingAddress.StateCode,
+		PostalCode:     task.Task.Profile.BillingAddress.ZipCode,
+		AddressLineOne: task.Task.Profile.BillingAddress.Address1,
+		AddressLineTwo: task.Task.Profile.BillingAddress.Address2,
+		City:           task.Task.Profile.BillingAddress.City,
+		FirstName:      task.Task.Profile.BillingAddress.FirstName,
+		LastName:       task.Task.Profile.BillingAddress.LastName,
+		ExpiryMonth:    task.Task.Profile.CreditCard.ExpMonth,
+		ExpiryYear:     task.Task.Profile.CreditCard.ExpYear,
+		Phone:          task.Task.Profile.PhoneNumber,
+		CardType:       "VISA",
+		IsGuest:        true, // No login yet
+	}
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		log.Println("SetCreditCard Request Error: " + err.Error())
+		return false
+	}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    SetCreditCardEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(dataStr))},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"accept", "application/json"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-type", "application/json"},
+			{"origin", "https://www.walmart.com"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", SetCreditCardReferer},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		RequestBodyStruct:  data,
+		ResponseBodyStruct: &setCreditCardResponse,
+	})
+
+	if strings.Contains(resp.Request.URL.String(), "blocked") || (setCreditCardResponse.RedirectURL != "" && strings.Contains(setCreditCardResponse.RedirectURL, "blocked")) {
+		handled := task.HandlePXCap(resp, setCreditCardResponse.RedirectURL)
+		if handled {
+			task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+		}
+	}
+	if err != nil {
+		log.Println("SetCreditCard Request Error: " + err.Error())
+		return false
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		task.CardInfo.PiHash = setCreditCardResponse.PiHash
+	case 404:
+		log.Printf("Not Found: %v\n", resp.Status)
+	default:
+		log.Printf("Unknown Code: %v\n", resp.StatusCode)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return true
+	}
+	return false
+}
+
 // SetPaymentInfo sets the payment info to prepare for placing an order
 func (task *Task) SetPaymentInfo() bool {
 	setPaymentInfoResponse := SetPaymentInfoResponse{}
-	data := PaymentsRequest{
-		[]Payment{{
+	data := SubmitPaymentRequest{
+		[]SubmitPayment{{
 			PaymentType:    "CreditCard",
 			CardType:       task.Task.Profile.CreditCard.CardType,
 			FirstName:      task.Task.Profile.BillingAddress.FirstName,
@@ -634,20 +723,24 @@ func (task *Task) SetPaymentInfo() bool {
 		Method: "POST",
 		URL:    SetPaymentInfoEndpoint,
 		RawHeaders: [][2]string{
-			{"accept", "application/json"},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-			{"content-type", "application/json"},
+			{"content-length", fmt.Sprint(len(dataStr))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"inkiru_precedence", "false"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "document"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-site", "none"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-type", "application/json"},
+			{"accept", "application/json"},
+			{"wm_cvv_in_session", "true"},
+			{"wm_vertical_id", "0"},
+			{"origin", "https://www.walmart.com"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", SetPaymentInfoReferer},
 			{"sec-fetch-user", "?1"},
 			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
-			{"content-length", fmt.Sprint(len(dataStr))},
-			{"referer", SetPaymentInfoReferer},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &setPaymentInfoResponse,
