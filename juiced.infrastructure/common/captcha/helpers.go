@@ -73,7 +73,7 @@ func CheckServices(settings entities.Settings) (captchaServices []string, captch
 		captchaServiceCount++
 	}
 	if settings.AYCDAccessToken != "" && settings.AYCDAPIKey != "" {
-		captchaServices = append(captchaServices, settings.AYCDAccessToken+"|"+settings.AYCDAPIKey)
+		captchaServices = append(captchaServices, enums.AYCD)
 	}
 	return
 }

@@ -212,7 +212,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 
 	for _, service := range captchaServices {
 		switch service {
-		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+		case enums.AYCD:
 			go func() {
 				defer wg.Done()
 				startWait := time.Now()
@@ -388,7 +388,7 @@ func RequestReCaptchaV3Token(sitekey, action, url string, minScore float32, prox
 	// None of the Captcha services support proxies on ReCaptchaV3
 	for _, service := range captchaServices {
 		switch service {
-		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+		case enums.AYCD:
 			go func() {
 				defer wg.Done()
 				startWait := time.Now()
@@ -530,7 +530,7 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 
 	for _, service := range captchaServices {
 		switch service {
-		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+		case enums.AYCD:
 
 		case settings.TwoCaptchaAPIKey:
 			go func() {
@@ -651,7 +651,7 @@ func RequestGeeTestCaptchaToken(sitekey string, url string, challenge string, pr
 
 	for _, service := range captchaServices {
 		switch service {
-		case settings.AYCDAccessToken + "|" + settings.AYCDAPIKey:
+		case enums.AYCD:
 
 		case settings.TwoCaptchaAPIKey:
 			go func() {
