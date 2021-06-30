@@ -72,7 +72,7 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			log.Println("Error receiving message from frontend: " + err.Error())
 			// delete(clients, conn)
-			// break
+			break
 		} else {
 			incomingMessage := IncomingMessage{}
 			err = json.Unmarshal(message, &incomingMessage)
