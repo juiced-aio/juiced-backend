@@ -66,7 +66,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Create task
-		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
+		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.StoreID, task.TargetTaskInfo.PaymentType)
 		if err != nil {
 			return false
 		}
@@ -164,10 +164,13 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		if queryError {
 			return false
 		}
+
 		// Make sure necessary fields exist
-		if task.GamestopTaskInfo.TaskType == "" || task.GamestopTaskInfo.Email == "" || task.GamestopTaskInfo.Password == "" {
+		emptyString := ""
+		if task.GamestopTaskInfo.TaskType == emptyString || (task.GamestopTaskInfo.TaskType == enums.TaskTypeAccount && (task.GamestopTaskInfo.Email == emptyString || task.GamestopTaskInfo.Password == emptyString)) {
 			return false
 		}
+
 		// Create task
 		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxy, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
 		if err != nil {
@@ -269,6 +272,7 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	if !started {
 		return false
 	}
+
 	// Add task to store (if it already exists, this will return true)
 	added := taskStore.AddTaskToStore(task)
 	if !added {
@@ -278,6 +282,39 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	// If the Task is already running, then we're all set already
 	if task.TaskStatus != enums.TaskIdle {
 		return true
+	}
+
+	switch task.TaskRetailer {
+	// Future sitescripts will have a case here
+	case enums.Target:
+		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
+			targetTask.Task.StopFlag = false
+		}
+
+	case enums.Walmart:
+		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
+			walmartTask.Task.StopFlag = false
+		}
+
+	case enums.Amazon:
+		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
+			amazonTask.Task.StopFlag = false
+		}
+
+	case enums.BestBuy:
+		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
+			bestbuyTask.Task.StopFlag = false
+		}
+
+	case enums.HotTopic:
+		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
+			hottopicTask.Task.StopFlag = false
+		}
+
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
+			gamestopTask.Task.StopFlag = false
+		}
 	}
 
 	// Otherwise, start the Task

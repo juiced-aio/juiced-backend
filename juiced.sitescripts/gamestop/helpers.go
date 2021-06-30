@@ -18,7 +18,6 @@ func BecomeGuest(client *http.Client) bool {
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err.Error())
 		return false
 	}
 
@@ -60,7 +59,7 @@ func (task *Task) CreateGamestopEmbed(status enums.OrderStatus, imageURL string)
 			},
 			Footer: sec.DiscordFooter{
 				Text:    "Juiced AIO",
-				IconURL: "https://cdn.discordapp.com/icons/688572290488991757/b684ee4e3cfb661d32afc48f24776e60.png?size=128",
+				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 			},
 			Timestamp: time.Now(),
 		},

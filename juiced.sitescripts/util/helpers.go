@@ -150,7 +150,10 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 
 	body, err := ioutil.ReadAll(response.Body)
 	if os.Getenv("JUICED_LOG") == "LOG" {
-		log.Println("RESPONSE BODY: " + string(body) + "\n")
+		log.Println("RESPONSE STATUS CODE: " + fmt.Sprint(response.StatusCode))
+		if response.Header.Get("Content-Type") != "text/html;charset=UTF-8" {
+			log.Println("RESPONSE BODY: " + string(body) + "\n")
+		}
 		log.Println("RESPONSE HEADERS:")
 		for header, values := range response.Header {
 			log.Println(header + ": " + strings.Join(values, ","))
@@ -238,7 +241,7 @@ func CreateDiscordWebhook(success bool, fields []Field, imageURL string) Discord
 				Fields: fields,
 				Footer: Footer{
 					Text:    "Juiced AIO",
-					IconURL: "https://cdn.discordapp.com/icons/688572290488991757/b684ee4e3cfb661d32afc48f24776e60.png?size=128",
+					IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 				},
 				Timestamp: time.Now(),
 			},
@@ -413,6 +416,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	}
 	data, _ = json.Marshal(sensorRequest)
 
+	sensorResponse := SensorResponse{}
 	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
@@ -432,12 +436,17 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:               data,
+		ResponseBodyStruct: &sensorResponse,
 	})
 	if err != nil {
 		return err
 	}
-
+	if ParsedBase.Host == "www.gamestop.com" {
+		if sensorResponse.Success {
+			return err
+		}
+	}
 	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			abckCookie = cookie.Value
@@ -487,7 +496,6 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	case 201:
 		for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 			if cookie.Name == "_abck" {
-				fmt.Println(cookie.Value)
 				validator, _ := FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
 					NewAbck(abckClient, location, BaseEndpoint, AkamaiEndpoint)

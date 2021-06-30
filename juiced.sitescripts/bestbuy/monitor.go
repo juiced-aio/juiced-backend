@@ -61,9 +61,10 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		monitor.Monitor.StopFlag = true
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+		if recover() != nil {
+			monitor.Monitor.StopFlag = true
+			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+		}
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -97,6 +98,7 @@ func (monitor *Monitor) RunMonitor() {
 		for _, monitorStock := range monitor.InStock {
 			inSlice = monitorStock.SKU == stockData.SKU
 		}
+		// If the sku isn't already in the array of in-stock skus then add it to the array
 		if !inSlice {
 			monitor.InStock = append(monitor.InStock, stockData)
 			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
@@ -155,10 +157,12 @@ func (monitor *Monitor) GetSKUStock() BestbuyInStockData {
 
 			if monitorResponse[i].Sku.Buttonstate.Buttonstate == "ADD_TO_CART" {
 				price := int(monitorResponse[i].Sku.Price.Currentprice)
-				if (monitor.SKUWithInfo[sku].MaxPrice > price || monitor.SKUWithInfo[sku].MaxPrice == -1) && !common.InSlice(monitor.SKUsSentToTask, sku) {
+				if monitor.SKUWithInfo[sku].MaxPrice > price || monitor.SKUWithInfo[sku].MaxPrice == -1 {
 					stockData.SKU = sku
 					stockData.Price = int(monitorResponse[i].Sku.Price.Currentprice)
-					monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+					if !common.InSlice(monitor.SKUsSentToTask, sku) {
+						monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+					}
 				}
 			} else {
 				monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)

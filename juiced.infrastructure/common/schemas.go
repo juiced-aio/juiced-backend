@@ -104,9 +104,10 @@ var taskGroupsSchema = `
 //! ALL COLUMNS MUST HAVE A DEFAULT VALUE!
 var targetMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT,
-		storeID TEXT
+		ID TEXT DEFAULT '',
+		taskGroupID TEXT DEFAULT '',
+		storeID TEXT DEFAULT '',
+		monitorType TEXT DEFAULT ''
 	)
 `
 

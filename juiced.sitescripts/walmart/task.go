@@ -91,9 +91,11 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		task.Task.StopFlag = true
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
@@ -278,6 +280,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.OfferID != "" && task.Sku != "" {
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 

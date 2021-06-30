@@ -75,9 +75,10 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		monitor.Monitor.StopFlag = true
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+		if recover() != nil {
+			monitor.Monitor.StopFlag = true
+			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+		}
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -99,12 +100,12 @@ func (monitor *Monitor) RunMonitor() {
 				}()
 
 				stockData := monitor.GetSKUStock(t)
-
 				if stockData.SKU != "" {
 					needToStop := monitor.CheckForStop()
 					if needToStop {
 						return
 					}
+
 					var inSlice bool
 					for _, monitorStock := range monitor.InStock {
 						inSlice = monitorStock.SKU == stockData.SKU
@@ -179,16 +180,14 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 				}
 				stockData.SKU = sku
 				stockData.ItemName = monitorResponse.Gtmdata.Productinfo.Name
-				stockData.PID = monitorResponse.Gtmdata.Productinfo.Productid
+				stockData.PID = monitorResponse.Gtmdata.Productinfo.SKU
 
 				stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
 
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
-				return stockData
-			} else {
-				return stockData
-			}
 
+			}
+			return stockData
 		case "Not Available":
 			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 			return stockData
