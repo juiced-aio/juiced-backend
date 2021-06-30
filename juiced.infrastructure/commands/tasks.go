@@ -33,7 +33,7 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) error {
 }
 
 // RemoveTaskGroup removes the TaskGroup from the database with the given groupID and returns it (if it exists)
-func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
+func RemoveTaskGroup(groupID string, deleteTasks bool) (entities.TaskGroup, error) {
 	taskGroup := entities.TaskGroup{}
 	database := common.GetDatabase()
 	if database == nil {
@@ -45,10 +45,12 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 		return taskGroup, err
 	}
 
-	for _, taskID := range taskGroup.TaskIDs {
-		_, err := RemoveTask(taskID)
-		if err != nil {
-			return taskGroup, err
+	if deleteTasks {
+		for _, taskID := range taskGroup.TaskIDs {
+			_, err := RemoveTask(taskID)
+			if err != nil {
+				return taskGroup, err
+			}
 		}
 	}
 
@@ -68,7 +70,7 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 
 // UpdateTaskGroup updates the TaskGroup from the database with the given groupID and returns it (if it exists)
 func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (entities.TaskGroup, error) {
-	taskGroup, err := RemoveTaskGroup(groupID)
+	taskGroup, err := RemoveTaskGroup(groupID, false)
 	if err != nil {
 		return taskGroup, err
 	}

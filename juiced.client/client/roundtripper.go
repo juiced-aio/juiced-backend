@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/net/proxy"
 
-	utls "github.com/Titanium-ctrl/utls"
+	utls "backend.juicedbot.io/juiced.client/utls"
 	"github.com/tam7t/hpkp"
 
 	"backend.juicedbot.io/juiced.client/http"

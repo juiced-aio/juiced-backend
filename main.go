@@ -1,10 +1,12 @@
 package main
 
 import (
+	"log"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
 	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
@@ -49,11 +51,30 @@ func main() {
 			go Heartbeat(eventBus, userInfo)
 			go stores.InitTaskStore(eventBus)
 			stores.InitMonitorStore(eventBus)
-			stores.InitCaptchaStore(eventBus)
+			captcha.InitCaptchaStore(eventBus)
+			err := captcha.InitAycd()
+			if err == nil {
+				log.Println("Initialized AYCD.")
+				settings, err := queries.GetSettings()
+				if err == nil {
+					if settings.AYCDAccessToken != "" && settings.AYCDAPIKey != "" {
+						err = captcha.ConnectToAycd(settings.AYCDAccessToken, settings.AYCDAPIKey)
+						if err != nil {
+							log.Println("Error connecting to AYCD: " + err.Error())
+							// TODO @silent: Handle
+						} else {
+							log.Println("Connected to AYCD.")
+						}
+					}
+				}
+			} else {
+				log.Println("Error initializing AYCD: " + err.Error())
+				// TODO @silent: Handle
+			}
 			go util.DiscordWebhookQueue()
 			go api.StartServer()
 
-			err := client.Login("856936229223006248")
+			err = client.Login("856936229223006248")
 			// No need to close the app if Discord RPC doesn't work. It's not a necessary feature.
 			// If it breaks for everyone at once for some reason, don't want to entirely break the app without a hotfix.
 			if err == nil {
