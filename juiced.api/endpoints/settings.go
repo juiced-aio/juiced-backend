@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"log"
+
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
@@ -75,10 +77,13 @@ func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request)
 				if err != nil {
 					errorsList = append(errorsList, errors.UpdateSettingsError+err.Error())
 				} else {
-					if aycdChanged {
+					if aycdChanged && newSettings.AYCDAccessToken != "" && newSettings.AYCDAPIKey != "" {
 						err = captcha.ConnectToAycd(newSettings.AYCDAccessToken, newSettings.AYCDAPIKey)
 						if err != nil {
 							// TODO @silent: Handle
+							log.Println("Error connecting to AYCD with new credentials: " + err.Error())
+						} else {
+							log.Println("Connected to AYCD with new credentials.")
 						}
 					}
 				}
