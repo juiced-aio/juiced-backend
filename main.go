@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
@@ -53,16 +54,21 @@ func main() {
 			captcha.InitCaptchaStore(eventBus)
 			err := captcha.InitAycd()
 			if err == nil {
+				log.Println("Initialized AYCD.")
 				settings, err := queries.GetSettings()
 				if err == nil {
 					if settings.AYCDAccessToken != "" && settings.AYCDAPIKey != "" {
 						err = captcha.ConnectToAycd(settings.AYCDAccessToken, settings.AYCDAPIKey)
 						if err != nil {
+							log.Println("Error connecting to AYCD: " + err.Error())
 							// TODO @silent: Handle
+						} else {
+							log.Println("Connected to AYCD.")
 						}
 					}
 				}
 			} else {
+				log.Println("Error initializing AYCD: " + err.Error())
 				// TODO @silent: Handle
 			}
 			go util.DiscordWebhookQueue()
