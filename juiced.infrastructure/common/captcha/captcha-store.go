@@ -308,7 +308,8 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 				}
 				var antiCaptchaResponse AntiCaptchaResponse
 				taskType := "RecaptchaV2Task"
-				if proxy.Host == "" {
+				emptyString := ""
+				if proxy.Host == emptyString {
 					taskType = "RecaptchaV2TaskProxyless"
 				}
 				antiCaptchaResponse, err = AntiCaptchaReq(settings.AntiCaptchaAPIKey, AntiCaptchaTaskInfo{
