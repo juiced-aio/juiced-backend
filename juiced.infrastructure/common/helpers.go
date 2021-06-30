@@ -73,7 +73,6 @@ var database *sqlx.DB
 
 // InitDatabase initializes the database singleton
 func InitDatabase() error {
-
 	var err error
 	configPath := configdir.LocalConfig("juiced")
 	err = configdir.MakePath(configPath)
@@ -130,8 +129,10 @@ func ParseColumns(schema string) (columnNames []string) {
 	inside, _ := FindInString(schema, "\\(", "\\)")
 	columns := strings.Split(inside, ",")
 	for _, column := range columns {
-		columnSplit := strings.Split(column, " ")
-		columnNames = append(columnNames, columnSplit[0]+"|"+columnSplit[1])
+		if strings.Contains(column, " ") {
+			columnSplit := strings.Split(column, " ")
+			columnNames = append(columnNames, columnSplit[0]+"|"+columnSplit[1])
+		}
 	}
 	return
 }
