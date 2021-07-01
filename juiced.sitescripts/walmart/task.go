@@ -288,7 +288,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 	task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate)
 	captchaURL := resp.Request.URL.String()
 	if redirectURL != "" {
-		captchaURL = BaseEndpoint + redirectURL
+		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
 	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
 	if err != nil {

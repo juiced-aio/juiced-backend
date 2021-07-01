@@ -769,7 +769,9 @@ func PXCap(site, proxy, setID, vid, uuid, token string, userInfo entities.UserIn
 	if err != nil {
 		return "", ERROR_PX_CAP_DECRYPT_RESPONSE, err
 	}
-
+	//fmt.Println(pxCapResponse)
+	//{true {"message":"Internal Server Error"} }
+	// @silent: Success = true on a server error? The Server Error is a problem on the PXAPI end though
 	if !pxCapResponse.Success {
 		return "", ERROR_PX_CAP_FAILED, errors.New(pxCapResponse.ErrorMessage)
 	}

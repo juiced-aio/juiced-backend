@@ -55,7 +55,7 @@ type AntiCaptchaResponse struct {
 	IP         string   `json:"ip"`
 	Createtime int      `json:"createTime"`
 	Endtime    int      `json:"endTime"`
-	Solvecount string   `json:"solveCount"`
+	Solvecount int      `json:"solveCount"`
 }
 type Solution struct {
 	GRecaptchaResponse string `json:"gRecaptchaResponse"`

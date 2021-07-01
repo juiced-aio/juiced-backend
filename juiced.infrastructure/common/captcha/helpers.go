@@ -278,7 +278,7 @@ func CapMonsterReq(apiKey string, taskInfo CapMonsterTaskInfo) (CapMonsterRespon
 	}
 	data = bytes.NewReader(payloadBytes)
 
-	req, err = http.NewRequest("POST", "https://api.capmonster.cloud/getTaskResult ", data)
+	req, err = http.NewRequest("POST", "https://api.capmonster.cloud/getTaskResult", data)
 	if err != nil {
 		log.Println("270: " + err.Error())
 		return capMonsterResponse, err
@@ -294,7 +294,7 @@ func CapMonsterReq(apiKey string, taskInfo CapMonsterTaskInfo) (CapMonsterRespon
 		}
 
 		body, _ := ioutil.ReadAll(resp.Body)
-		log.Println(body)
+
 		err = json.Unmarshal(body, &capMonsterResponse)
 		if err != nil {
 			return capMonsterResponse, err
