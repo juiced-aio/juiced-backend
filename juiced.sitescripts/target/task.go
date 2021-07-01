@@ -315,6 +315,8 @@ func (task *Task) RefreshLogin() {
 				Referer:            RefreshLoginReferer,
 				RequestBodyStruct:  AutoGend,
 				ResponseBodyStruct: &refreshLoginResponse,
+				Task:               task.Task,
+				Monitor:            base.Monitor{},
 			})
 			if err != nil {
 				success = false
@@ -424,6 +426,8 @@ func (task *Task) AddToCart() bool {
 		Referer:            AddToCartReferer + task.TCIN,
 		Data:               data,
 		ResponseBodyStruct: &addToCartResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -453,6 +457,8 @@ func (task *Task) GetCartInfo() bool {
 		Referer:            GetCartInfoReferer,
 		RequestBodyStruct:  getCartInfoRequest,
 		ResponseBodyStruct: &getCartInfoResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -495,6 +501,8 @@ func (task *Task) SetShippingInfo() bool {
 			SaveToProfile:    false,
 			SkipVerification: true,
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return err == nil
@@ -560,6 +568,8 @@ func (task *Task) SetPaymentInfo() bool {
 		AddHeadersFunction: AddTargetHeaders,
 		Referer:            util.TernaryOperator(task.AccountInfo.PaymentType == enums.PaymentTypeSAVED, SetPaymentInfoSAVEDReferer, SetPaymentInfoNEWReferer).(string),
 		Data:               data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -590,6 +600,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Referer:            PlaceOrderReferer,
 		RequestBodyStruct:  placeOrderRequest,
 		ResponseBodyStruct: &placeOrderResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false, status

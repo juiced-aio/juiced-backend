@@ -205,6 +205,8 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    base.Task{},
+		Monitor: monitor.Monitor,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -348,7 +350,9 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: []byte(form.Encode()),
+		Data:    []byte(form.Encode()),
+		Task:    base.Task{},
+		Monitor: monitor.Monitor,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -428,6 +432,8 @@ func (monitor *Monitor) BecomeGuest() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    base.Task{},
+		Monitor: monitor.Monitor,
 	})
 	if err != nil {
 		return false

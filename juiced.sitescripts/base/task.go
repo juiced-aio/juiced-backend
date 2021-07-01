@@ -7,9 +7,9 @@ import (
 )
 
 type Task struct {
-	Task       *entities.Task
+	Task       *entities.Task `json:"task"`
 	Profile    entities.Profile
-	Proxy      entities.Proxy
+	Proxy      entities.Proxy `json:"proxy"`
 	EventBus   *events.EventBus
 	Client     http.Client
 	StopFlag   bool

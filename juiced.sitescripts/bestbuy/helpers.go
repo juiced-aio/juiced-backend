@@ -17,6 +17,7 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
@@ -26,6 +27,8 @@ func BecomeGuest(client http.Client) bool {
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
+		Task:       base.Task{},
+		Monitor:    base.Monitor{},
 	})
 	if err != nil || resp.StatusCode != 200 {
 		if err != nil {

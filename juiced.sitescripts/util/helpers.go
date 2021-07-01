@@ -22,6 +22,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.logging/logging"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
@@ -86,7 +87,7 @@ func HandleErrors(err error, errorType ErrorType) bool {
 	return true
 }
 
-// Request wraps the main functions of a request
+// MakeRequest wraps the main functions of a request
 // (marshal JSON, create request, execute request, read body, unmarshal JSON)
 // while handling errors throughout
 func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
@@ -95,16 +96,18 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	if os.Getenv("JUICED_LOG") == "LOG" {
 		log.Println("\n================\nSTART " + requestInfo.Method + " " + requestInfo.URL)
 	}
+
+	var data []byte
+	var err error
 	if requestInfo.Data != nil {
 		if os.Getenv("JUICED_LOG") == "LOG" {
 			log.Println("REQUEST BODY: " + string(requestInfo.Data) + "\n")
 		}
-		payload = bytes.NewBuffer(requestInfo.Data)
-	} else {
-		payload = nil
+		data = requestInfo.Data
 	}
+
 	if requestInfo.RequestBodyStruct != nil {
-		data, err := json.Marshal(requestInfo.RequestBodyStruct)
+		data, err = json.Marshal(requestInfo.RequestBodyStruct)
 		ok := HandleErrors(err, RequestMarshalBodyError)
 		if !ok {
 			return nil, "", err
@@ -112,8 +115,12 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 		if os.Getenv("JUICED_LOG") == "LOG" {
 			log.Println("REQUEST BODY: " + string(data) + "\n")
 		}
+
+	}
+	if data != nil {
 		payload = bytes.NewBuffer(data)
 	}
+
 	request, err := http.NewRequest(requestInfo.Method, requestInfo.URL, payload)
 	ok := HandleErrors(err, RequestCreateError)
 	if !ok {
@@ -176,6 +183,20 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	newBody := strings.ReplaceAll(string(body), "\n", "")
 	newBody = strings.ReplaceAll(newBody, "\t", "")
 
+	if data == nil {
+		data = []byte("")
+	}
+
+	logging.SendLog(logging.Log{
+		Request:      request,
+		RequestBody:  string(data),
+		Response:     response,
+		ResponseBody: newBody,
+		Task:         requestInfo.Task,
+		Monitor:      requestInfo.Monitor,
+		Time:         time.Now(),
+	})
+
 	return response, newBody, nil
 }
 
@@ -225,6 +246,8 @@ func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) boo
 			Content: nil,
 			Embeds:  embeds,
 		},
+		Task:    base.Task{},
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -352,6 +375,8 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    base.Task{},
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return err
@@ -394,7 +419,9 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:    data,
+		Task:    base.Task{},
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return err
@@ -438,6 +465,8 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		},
 		Data:               data,
 		ResponseBodyStruct: &sensorResponse,
+		Task:               base.Task{},
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return err
@@ -486,7 +515,9 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:    data,
+		Task:    base.Task{},
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return err

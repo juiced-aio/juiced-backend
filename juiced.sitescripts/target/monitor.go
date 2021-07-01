@@ -152,6 +152,8 @@ func (monitor *Monitor) GetTCINStock() ([]string, []string, []string, []string) 
 		AddHeadersFunction: AddTargetHeaders,
 		Referer:            GetTCINStockReferer,
 		ResponseBodyStruct: &getTCINStockResponse,
+		Task:               base.Task{},
+		Monitor:            monitor.Monitor,
 	})
 	if err != nil {
 		return inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup
@@ -217,6 +219,8 @@ func (monitor *Monitor) CheckPrice(sku string) bool {
 		AddHeadersFunction: AddTargetHeaders,
 		Referer:            CheckPriceReferer + sku,
 		ResponseBodyStruct: &checkPriceResponse,
+		Task:               base.Task{},
+		Monitor:            monitor.Monitor,
 	})
 	if err != nil || resp.StatusCode != 200 {
 		return false

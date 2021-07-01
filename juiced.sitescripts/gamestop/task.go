@@ -205,6 +205,8 @@ func (task *Task) Login() bool {
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
+		Task:       task.Task,
+		Monitor:    base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -241,6 +243,8 @@ func (task *Task) Login() bool {
 		},
 		Data:               []byte(form.Encode()),
 		ResponseBodyStruct: &loginResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -269,6 +273,8 @@ func (task *Task) Login() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -326,6 +332,8 @@ func (task *Task) AddToCart() bool {
 		},
 		Data:               []byte(form.Encode()),
 		ResponseBodyStruct: &addToCartResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -366,6 +374,8 @@ func (task *Task) Checkout() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -427,7 +437,9 @@ func (task *Task) SetShippingInfo() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: []byte(form.Encode()),
+		Data:    []byte(form.Encode()),
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -503,7 +515,9 @@ func (task *Task) SetPaymentInfo() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: []byte(form.Encode()),
+		Data:    []byte(form.Encode()),
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -546,6 +560,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		},
 		Data:               []byte(form.Encode()),
 		ResponseBodyStruct: &placeOrderResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	ok := util.HandleErrors(err, util.RequestDoError)
 	if !ok {

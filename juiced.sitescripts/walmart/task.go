@@ -319,6 +319,8 @@ func (task *Task) Setup() bool {
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		log.Println("Setup error: " + err.Error())
@@ -348,6 +350,8 @@ func (task *Task) GetPIEValues() PIEValues {
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 			{"referer", PIEReferer},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 
 	if err != nil || resp.StatusCode < 200 || resp.StatusCode >= 300 {
@@ -433,6 +437,8 @@ func (task *Task) AddToCart() bool {
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &addToCartResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (addToCartResponse.RedirectURL != "" && strings.Contains(addToCartResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, addToCartResponse.RedirectURL)
@@ -499,6 +505,8 @@ func (task *Task) GetCartInfo() bool {
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &getCartInfoResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (getCartInfoResponse.RedirectURL != "" && strings.Contains(getCartInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, getCartInfoResponse.RedirectURL)
@@ -548,6 +556,8 @@ func (task *Task) SetPCID() bool {
 			{"referer", SetPcidReferer},
 		},
 		ResponseBodyStruct: &setPCIDResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setPCIDResponse.RedirectURL)
@@ -618,6 +628,8 @@ func (task *Task) SetShippingInfo() bool {
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &setShippingInfoResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
@@ -707,6 +719,8 @@ func (task *Task) SetCreditCard() bool {
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &setCreditCardResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setCreditCardResponse.RedirectURL != "" && strings.Contains(setCreditCardResponse.RedirectURL, "blocked")) {
@@ -796,6 +810,8 @@ func (task *Task) SetPaymentInfo() bool {
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &setPaymentInfoResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
@@ -866,6 +882,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &placeOrderResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (placeOrderResponse.RedirectURL != "" && strings.Contains(placeOrderResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, placeOrderResponse.RedirectURL)
