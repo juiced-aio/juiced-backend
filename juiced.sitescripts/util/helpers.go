@@ -579,7 +579,7 @@ func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
 	return pxResponse.PX3, PXValues{
 		SetID: pxResponse.SetID,
 		UUID:  pxResponse.UUID,
-		VID:   pxResponse.SetID,
+		VID:   pxResponse.VID,
 	}, nil
 }
 
