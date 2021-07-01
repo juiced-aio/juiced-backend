@@ -16,11 +16,19 @@ import (
 	"golang.org/x/net/proxy"
 
 	utls "backend.juicedbot.io/juiced.client/utls"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"github.com/tam7t/hpkp"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http2"
 )
+
+func ContainsMultiple(base string, items ...string) (contains bool) {
+	for _, item := range items {
+		contains = strings.Contains(base, item)
+	}
+	return
+}
 
 var errProtocolNegotiated = errors.New("protocol negotiated")
 
@@ -111,20 +119,39 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 		conn.Close()
 		return nil, err
 	}
-
+	var logCerts bool
+	var certs []string
+	if os.Getenv("JUICED_MODE") == "CERTS" {
+		logCerts = true
+	}
+	site := strings.Split(addr, ":")[0]
 	for _, cert := range conn.ConnectionState().PeerCertificates {
-		stringedCert := strings.ToLower(fmt.Sprint(cert.Issuer))
-		if os.Getenv("JUICED_MODE") != "DEV" && (strings.Contains(stringedCert, "charles") || strings.Contains(stringedCert, "fiddler") || strings.Contains(stringedCert, "mitm") || strings.Contains(stringedCert, "postman")) {
-			conn.Close()
-			return nil, errors.New("bad proxy")
-		}
-		if addr == "identity.juicedbot.io:443" {
+		_, ok := siteCerts[site]
+		if ok {
 			certFingerprint := hpkp.Fingerprint(cert)
-			if certFingerprint != "0Ugw2FeRziz9vmBmylwjswrF8pQ8icmeqRweSfkkGAQ=" && certFingerprint != "n5dIU+KFaI00Y/prmvaZhqXOquF72TlPANCLxCA9HE8=" {
+			if os.Getenv("JUICED_MODE") != "DEV" && os.Getenv("JUICED_MODE") != "CERTS" && !common.InSlice(siteCerts[site], certFingerprint) {
 				conn.Close()
 				return nil, errors.New("bad proxy")
 			}
+			if logCerts {
+				if !common.InSlice(siteCerts[site], certFingerprint) {
+					certs = append(certs, certFingerprint)
+					fmt.Println(site + " has new certificates")
+				}
+			}
 		}
+
+		stringedCert := strings.ToLower(fmt.Sprint(cert.Issuer))
+		if os.Getenv("JUICED_MODE") != "DEV" && ContainsMultiple(stringedCert, "charles", "postman", "wireshark", "mitm", "http debugger", "burp", "httpdebugger", "dnspy", "fiddler", "http debugger pro", "httpdebuggerpro", "ilspy", "justdecompile", "just decompile", "ollydbg", "ida", "ida64", "immunitydebugger", "megadumper", "mega dumper", "processhacker", "process hacker", "ollydbg", "cheat engine", "cheatengine", "codebrowser", "code browser", "scylla", "megadumper 1.0 by codecracker / snd") {
+			conn.Close()
+			return nil, errors.New("bad proxy")
+		}
+
+	}
+	if logCerts {
+		fmt.Println(site + ":")
+		fmt.Println(`"` + strings.Join(certs, `","`) + `"`)
+		fmt.Println()
 	}
 
 	if rt.cachedTransports[addr] != nil {
