@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -27,10 +28,17 @@ func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 		skus = append(skus, monitor.SKU)
 	}
 
-	client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
+	var client http.Client
+	var err error
+	if len(proxies) > 0 {
+		client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
+	} else {
+		client, err = util.CreateClient()
+	}
 	if err != nil {
 		return gamestopMonitor, err
 	}
+
 	gamestopMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
@@ -108,7 +116,10 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			// TODO @silent: Re-run this specific monitor
 		}()
 
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
+
 		stockData := monitor.GetSKUStock(sku)
 		if stockData.SKU != "" {
 			needToStop := monitor.CheckForStop()

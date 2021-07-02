@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -27,10 +28,17 @@ func CreateBestbuyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 		skus = append(skus, monitor.SKU)
 	}
 
-	client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
+	var client http.Client
+	var err error
+	if len(proxies) > 0 {
+		client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
+	} else {
+		client, err = util.CreateClient()
+	}
 	if err != nil {
 		return bestbuyMonitor, err
 	}
+
 	bestbuyMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
@@ -89,7 +97,10 @@ func (monitor *Monitor) RunMonitor() {
 		}
 	}
 
-	client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	stockData := monitor.GetSKUStock()
 
 	if stockData.SKU != "" {

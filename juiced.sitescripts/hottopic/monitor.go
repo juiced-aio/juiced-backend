@@ -2,7 +2,11 @@ package hottopic
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
+
+	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -18,6 +22,17 @@ import (
 func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
 	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
 	hottopicMonitor := Monitor{}
+
+	var client http.Client
+	var err error
+	if len(proxies) > 0 {
+		client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
+	} else {
+		client, err = util.CreateClient()
+	}
+	if err != nil {
+		return hottopicMonitor, err
+	}
 
 	pids := []PidSingle{}
 	for _, monitor := range singleMonitors {
@@ -36,6 +51,7 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 					TaskGroup: taskGroup,
 					Proxies:   proxies,
 					EventBus:  eventBus,
+					Client:    client,
 				},
 				Pids: pids,
 			}
@@ -74,6 +90,11 @@ func (monitor *Monitor) RunMonitor() {
 
 func (monitor *Monitor) RunSingleMonitor(pid PidSingle) {
 	stockData := HotTopicInStockData{}
+
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	switch monitor.PidWithInfo[pid.Pid].MonitorType {
 	case enums.SKUMonitor:
 		stockData = monitor.StockMonitor(pid)

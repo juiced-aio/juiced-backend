@@ -32,10 +32,17 @@ func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 	asins := []string{}
 
 	for _, monitor := range singleMonitors {
-		client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
+		var client http.Client
+		var err error
+		if len(proxies) > 0 {
+			client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
+		} else {
+			client, err = util.CreateClient()
+		}
 		if err != nil {
 			return amazonMonitor, err
 		}
+
 		storedAmazonMonitors[monitor.ASIN] = entities.AmazonSingleMonitorInfo{
 			ASIN:        monitor.ASIN,
 			OFID:        monitor.OFID,
@@ -190,7 +197,11 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 	} else {
 		currentClient = monitor.ASINWithInfo[asin].Client
 	}
-	client.UpdateProxy(&currentClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&currentClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: currentClient,
 		Method: "GET",
@@ -326,7 +337,11 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 		"quantity.1":      {"1"},
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
-	client.UpdateProxy(&monitor.AccountClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.AccountClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	ua := browser.Chrome()
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.AccountClient,

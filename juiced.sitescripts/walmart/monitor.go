@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -20,7 +21,13 @@ import (
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
 func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, skus []string) (Monitor, error) {
 	walmartMonitor := Monitor{}
-	client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
+	var client http.Client
+	var err error
+	if len(proxies) > 0 {
+		client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
+	} else {
+		client, err = util.CreateClient()
+	}
 	if err != nil {
 		return walmartMonitor, err
 	}
@@ -78,7 +85,10 @@ func (monitor *Monitor) RunMonitor() {
 	stockData := WalmartInStockData{}
 	outOfStockForShip := make([]string, 0)
 
-	client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	switch monitor.MonitorType {
 	case enums.SKUMonitor:
 		stockData, outOfStockForShip = monitor.GetSkuStock(monitor.SKUs[0]) // TODO @silent

@@ -3,6 +3,9 @@ package target
 import (
 	"fmt"
 	"math/rand"
+
+	"backend.juicedbot.io/juiced.client/http"
+
 	"strings"
 	"time"
 
@@ -24,8 +27,13 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 		storedTargetMonitors[monitor.TCIN] = monitor
 		tcins = append(tcins, monitor.TCIN)
 	}
-
-	client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
+	var client http.Client
+	var err error
+	if len(proxies) > 0 {
+		client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
+	} else {
+		client, err = util.CreateClient()
+	}
 	if err != nil {
 		return targetMonitor, err
 	}
@@ -85,7 +93,10 @@ func (monitor *Monitor) RunMonitor() {
 	inStockForPickup := make([]string, 0)
 	outOfStockForPickup := make([]string, 0)
 
-	client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	switch monitor.MonitorType {
 	case enums.SKUMonitor:
 		inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup = monitor.GetTCINStock()
