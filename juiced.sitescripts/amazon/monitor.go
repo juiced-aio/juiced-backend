@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"fmt"
+	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
+	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -24,13 +26,13 @@ import (
 var Accounts = make(chan AccChan)
 
 // CreateAmazonMonitor takes a TaskGroup entity and turns it into a Amazon Monitor
-func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.AmazonSingleMonitorInfo) (Monitor, error) {
+func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.AmazonSingleMonitorInfo) (Monitor, error) {
 	storedAmazonMonitors := make(map[string]entities.AmazonSingleMonitorInfo)
 	amazonMonitor := Monitor{}
 	asins := []string{}
 
 	for _, monitor := range singleMonitors {
-		client, err := util.CreateClient(proxy)
+		client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
 		if err != nil {
 			return amazonMonitor, err
 		}
@@ -54,7 +56,7 @@ func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, ev
 		amazonMonitor = Monitor{
 			Monitor: base.Monitor{
 				TaskGroup: taskGroup,
-				Proxy:     proxy,
+				Proxies:   proxies,
 				EventBus:  eventBus,
 			},
 
@@ -119,74 +121,78 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 	for _, asin := range monitor.ASINs {
-		if !common.InSlice(monitor.RunningMonitors, asin) {
-			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
-			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
-			go func(t string) {
-				// If the function panics due to a runtime error, recover from it
-				defer func() {
-					recover()
-					// TODO @silent: Re-run this specific monitor
-				}()
-
-				stockData := AmazonInStockData{}
-				switch monitor.ASINWithInfo[t].MonitorType {
-				case enums.SlowSKUMonitor:
-					stockData = monitor.TurboMonitor(t)
-
-				case enums.FastSKUMonitor:
-					stockData = monitor.OFIDMonitor(t)
-				}
-
-				if stockData.ASIN != "" {
-					needToStop := monitor.CheckForStop()
-					if needToStop {
-						return
-					}
-					monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, t)
-					var inSlice bool
-					for _, monitorStock := range monitor.InStock {
-						inSlice = monitorStock.ASIN == stockData.ASIN
-					}
-					if !inSlice {
-						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-						monitor.InStock = append(monitor.InStock, stockData)
-					}
-				} else {
-					if len(monitor.RunningMonitors) > 0 {
-						if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
-						}
-					}
-					for i, monitorStock := range monitor.InStock {
-						if monitorStock.ASIN == stockData.ASIN {
-							monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-							break
-						}
-					}
-					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-					monitor.RunMonitor()
-				}
-			}(asin)
-		}
-
+		go monitor.RunSingleMonitor(asin)
 	}
 
+}
+
+func (monitor *Monitor) RunSingleMonitor(asin string) {
+	needToStop := monitor.CheckForStop()
+	if needToStop {
+		return
+	}
+
+	if !common.InSlice(monitor.RunningMonitors, asin) {
+		defer func() {
+			recover()
+			// TODO @silent: Re-run this specific monitor
+		}()
+
+		stockData := AmazonInStockData{}
+		switch monitor.ASINWithInfo[asin].MonitorType {
+		case enums.SlowSKUMonitor:
+			stockData = monitor.TurboMonitor(asin)
+
+		case enums.FastSKUMonitor:
+			stockData = monitor.OFIDMonitor(asin)
+		}
+
+		if stockData.ASIN != "" {
+			needToStop := monitor.CheckForStop()
+			if needToStop {
+				return
+			}
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, asin)
+			var inSlice bool
+			for _, monitorStock := range monitor.InStock {
+				inSlice = monitorStock.ASIN == stockData.ASIN
+			}
+			if !inSlice {
+				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+				monitor.InStock = append(monitor.InStock, stockData)
+			}
+		} else {
+			if len(monitor.RunningMonitors) > 0 {
+				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+				}
+			}
+			for i, monitorStock := range monitor.InStock {
+				if monitorStock.ASIN == stockData.ASIN {
+					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+					break
+				}
+			}
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(asin)
+		}
+	}
 }
 
 // A lot of the stuff that I'm doing either seems useless or dumb but Cloudfront is Ai based and the more entropy/randomness you add to every request
 // the better.
 func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
-	var client http.Client
+	var currentClient http.Client
 	stockData := AmazonInStockData{}
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	if currentEndpoint == "https://smile.amazon.com" {
-		client = monitor.AccountClient
+		currentClient = monitor.AccountClient
 	} else {
-		client = monitor.ASINWithInfo[asin].Client
+		currentClient = monitor.ASINWithInfo[asin].Client
 	}
+	client.UpdateProxy(&currentClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	resp, body, err := util.MakeRequest(&util.Request{
-		Client: client,
+		Client: currentClient,
 		Method: "GET",
 		URL:    currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], asin) + util.Randomizer("&pldnSite=1"),
 		RawHeaders: [][2]string{
@@ -320,6 +326,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 		"quantity.1":      {"1"},
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
+	client.UpdateProxy(&monitor.AccountClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	ua := browser.Chrome()
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.AccountClient,

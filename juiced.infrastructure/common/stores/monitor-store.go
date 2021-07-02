@@ -34,13 +34,13 @@ type MonitorStore struct {
 func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup) bool {
 	queryError := false
 	// Get Proxy for monitor
-	proxy := entities.Proxy{}
+	proxies := []entities.Proxy{}
 	if monitor.MonitorProxyGroupID != "" {
 		proxyGroup, err := queries.GetProxyGroup(monitor.MonitorProxyGroupID)
 		if err != nil {
 			queryError = true
 		}
-		proxy = proxyGroup.Proxies[rand.Intn(len(proxyGroup.Proxies))]
+		proxies = proxyGroup.Proxies
 	}
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
@@ -57,7 +57,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxy, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
+		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxies, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
 		if err != nil {
 			log.Println(8)
 			log.Println(err.Error())
@@ -79,7 +79,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		bestbuyMonitor, err := bestbuy.CreateBestbuyMonitor(monitor, proxy, monitorStore.EventBus, monitor.BestbuyMonitorInfo.Monitors)
+		bestbuyMonitor, err := bestbuy.CreateBestbuyMonitor(monitor, proxies, monitorStore.EventBus, monitor.BestbuyMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}
@@ -99,7 +99,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		gamestopMonitor, err := gamestop.CreateGamestopMonitor(monitor, proxy, monitorStore.EventBus, monitor.GamestopMonitorInfo.Monitors)
+		gamestopMonitor, err := gamestop.CreateGamestopMonitor(monitor, proxies, monitorStore.EventBus, monitor.GamestopMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}
@@ -118,7 +118,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxy, monitorStore.EventBus, monitor.HottopicMonitorInfo.Monitors)
+		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxies, monitorStore.EventBus, monitor.HottopicMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}
@@ -140,7 +140,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 		}
 		// Create monitor
-		targetMonitor, err := target.CreateTargetMonitor(monitor, proxy, monitorStore.EventBus, monitor.TargetMonitorInfo)
+		targetMonitor, err := target.CreateTargetMonitor(monitor, proxies, monitorStore.EventBus, monitor.TargetMonitorInfo)
 		if err != nil {
 			return false
 		}
@@ -162,7 +162,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 		// Create monitor
-		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxy, monitorStore.EventBus, monitor.WalmartMonitorInfo.MonitorType, monitor.WalmartMonitorInfo.SKUs)
+		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxies, monitorStore.EventBus, monitor.WalmartMonitorInfo.MonitorType, monitor.WalmartMonitorInfo.SKUs)
 		if err != nil {
 			return false
 		}

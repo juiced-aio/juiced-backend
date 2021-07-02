@@ -302,10 +302,10 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 
 // Setup sends a GET request to the BaseEndpoint
 func (task *Task) Setup() bool {
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
-		URL:    BaseEndpoint,
+		URL:    BlockedToBaseEndpoint,
 		RawHeaders: [][2]string{
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"accept-encoding", "gzip, deflate, br"},
@@ -322,6 +322,13 @@ func (task *Task) Setup() bool {
 	})
 	if err != nil {
 		log.Println("Setup error: " + err.Error())
+	}
+	if strings.Contains(resp.Request.URL.String(), "blocked") {
+		handled := task.HandlePXCap(resp, BaseEndpoint)
+		if handled {
+			task.PublishEvent(enums.SettingUp, enums.TaskUpdate)
+		}
+		return false
 	}
 
 	return err == nil

@@ -15,7 +15,7 @@ import (
 )
 
 // CreateHottopicMonitor takes a TaskGroup entity and turns it into a Hottopic Monitor
-func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
+func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
 	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
 	hottopicMonitor := Monitor{}
 
@@ -34,7 +34,7 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 			hottopicMonitor = Monitor{
 				Monitor: base.Monitor{
 					TaskGroup: taskGroup,
-					Proxy:     proxy,
+					Proxies:   proxies,
 					EventBus:  eventBus,
 				},
 				Pids: pids,
@@ -68,27 +68,31 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 	for _, pid := range monitor.Pids {
-		stockData := HotTopicInStockData{}
-		switch monitor.PidWithInfo[pid.Pid].MonitorType {
-		case enums.SKUMonitor:
-			stockData = monitor.StockMonitor(pid)
-		}
-		if stockData.PID != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.PID == stockData.PID
-			}
-			if !inSlice {
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-			}
-		}
-
+		go monitor.RunSingleMonitor(pid)
 	}
+}
+
+func (monitor *Monitor) RunSingleMonitor(pid PidSingle) {
+	stockData := HotTopicInStockData{}
+	switch monitor.PidWithInfo[pid.Pid].MonitorType {
+	case enums.SKUMonitor:
+		stockData = monitor.StockMonitor(pid)
+	}
+	if stockData.PID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.PID == stockData.PID
+		}
+		if !inSlice {
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+		}
+	}
+	monitor.RunSingleMonitor(pid)
 }
 
 func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {

@@ -2,9 +2,11 @@ package target
 
 import (
 	"fmt"
+	"math/rand"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -14,7 +16,7 @@ import (
 )
 
 // CreateTargetMonitor takes a TaskGroup entity and turns it into a Target Monitor
-func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitor entities.TargetMonitorInfo) (Monitor, error) {
+func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitor entities.TargetMonitorInfo) (Monitor, error) {
 	storedTargetMonitors := make(map[string]entities.TargetSingleMonitorInfo)
 	targetMonitor := Monitor{}
 	tcins := []string{}
@@ -23,7 +25,7 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, ev
 		tcins = append(tcins, monitor.TCIN)
 	}
 
-	client, err := util.CreateClient(proxy)
+	client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
 	if err != nil {
 		return targetMonitor, err
 	}
@@ -31,7 +33,7 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, ev
 	targetMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
-			Proxy:     proxy,
+			Proxies:   proxies,
 			EventBus:  eventBus,
 			Client:    client,
 		},
@@ -83,6 +85,7 @@ func (monitor *Monitor) RunMonitor() {
 	inStockForPickup := make([]string, 0)
 	outOfStockForPickup := make([]string, 0)
 
+	client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	switch monitor.MonitorType {
 	case enums.SKUMonitor:
 		inStockForShip, outOfStockForShip, inStockForPickup, outOfStockForPickup = monitor.GetTCINStock()

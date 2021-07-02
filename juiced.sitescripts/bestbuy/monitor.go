@@ -2,10 +2,12 @@ package bestbuy
 
 import (
 	"fmt"
+	"math/rand"
 	"net/url"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -15,7 +17,7 @@ import (
 )
 
 // CreateBestbuyMonitor takes a TaskGroup entity and turns it into a Bestbuy Monitor
-func CreateBestbuyMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BestbuySingleMonitorInfo) (Monitor, error) {
+func CreateBestbuyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BestbuySingleMonitorInfo) (Monitor, error) {
 	storedBestbuyMonitors := make(map[string]entities.BestbuySingleMonitorInfo)
 	bestbuyMonitor := Monitor{}
 	skus := []string{}
@@ -25,14 +27,14 @@ func CreateBestbuyMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, e
 		skus = append(skus, monitor.SKU)
 	}
 
-	client, err := util.CreateClient(proxy)
+	client, err := util.CreateClient(proxies[rand.Intn(len(proxies))])
 	if err != nil {
 		return bestbuyMonitor, err
 	}
 	bestbuyMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
-			Proxy:     proxy,
+			Proxies:   proxies,
 			EventBus:  eventBus,
 			Client:    client,
 		},
@@ -87,6 +89,7 @@ func (monitor *Monitor) RunMonitor() {
 		}
 	}
 
+	client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	stockData := monitor.GetSKUStock()
 
 	if stockData.SKU != "" {
