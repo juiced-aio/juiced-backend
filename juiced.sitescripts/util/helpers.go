@@ -203,18 +203,18 @@ func DiscordWebhookQueue() {
 			webhookURL = settings.FailureDiscordWebhook
 		}
 		if webhookURL != "" {
-			SendDiscordWebhook(webhookURL, hook.Success, hook.Embeds)
+			SendDiscordWebhook(webhookURL, hook.Embeds)
 		}
 		time.Sleep(2*time.Second + (time.Second / 2))
 	}
 }
 
 // SendDiscordWebhook sends checkout information to the Discord Webhook
-func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) bool {
+func SendDiscordWebhook(discordWebhook string, embeds []Embed) bool {
 	client := http.Client{
 		Transport: &http.Transport{},
 	}
-	response, _, err := MakeRequest(&Request{
+	response, body, err := MakeRequest(&Request{
 		Client: client,
 		Method: "POST",
 		URL:    discordWebhook,
@@ -229,6 +229,8 @@ func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) boo
 	if err != nil {
 		return false
 	}
+
+	fmt.Println(string(body))
 	return response.StatusCode >= 200 && response.StatusCode < 300
 }
 
@@ -287,7 +289,6 @@ func ProxyCleaner(proxyDirty entities.Proxy) string {
 	} else {
 		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
 	}
-
 }
 
 func FindInString(str string, start string, end string) (string, error) {
