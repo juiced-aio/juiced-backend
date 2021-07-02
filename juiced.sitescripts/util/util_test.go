@@ -22,6 +22,31 @@ func TestMain(m *testing.M) {
 	captcha.InitCaptchaStore(eventBus)
 	m.Run()
 }
+
+func TestCreateClient(t *testing.T) {
+	type args struct {
+		proxy []entities.Proxy
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{name: "Success W/O Proxy", wantErr: false},
+		{name: "Success W Regular Proxy", args: args{proxy: []entities.Proxy{{Host: "localhost", Port: "3000"}}}, wantErr: false},
+		{name: "Success W User-Pass Proxy", args: args{proxy: []entities.Proxy{{Host: "localhost", Port: "3000", Username: "admin", Password: "password"}}}, wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := CreateClient(tt.args.proxy...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CreateClient() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
 func TestMakeRequest(t *testing.T) {
 	client, _ := CreateClient()
 	type args struct {

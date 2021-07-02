@@ -234,35 +234,6 @@ func SendDiscordWebhook(discordWebhook string, embeds []Embed) bool {
 	return response.StatusCode >= 200 && response.StatusCode < 300
 }
 
-// CreateDiscordWebhook creates a DiscordWebhook struct
-func CreateDiscordWebhook(success bool, fields []Field, imageURL string) DiscordWebhook {
-	webhook := DiscordWebhook{
-		Content: nil,
-		Embeds: []Embed{
-			{
-				Fields: fields,
-				Footer: Footer{
-					Text:    "Juiced AIO",
-					IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
-				},
-				Timestamp: time.Now(),
-			},
-		},
-	}
-	switch success {
-	case true:
-		webhook.Embeds[0].Title = ":tangerine: Checkout! :tangerine:"
-		webhook.Embeds[0].Color = 16742912
-		webhook.Embeds[0].Thumbnail = Thumbnail{
-			URL: imageURL,
-		}
-	case false:
-		webhook.Embeds[0].Title = ":lemon: Failed to Place Order :lemon:"
-		webhook.Embeds[0].Color = 16766464
-	}
-	return webhook
-}
-
 // CreateParams turns a string->string map into a URL parameter string
 func CreateParams(paramsLong map[string]string) string {
 	params := url.Values{}
