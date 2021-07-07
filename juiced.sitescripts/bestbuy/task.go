@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -229,7 +229,7 @@ func (task *Task) Login() bool {
 			{"pragma", "no-cache"},
 			{"cache-control", "no-cache"},
 			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "navigate"},
@@ -241,6 +241,23 @@ func (task *Task) Login() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+	})
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err.Error())
+		return false
+	}
+
+	tmxURL := "https://tmx.bestbuy.com/jx2u3dtlvr835clj.js?%v=ummqowa2&%v=%v"
+	var ZPLANK string
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "ZPLANK" {
+			ZPLANK = cookie.Value
+		}
+	}
+	_, _, err = util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    fmt.Sprintf(tmxURL, common.RandString(16), common.RandString(16), ZPLANK),
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err.Error())
@@ -276,7 +293,7 @@ func (task *Task) Login() bool {
 		}
 	}
 
-	var userAgent = `{"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"}`
+	var userAgent = `{"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}`
 	var email = task.AccountInfo.Email
 	var password = task.AccountInfo.Password
 	timestamp := time.Now().Format("2006-01-02T15:04:05.000Z")
@@ -299,12 +316,8 @@ func (task *Task) Login() bool {
 	encryptedEmail := encrypt([]byte(email), emailKey)
 
 	data := bytes.NewBuffer([]byte(`
-	{"token":"` + signinJson.Token + `","activity":"1:user-activity-2016-09:` + encryptedActivity + `","loginMethod":"UID_PASSWORD","flowOptions":"000000010000000","alpha":"` + correctData["alpha"] + `","Salmon":"FA7F2","encryptedEmail":"1:email-2017-01:` + encryptedEmail + `","` + correctData["pass"] + `":"` + password + `","info":"1:user-activity-2016-09:` + encryptedInfo + `","` + signinJson.Emailfieldname + `":"` + email + `"}
+	{"token":"` + signinJson.Token + `","activity":"1:user-activity-2016-09:` + encryptedActivity + `","loginMethod":"UID_PASSWORD","flowOptions":"000000000000000","alpha":"` + correctData["alpha"] + `","Salmon":"FA7F2","encryptedEmail":"1:email-2017-01:` + encryptedEmail + `","` + correctData["pass"] + `":"` + password + `","info":"1:user-activity-2016-09:` + encryptedInfo + `","` + signinJson.Emailfieldname + `":"` + email + `"}
 	`))
-
-	task.Task.Client.Jar.SetCookies(ParsedBase, []*http.Cookie{
-		{Name: "ZPLANK", Value: "0e0a383f97f24e5ab11fef6269000a93"},
-	})
 
 	util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 	var loginResponse LoginResponse
@@ -319,7 +332,7 @@ func (task *Task) Login() bool {
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "application/json"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
 			{"content-type", "application/json"},
 			{"origin", BaseEndpoint},
 			{"sec-fetch-site", "same-origin"},

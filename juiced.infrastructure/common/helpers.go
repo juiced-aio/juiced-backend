@@ -43,6 +43,7 @@ func RemoveFromSlice(s []string, x string) []string {
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 var runes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var runesWithLower = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789")
 
 func FindInString(str string, start string, end string) (string, error) {
 	comp := regexp.MustCompile(fmt.Sprintf("%v(.*?)%v", start, end))
@@ -66,6 +67,15 @@ func RandID(n int) string {
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = runes[seededRand.Intn(len(runes))]
+	}
+	return string(b)
+}
+
+// RandString returns a random n-digit string of digits and uppercase/lowercase letters
+func RandString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = runesWithLower[seededRand.Intn(len(runesWithLower))]
 	}
 	return string(b)
 }
