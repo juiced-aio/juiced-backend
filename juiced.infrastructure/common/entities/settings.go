@@ -12,6 +12,8 @@ type Settings struct {
 	CapMonsterAPIKey      string `json:"capMonsterAPIKey" db:"capMonsterAPIKey"`
 	AYCDAccessToken       string `json:"aycdAccessToken" db:"aycdAccessToken"`
 	AYCDAPIKey            string `json:"aycdAPIKey" db:"aycdAPIKey"`
+	DarkModeUpdate        bool   `json:"darkModeUpdate"`
+	DarkMode              bool   `json:"darkMode" db:"darkMode"`
 }
 
 // ParseSettings returns a Settings object parsed from a JSON bytes array

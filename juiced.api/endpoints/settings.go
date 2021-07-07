@@ -73,6 +73,9 @@ func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request)
 				} else {
 					aycdChanged = true
 				}
+				if !newSettings.DarkModeUpdate {
+					newSettings.DarkMode = currentSettings.DarkMode
+				}
 				newSettings, err = commands.UpdateSettings(newSettings)
 				if err != nil {
 					errorsList = append(errorsList, errors.UpdateSettingsError+err.Error())

@@ -102,7 +102,13 @@ func InitDatabase() error {
 
 		for i := range missing {
 			missingSplit := strings.Split(missing[i], "|")
-			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT ''", tableName, missingSplit[0], missingSplit[1]))
+			if strings.Contains(missing[i], "TEXT") {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT ''", tableName, missingSplit[0], missingSplit[1]))
+			} else if strings.Contains(missing[i], "INTEGER") {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT 0", tableName, missingSplit[0], missingSplit[1]))
+			} else {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v", tableName, missingSplit[0], missingSplit[1]))
+			}
 			if err != nil {
 				fmt.Println(err)
 				return err
