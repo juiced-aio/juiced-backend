@@ -22,10 +22,11 @@ type Settings struct {
 }
 
 type Account struct {
-	ID       string         `json:"ID" db:"ID"`
-	Retailer enums.Retailer `json:"retailer" db:"retailer"`
-	Email    string         `json:"email" db:"email"`
-	Password string         `json:"password" db:"password"`
+	ID           string         `json:"ID" db:"ID"`
+	Retailer     enums.Retailer `json:"retailer" db:"retailer"`
+	Email        string         `json:"email" db:"email"`
+	Password     string         `json:"password" db:"password"`
+	CreationDate int64          `json:"creationDate" db:"creationDate"`
 }
 
 // ParseSettings returns a Settings object parsed from a JSON bytes array

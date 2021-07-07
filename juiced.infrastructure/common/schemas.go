@@ -286,7 +286,8 @@ var accountsSchema = `
 		ID TEXT,
 		retailer TEXT,
 		email TEXT,
-		password TEXT
+		password TEXT,
+		creationDate INTEGER
 	)
 `
 

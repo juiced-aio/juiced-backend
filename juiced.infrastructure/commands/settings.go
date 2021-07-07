@@ -41,12 +41,12 @@ func AddAccount(account entities.Account) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO accounts (ID, retailer, email, password) VALUES (?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO accounts (ID, retailer, email, password, creationDate) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(account.ID, account.Retailer, account.Email, account.Password)
+	_, err = statement.Exec(account.ID, account.Retailer, account.Email, account.Password, account.CreationDate)
 
 	return err
 }

@@ -2,6 +2,7 @@ package queries
 
 import (
 	"errors"
+	"sort"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -54,6 +55,11 @@ func GetAccounts() ([]entities.Account, error) {
 		}
 		accounts = append(accounts, account)
 	}
+
+	sort.SliceStable(accounts, func(i, j int) bool {
+		return accounts[i].CreationDate < accounts[j].CreationDate
+	})
+
 	return accounts, nil
 }
 

@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"log"
+	"time"
 
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
@@ -125,6 +126,7 @@ func AddAccountEndpoint(response http.ResponseWriter, request *http.Request) {
 			err = json.Unmarshal(body, &newAccount)
 			if err == nil {
 				newAccount.ID = uuid.New().String()
+				newAccount.CreationDate = time.Now().Unix()
 				err = commands.AddAccount(newAccount)
 				if err == nil {
 					settings.Accounts = append(settings.Accounts, newAccount)
