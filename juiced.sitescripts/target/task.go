@@ -249,7 +249,7 @@ func (task *Task) Login() bool {
 	defer browser.MustClose()
 
 	page := stealth.MustPage(browser)
-	page.MustNavigate(LoginEndpoint)
+	page.MustNavigate(LoginEndpoint).WaitLoad()
 	page.MustElement("#username").MustWaitVisible().Input(task.AccountInfo.Email)
 	page.MustElement("#password").MustWaitVisible().Input(task.AccountInfo.Password)
 	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()

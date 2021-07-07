@@ -194,7 +194,7 @@ func (monitor *Monitor) CheckPrice(sku string) bool {
 	var storeID string
 	storeID = monitor.StoreID
 	if monitor.StoreID == "" {
-		storeID = "1"
+		storeID = "199"
 	}
 	params := util.CreateParams(map[string]string{
 		"key":                             "ff457966e64d5e877fdbad070f276d18ecec4a01",
