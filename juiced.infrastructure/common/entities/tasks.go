@@ -20,34 +20,14 @@ type Task struct {
 	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
 	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
 	CreationDate     int64            `json:"creationDate" db:"creationDate"`
-	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
-	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
 	BestbuyTaskInfo  BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
 	GamestopTaskInfo GamestopTaskInfo `json:"gamestopTaskInfo"`
 	HottopicTaskInfo HottopicTaskInfo `json:"hottopicTaskInfo"`
+	ShopifyTaskInfo  ShopifyTaskInfo  `json:"shopifyTaskInfo"`
+	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
+	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
 	// Future sitescripts will have a field here
-}
-
-type HottopicTaskInfo struct {
-	TaskID      string   `json:"taskID" db:"taskID"`
-	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
-	Pids        []string `json:"pids" db:"pids"`
-}
-
-type TargetTaskInfo struct {
-	TaskID       string             `json:"taskID" db:"taskID"`
-	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
-	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
-	Email        string             `json:"email" db:"email"`
-	Password     string             `json:"password" db:"password"`
-	StoreID      string             `json:"storeID" db:"storeID"`
-	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
-}
-
-type WalmartTaskInfo struct {
-	TaskID      string `json:"taskID" db:"taskID"`
-	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 }
 
 type AmazonTaskInfo struct {
@@ -72,6 +52,38 @@ type GamestopTaskInfo struct {
 	Email       string         `json:"email" db:"email"`
 	Password    string         `json:"password" db:"password"`
 	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
+}
+
+type HottopicTaskInfo struct {
+	TaskID      string   `json:"taskID" db:"taskID"`
+	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
+	Pids        []string `json:"pids" db:"pids"`
+}
+
+type HotWheelsTaskInfo struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type ShopifyTaskInfo struct {
+	BaseURL           string
+	Retailer          enums.ShopifyRetailer
+	HotWheelsTaskInfo HotWheelsTaskInfo
+}
+
+type TargetTaskInfo struct {
+	TaskID       string             `json:"taskID" db:"taskID"`
+	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
+	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
+	Email        string             `json:"email" db:"email"`
+	Password     string             `json:"password" db:"password"`
+	StoreID      string             `json:"storeID" db:"storeID"`
+	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
+}
+
+type WalmartTaskInfo struct {
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 }
 
 // SetID updates the Task's ID
