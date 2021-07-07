@@ -277,7 +277,16 @@ var settingsSchema = `
 		capMonsterAPIKey TEXT,
 		aycdAccessToken TEXT,
 		aycdAPIKey TEXT,
-		darkMode INTEGER,
+		darkMode INTEGER
+	)
+`
+
+var accountsSchema = `
+	CREATE TABLE IF NOT EXISTS accounts (
+		ID TEXT,
+		retailer TEXT,
+		email TEXT,
+		password TEXT
 	)
 `
 
@@ -308,4 +317,5 @@ var schemas = []string{
 	cardsSchema,
 	checkoutsSchema,
 	settingsSchema,
+	accountsSchema,
 }

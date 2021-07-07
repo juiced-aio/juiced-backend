@@ -33,3 +33,54 @@ func UpdateSettings(settings entities.Settings) (entities.Settings, error) {
 
 	return queries.GetSettings()
 }
+
+// AddAccount adds an Account object to the database
+func AddAccount(account entities.Account) error {
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`INSERT INTO accounts (ID, retailer, email, password) VALUES (?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(account.ID, account.Retailer, account.Email, account.Password)
+
+	return err
+}
+
+// UpdateAccount updates an Account object in the database
+func UpdateAccount(ID string, newAccount entities.Account) (entities.Account, error) {
+	account := entities.Account{}
+	_, err := RemoveAccount(ID)
+	if err != nil {
+		return account, err
+	}
+
+	err = AddAccount(newAccount)
+
+	return account, err
+}
+
+// RemoveAccount removes an Account object from the database
+func RemoveAccount(ID string) (entities.Account, error) {
+	account := entities.Account{}
+	database := common.GetDatabase()
+	if database == nil {
+		return account, errors.New("database not initialized")
+	}
+	account, err := queries.GetAccount(ID)
+	if err != nil {
+		return account, err
+	}
+
+	statement, err := database.Preparex(`DELETE FROM tasks WHERE ID = @p1`)
+	if err != nil {
+		return account, err
+	}
+	_, err = statement.Exec(ID)
+
+	return account, err
+}
