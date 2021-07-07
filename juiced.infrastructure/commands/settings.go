@@ -76,7 +76,7 @@ func RemoveAccount(ID string) (entities.Account, error) {
 		return account, err
 	}
 
-	statement, err := database.Preparex(`DELETE FROM tasks WHERE ID = @p1`)
+	statement, err := database.Preparex(`DELETE FROM accounts WHERE ID = @p1`)
 	if err != nil {
 		return account, err
 	}
