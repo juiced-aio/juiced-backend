@@ -11,6 +11,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.logging/logging"
 
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
@@ -75,6 +76,7 @@ func main() {
 			}
 			go util.DiscordWebhookQueue()
 			go api.StartServer()
+			go logging.LoggingServer()
 
 			err = client.Login("856936229223006248")
 			// No need to close the app if Discord RPC doesn't work. It's not a necessary feature.

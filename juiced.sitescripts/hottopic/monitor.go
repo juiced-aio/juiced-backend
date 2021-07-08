@@ -129,6 +129,8 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    base.Task{},
+		Monitor: monitor.Monitor,
 	})
 	if err != nil {
 		fmt.Println(err)

@@ -159,6 +159,8 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 			{"accept-language", "en-US,en;q=0.9"},
 		},
 		ResponseBodyStruct: &monitorResponse,
+		Task:               base.Task{},
+		Monitor:            monitor.Monitor,
 	})
 	if err != nil {
 		fmt.Println(err.Error())

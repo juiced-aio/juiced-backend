@@ -38,6 +38,8 @@ type Request struct {
 	RequestBodyStruct  interface{}
 	ResponseBodyStruct interface{}
 	RandOpt            string
+	Task               base.Task
+	Monitor            base.Monitor
 }
 
 // Discord webhook details

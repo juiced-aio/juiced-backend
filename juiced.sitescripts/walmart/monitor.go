@@ -72,6 +72,7 @@ func (monitor *Monitor) RunMonitor() {
 	if needToStop {
 		return
 	}
+
 	stockData := WalmartInStockData{}
 	outOfStockForShip := make([]string, 0)
 
@@ -147,6 +148,8 @@ func (monitor *Monitor) GetSkuStock(sku string) (WalmartInStockData, []string) {
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 		},
+		Task:    base.Task{},
+		Monitor: monitor.Monitor,
 	})
 	if err != nil {
 		fmt.Println(err.Error())

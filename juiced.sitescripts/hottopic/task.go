@@ -225,6 +225,8 @@ func (task *Task) AddToCart() bool {
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            AddToCartReferer + task.Pid + ".html",
 		RequestBodyStruct:  data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -241,6 +243,8 @@ func (task *Task) GetCheckout() bool {
 		URL:                GetCheckoutEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            GetCheckoutReferer,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -264,6 +268,8 @@ func (task *Task) ProceedToCheckout() bool {
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            ProceedToCheckoutReferer,
 		RequestBodyStruct:  data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -291,6 +297,8 @@ func (task *Task) GuestCheckout() bool {
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -332,6 +340,8 @@ func (task *Task) SubmitShipping() bool {
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -356,6 +366,8 @@ func (task *Task) UseOrigAddress() bool {
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -408,6 +420,8 @@ func (task *Task) SubmitPaymentInfo() bool {
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -429,6 +443,8 @@ func (task *Task) SubmitOrder() bool {
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		RequestBodyStruct:  data,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false

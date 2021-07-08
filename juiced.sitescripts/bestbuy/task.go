@@ -213,6 +213,8 @@ func (task *Task) Login() bool {
 		Method:     "GET",
 		URL:        BaseEndpoint,
 		RawHeaders: DefaultRawHeaders,
+		Task:       task.Task,
+		Monitor:    base.Monitor{},
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err.Error())
@@ -241,6 +243,8 @@ func (task *Task) Login() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err.Error())
@@ -344,6 +348,8 @@ func (task *Task) Login() bool {
 		},
 		Data:               data.Bytes(),
 		ResponseBodyStruct: &loginResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err.Error())
@@ -368,6 +374,8 @@ func (task *Task) Login() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err.Error())
@@ -442,6 +450,8 @@ func (task *Task) AddToCart() bool {
 			},
 			Data:               data,
 			ResponseBodyStruct: &addToCartResponse,
+			Task:               task.Task,
+			Monitor:            base.Monitor{},
 		})
 		ok := util.HandleErrors(err, util.RequestDoError)
 		if !ok {
@@ -519,6 +529,8 @@ func (task *Task) AddToCart() bool {
 					},
 					Data:               data,
 					ResponseBodyStruct: &addToCartResponse,
+					Task:               task.Task,
+					Monitor:            base.Monitor{},
 				})
 				ok := util.HandleErrors(err, util.RequestDoError)
 				if !ok {
@@ -565,6 +577,8 @@ func (task *Task) Checkout() bool {
 		Method:     "GET",
 		URL:        CheckoutEndpoint,
 		RawHeaders: DefaultRawHeaders,
+		Task:       task.Task,
+		Monitor:    base.Monitor{},
 	})
 	ok := util.HandleErrors(err, util.RequestDoError)
 	if !ok {
@@ -677,6 +691,8 @@ func (task *Task) SetShippingInfo() bool {
 		},
 		Data:               data,
 		ResponseBodyStruct: &setShippingResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
@@ -727,6 +743,8 @@ func (task *Task) SetShippingInfo() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	log.Println(ok)
@@ -822,7 +840,9 @@ func (task *Task) SetPaymentInfo() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:    data,
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -865,7 +885,9 @@ func (task *Task) SetPaymentInfo() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: []byte("{}"),
+		Data:    []byte("{}"),
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -924,6 +946,8 @@ func (task *Task) SetPaymentInfo() bool {
 		},
 		Data:               data,
 		ResponseBodyStruct: &prelookupResonse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -983,7 +1007,9 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:    data,
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
@@ -1028,6 +1054,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		},
 		Data:               data,
 		ResponseBodyStruct: &placeOrderResponse,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {

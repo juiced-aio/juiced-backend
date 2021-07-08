@@ -88,6 +88,11 @@ func (monitor *Monitor) RunMonitor() {
 		}
 	}
 
+	monitor.RunSingleMonitor()
+
+}
+
+func (monitor *Monitor) RunSingleMonitor() {
 	stockData := monitor.GetSKUStock()
 
 	if stockData.SKU != "" {
@@ -118,7 +123,7 @@ func (monitor *Monitor) RunMonitor() {
 		}
 
 		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-		monitor.RunMonitor()
+		monitor.RunSingleMonitor()
 	}
 }
 
@@ -145,6 +150,8 @@ func (monitor *Monitor) GetSKUStock() BestbuyInStockData {
 			{"accept-language", "en-US,en;q=0.9"},
 		},
 		ResponseBodyStruct: &monitorResponse,
+		Task:               base.Task{},
+		Monitor:            monitor.Monitor,
 	})
 	if err != nil {
 		fmt.Println(err.Error())

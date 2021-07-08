@@ -293,6 +293,8 @@ func (task *Task) requestsLogin() bool {
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -314,6 +316,8 @@ func (task *Task) requestsLogin() bool {
 		Method:             "POST",
 		URL:                "https://botbypass.com/metadata_api/metadata1_page_1?email=" + task.AccountInfo.Email + "&passwordLength=" + fmt.Sprint(len(task.AccountInfo.Password)) + "&apiKey=" + MetaData1APIKey,
 		ResponseBodyStruct: tempMeta,
+		Task:               task.Task,
+		Monitor:            base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -356,7 +360,9 @@ func (task *Task) requestsLogin() bool {
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"},
 		},
-		Data: []byte(params),
+		Data:    []byte(params),
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -385,6 +391,8 @@ func (task *Task) requestsLogin() bool {
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"},
 		},
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		return false
@@ -462,7 +470,9 @@ func (task *Task) AddToCart() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: []byte(form.Encode()),
+		Data:    []byte(form.Encode()),
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -549,7 +559,9 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: []byte(form.Encode()),
+		Data:    []byte(form.Encode()),
+		Task:    task.Task,
+		Monitor: base.Monitor{},
 	})
 	ok := util.HandleErrors(err, util.RequestDoError)
 	if !ok {
