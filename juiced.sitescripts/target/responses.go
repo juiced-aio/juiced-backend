@@ -6,8 +6,8 @@ type GetTCINStockResponse struct {
 	Data   Data     `json:"data"`
 }
 
-// CheckPrice is returned by the CheckPrice endpoint
-type CheckPriceResponse struct {
+// GetTCINInfoResponse is returned by the TCINInfo endpoint
+type GetTCINInfoResponse struct {
 	Data PriceData `json:"data"`
 }
 

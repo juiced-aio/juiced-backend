@@ -203,18 +203,18 @@ func DiscordWebhookQueue() {
 			webhookURL = settings.FailureDiscordWebhook
 		}
 		if webhookURL != "" {
-			SendDiscordWebhook(webhookURL, hook.Success, hook.Embeds)
+			SendDiscordWebhook(webhookURL, hook.Embeds)
 		}
 		time.Sleep(2*time.Second + (time.Second / 2))
 	}
 }
 
 // SendDiscordWebhook sends checkout information to the Discord Webhook
-func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) bool {
+func SendDiscordWebhook(discordWebhook string, embeds []Embed) bool {
 	client := http.Client{
 		Transport: &http.Transport{},
 	}
-	response, _, err := MakeRequest(&Request{
+	response, body, err := MakeRequest(&Request{
 		Client: client,
 		Method: "POST",
 		URL:    discordWebhook,
@@ -229,36 +229,9 @@ func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) boo
 	if err != nil {
 		return false
 	}
-	return response.StatusCode >= 200 && response.StatusCode < 300
-}
 
-// CreateDiscordWebhook creates a DiscordWebhook struct
-func CreateDiscordWebhook(success bool, fields []Field, imageURL string) DiscordWebhook {
-	webhook := DiscordWebhook{
-		Content: nil,
-		Embeds: []Embed{
-			{
-				Fields: fields,
-				Footer: Footer{
-					Text:    "Juiced AIO",
-					IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
-				},
-				Timestamp: time.Now(),
-			},
-		},
-	}
-	switch success {
-	case true:
-		webhook.Embeds[0].Title = ":tangerine: Checkout! :tangerine:"
-		webhook.Embeds[0].Color = 16742912
-		webhook.Embeds[0].Thumbnail = Thumbnail{
-			URL: imageURL,
-		}
-	case false:
-		webhook.Embeds[0].Title = ":lemon: Failed to Place Order :lemon:"
-		webhook.Embeds[0].Color = 16766464
-	}
-	return webhook
+	fmt.Println(string(body))
+	return response.StatusCode >= 200 && response.StatusCode < 300
 }
 
 // CreateParams turns a string->string map into a URL parameter string
@@ -287,7 +260,6 @@ func ProxyCleaner(proxyDirty entities.Proxy) string {
 	} else {
 		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
 	}
-
 }
 
 func FindInString(str string, start string, end string) (string, error) {
@@ -374,7 +346,10 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		SensorData: genResponse.SensorData,
 	}
 
-	data, _ := json.Marshal(sensorRequest)
+	data, err := json.Marshal(sensorRequest)
+	if err != nil {
+		return err
+	}
 	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",

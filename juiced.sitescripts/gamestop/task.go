@@ -20,17 +20,13 @@ import (
 // CreateGamestopTask takes a Task entity and turns it into a Gamestop Task
 func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	gamestopTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return gamestopTask, err
-	}
+
 	gamestopTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -38,7 +34,7 @@ func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxy ent
 		},
 		TaskType: taskType,
 	}
-	return gamestopTask, err
+	return gamestopTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -74,6 +70,12 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false

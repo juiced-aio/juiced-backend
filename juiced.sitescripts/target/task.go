@@ -33,17 +33,13 @@ import (
 // CreateTargetTask takes a Task entity and turns it into a Target Task
 func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, storeID string, paymentType enums.PaymentType) (Task, error) {
 	targetTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return targetTask, err
-	}
+
 	targetTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		CheckoutType: checkoutType,
 		AccountInfo: AccountInfo{
@@ -54,7 +50,7 @@ func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entit
 			StoreID:        storeID,
 		},
 	}
-	return targetTask, err
+	return targetTask, nil
 }
 
 var baseURL, _ = url.Parse(BaseEndpoint)
@@ -93,6 +89,12 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login
@@ -239,7 +241,10 @@ func (task *Task) Login() bool {
 	}
 
 	u := launcher_.Set(flags.Flag("headless")).
-		//Delete(flags.Flag("--headless")).
+		// @silent: I disabled headless because after logging in a bunch today it seems I'm getting flagged and can't login unless the browser isn't headless,
+		// and I'm guessing the users will run into this too since they might run many tasks with the same login. It's up to you if you want to
+		// keep it headless or not. I also was running some bad chrome-flags for a while so it might actually never happen again.
+		Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
 		Set(flags.Flag("disable-background-networking")).
@@ -262,7 +267,7 @@ func (task *Task) Login() bool {
 		Set(flags.Flag("metrics-recording-only")).
 		Set(flags.Flag("safebrowsing-disable-auto-update")).
 		Set(flags.Flag("password-store"), "basic").
-		Set(flags.Flag("use-mock-keychain")).
+		Delete(flags.Flag("--use-mock-keychain")).
 		MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
@@ -284,11 +289,12 @@ func (task *Task) Login() bool {
 	page.MustElement("#username").MustWaitVisible().Input(task.AccountInfo.Email)
 	page.MustElement("#password").MustWaitVisible().Input(task.AccountInfo.Password)
 	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
-	page.MustElement("#login").MustWaitVisible().MustClick()
-	page.MustElement("#account").MustWaitVisible().MustClick()
-	page.MustElement("#accountNav-signIn").MustWaitVisible().MustClick()
+	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
+	page.MustElement("#account").MustWaitLoad()
 	page.MustWaitLoad()
-	page.MustNavigate(BaseEndpoint)
+	page.MustNavigate(BaseEndpoint).MustWaitLoad()
+	page.MustElement("#account").MustWaitLoad().MustWaitInteractable().MustClick()
+	page.MustElement("#accountNav-signIn").MustWaitVisible().MustClick()
 	page.MustWaitLoad()
 
 	startTimeout := time.Now().Unix()
@@ -307,6 +313,7 @@ func (task *Task) Login() bool {
 			return false
 		}
 	}
+
 	for _, cookie := range browserCookies {
 		httpCookie := &http.Cookie{
 			Name:   cookie.Name,
@@ -319,7 +326,6 @@ func (task *Task) Login() bool {
 			cookies = append(cookies, httpCookie)
 		}
 	}
-
 	task.AccountInfo.Cookies = cookies
 	task.Task.Client.Jar.SetCookies(baseURL, cookies)
 	return true
@@ -386,11 +392,9 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.TCINType != "" {
-			tcinWithType := strings.Split(task.TCINType, "|")
-
-			task.TCINType = tcinWithType[1]
-			task.TCIN = tcinWithType[0]
+		if task.InStockData.TCIN != "" {
+			task.TCINType = task.InStockData.TCINType
+			task.TCIN = task.InStockData.TCIN
 			return false
 		}
 		time.Sleep(1 * time.Millisecond)

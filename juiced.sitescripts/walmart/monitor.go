@@ -2,10 +2,13 @@ package walmart
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -15,23 +18,19 @@ import (
 )
 
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
-func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, skus []string) (Monitor, error) {
+func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, skus []string) (Monitor, error) {
 	walmartMonitor := Monitor{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return walmartMonitor, err
-	}
+
 	walmartMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
-			Proxy:     proxy,
+			Proxies:   proxies,
 			EventBus:  eventBus,
-			Client:    client,
 		},
 		MonitorType: monitorType,
 		SKUs:        skus,
 	}
-	return walmartMonitor, err
+	return walmartMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
@@ -72,6 +71,20 @@ func (monitor *Monitor) RunMonitor() {
 	if needToStop {
 		return
 	}
+
+	if monitor.Monitor.Client.Transport == nil {
+		monitorClient, err := util.CreateClient()
+		if err != nil {
+			return
+		}
+		monitor.Monitor.Client = monitorClient
+
+	}
+
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	stockData := WalmartInStockData{}
 	outOfStockForShip := make([]string, 0)
 

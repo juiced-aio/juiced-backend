@@ -8,7 +8,8 @@ import (
 
 // Endpoints
 const (
-	BaseEndpoint = "https://www.walmart.com/"
+	BaseEndpoint          = "https://www.walmart.com/"
+	BlockedToBaseEndpoint = "https://www.walmart.com/blocked?url=Lw=="
 
 	PIEEndpoint = "https://securedataweb.walmart.com/pie/v1/wmcom_us_vtg_pie/getkey.js?bust="
 	PIEReferer  = "https://www.walmart.com/"

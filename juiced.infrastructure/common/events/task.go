@@ -11,3 +11,13 @@ type TaskEvent struct {
 	Data      interface{}         `json:"data"`
 	TaskID    string              `json:"taskID"`
 }
+
+// ProductInfo is sent when publishing the SendingProductInfoToTasks event
+type ProductInfo struct {
+	Products []Product `json:"products"`
+}
+
+type Product struct {
+	ProductName     string `json:"productName"`
+	ProductImageURL string `json:"productImageURL"`
+}
