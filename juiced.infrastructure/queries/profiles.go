@@ -96,7 +96,9 @@ func GetAllProfiles() ([]entities.Profile, error) {
 			return profiles, err
 		}
 		tempProfile, err = GetProfileInfo(tempProfile)
-		profiles = append(profiles, tempProfile)
+		if tempProfile.ID != "" && tempProfile.Name != "" {
+			profiles = append(profiles, tempProfile)
+		}
 	}
 
 	sort.SliceStable(profiles, func(i, j int) bool {
