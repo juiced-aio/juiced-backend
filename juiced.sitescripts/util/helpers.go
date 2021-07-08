@@ -540,9 +540,9 @@ func ProcessCheckout(pci ProcessCheckoutInfo) {
 	go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
 	if pci.Success {
 		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, pci.Price, pci.Quantity, pci.UserInfo)
+		go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
-	go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
 }
 
 // Logs the checkout
