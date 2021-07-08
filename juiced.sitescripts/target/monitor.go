@@ -69,6 +69,7 @@ func (monitor *Monitor) RunMonitor() {
 			monitor.Monitor.StopFlag = true
 			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 		}
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorComplete)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -108,6 +109,7 @@ func (monitor *Monitor) RunMonitor() {
 			return
 		}
 
+		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
 		monitor.InStockForShip = inStockForShip
 		monitor.InStockForPickup = inStockForPickup
 	} else {

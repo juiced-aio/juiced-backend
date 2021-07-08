@@ -65,6 +65,7 @@ func (monitor *Monitor) RunMonitor() {
 			monitor.Monitor.StopFlag = true
 			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 		}
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorComplete)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
