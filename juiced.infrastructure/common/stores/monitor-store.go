@@ -415,19 +415,30 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
 						if ok && targetTask.Task.Task.TaskGroupID == monitorID {
-							if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(targetMonitor.InStockForPickup) > 0 {
-								targetTask.TCINType = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
+							var inStockForShip []target.SingleStockData
+							var inStockForPickup []target.SingleStockData
+
+							for _, value := range targetMonitor.InStockForShip.Items() {
+								inStockForShip = append(inStockForShip, value.(target.SingleStockData))
+							}
+							for _, value := range targetMonitor.InStockForPickup.Items() {
+								inStockForPickup = append(inStockForPickup, value.(target.SingleStockData))
+							}
+
+							if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(inStockForPickup) > 0 {
+								targetTask.InStockData = inStockForPickup[rand.Intn(len(inStockForPickup))]
 								targetTask.AccountInfo.StoreID = targetMonitor.StoreID
-							} else if targetTask.CheckoutType == enums.CheckoutTypeSHIP && len(targetMonitor.InStockForShip) > 0 {
-								targetTask.TCINType = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
+							} else if targetTask.CheckoutType == enums.CheckoutTypeSHIP && len(inStockForShip) > 0 {
+								targetTask.InStockData = inStockForShip[rand.Intn(len(inStockForShip))]
 							} else {
-								if len(targetMonitor.InStockForShip) > 0 {
-									targetTask.TCINType = targetMonitor.InStockForShip[rand.Intn(len(targetMonitor.InStockForShip))]
-								} else if len(targetMonitor.InStockForPickup) > 0 {
-									targetTask.TCINType = targetMonitor.InStockForPickup[rand.Intn(len(targetMonitor.InStockForPickup))]
+								if len(inStockForShip) > 0 {
+									targetTask.InStockData = inStockForShip[rand.Intn(len(inStockForShip))]
+								} else if len(inStockForPickup) > 0 {
+									targetTask.InStockData = inStockForPickup[rand.Intn(len(inStockForPickup))]
 									targetTask.AccountInfo.StoreID = targetMonitor.StoreID
 								}
 							}
+
 						}
 					}
 				}

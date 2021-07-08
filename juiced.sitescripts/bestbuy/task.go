@@ -25,17 +25,12 @@ import (
 // CreateBestbuyTask takes a Task entity and turns it into a Bestbuy Task
 func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	bestbuyTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return bestbuyTask, err
-	}
 	bestbuyTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -43,7 +38,7 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy enti
 		},
 		TaskType: taskType,
 	}
-	return bestbuyTask, err
+	return bestbuyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -79,6 +74,12 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false

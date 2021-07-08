@@ -16,20 +16,16 @@ import (
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
 func CreateHottopicTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
 	walmartTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return walmartTask, err
-	}
+
 	walmartTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 	}
-	return walmartTask, err
+	return walmartTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function

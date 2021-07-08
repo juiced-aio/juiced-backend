@@ -5,10 +5,10 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
-	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -28,54 +28,30 @@ func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 		skus = append(skus, monitor.SKU)
 	}
 
-	var client http.Client
-	var err error
-	if len(proxies) > 0 {
-		client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
-	} else {
-		client, err = util.CreateClient()
-	}
-	if err != nil {
-		return gamestopMonitor, err
-	}
-
 	gamestopMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
 			Proxies:   proxies,
 			EventBus:  eventBus,
-			Client:    client,
 		},
 
 		SKUs:        skus,
 		SKUWithInfo: storedGamestopMonitors,
 	}
 
-	becameGuest := false
-	for !becameGuest {
-		needToStop := gamestopMonitor.CheckForStop()
-		if needToStop {
-			return gamestopMonitor, nil
-		}
-		becameGuest = BecomeGuest(&gamestopMonitor.Monitor.Client)
-		if !becameGuest {
-			time.Sleep(1000 * time.Millisecond)
-		}
-	}
-
 	return gamestopMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
-func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType) {
+func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
 	monitor.Monitor.TaskGroup.SetMonitorStatus(status)
-	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, nil, monitor.Monitor.TaskGroup.GroupID)
+	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, data, monitor.Monitor.TaskGroup.GroupID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (monitor *Monitor) CheckForStop() bool {
 	if monitor.Monitor.StopFlag {
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop)
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
 		return true
 	}
 	return false
@@ -87,20 +63,52 @@ func (monitor *Monitor) RunMonitor() {
 	defer func() {
 		if recover() != nil {
 			monitor.Monitor.StopFlag = true
-			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
 		}
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
-		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
+		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
 	}
+
+	if monitor.Monitor.Client.Transport == nil {
+		monitorClient, err := util.CreateClient()
+		if err != nil {
+			return
+		}
+		monitor.Monitor.Client = monitorClient
+
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
+
+		becameGuest := false
+		for !becameGuest {
+			needToStop := monitor.CheckForStop()
+			if needToStop {
+				return
+			}
+			becameGuest = BecomeGuest(&monitor.Monitor.Client)
+			if !becameGuest {
+				time.Sleep(1000 * time.Millisecond)
+			}
+		}
+	}
+
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(monitor.SKUs))
 	for _, sku := range monitor.SKUs {
-		go monitor.RunSingleMonitor(sku)
+		go func(x string) {
+			monitor.RunSingleMonitor(x)
+			wg.Done()
+		}(sku)
 	}
+	wg.Wait()
 
 }
 
@@ -134,12 +142,15 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			if !inSlice {
 				monitor.InStock = append(monitor.InStock, stockData)
 				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
 			}
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
 				}
 			}
 			for i, monitorStock := range monitor.InStock {

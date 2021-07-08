@@ -20,11 +20,6 @@ import (
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
 func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
 	walmartTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return walmartTask, err
-	}
-
 	if task.TaskDelay == 0 {
 		task.TaskDelay = 2000
 	}
@@ -35,10 +30,9 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 	}
-	return walmartTask, err
+	return walmartTask, nil
 }
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
@@ -97,6 +91,12 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()

@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"backend.juicedbot.io/juiced.sitescripts/util"
@@ -75,31 +76,20 @@ func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 		}
 		created = true
 	}
-	becameGuest := false
-	for !becameGuest {
-		needToStop := amazonMonitor.CheckForStop()
-		if needToStop {
-			return amazonMonitor, nil
-		}
-		becameGuest = amazonMonitor.BecomeGuest()
-		if !becameGuest {
-			time.Sleep(1000 * time.Millisecond)
-		}
-	}
 
 	return amazonMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
-func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType) {
+func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
 	monitor.Monitor.TaskGroup.SetMonitorStatus(status)
-	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, nil, monitor.Monitor.TaskGroup.GroupID)
+	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, data, monitor.Monitor.TaskGroup.GroupID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (monitor *Monitor) CheckForStop() bool {
 	if monitor.Monitor.StopFlag {
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop)
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
 		return true
 	}
 	return false
@@ -121,15 +111,63 @@ func (monitor *Monitor) RunMonitor() {
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
-		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
+		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
 	}
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
-	for _, asin := range monitor.ASINs {
-		go monitor.RunSingleMonitor(asin)
+
+	var emptyClients int
+	for _, value := range monitor.ASINWithInfo {
+		if value.Client.Transport == nil {
+			emptyClients++
+		}
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(emptyClients)
+	for key, value := range monitor.ASINWithInfo {
+		if value.Client.Transport == nil {
+			monitorClient, err := util.CreateClient()
+			if err != nil {
+				return
+			}
+			if len(monitor.Monitor.Proxies) > 0 {
+				client.UpdateProxy(&monitorClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+			}
+			newValue := value
+			newValue.Client = monitorClient
+			monitor.ASINWithInfo[key] = newValue
+
+			go func(monitorClient http.Client) {
+				becameGuest := false
+				for !becameGuest {
+					needToStop := monitor.CheckForStop()
+					if needToStop {
+						return
+					}
+					becameGuest = monitor.BecomeGuest(monitorClient)
+					if !becameGuest {
+						time.Sleep(1000 * time.Millisecond)
+					}
+				}
+				wg.Done()
+			}(value.Client)
+		}
+
+	}
+	wg.Wait()
+
+	wg = sync.WaitGroup{}
+	wg.Add(len(monitor.ASINs))
+	for _, asin := range monitor.ASINs {
+		go func(x string) {
+			monitor.RunSingleMonitor(x)
+			wg.Done()
+		}(asin)
+	}
+	wg.Wait()
 
 }
 
@@ -149,7 +187,6 @@ func (monitor *Monitor) RunSingleMonitor(asin string) {
 		switch monitor.ASINWithInfo[asin].MonitorType {
 		case enums.SlowSKUMonitor:
 			stockData = monitor.TurboMonitor(asin)
-
 		case enums.FastSKUMonitor:
 			stockData = monitor.OFIDMonitor(asin)
 		}
@@ -165,13 +202,16 @@ func (monitor *Monitor) RunSingleMonitor(asin string) {
 				inSlice = monitorStock.ASIN == stockData.ASIN
 			}
 			if !inSlice {
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
 				monitor.InStock = append(monitor.InStock, stockData)
 			}
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -232,11 +272,10 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 		stockData = monitor.StockInfo(resp, body, asin)
 		return stockData
 	case 404:
-		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate)
+		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 		return stockData
 	case 503:
 		fmt.Println("Dogs of Amazon")
-		monitor.BecomeGuest()
 		return stockData
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
@@ -432,9 +471,9 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 }
 
 // This becomes a guest basically to monitor amazon
-func (monitor *Monitor) BecomeGuest() bool {
+func (monitor *Monitor) BecomeGuest(client http.Client) bool {
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: monitor.Monitor.Client,
+		Client: client,
 		Method: "GET",
 		URL:    BaseEndpoint,
 		RawHeaders: [][2]string{
