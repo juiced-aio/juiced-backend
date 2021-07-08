@@ -204,8 +204,13 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) bool {
 			return false
 		}
 
+		// Setting the stop flag to false before running the task
+		taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
+
 		// If the Task is already running, then we're all set already
-		if task.TaskStatus == enums.TaskIdle {
+		if task.TaskStatus == enums.TaskIdle ||
+			task.TaskStatus == enums.CheckedOut ||
+			task.TaskStatus == enums.CheckoutFailed {
 			// Otherwise, start the Task
 			taskStore.RunTask(task.TaskRetailer, task.ID)
 		}
@@ -222,40 +227,10 @@ func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) bool {
 		return false
 	}
 
+	// Set the tasks StopFlags to true
 	for _, taskID := range taskGroup.TaskIDs {
-		switch taskGroup.MonitorRetailer {
-		// Future sitescripts will have a case here
-		case enums.Target:
-			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
-				targetTask.Task.StopFlag = true
-			}
+		taskStore.SetStopFlag(taskGroup.MonitorRetailer, taskID, true)
 
-		case enums.Walmart:
-			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
-				walmartTask.Task.StopFlag = true
-			}
-
-		case enums.Amazon:
-			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
-				amazonTask.Task.StopFlag = true
-			}
-
-		case enums.BestBuy:
-			if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
-				bestbuyTask.Task.StopFlag = true
-			}
-
-		case enums.HotTopic:
-			if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
-				hottopicTask.Task.StopFlag = true
-			}
-
-		case enums.GameStop:
-			if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
-				gamestopTask.Task.StopFlag = true
-			}
-
-		}
 	}
 
 	return true
@@ -280,42 +255,14 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	}
 
 	// If the Task is already running, then we're all set already
-	if task.TaskStatus != enums.TaskIdle {
+	if task.TaskStatus != enums.TaskIdle &&
+		task.TaskStatus != enums.CheckedOut &&
+		task.TaskStatus != enums.CheckoutFailed {
 		return true
 	}
 
-	switch task.TaskRetailer {
-	// Future sitescripts will have a case here
-	case enums.Target:
-		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
-			targetTask.Task.StopFlag = false
-		}
-
-	case enums.Walmart:
-		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
-			walmartTask.Task.StopFlag = false
-		}
-
-	case enums.Amazon:
-		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
-			amazonTask.Task.StopFlag = false
-		}
-
-	case enums.BestBuy:
-		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
-			bestbuyTask.Task.StopFlag = false
-		}
-
-	case enums.HotTopic:
-		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
-			hottopicTask.Task.StopFlag = false
-		}
-
-	case enums.GameStop:
-		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
-			gamestopTask.Task.StopFlag = false
-		}
-	}
+	// Set the task's StopFlag to true before running the task
+	taskStore.SetStopFlag(task.TaskRetailer, task.ID, false)
 
 	// Otherwise, start the Task
 	taskStore.RunTask(task.TaskRetailer, task.ID)
@@ -324,46 +271,7 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 
 // StopTask sets the stop field for the given Task and returns true if successful
 func (taskStore *TaskStore) StopTask(task *entities.Task) bool {
-	switch task.TaskRetailer {
-	// Future sitescripts will have a case here
-	case enums.Target:
-		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
-			targetTask.Task.StopFlag = true
-		}
-		return true
-
-	case enums.Walmart:
-		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
-			walmartTask.Task.StopFlag = true
-		}
-		return true
-
-	case enums.Amazon:
-		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
-			amazonTask.Task.StopFlag = true
-		}
-		return true
-
-	case enums.BestBuy:
-		if bestbuyTask, ok := taskStore.BestbuyTasks[task.ID]; ok {
-			bestbuyTask.Task.StopFlag = true
-		}
-		return true
-
-	case enums.HotTopic:
-		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
-			hottopicTask.Task.StopFlag = true
-		}
-		return true
-
-	case enums.GameStop:
-		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
-			gamestopTask.Task.StopFlag = true
-		}
-		return true
-	}
-
-	return true
+	return taskStore.SetStopFlag(task.TaskRetailer, task.ID, true)
 }
 
 // TasksRunning checks to see if any tasks in the taskGroup are running, if so it returns true

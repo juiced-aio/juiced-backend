@@ -43,6 +43,7 @@ func RemoveFromSlice(s []string, x string) []string {
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 var runes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var runesWithLower = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789")
 
 func FindInString(str string, start string, end string) (string, error) {
 	comp := regexp.MustCompile(fmt.Sprintf("%v(.*?)%v", start, end))
@@ -70,11 +71,21 @@ func RandID(n int) string {
 	return string(b)
 }
 
+// RandString returns a random n-digit string of digits and uppercase/lowercase letters
+func RandString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = runesWithLower[seededRand.Intn(len(runesWithLower))]
+	}
+	return string(b)
+}
+
 var database *sqlx.DB
 
 // InitDatabase initializes the database singleton
 func InitDatabase() error {
 	var err error
+
 	configPath := configdir.LocalConfig("juiced")
 	err = configdir.MakePath(configPath)
 	if err != nil {
@@ -90,19 +101,30 @@ func InitDatabase() error {
 		_, err = database.Exec(schema)
 		tableName, _ := FindInString(schema, "EXISTS ", " \\(")
 		missing, extra := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
+		for i := range extra {
+			extraSplit := strings.Split(extra[i], "|")
+			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v DROP COLUMN %v", tableName, extraSplit[0]))
+			if err != nil {
+				fmt.Println(err)
+				return err
+			}
+		}
+
 		for i := range missing {
 			missingSplit := strings.Split(missing[i], "|")
-			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v", tableName, missingSplit[0], missingSplit[1]))
+			if strings.Contains(missing[i], "TEXT") {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT ''", tableName, missingSplit[0], missingSplit[1]))
+			} else if strings.Contains(missing[i], "INTEGER") {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT 0", tableName, missingSplit[0], missingSplit[1]))
+			} else {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v", tableName, missingSplit[0], missingSplit[1]))
+			}
 			if err != nil {
+				fmt.Println(err)
 				return err
 			}
 		}
-		for i := range extra {
-			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v DROP COLUMN %v", tableName, extra[i]))
-			if err != nil {
-				return err
-			}
-		}
+
 	}
 
 	return err
@@ -144,7 +166,7 @@ func GetCurrentColumns(schema string) (columnNames []string) {
 
 	for rows.Next() {
 		column, _ := rows.SliceScan()
-		columnNames = append(columnNames, column[1].(string))
+		columnNames = append(columnNames, column[1].(string)+"|"+column[2].(string))
 	}
 	return
 }
@@ -152,26 +174,33 @@ func GetCurrentColumns(schema string) (columnNames []string) {
 func CompareColumns(x []string, y []string) ([]string, []string) {
 	var missing []string
 	var extra []string
-	for i := range x {
+
+	for _, extraColumn1 := range x {
 		var inside bool
-		for _, name := range y {
-			if name == strings.Split(x[i], "|")[0] {
+		extraColumnSplit1 := strings.Split(extraColumn1, "|")
+		for _, extraColumn2 := range y {
+			extraColumnSplit2 := strings.Split(extraColumn2, "|")
+			if extraColumnSplit2[0] == extraColumnSplit1[0] && extraColumnSplit2[1] == extraColumnSplit1[1] {
 				inside = true
 			}
 		}
 		if !inside {
-			missing = append(missing, x[i])
+			missing = append(missing, extraColumn1)
 		}
 	}
-	for i := range y {
+
+	for _, missingColumn1 := range y {
 		var inside bool
-		for _, name := range x {
-			if strings.Split(name, "|")[0] == y[i] {
+		missingColumnSplit1 := strings.Split(missingColumn1, "|")
+		for _, missingColumn2 := range x {
+
+			missingColumnSplit2 := strings.Split(missingColumn2, "|")
+			if missingColumnSplit2[0] == missingColumnSplit1[0] && missingColumnSplit2[1] == missingColumnSplit1[1] {
 				inside = true
 			}
 		}
 		if !inside {
-			extra = append(extra, y[i])
+			extra = append(extra, missingColumn1)
 		}
 	}
 

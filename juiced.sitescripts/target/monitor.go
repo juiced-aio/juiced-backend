@@ -79,6 +79,7 @@ func (monitor *Monitor) RunMonitor() {
 			monitor.Monitor.StopFlag = true
 			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 		}
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorComplete)
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -122,6 +123,7 @@ func (monitor *Monitor) RunMonitor() {
 			return
 		}
 
+		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
 		monitor.InStockForShip = inStockForShip
 		monitor.InStockForPickup = inStockForPickup
 	} else {
@@ -208,7 +210,7 @@ func (monitor *Monitor) CheckPrice(sku string) bool {
 	var storeID string
 	storeID = monitor.StoreID
 	if monitor.StoreID == "" {
-		storeID = "1"
+		storeID = "199"
 	}
 	params := util.CreateParams(map[string]string{
 		"key":                             "ff457966e64d5e877fdbad070f276d18ecec4a01",

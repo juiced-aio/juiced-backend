@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -214,10 +215,30 @@ func (task *Task) RunTask() {
 // Login logs the user in and sets the task's cookies for the logged in user
 // TODO @silent: Handle stop flag within Login function
 func (task *Task) Login() bool {
+	var userPassProxy bool
+	var username string
+	var password string
 	cookies := make([]*http.Cookie, 0)
 
-	u := launcher.New().
-		Set(flags.Flag("headless")).
+	launcher_ := launcher.New()
+
+	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	if proxyCleaned != "" {
+		proxyURL := proxyCleaned[7:]
+
+		if strings.Contains(proxyURL, "@") {
+			proxySplit := strings.Split(proxyURL, "@")
+			proxyURL = proxySplit[1]
+			userPass := strings.Split(proxySplit[0], ":")
+			username = userPass[0]
+			password = userPass[1]
+			userPassProxy = true
+		}
+
+		launcher_ = launcher_.Proxy(proxyURL)
+	}
+
+	u := launcher_.Set(flags.Flag("headless")).
 		//Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
@@ -246,10 +267,20 @@ func (task *Task) Login() bool {
 
 	browser := rod.New().ControlURL(u).MustConnect()
 
+	browser.MustIgnoreCertErrors(true)
+
 	defer browser.MustClose()
 
+	if userPassProxy {
+		go browser.MustHandleAuth(username, password)()
+	}
+
 	page := stealth.MustPage(browser)
-	page.MustNavigate(LoginEndpoint)
+	page.MustNavigate(LoginEndpoint).WaitLoad()
+	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
+		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
+		return false
+	}
 	page.MustElement("#username").MustWaitVisible().Input(task.AccountInfo.Email)
 	page.MustElement("#password").MustWaitVisible().Input(task.AccountInfo.Password)
 	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
@@ -381,6 +412,10 @@ func (task *Task) AddToCart() bool {
 			ItemChannelID: "10",
 		},
 	})
+	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	if !ok {
+		return false
+	}
 	pickupReq, err := json.Marshal(AddToCartPickupRequest{
 		CartType:        "REGULAR",
 		ChannelID:       "10",
@@ -396,7 +431,7 @@ func (task *Task) AddToCart() bool {
 			ShipMethod: "STORE_PICKUP",
 		},
 	})
-	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	ok = util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
 		return false
 	}
