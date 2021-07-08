@@ -129,7 +129,6 @@ func (monitor *Monitor) RunMonitor() {
 		}
 
 		for _, singleStockData := range stockData.InStockForPickup {
-			fmt.Println("HERE2")
 			monitor.InStockForPickup.Set(singleStockData.TCIN, singleStockData)
 			productInfo.Products = append(productInfo.Products, events.Product{
 				ProductName:     singleStockData.ProductName,

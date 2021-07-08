@@ -32,28 +32,6 @@ func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 	amazonMonitor := Monitor{}
 	asins := []string{}
 
-	for _, monitor := range singleMonitors {
-		var client http.Client
-		var err error
-		if len(proxies) > 0 {
-			client, err = util.CreateClient(proxies[rand.Intn(len(proxies))])
-		} else {
-			client, err = util.CreateClient()
-		}
-		if err != nil {
-			return amazonMonitor, err
-		}
-
-		storedAmazonMonitors[monitor.ASIN] = entities.AmazonSingleMonitorInfo{
-			ASIN:        monitor.ASIN,
-			OFID:        monitor.OFID,
-			MaxPrice:    monitor.MaxPrice,
-			MonitorType: monitor.MonitorType,
-			Client:      client,
-		}
-		asins = append(asins, monitor.ASIN)
-	}
-
 	for created := false; !created; {
 		account := <-Accounts
 		// Making sure the accounts group id matches the monitors

@@ -106,6 +106,10 @@ func (monitor *Monitor) RunSingleMonitor() {
 		return
 	}
 
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	stockData := monitor.GetSKUStock()
 	needToStop = monitor.CheckForStop()
 	if needToStop {
