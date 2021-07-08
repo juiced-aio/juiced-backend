@@ -220,20 +220,25 @@ func (task *Task) Login() bool {
 	var password string
 	cookies := make([]*http.Cookie, 0)
 
-	proxyURL := common.ProxyCleaner(task.Task.Proxy)[7:]
+	launcher_ := launcher.New()
 
-	if strings.Contains(proxyURL, "@") {
-		proxySplit := strings.Split(proxyURL, "@")
-		proxyURL = proxySplit[1]
-		userPass := strings.Split(proxySplit[0], ":")
-		username = userPass[0]
-		password = userPass[1]
-		userPassProxy = true
+	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	if proxyCleaned != "" {
+		proxyURL := proxyCleaned[7:]
+
+		if strings.Contains(proxyURL, "@") {
+			proxySplit := strings.Split(proxyURL, "@")
+			proxyURL = proxySplit[1]
+			userPass := strings.Split(proxySplit[0], ":")
+			username = userPass[0]
+			password = userPass[1]
+			userPassProxy = true
+		}
+
+		launcher_ = launcher_.Proxy(proxyURL)
 	}
 
-	u := launcher.New().
-		Proxy(proxyURL).
-		Set(flags.Flag("headless")).
+	u := launcher_.Set(flags.Flag("headless")).
 		//Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
@@ -407,6 +412,10 @@ func (task *Task) AddToCart() bool {
 			ItemChannelID: "10",
 		},
 	})
+	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	if !ok {
+		return false
+	}
 	pickupReq, err := json.Marshal(AddToCartPickupRequest{
 		CartType:        "REGULAR",
 		ChannelID:       "10",
@@ -422,7 +431,7 @@ func (task *Task) AddToCart() bool {
 			ShipMethod: "STORE_PICKUP",
 		},
 	})
-	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	ok = util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
 		return false
 	}
