@@ -99,6 +99,9 @@ func InitDatabase() error {
 
 	for _, schema := range schemas {
 		_, err = database.Exec(schema)
+		if err != nil {
+			fmt.Println(err)
+		}
 		tableName, _ := FindInString(schema, "EXISTS ", " \\(")
 		missing, extra := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
 		for i := range extra {
@@ -126,7 +129,10 @@ func InitDatabase() error {
 		}
 
 	}
-
+	_, err = database.Exec("DELETE FROM checkouts WHERE time < 1625782953")
+	if err != nil {
+		fmt.Println(err)
+	}
 	return err
 }
 
