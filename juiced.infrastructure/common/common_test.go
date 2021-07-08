@@ -2,8 +2,6 @@ package common
 
 import (
 	"testing"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func TestRandString(t *testing.T) {
