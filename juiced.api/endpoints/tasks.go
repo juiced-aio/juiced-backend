@@ -113,58 +113,80 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	json.NewEncoder(response).Encode(result)
 }
 
-// RemoveTaskGroupEndpoint handles the DELETE request at /api/task/group/{GroupID}
+// RemoveTaskGroupEndpoint handles the DELETE request at /api/task/group/remove
 func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var taskGroup entities.TaskGroup
+	var taskGroups []entities.TaskGroup
 	var err error
 	errorsList := make([]string, 0)
 
-	params := mux.Vars(request)
-	groupID, ok := params["GroupID"]
-	if ok {
-		taskGroup, err = queries.GetTaskGroup(groupID)
+	type DeleteTaskGroupsRequest struct {
+		GroupIDs []string `json:"groupIDs"`
+	}
+	body, err := ioutil.ReadAll(request.Body)
+	if err == nil {
+		deleteTaskGroupsRequest := DeleteTaskGroupsRequest{}
+		err = json.Unmarshal(body, &deleteTaskGroupsRequest)
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
-			stopped := monitorStore.StopMonitor(&taskGroup)
-			if stopped {
-				next := true
-				for _, taskID := range taskGroup.TaskIDs {
-					taskToStop, err := queries.GetTask(taskID)
+			taskStore := stores.GetTaskStore()
+			if len(deleteTaskGroupsRequest.GroupIDs) != 0 {
+				for _, groupID := range deleteTaskGroupsRequest.GroupIDs {
+					taskGroup, err := queries.GetTaskGroup(groupID)
 					if err == nil {
-						taskStore := stores.GetTaskStore()
-						stopped := taskStore.StopTask(&taskToStop)
-						if !stopped {
-							next = false
-							errorsList = append(errorsList, errors.StopTaskError)
-							break
+						stopped := monitorStore.StopMonitor(&taskGroup)
+						if stopped {
+							next := true
+							for _, taskID := range taskGroup.TaskIDs {
+								taskToStop, err := queries.GetTask(taskID)
+								if err == nil {
+									stopped := taskStore.StopTask(&taskToStop)
+									if !stopped {
+										next = false
+										errorsList = append(errorsList, errors.StopTaskError)
+										break
+									}
+								} else {
+									errorsList = append(errorsList, errors.GetTaskError+err.Error())
+									break
+								}
+							}
+							if next {
+								taskGroup, err = commands.RemoveTaskGroup(groupID, true)
+								if err == nil {
+									taskGroups = append(taskGroups, taskGroup)
+								} else {
+									errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
+								}
+							}
+						} else {
+							errorsList = append(errorsList, errors.StopMonitorError)
 						}
 					} else {
-						errorsList = append(errorsList, errors.GetTaskError+err.Error())
-						break
-					}
-				}
-				if next {
-					taskGroup, err = commands.RemoveTaskGroup(groupID, true)
-					if err != nil {
 						errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
 					}
 				}
 			} else {
-				errorsList = append(errorsList, errors.StopMonitorError)
+				errorsList = append(errorsList, errors.MissingRequiredBody)
 			}
 		} else {
-			errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
+			errorsList = append(errorsList, errors.ParseDeleteTaskGroupsRequestError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.MissingParameterError)
+		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
-	if err != nil {
-		errorsList = append(errorsList, errors.GetTaskError+err.Error())
+
+	data := []entities.TaskGroupWithTasks{}
+	for _, taskGroup := range taskGroups {
+		newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
+		if err == nil {
+			data = append(data, newTaskGroupWithTasks)
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError+err.Error())
+		}
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -302,57 +324,74 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	json.NewEncoder(response).Encode(result)
 }
 
-// CloneTaskGroupEndpoint handles the POST request at /api/task/group/{GroupID}/clone
+// CloneTaskGroupEndpoint handles the POST request at /api/task/group/clone
 func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var newTaskGroup entities.TaskGroup
+	var newTaskGroups []entities.TaskGroup
 	var err error
 	errorsList := make([]string, 0)
 
-	params := mux.Vars(request)
-	groupID, ok := params["GroupID"]
-
-	if ok {
-		newTaskGroup, err = queries.GetTaskGroup(groupID)
+	type CloneTaskGroupsRequest struct {
+		GroupIDs []string `json:"groupIDs"`
+	}
+	body, err := ioutil.ReadAll(request.Body)
+	if err == nil {
+		cloneTaskGroupsRequest := CloneTaskGroupsRequest{}
+		err = json.Unmarshal(body, &cloneTaskGroupsRequest)
 		if err == nil {
-			newTaskGroup.SetGroupID(uuid.New().String())
-			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + common.RandID(4) + ")")
-			newTaskGroup.CreationDate = time.Now().Unix()
-			newTaskIDs := make([]string, 0)
-			for _, taskID := range newTaskGroup.TaskIDs {
-				var task entities.Task
-				task, err = queries.GetTask(taskID)
-				if err != nil {
-					break
+			for _, groupID := range cloneTaskGroupsRequest.GroupIDs {
+				newTaskGroup, err := queries.GetTaskGroup(groupID)
+				if err == nil {
+					newTaskGroup.SetGroupID(uuid.New().String())
+					newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + common.RandID(4) + ")")
+					newTaskGroup.CreationDate = time.Now().Unix()
+					newTaskIDs := make([]string, 0)
+					for _, taskID := range newTaskGroup.TaskIDs {
+						var task entities.Task
+						task, err = queries.GetTask(taskID)
+						if err != nil {
+							break
+						}
+						task.ID = uuid.New().String()
+						err = commands.CreateTask(task)
+						if err != nil {
+							break
+						}
+						newTaskIDs = append(newTaskIDs, task.ID)
+					}
+					if err == nil {
+						newTaskGroup.TaskIDs = newTaskIDs
+						err = commands.CreateTaskGroup(newTaskGroup)
+						if err == nil {
+							newTaskGroups = append(newTaskGroups, newTaskGroup)
+						} else {
+							errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
+						}
+					} else {
+						errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
+					}
+				} else {
+					errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 				}
-				task.ID = uuid.New().String()
-				err = commands.CreateTask(task)
-				if err != nil {
-					break
-				}
-				newTaskIDs = append(newTaskIDs, task.ID)
-			}
-			if err == nil {
-				newTaskGroup.TaskIDs = newTaskIDs
-				err = commands.CreateTaskGroup(newTaskGroup)
-				if err != nil {
-					errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
-				}
-			} else {
-				errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
 			}
 		} else {
-			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+			errorsList = append(errorsList, errors.ParseCloneTaskGroupsRequestError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.MissingParameterError)
+		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
-	if err != nil {
-		errorsList = append(errorsList, errors.GetTaskError+err.Error())
+	data := []entities.TaskGroupWithTasks{}
+	for _, newTaskGroup := range newTaskGroups {
+		newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
+		if err == nil {
+			data = append(data, newTaskGroupWithTasks)
+		} else {
+			errorsList = append(errorsList, errors.GetTaskError+err.Error())
+		}
+
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)

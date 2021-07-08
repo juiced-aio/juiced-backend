@@ -3,6 +3,12 @@ package errors
 // ParseTaskGroupError is the error encountered when parsing JSON into a TaskGroup returns an error
 const ParseTaskGroupError = "Parsing the JSON into a TaskGroup returned an error: "
 
+// ParseDeleteTaskGroupsRequestError is the error encountered when parsing JSON into a DeleteTaskGroupsRequest object returns an error
+const ParseDeleteTaskGroupsRequestError = "Parsing the JSON into a DeleteTaskGroupsRequest returned an error: "
+
+// ParseCloneTaskGroupsRequestError is the error encountered when parsing JSON into a CloneTaskGroupsRequest object returns an error
+const ParseCloneTaskGroupsRequestError = "Parsing the JSON into a CloneTaskGroupsRequest returned an error: "
+
 // CreateTaskGroupError is the error encountered when inserting a TaskGroup into the DB returns an error
 const CreateTaskGroupError = "Inserting the TaskGroup into the DB returned an error: "
 
@@ -27,10 +33,10 @@ const StopTaskGroupError = "Stopping the TaskGroup encountered an error."
 // ParseTaskError is the error encountered when parsing JSON into a Task returns an error
 const ParseTaskError = "Parsing the JSON into a Task returned an error: "
 
-// ParseDeleteTasksRequestError is the error encountere when parsing JSON into a DeleteTasksRequest object returns an error
+// ParseDeleteTasksRequestError is the error encountered when parsing JSON into a DeleteTasksRequest object returns an error
 const ParseDeleteTasksRequestError = "Parsing the JSON into a DeleteTasksRequest returned an error: "
 
-// ParseUpdateTasksRequestError is the error encountere when parsing JSON into a UpdateTasksRequest object returns an error
+// ParseUpdateTasksRequestError is the error encountered when parsing JSON into a UpdateTasksRequest object returns an error
 const ParseUpdateTasksRequestError = "Parsing the JSON into a UpdateTasksRequest returned an error: "
 
 // CreateTaskError is the error encountered when inserting a Task into the DB returns an error

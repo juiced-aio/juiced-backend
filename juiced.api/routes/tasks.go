@@ -57,23 +57,23 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
 	router.HandleFunc("/api/task/group", endpoints.CreateTaskGroupEndpoint).Methods("POST")
 
-	// swagger:operation DELETE /api/task/group/{GroupID} TaskGroup DeleteTaskGroupEndpoint
+	// swagger:operation POST /api/task/group/remove TaskGroup DeleteTaskGroupEndpoint
 	//
-	// Deletes and returns the TaskGroup with GroupID {GroupID}.
+	// Deletes and returns the TaskGroups with given GroupIDs.
 	//
 	// ---
 	// parameters:
 	// - name: GroupID
-	//   in: path
-	//   description: ID of TaskGroup to retrieve
+	//   in: body
+	//   description: IDs of TaskGroups to remove
 	//   type: string
 	//   required: true
 	// responses:
 	//   '200':
-	//     description: TaskGroup response
+	//     description: TaskGroups response
 	//     schema:
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
-	router.HandleFunc("/api/task/group/{GroupID}", endpoints.RemoveTaskGroupEndpoint).Methods("DELETE")
+	router.HandleFunc("/api/task/group/remove", endpoints.RemoveTaskGroupEndpoint).Methods("POST")
 
 	// swagger:operation PUT /api/task/group/{GroupID} TaskGroup UpdateTaskGroupEndpoint
 	//
@@ -99,23 +99,22 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
 	router.HandleFunc("/api/task/group/{GroupID}", endpoints.UpdateTaskGroupEndpoint).Methods("PUT")
 
-	// swagger:operation POST /api/task/group/{GroupID}/clone TaskGroup CloneTaskGroupEndpoint
+	// swagger:operation POST /api/task/group/clone TaskGroup CloneTaskGroupEndpoint
 	//
-	// Clones the TaskGroup with GroupID {GroupID} and returns the clone.
+	// Clones the TaskGroup with the given GroupIDs and returns the clones.
 	//
 	// ---
 	// parameters:
 	// - name: GroupID
-	//   in: path
-	//   description: ID of TaskGroup to clone
-	//   type: string
-	//   required: false
+	//   in: body
+	//   description: IDs of TaskGroups to clone
+	//   required: true
 	// responses:
 	//   '200':
-	//     description: TaskGroup response
+	//     description: TaskGroups response
 	//     schema:
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
-	router.HandleFunc("/api/task/group/{GroupID}/clone", endpoints.CloneTaskGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/task/group/clone", endpoints.CloneTaskGroupEndpoint).Methods("POST")
 
 	// swagger:operation POST /api/task/group/{GroupID}/start TaskGroup StartTaskGroupEndpoint
 	//
