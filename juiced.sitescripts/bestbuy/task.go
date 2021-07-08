@@ -25,17 +25,12 @@ import (
 // CreateBestbuyTask takes a Task entity and turns it into a Bestbuy Task
 func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	bestbuyTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return bestbuyTask, err
-	}
 	bestbuyTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -43,7 +38,7 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy enti
 		},
 		TaskType: taskType,
 	}
-	return bestbuyTask, err
+	return bestbuyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -79,6 +74,12 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -219,7 +220,10 @@ func (task *Task) Login() bool {
 		return false
 	}
 
-	util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -319,7 +323,10 @@ func (task *Task) Login() bool {
 	{"token":"` + signinJson.Token + `","activity":"1:user-activity-2016-09:` + encryptedActivity + `","loginMethod":"UID_PASSWORD","flowOptions":"000000000000000","alpha":"` + correctData["alpha"] + `","Salmon":"FA7F2","encryptedEmail":"1:email-2017-01:` + encryptedEmail + `","` + correctData["pass"] + `":"` + password + `","info":"1:user-activity-2016-09:` + encryptedInfo + `","` + signinJson.Emailfieldname + `":"` + email + `"}
 	`))
 
-	util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	err = util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
 	var loginResponse LoginResponse
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -416,7 +423,10 @@ func (task *Task) AddToCart() bool {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
 					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
-					util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					if err != nil {
+						return false
+					}
 				}
 			}
 		}
@@ -467,7 +477,10 @@ func (task *Task) AddToCart() bool {
 					if cookie.Name == "_abck" {
 						validator, _ := util.FindInString(cookie.Value, "~", "~")
 						if validator == "-1" {
-							util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+							err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+							if err != nil {
+								return false
+							}
 						}
 					}
 				}
@@ -605,7 +618,10 @@ func (task *Task) SetShippingInfo() bool {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+				err := util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
 			}
 		}
 	}
@@ -692,7 +708,10 @@ func (task *Task) SetShippingInfo() bool {
 	if resp.StatusCode != 200 {
 		log.Println(606)
 		log.Println(resp.StatusCode)
-		util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+		err = util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+		if err != nil {
+			return false
+		}
 		return false
 	}
 
@@ -742,7 +761,10 @@ func (task *Task) SetShippingInfo() bool {
 	case 200:
 		return true
 	default:
-		util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+		err = util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+		if err != nil {
+			return false
+		}
 		return false
 	}
 }
@@ -753,7 +775,10 @@ func (task *Task) SetPaymentInfo() bool {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				err := util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
 			}
 		}
 	}
@@ -837,7 +862,10 @@ func (task *Task) SetPaymentInfo() bool {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				err = util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
 			}
 		}
 	}
@@ -945,7 +973,10 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				err := util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false, status
+				}
 			}
 		}
 	}

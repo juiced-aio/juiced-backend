@@ -39,17 +39,13 @@ func (task *Task) CheckForStop() bool {
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
 func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
 	amazonTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return amazonTask, err
-	}
+
 	amazonTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		AccountInfo: AccountInfo{
 			Email:     email,
@@ -57,7 +53,7 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entit
 			LoginType: loginType,
 		},
 	}
-	return amazonTask, err
+	return amazonTask, nil
 }
 
 func (task *Task) RunTask() {
@@ -66,6 +62,12 @@ func (task *Task) RunTask() {
 		recover()
 		// TODO @silent: Let the UI know that a task failed
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login

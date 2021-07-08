@@ -2,10 +2,13 @@ package gamestop
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -15,7 +18,7 @@ import (
 )
 
 // CreateGamestopMonitor takes a TaskGroup entity and turns it into a Gamestop Monitor
-func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.GamestopSingleMonitorInfo) (Monitor, error) {
+func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.GamestopSingleMonitorInfo) (Monitor, error) {
 	storedGamestopMonitors := make(map[string]entities.GamestopSingleMonitorInfo)
 	gamestopMonitor := Monitor{}
 	skus := []string{}
@@ -25,47 +28,30 @@ func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 		skus = append(skus, monitor.SKU)
 	}
 
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return gamestopMonitor, err
-	}
 	gamestopMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
-			Proxy:     proxy,
+			Proxies:   proxies,
 			EventBus:  eventBus,
-			Client:    client,
 		},
 
 		SKUs:        skus,
 		SKUWithInfo: storedGamestopMonitors,
 	}
 
-	becameGuest := false
-	for !becameGuest {
-		needToStop := gamestopMonitor.CheckForStop()
-		if needToStop {
-			return gamestopMonitor, nil
-		}
-		becameGuest = BecomeGuest(&gamestopMonitor.Monitor.Client)
-		if !becameGuest {
-			time.Sleep(1000 * time.Millisecond)
-		}
-	}
-
 	return gamestopMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
-func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType) {
+func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
 	monitor.Monitor.TaskGroup.SetMonitorStatus(status)
-	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, nil, monitor.Monitor.TaskGroup.GroupID)
+	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, data, monitor.Monitor.TaskGroup.GroupID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (monitor *Monitor) CheckForStop() bool {
 	if monitor.Monitor.StopFlag {
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop)
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
 		return true
 	}
 	return false
@@ -77,64 +63,106 @@ func (monitor *Monitor) RunMonitor() {
 	defer func() {
 		if recover() != nil {
 			monitor.Monitor.StopFlag = true
-			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
 		}
 	}()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
-		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
+		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
 	}
+
+	if monitor.Monitor.Client.Transport == nil {
+		monitorClient, err := util.CreateClient()
+		if err != nil {
+			return
+		}
+		monitor.Monitor.Client = monitorClient
+
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
+
+		becameGuest := false
+		for !becameGuest {
+			needToStop := monitor.CheckForStop()
+			if needToStop {
+				return
+			}
+			becameGuest = BecomeGuest(&monitor.Monitor.Client)
+			if !becameGuest {
+				time.Sleep(1000 * time.Millisecond)
+			}
+		}
+	}
+
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(monitor.SKUs))
 	for _, sku := range monitor.SKUs {
-		if !common.InSlice(monitor.RunningMonitors, sku) {
-			// TODO @Humphrey: THIS IS GOING TO CAUSE A MASSIVE MEMORY LEAK -- IF YOU HAVE 2 MONITORS, AND EACH ONE CALLS THE RUNMONITOR FUNCTION FROM WITHIN, YOU'LL START MULTIPLYING AND VERY QUICKLY YOU'LL HAVE THOUSANDS OF MONITORS
-			// 		--> We should turn this into a RunSingleMonitor function, and have it call itself from within
-			go func(t string) {
-				// If the function panics due to a runtime error, recover from it
-				defer func() {
-					recover()
-					// TODO @silent: Re-run this specific monitor
-				}()
+		go func(x string) {
+			monitor.RunSingleMonitor(x)
+			wg.Done()
+		}(sku)
+	}
+	wg.Wait()
 
-				stockData := monitor.GetSKUStock(t)
-				if stockData.SKU != "" {
-					needToStop := monitor.CheckForStop()
-					if needToStop {
-						return
-					}
+}
 
-					var inSlice bool
-					for _, monitorStock := range monitor.InStock {
-						inSlice = monitorStock.SKU == stockData.SKU
-					}
-					if !inSlice {
-						monitor.InStock = append(monitor.InStock, stockData)
-						monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, t)
-						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-					}
-				} else {
-					if len(monitor.RunningMonitors) > 0 {
-						if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
-						}
-					}
-					for i, monitorStock := range monitor.InStock {
-						if monitorStock.SKU == stockData.SKU {
-							monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-							break
-						}
-					}
-					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-					monitor.RunMonitor()
-				}
-			}(sku)
-		}
-
+func (monitor *Monitor) RunSingleMonitor(sku string) {
+	needToStop := monitor.CheckForStop()
+	if needToStop {
+		return
 	}
 
+	if !common.InSlice(monitor.RunningMonitors, sku) {
+		defer func() {
+			recover()
+			// TODO @silent: Re-run this specific monitor
+		}()
+
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
+
+		stockData := monitor.GetSKUStock(sku)
+		if stockData.SKU != "" {
+			needToStop := monitor.CheckForStop()
+			if needToStop {
+				return
+			}
+
+			var inSlice bool
+			for _, monitorStock := range monitor.InStock {
+				inSlice = monitorStock.SKU == stockData.SKU
+			}
+			if !inSlice {
+				monitor.InStock = append(monitor.InStock, stockData)
+				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
+				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		} else {
+			if len(monitor.RunningMonitors) > 0 {
+				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+				}
+			}
+			for i, monitorStock := range monitor.InStock {
+				if monitorStock.SKU == stockData.SKU {
+					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+					break
+				}
+			}
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(sku)
+		}
+	}
 }
 
 // Checks if the item is instock and fills the monitors EventInfo if so

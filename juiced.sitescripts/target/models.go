@@ -9,6 +9,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 // Endpoints
@@ -17,8 +18,8 @@ const (
 	GetTCINStockEndpoint        = "https://redsky.target.com/redsky_aggregations/v1/web/plp_fulfillment_v1?"
 	GetTCINStockHost            = "redsky.target.com"
 	GetTCINStockReferer         = "https://www.target.com/"
-	CheckPriceEndpoint          = "https://redsky.target.com/redsky_aggregations/v1/web/pdp_client_v1?"
-	CheckPriceReferer           = "https://www.target.com/p/-/A-"
+	TCINInfoEndpoint            = "https://redsky.target.com/redsky_aggregations/v1/web/pdp_client_v1?"
+	TCINInfoReferer             = "https://www.target.com/p/-/A-"
 	LoginEndpoint               = "https://gsp.target.com/gsp/authentications/v1/auth_codes?client_id=ecom-web-1.0.0&state=1619237851891&redirect_uri=https%3A%2F%2Fwww.target.com%2F&assurance_level=M"
 	RefreshLoginEndpoint        = "https://gsp.target.com/gsp/oauth_tokens/v2/client_tokens"
 	RefreshLoginReferer         = "https://www.target.com/"
@@ -43,8 +44,8 @@ type Monitor struct {
 	TCINs            []string
 	StoreID          string
 	TCINsWithInfo    map[string]entities.TargetSingleMonitorInfo
-	InStockForShip   []string
-	InStockForPickup []string
+	InStockForShip   cmap.ConcurrentMap
+	InStockForPickup cmap.ConcurrentMap
 }
 
 // Task info
@@ -52,8 +53,23 @@ type Task struct {
 	Task         base.Task
 	CheckoutType enums.CheckoutType
 	AccountInfo  AccountInfo
+	InStockData  SingleStockData
 	TCIN         string
-	TCINType     string
+	TCINType     enums.CheckoutType
+}
+
+type TargetStockData struct {
+	InStockForShip      []SingleStockData
+	OutOfStockForShip   []SingleStockData
+	InStockForPickup    []SingleStockData
+	OutOfStockForPickup []SingleStockData
+}
+
+type SingleStockData struct {
+	TCIN            string
+	TCINType        enums.CheckoutType
+	ProductName     string
+	ProductImageURL string
 }
 
 // Used in SetPaymentInfo function
@@ -511,8 +527,25 @@ type CartFulfillment struct {
 	ShipMethod string             `json:"ship_method"`
 }
 
+type ProductDescription struct {
+	Title string `json:"title"`
+}
+
+type Images struct {
+	PrimaryImageURL string `json:"primary_image_url"`
+}
+
+type Enrichment struct {
+	Images Images `json:"images"`
+}
+
+type Item struct {
+	Enrichment         Enrichment         `json:"enrichment"`
+	ProductDescription ProductDescription `json:"product_description"`
+}
 type Product struct {
 	Price Price `json:"price"`
+	Item  Item  `json:"item"`
 }
 
 type PriceData struct {
