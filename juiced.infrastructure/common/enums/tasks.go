@@ -16,10 +16,11 @@ const (
 type MonitorEventType = string
 
 const (
-	MonitorStart  MonitorEventType = "MonitorStart"
-	MonitorUpdate MonitorEventType = "MonitorUpdate"
-	MonitorFail   MonitorEventType = "MonitorFail"
-	MonitorStop   MonitorEventType = "MonitorStop"
+	MonitorStart    MonitorEventType = "MonitorStart"
+	MonitorUpdate   MonitorEventType = "MonitorUpdate"
+	MonitorFail     MonitorEventType = "MonitorFail"
+	MonitorStop     MonitorEventType = "MonitorStop"
+	MonitorComplete MonitorEventType = "MonitorComplete"
 )
 
 // TaskStatus is a list of possible statuses that a Task can have
