@@ -206,3 +206,47 @@ func CompareColumns(x []string, y []string) ([]string, []string) {
 
 	return missing, extra
 }
+
+func DetectCardType(cardNumber []byte) string {
+	matched, _ := regexp.Match(`^4`, cardNumber)
+	if matched {
+		return "Visa"
+	}
+
+	matched, _ = regexp.Match(`^(5[1-5][0-9]{14}|2(22[1-9][0-9]{12}|2[3-9][0-9]{13}|[3-6][0-9]{14}|7[0-1][0-9]{13}|720[0-9]{12}))$`, cardNumber)
+	if matched {
+		return "Mastercard"
+	}
+
+	matched, _ = regexp.Match(`^3[47]`, cardNumber)
+	if matched {
+		return "AMEX"
+	}
+
+	matched, _ = regexp.Match(`^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)`, cardNumber)
+	if matched {
+		return "Discover"
+	}
+
+	matched, _ = regexp.Match(`^36`, cardNumber)
+	if matched {
+		return "Diners"
+	}
+
+	matched, _ = regexp.Match(`^30[0-5]`, cardNumber)
+	if matched {
+		return "Diners - Carte Blanche"
+	}
+
+	matched, _ = regexp.Match(`^35(2[89]|[3-8][0-9])`, cardNumber)
+	if matched {
+		return "JCB"
+	}
+
+	matched, _ = regexp.Match(`^(4026|417500|4508|4844|491(3|7))`, cardNumber)
+	if matched {
+		return "Visa Electron"
+	}
+
+	return ""
+}
