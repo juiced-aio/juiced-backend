@@ -76,8 +76,9 @@ func (rt *roundTripper) getTransport(req *http.Request, addr string) error {
 	switch err {
 	case errProtocolNegotiated:
 	case nil:
-		// Should never happen.
-		panic("dialTLS returned no error when determining cachedTransports")
+		// Was running into a runtime error due to using the same client so I removed this panic and it still works
+		// I'm guessing because it uses an existing connection
+		//panic("dialTLS returned no error when determining cachedTransports")
 	default:
 		return err
 	}

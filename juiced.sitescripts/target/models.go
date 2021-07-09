@@ -25,7 +25,7 @@ const (
 	RefreshLoginReferer         = "https://www.target.com/"
 	AddToCartEndpoint           = "https://carts.target.com/web_checkouts/v1/cart_items?field_groups=CART%2CCART_ITEMS%2CSUMMARY&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
 	AddToCartReferer            = "https://www.target.com/p/-/A-"
-	GetCartInfoEndpoint         = "https://carts.target.com/web_checkouts/v1/pre_checkout?field_groups=PAYMENT_INSTRUCTIONS&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
+	GetCartInfoEndpoint         = "https://carts.target.com/web_checkouts/v1/pre_checkout?field_groups=PAYMENT_INSTRUCTIONS%2CCART_ITEMS&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
 	GetCartInfoReferer          = "https://www.target.com/co-review?precheckout=true"
 	SetShippingInfoEndpoint     = "https://carts.target.com/web_checkouts/v1/cart_shipping_addresses/%s?field_groups=ADDRESSES%%2CPAYMENT_INSTRUCTIONS&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
 	SetShippingInfoReferer      = "https://www.target.com/co-delivery"
@@ -200,6 +200,15 @@ type ProductSummaries struct {
 }
 
 // Used in GetCartInfo function by GetCartInfoResponse
+
+type ShippingOptions struct {
+	AvailabilityStatus         string     `json:"availability_status"`
+	LoyaltyAvailabilityStatus  string     `json:"loyalty_availability_status"`
+	AvailableToPromiseQuantity float64    `json:"available_to_promise_quantity"`
+	MinimumOrderQuantity       float64    `json:"minimum_order_quantity"`
+	Services                   []Services `json:"services"`
+}
+
 type Addresses struct {
 	ProfileAddressID string `json:"profile_address_id"`
 	AddressLine1     string `json:"address_line1"`
@@ -218,24 +227,7 @@ type Addresses struct {
 	PoBoxAddress     bool   `json:"po_box_address,omitempty"`
 	DefaultAddress   bool   `json:"default_address,omitempty"`
 }
-type AvailableShipMethods struct {
-	Type                              string `json:"type"`
-	ShipMethod                        string `json:"ship_method"`
-	EstimatedArrivalStartDate         string `json:"estimated_arrival_start_date"`
-	EstimatedArrivalEndDate           string `json:"estimated_arrival_end_date"`
-	Preferred                         bool   `json:"preferred"`
-	Base                              bool   `json:"base"`
-	Selected                          bool   `json:"selected"`
-	Seasonal                          bool   `json:"seasonal"`
-	ShipMethodShortDescription        string `json:"ship_method_short_description"`
-	ShipMethodLongDescription         string `json:"ship_method_long_description"`
-	ShipMethodServiceLevelDescription string `json:"ship_method_service_level_description"`
-	OrderCutoff                       string `json:"order_cutoff"`
-	ShipDate                          string `json:"ship_date"`
-	LocationID                        string `json:"location_id"`
-	TwoDayShippingEligible            bool   `json:"two_day_shipping_eligible"`
-	MinimumOrderQuantity              int    `json:"minimum_order_quantity"`
-}
+
 type CartItems struct {
 	CartID                       string              `json:"cart_id"`
 	TotalCartItemQuantity        int                 `json:"total_cart_item_quantity"`
@@ -256,7 +248,6 @@ type CartItems struct {
 	Fulfillment                  Fulfillment         `json:"fulfillment"`
 	ItemAttributes               ItemAttributes      `json:"item_attributes"`
 	ItemSummary                  ItemSummary         `json:"item_summary"`
-	Discounts                    []Discounts         `json:"discounts"`
 	Subscription                 Subscription        `json:"subscription"`
 	InventoryInfo                InventoryInfo       `json:"inventory_info"`
 	ItemIndicators               ItemIndicators      `json:"item_indicators"`
@@ -266,35 +257,21 @@ type CartItems struct {
 	AddOnThreshold               int                 `json:"add_on_threshold"`
 	ItemAddChannel               string              `json:"item_add_channel"`
 }
-type Discounts struct {
-	PromotionID           string  `json:"promotion_id"`
-	PromotionName         string  `json:"promotion_name"`
-	LegalDescription      string  `json:"legal_description"`
-	PromotionStatus       string  `json:"promotion_status"`
-	CartLevel             bool    `json:"cart_level"`
-	SubscriptionPromoFlag bool    `json:"subscription_promo_flag"`
-	RewardType            string  `json:"reward_type"`
-	RewardValue           int     `json:"reward_value"`
-	PromotionGroup        string  `json:"promotion_group"`
-	Applied               bool    `json:"applied"`
-	DiscountAmount        float64 `json:"discount_amount"`
-	DiscountType          string  `json:"discount_type"`
-}
+
 type Fulfillment struct {
-	Type                              string                 `json:"type"`
-	AddressID                         string                 `json:"address_id"`
-	LocationData                      LocationData           `json:"location_data"`
-	ShipMethod                        string                 `json:"ship_method"`
-	Price                             Price                  `json:"price"`
-	EstimatedArrivalStartDate         string                 `json:"estimated_arrival_start_date"`
-	EstimatedArrivalEndDate           string                 `json:"estimated_arrival_end_date"`
-	ShipMethodServiceLevelDescription string                 `json:"ship_method_service_level_description"`
-	AvailableShipMethods              []AvailableShipMethods `json:"available_ship_methods"`
-	ProductID                         string                 `json:"product_id"`
-	IsOutOfStockInAllStoreLocations   bool                   `json:"is_out_of_stock_in_all_store_locations"`
-	ShippingOptions                   ShippingOptions        `json:"shipping_options"`
-	StoreOptions                      []StoreOptions         `json:"store_options"`
-	ScheduledDelivery                 ScheduledDelivery      `json:"scheduled_delivery"`
+	Type                              string            `json:"type"`
+	AddressID                         string            `json:"address_id"`
+	LocationData                      LocationData      `json:"location_data"`
+	ShipMethod                        string            `json:"ship_method"`
+	Price                             Price             `json:"price"`
+	EstimatedArrivalStartDate         string            `json:"estimated_arrival_start_date"`
+	EstimatedArrivalEndDate           string            `json:"estimated_arrival_end_date"`
+	ShipMethodServiceLevelDescription string            `json:"ship_method_service_level_description"`
+	ProductID                         string            `json:"product_id"`
+	IsOutOfStockInAllStoreLocations   bool              `json:"is_out_of_stock_in_all_store_locations"`
+	ShippingOptions                   ShippingOptions   `json:"shipping_options"`
+	StoreOptions                      []StoreOptions    `json:"store_options"`
+	ScheduledDelivery                 ScheduledDelivery `json:"scheduled_delivery"`
 }
 type GuestLocation struct {
 	ZipCode   string `json:"zip_code"`
@@ -388,17 +365,17 @@ type ItemSummary struct {
 	ShippingDiscount    float64 `json:"shipping_discount"`
 	ShippingCharge      float64 `json:"shipping_charge"`
 	TotalDiscount       float64 `json:"total_discount"`
-	PartialDiscount     int     `json:"partial_discount"`
+	PartialDiscount     float64 `json:"partial_discount"`
 	TotalProduct        float64 `json:"total_product"`
 	TaxAmount           float64 `json:"tax_amount"`
 	Price               float64 `json:"price"`
-	ShippingTax         int     `json:"shipping_tax"`
-	HandlingFee         int     `json:"handling_fee"`
-	SurchargeFee        int     `json:"surcharge_fee"`
-	HandlingFeeTax      int     `json:"handling_fee_tax"`
-	HandlingFeeDiscount int     `json:"handling_fee_discount"`
-	GiftWrapFee         int     `json:"gift_wrap_fee"`
-	GiftWrapTax         int     `json:"gift_wrap_tax"`
+	ShippingTax         float64 `json:"shipping_tax"`
+	HandlingFee         float64 `json:"handling_fee"`
+	SurchargeFee        float64 `json:"surcharge_fee"`
+	HandlingFeeTax      float64 `json:"handling_fee_tax"`
+	HandlingFeeDiscount float64 `json:"handling_fee_discount"`
+	GiftWrapFee         float64 `json:"gift_wrap_fee"`
+	GiftWrapTax         float64 `json:"gift_wrap_tax"`
 }
 type LocationData struct {
 	ZipCode string `json:"zip_code"`
@@ -464,13 +441,7 @@ type Services struct {
 	ShippingMethodShortDescription string    `json:"shipping_method_short_description"`
 	Cutoff                         time.Time `json:"cutoff"`
 }
-type ShippingOptions struct {
-	AvailabilityStatus         string     `json:"availability_status"`
-	LoyaltyAvailabilityStatus  string     `json:"loyalty_availability_status"`
-	AvailableToPromiseQuantity float64    `json:"available_to_promise_quantity"`
-	MinimumOrderQuantity       float64    `json:"minimum_order_quantity"`
-	Services                   []Services `json:"services"`
-}
+
 type StoreFrontDetails struct {
 	ID         string `json:"id"`
 	SellerID   string `json:"seller_id"`
@@ -500,7 +471,6 @@ type Summary struct {
 	GrandTotal               float64       `json:"grand_total"`
 	BalanceDue               int           `json:"balance_due"`
 	ItemsQuantity            int           `json:"items_quantity"`
-	Discounts                []Discounts   `json:"discounts"`
 	TotalAuthorizationAmount float64       `json:"total_authorization_amount"`
 	TotalBagFee              int           `json:"total_bag_fee"`
 	RedCardBanner            RedCardBanner `json:"red_card_banner"`
