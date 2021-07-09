@@ -57,23 +57,23 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
 	router.HandleFunc("/api/task/group", endpoints.CreateTaskGroupEndpoint).Methods("POST")
 
-	// swagger:operation DELETE /api/task/group/{GroupID} TaskGroup DeleteTaskGroupEndpoint
+	// swagger:operation POST /api/task/group/remove TaskGroup DeleteTaskGroupEndpoint
 	//
-	// Deletes and returns the TaskGroup with GroupID {GroupID}.
+	// Deletes and returns the TaskGroups with given GroupIDs.
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: ID of TaskGroup to retrieve
+	// - name: GroupIDs
+	//   in: body
+	//   description: IDs of TaskGroups to remove
 	//   type: string
 	//   required: true
 	// responses:
 	//   '200':
-	//     description: TaskGroup response
+	//     description: TaskGroups response
 	//     schema:
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
-	router.HandleFunc("/api/task/group/{GroupID}", endpoints.RemoveTaskGroupEndpoint).Methods("DELETE")
+	router.HandleFunc("/api/task/group/remove", endpoints.RemoveTaskGroupsEndpoint).Methods("POST")
 
 	// swagger:operation PUT /api/task/group/{GroupID} TaskGroup UpdateTaskGroupEndpoint
 	//
@@ -99,59 +99,56 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
 	router.HandleFunc("/api/task/group/{GroupID}", endpoints.UpdateTaskGroupEndpoint).Methods("PUT")
 
-	// swagger:operation POST /api/task/group/{GroupID}/clone TaskGroup CloneTaskGroupEndpoint
+	// swagger:operation POST /api/task/group/clone TaskGroup CloneTaskGroupEndpoint
 	//
-	// Clones the TaskGroup with GroupID {GroupID} and returns the clone.
+	// Clones the TaskGroup with the given GroupIDs and returns the clones.
 	//
 	// ---
 	// parameters:
 	// - name: GroupID
-	//   in: path
-	//   description: ID of TaskGroup to clone
-	//   type: string
-	//   required: false
+	//   in: body
+	//   description: IDs of TaskGroups to clone
+	//   required: true
 	// responses:
 	//   '200':
-	//     description: TaskGroup response
+	//     description: TaskGroups response
 	//     schema:
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
-	router.HandleFunc("/api/task/group/{GroupID}/clone", endpoints.CloneTaskGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/task/group/clone", endpoints.CloneTaskGroupsEndpoint).Methods("POST")
 
-	// swagger:operation POST /api/task/group/{GroupID}/start TaskGroup StartTaskGroupEndpoint
+	// swagger:operation POST /api/task/group/start TaskGroup StartTaskGroupEndpoint
 	//
-	// Starts a TaskGroup's Monitor and all of its Tasks
+	// Starts given TaskGroups Monitors and all of their Tasks
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: GroupID of TaskGroup to start
-	//   type: string
+	// - name: GroupIDs
+	//   in: body
+	//   description: GroupIDs of TaskGroups to start
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: TaskGroup response
+	//     description: TaskGroups response
 	//     schema:
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
-	router.HandleFunc("/api/task/group/{GroupID}/start", endpoints.StartTaskGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/task/group/start", endpoints.StartTaskGroupsEndpoint).Methods("POST")
 
-	// swagger:operation POST /api/task/group/{GroupID}/stop TaskGroup StopTaskGroupEndpoint
+	// swagger:operation POST /api/task/group/stop TaskGroup StopTaskGroupsEndpoint
 	//
-	// Stops a TaskGroup's Monitor and all of its Tasks
+	// Stops given TaskGroups Monitors and all of their Tasks
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: GroupID of TaskGroup to stop
-	//   type: string
+	// - name: GroupIDs
+	//   in: body
+	//   description: GroupIDs of TaskGroups to stop
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: TaskGroup response
+	//     description: TaskGroups response
 	//     schema:
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
-	router.HandleFunc("/api/task/group/{GroupID}/stop", endpoints.StopTaskGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/task/group/stop", endpoints.StopTaskGroupsEndpoint).Methods("POST")
 
 	// swagger:operation POST /api/task/group/{GroupID}/removeTasks TaskGroup RemoveTasksEndpoint
 	//
@@ -255,59 +252,56 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskResponseSwagger"
 	router.HandleFunc("/api/task/group/{GroupID}/updateTasks", endpoints.UpdateTasksEndpoint).Methods("PUT")
 
-	// swagger:operation POST /api/task/{ID}/clone Task CloneTaskEndpoint
+	// swagger:operation POST /api/task/clone Task CloneTasksEndpoint
 	//
-	// Clones the Task with ID {ID} and returns the clone.
+	// Clones the Tasks with the given IDs and returns the clones.
 	//
 	// ---
 	// parameters:
-	// - name: ID
-	//   in: path
-	//   description: ID of Task to clone
-	//   type: string
+	// - name: IDs
+	//   in: body
+	//   description: IDs of Tasks to clone
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: Task response
+	//     description: Tasks response
 	//     schema:
 	//       "$ref": "#/responses/TaskResponseSwagger"
-	router.HandleFunc("/api/task/{ID}/clone", endpoints.CloneTaskEndpoint).Methods("POST")
+	router.HandleFunc("/api/task/clone", endpoints.CloneTasksEndpoint).Methods("POST")
 
-	// swagger:operation POST /api/task/{ID}/start Task StartTaskEndpoint
+	// swagger:operation POST /api/task/start Task StartTasksEndpoint
 	//
 	// Starts a Task
 	//
 	// ---
 	// parameters:
-	// - name: ID
-	//   in: path
-	//   description: ID of Task to start
-	//   type: string
+	// - name: IDs
+	//   in: body
+	//   description: IDs of Tasks to start
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: Task response
+	//     description: Tasks response
 	//     schema:
 	//       "$ref": "#/responses/TaskResponseSwagger"
-	router.HandleFunc("/api/task/{ID}/start", endpoints.StartTaskEndpoint).Methods("POST")
+	router.HandleFunc("/api/task/start", endpoints.StartTasksEndpoint).Methods("POST")
 
-	// swagger:operation POST /api/task/{ID}/stop Task StopTaskEndpoint
+	// swagger:operation POST /api/task/stop Task StopTasksEndpoint
 	//
 	// Stops a Task
 	//
 	// ---
 	// parameters:
-	// - name: ID
-	//   in: path
-	//   description: ID of Task to stop
-	//   type: string
+	// - name: IDs
+	//   in: body
+	//   description: IDs of Tasks to stop
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: Task response
+	//     description: Tasks response
 	//     schema:
 	//       "$ref": "#/responses/TaskResponseSwagger"
-	router.HandleFunc("/api/task/{ID}/stop", endpoints.StopTaskEndpoint).Methods("POST")
+	router.HandleFunc("/api/task/stop", endpoints.StopTasksEndpoint).Methods("POST")
 
 	// endpoints for each retailer for create task and create task group
 }

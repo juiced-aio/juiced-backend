@@ -57,23 +57,22 @@ func RouteProxiesEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/ProxyGroupResponseSwagger"
 	router.HandleFunc("/api/proxy/group", endpoints.CreateProxyGroupEndpoint).Methods("POST")
 
-	// swagger:operation DELETE /api/proxy/group/{GroupID} ProxyGroup DeleteProxyGroupEndpoint
+	// swagger:operation POST /api/proxy/group/remove ProxyGroup DeleteProxyGroupsEndpoint
 	//
-	// Deletes and returns the ProxyGroup with GroupID {GroupID}.
+	// Deletes and returns the ProxyGroups with the given GroupIDs.
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: ID of ProxyGroup to retrieve
-	//   type: string
+	// - name: GroupIDs
+	//   in: body
+	//   description: IDs of ProxyGroups to retrieve
 	//   required: true
 	// responses:
 	//   '200':
-	//     description: ProxyGroup response
+	//     description: ProxyGroups response
 	//     schema:
 	//       "$ref": "#/responses/ProxyGroupResponseSwagger"
-	router.HandleFunc("/api/proxy/group/{GroupID}", endpoints.RemoveProxyGroupEndpoint).Methods("DELETE")
+	router.HandleFunc("/api/proxy/group/remove", endpoints.RemoveProxyGroupsEndpoint).Methods("POST")
 
 	// swagger:operation PUT /api/proxy/group/{GroupID} ProxyGroup UpdateProxyGroupEndpoint
 	//
@@ -99,23 +98,22 @@ func RouteProxiesEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/ProxyGroupResponseSwagger"
 	router.HandleFunc("/api/proxy/group/{GroupID}", endpoints.UpdateProxyGroupEndpoint).Methods("PUT")
 
-	// swagger:operation POST /api/proxy/group/{GroupID}/clone ProxyGroup CloneProxyGroupEndpoint
+	// swagger:operation POST /api/proxy/group/clone ProxyGroup CloneProxyGroupEndpoint
 	//
-	// Clones the ProxyGroup with GroupID {GroupID} and returns the clone.
+	// Clones the ProxyGroups with given GroupIDs and returns the clones.
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: ID of ProxyGroup to clone
-	//   type: string
+	// - name: GroupIDs
+	//   in: body
+	//   description: IDs of ProxyGroups to clone
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: ProxyGroup response
+	//     description: ProxyGroups response
 	//     schema:
 	//       "$ref": "#/responses/ProxyGroupResponseSwagger"
-	router.HandleFunc("/api/proxy/group/{GroupID}/clone", endpoints.CloneProxyGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/proxy/group/clone", endpoints.CloneProxyGroupEndpoint).Methods("POST")
 
 	// proxy test
 }
