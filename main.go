@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"math/rand"
+	"os"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
@@ -21,6 +22,15 @@ import (
 )
 
 func main() {
+	go func() {
+		for {
+			if os.Getppid() == 1 {
+				os.Exit(0)
+			}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
 	// Initalize the event bus
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
