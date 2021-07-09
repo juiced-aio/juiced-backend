@@ -167,7 +167,7 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
 	placedOrder := false
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -521,7 +521,7 @@ func (task *Task) SetPaymentInfo() bool {
 
 // The final request to place the order
 func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	form := url.Values{
 		"klarnaOrderId": {""},

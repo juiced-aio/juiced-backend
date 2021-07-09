@@ -175,7 +175,7 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
 	placedOrder := false
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -968,7 +968,7 @@ func (task *Task) SetPaymentInfo() bool {
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
 func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
