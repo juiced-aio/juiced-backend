@@ -208,7 +208,9 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) bool {
 		taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
 
 		// If the Task is already running, then we're all set already
-		if task.TaskStatus == enums.TaskIdle {
+		if task.TaskStatus == enums.TaskIdle ||
+			task.TaskStatus == enums.CheckedOut ||
+			task.TaskStatus == enums.CheckoutFailed {
 			// Otherwise, start the Task
 			taskStore.RunTask(task.TaskRetailer, task.ID)
 		}
@@ -253,7 +255,9 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) bool {
 	}
 
 	// If the Task is already running, then we're all set already
-	if task.TaskStatus != enums.TaskIdle {
+	if task.TaskStatus != enums.TaskIdle &&
+		task.TaskStatus != enums.CheckedOut &&
+		task.TaskStatus != enums.CheckoutFailed {
 		return true
 	}
 

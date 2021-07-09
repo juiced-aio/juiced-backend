@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"math/rand"
 	"time"
 
 	api "backend.juicedbot.io/juiced.api"
@@ -50,6 +51,7 @@ func main() {
 		if err != nil {
 			eventBus.PublishCloseEvent()
 		} else {
+			rand.Seed(time.Now().UnixNano())
 			go Heartbeat(eventBus, userInfo)
 			go stores.InitTaskStore(eventBus)
 			stores.InitMonitorStore(eventBus)

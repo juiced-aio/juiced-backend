@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"os"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.api/responses"
@@ -637,6 +639,134 @@ func CloneProfilesEndpoint(response http.ResponseWriter, request *http.Request) 
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProfileResponse{Success: false, Data: make([]entities.Profile, 0), Errors: errorsList}
+	}
+	json.NewEncoder(response).Encode(result)
+}
+
+// ImportProfilesEndpoint handles the POST request at /api/profile/import
+func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	newProfiles := []entities.Profile{}
+	skippedProfiles := 0
+	skippedGroups := 0
+	var err error
+	errorsList := make([]string, 0)
+
+	type ImportProfilesRequest struct {
+		FilePath string   `json:"filePath"`
+		GroupIDs []string `json:"groupIDs"`
+	}
+
+	type ImportProfilesFileFormat struct {
+		Profiles []entities.Profile `json:"profiles"`
+	}
+
+	body, err := ioutil.ReadAll(request.Body)
+	if err == nil {
+		importProfilesRequestInfo := ImportProfilesRequest{}
+		err = json.Unmarshal(body, &importProfilesRequestInfo)
+		if err == nil {
+			validGroupIDs := []string{}
+			validGroups := []entities.ProfileGroup{}
+			for _, groupID := range importProfilesRequestInfo.GroupIDs {
+				group, err := queries.GetProfileGroup(groupID)
+				if err == nil && group.GroupID != "" {
+					validGroups = append(validGroups, group)
+					validGroupIDs = append(validGroupIDs, groupID)
+				} else {
+					skippedGroups++
+				}
+			}
+
+			file, err := os.Open(importProfilesRequestInfo.FilePath)
+			if err == nil {
+				defer file.Close()
+				byteValue, err := ioutil.ReadAll(file)
+				if err == nil {
+					profiles := ImportProfilesFileFormat{}
+					err = json.Unmarshal(byteValue, &profiles)
+					if err == nil && len(profiles.Profiles) > 0 {
+						newProfileIDs := []string{}
+						for _, profile := range profiles.Profiles {
+							// TODO @silent: Validate all fields
+							existingProfile, err := queries.GetProfileByName(profile.Name)
+							if err != nil || existingProfile.ID == "" || profile.Name == "" {
+								profile.ID = uuid.New().String()
+								profile.ProfileGroupIDs = validGroupIDs
+								if len(validGroupIDs) > 0 {
+									profile.ProfileGroupIDsJoined = strings.Join(validGroupIDs, ",")
+								}
+								profile.CreationDate = time.Now().Unix()
+
+								profile.ShippingAddress.ID = uuid.New().String()
+								profile.ShippingAddress.ProfileID = profile.ID
+								profile.BillingAddress.ID = uuid.New().String()
+								profile.BillingAddress.ProfileID = profile.ID
+								profile.CreditCard.ID = uuid.New().String()
+								profile.CreditCard.ProfileID = profile.ID
+								cardType := common.DetectCardType([]byte(profile.CreditCard.CardNumber))
+								if cardType != "" {
+									profile.CreditCard.CardType = cardType
+
+									err = commands.CreateProfile(profile)
+									if err == nil {
+										newProfiles = append(newProfiles, profile)
+										newProfileIDs = append(newProfileIDs, profile.ID)
+									} else {
+										skippedProfiles++
+									}
+								} else {
+									skippedProfiles++
+								}
+							} else {
+								skippedProfiles++
+							}
+						}
+
+						for _, group := range validGroups {
+							group.AddProfileIDsToGroup(newProfileIDs)
+							_, err = commands.UpdateProfileGroup(group.GroupID, group)
+							if err != nil {
+								skippedGroups++
+							}
+						}
+					} else {
+						if err != nil {
+							errorsList = append(errorsList, errors.ParseImportProfilesFileError+err.Error())
+						} else {
+							errorsList = append(errorsList, errors.ParseImportProfilesFileError+"No profiles detected.")
+						}
+					}
+				} else {
+					errorsList = append(errorsList, errors.ReadFileError+err.Error())
+				}
+			} else {
+				errorsList = append(errorsList, errors.OpenFileError+err.Error())
+			}
+		} else {
+			errorsList = append(errorsList, errors.ParseImportProfilesRequestError+err.Error())
+		}
+	} else {
+		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
+	}
+
+	profileGroups, err := queries.GetAllProfileGroups()
+	if err != nil {
+		errorsList = append(errorsList, errors.GetAllProfileGroupsError+err.Error())
+	}
+	data := []entities.ProfileGroupWithProfiles{}
+	for i := 0; i < len(profileGroups); i++ {
+		newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroups[i])
+		if err != nil {
+			errorsList = append(errorsList, errors.GetProfileError+err.Error())
+		}
+		data = append(data, newProfileGroupWithProfiles)
+	}
+	result := &responses.ImportProfileResponse{Success: true, NewProfiles: newProfiles, SkippedProfiles: skippedProfiles, SkippedGroups: skippedGroups, Data: data, Errors: make([]string, 0)}
+	if len(errorsList) > 0 {
+		response.WriteHeader(http.StatusBadRequest)
+		result = &responses.ImportProfileResponse{Success: false, NewProfiles: []entities.Profile{}, SkippedProfiles: 0, SkippedGroups: 0, Data: data, Errors: errorsList}
 	}
 	json.NewEncoder(response).Encode(result)
 }

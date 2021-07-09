@@ -53,3 +53,15 @@ const ParseRemoveProfilesRequestError = "Parsing the JSON into a RemoveProfilesR
 
 // ParseCloneProfilesRequestError is the error encountered when parsing JSON into a CloneProfilesRequest object returns an error
 const ParseCloneProfilesRequestError = "Parsing the JSON into a CloneProfilesRequest returned an error: "
+
+// ParseImportProfilesRequestError is the error encountered when parsing JSON into an ImportProfilesRequest returns an error
+const ParseImportProfilesRequestError = "Parsing the JSON into an ImportProfilesRequest object returned an error: "
+
+// OpenFileError is the error encountered when opening a file returns an error
+const OpenFileError = "Opening the file returned an error: "
+
+// ReadFileError is the error encountered when reading a file returns an error
+const ReadFileError = "Reading the file returned an error: "
+
+// ParseImportProfilesFileError is the error encountered when parsing JSON into a list of profiles returns an error
+const ParseImportProfilesFileError = "Parsing the JSON contents of the import file into a list profiles returned an error: "

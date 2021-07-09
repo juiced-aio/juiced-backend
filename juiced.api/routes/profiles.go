@@ -267,4 +267,6 @@ func RouteProfilesEndpoints(router *mux.Router) {
 	//     schema:
 	//       "$ref": "#/responses/ProfileResponseSwagger"
 	router.HandleFunc("/api/profile/clone", endpoints.CloneProfilesEndpoint).Methods("POST")
+
+	router.HandleFunc("/api/profile/import", endpoints.ImportProfilesEndpoint).Methods("POST")
 }
