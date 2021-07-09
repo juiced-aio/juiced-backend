@@ -91,7 +91,7 @@ func (task *Task) RunTask() {
 	if needToStop {
 		return
 	}
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	switch task.CheckoutInfo.MonitorType {
 	case enums.SlowSKUMonitor:
 		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
@@ -513,7 +513,7 @@ func (task *Task) AddToCart() bool {
 
 // Places the order
 func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"x-amz-checkout-csrf-token": {task.AccountInfo.SessionID},

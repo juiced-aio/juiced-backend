@@ -239,7 +239,7 @@ func (task *Task) RunTask() {
 	// 9. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	placedOrder := false
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -829,7 +829,7 @@ func (task *Task) SetPaymentInfo() bool {
 
 // PlaceOrder completes the checkout process
 func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	data := PlaceOrderRequest{
 		CvvInSession: true,
