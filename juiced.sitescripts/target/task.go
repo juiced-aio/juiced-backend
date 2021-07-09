@@ -114,6 +114,9 @@ func (task *Task) RunTask() {
 				}
 				break
 			} else {
+				if task.Task.Task.TaskStatus != enums.WaitingForLogin {
+					task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+				}
 				time.Sleep(1 * time.Millisecond)
 			}
 		}
