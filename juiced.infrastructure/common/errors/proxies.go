@@ -17,3 +17,9 @@ const RemoveProxyGroupError = "Removing the ProxyGroup with the given ID returne
 
 // UpdateProxyGroupError is the error encountered when updating a ProxyGroup from the DB returns an error
 const UpdateProxyGroupError = "Updating the ProxyGroup with the given ID returned an error: "
+
+// ParseRemoveProxyGroupsRequestError is the error encountered when parsing JSON into a RemoveProxyGroupsRequest object returns an error
+const ParseRemoveProxyGroupsRequestError = "Parsing the JSON into a RemoveProxyGroupsRequest returned an error: "
+
+// ParseCloneProxyGroupsRequestError is the error encountered when parsing JSON into a CloneProxyGroupsRequest object returns an error
+const ParseCloneProxyGroupsRequestError = "Parsing the JSON into a CloneProxyGroupsRequest returned an error: "

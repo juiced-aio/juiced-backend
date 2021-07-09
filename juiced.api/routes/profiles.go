@@ -57,23 +57,22 @@ func RouteProfilesEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/ProfileGroupResponseSwagger"
 	router.HandleFunc("/api/profile/group", endpoints.CreateProfileGroupEndpoint).Methods("POST")
 
-	// swagger:operation DELETE /api/profile/group/{GroupID} ProfileGroup RemoveProfileGroupEndpoint
+	// swagger:operation POST /api/profile/group/remove RemoveProfileGroupsEndpoint
 	//
-	// Deletes and returns the ProfileGroup with GroupID {GroupID}.
+	// Deletes and returns the ProfileGroups with the given GroupIDs.
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: ID of ProfileGroup to retrieve
-	//   type: string
+	// - name: GroupIDs
+	//   in: body
+	//   description: IDs of ProfileGroups to retrieve
 	//   required: true
 	// responses:
 	//   '200':
-	//     description: ProfileGroup response
+	//     description: ProfileGroups response
 	//     schema:
 	//       "$ref": "#/responses/ProfileGroupResponseSwagger"
-	router.HandleFunc("/api/profile/group/{GroupID}", endpoints.RemoveProfileGroupEndpoint).Methods("DELETE")
+	router.HandleFunc("/api/profile/group/remove", endpoints.RemoveProfileGroupsEndpoint).Methods("POST")
 
 	// swagger:operation PUT /api/profile/group/{GroupID} ProfileGroup UpdateProfileGroupEndpoint
 	//
@@ -99,71 +98,68 @@ func RouteProfilesEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/ProfileGroupResponseSwagger"
 	router.HandleFunc("/api/profile/group/{GroupID}", endpoints.UpdateProfileGroupEndpoint).Methods("PUT")
 
-	// swagger:operation POST /api/profile/group/{GroupID}/clone ProfileGroup CloneProfileGroupEndpoint
+	// swagger:operation POST /api/profile/group/clone CloneProfileGroupsEndpoint
 	//
-	// Clones the ProfileGroup with GroupID {GroupID} and returns the clone.
+	// Clones the ProfileGroups with the given GroupIDs and returns the clones.
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: ID of ProfileGroup to clone
-	//   type: string
+	// - name: GroupIDs
+	//   in: body
+	//   description: IDs of ProfileGroups to clone
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: ProfileGroup response
+	//     description: ProfileGroups response
 	//     schema:
 	//       "$ref": "#/responses/ProfileGroupResponseSwagger"
-	router.HandleFunc("/api/profile/group/{GroupID}/clone", endpoints.CloneProfileGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/profile/group/clone", endpoints.CloneProfileGroupsEndpoint).Methods("POST")
 
-	// swagger:operation POST /api/profile/group/{GroupID}/add ProfileGroup AddProfilesToGroupEndpoint
+	// swagger:operation POST /api/profile/group/add AddProfilesToGroupsEndpoint
 	//
-	// Adds Profiles to the ProfileGroup with GroupID {GroupID} and returns the updated ProfileGroup.
+	// Adds Profiles to the ProfileGroups with the given GroupIDs and returns the updated ProfileGroups.
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: ID of ProfileGroup to add to
-	//   type: string
-	//   required: false
+	// - name: GroupIDs
+	//   in: body
+	//   description: IDs of ProfileGroups to add to
+	//   required: true
 	// - name: ProfileIDs
 	//   in: body
-	//   description: Profile IDs to add to the ProfileGroup
+	//   description: Profile IDs to add to the ProfileGroups
 	//   required: true
 	//   schema:
 	//     "$ref": "#/models/ProfileIDList"
 	// responses:
 	//   '200':
-	//     description: ProfileGroup response
+	//     description: ProfileGroups response
 	//     schema:
 	//       "$ref": "#/responses/ProfileGroupResponseSwagger"
-	router.HandleFunc("/api/profile/group/{GroupID}/add", endpoints.AddProfilesToGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/profile/group/add", endpoints.AddProfilesToGroupsEndpoint).Methods("POST")
 
-	// swagger:operation POST /api/profile/group/{GroupID}/remove ProfileGroup RemoveProfilesFromGroupEndpoint
+	// swagger:operation POST /api/profile/group/remove RemoveProfilesFromGroupsEndpoint
 	//
-	// Removes Profiles from the ProfileGroup with GroupID {GroupID} and returns the updated ProfileGroup.
+	// Removes Profiles from the ProfileGroups with given GroupIDs and returns the updated ProfileGroups.
 	//
 	// ---
 	// parameters:
-	// - name: GroupID
-	//   in: path
-	//   description: ID of ProfileGroup to add to
-	//   type: string
-	//   required: false
+	// - name: GroupIDs
+	//   in: body
+	//   description: IDs of ProfileGroups to remove from
+	//   required: true
 	// - name: ProfileIDs
 	//   in: body
-	//   description: Profile IDs to add to the ProfileGroup
+	//   description: Profile IDs to remove from the ProfileGroups
 	//   required: true
 	//   schema:
 	//     "$ref": "#/models/ProfileIDList"
 	// responses:
 	//   '200':
-	//     description: ProfileGroup response
+	//     description: ProfileGroups response
 	//     schema:
 	//       "$ref": "#/responses/ProfileGroupResponseSwagger"
-	router.HandleFunc("/api/profile/group/{GroupID}/remove", endpoints.RemoveProfilesFromGroupEndpoint).Methods("POST")
+	router.HandleFunc("/api/profile/group/remove", endpoints.RemoveProfilesFromGroupsEndpoint).Methods("POST")
 
 	// swagger:operation GET /api/profile Profile GetAllProfilesEndpoint
 	//
@@ -214,23 +210,22 @@ func RouteProfilesEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/ProfileResponseSwagger"
 	router.HandleFunc("/api/profile", endpoints.CreateProfileEndpoint).Methods("POST")
 
-	// swagger:operation DELETE /api/profile/{ID} Profile RemoveProfileEndpoint
+	// swagger:operation DELETE /api/profile/remove RemoveProfilesEndpoint
 	//
-	// Deletes and returns the Profile with ID {ID}.
+	// Deletes and returns the Profiles with given IDs.
 	//
 	// ---
 	// parameters:
-	// - name: ID
-	//   in: path
-	//   description: ID of Profile to retrieve
-	//   type: string
+	// - name: IDs
+	//   in: body
+	//   description: IDs of Profiles to remove
 	//   required: true
 	// responses:
 	//   '200':
-	//     description: Profile response
+	//     description: Profiles response
 	//     schema:
 	//       "$ref": "#/responses/ProfileResponseSwagger"
-	router.HandleFunc("/api/profile/{ID}", endpoints.RemoveProfileEndpoint).Methods("DELETE")
+	router.HandleFunc("/api/profile/remove", endpoints.RemoveProfilesEndpoint).Methods("POST")
 
 	// swagger:operation PUT /api/profile/{ID} Profile UpdateProfileEndpoint
 	//
@@ -256,21 +251,20 @@ func RouteProfilesEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/ProfileResponseSwagger"
 	router.HandleFunc("/api/profile/{ID}", endpoints.UpdateProfileEndpoint).Methods("PUT")
 
-	// swagger:operation POST /api/profile/{ID}/clone Profile CloneProfileEndpoint
+	// swagger:operation POST /api/profile/clone CloneProfilesEndpoint
 	//
-	// Clones the Profile with ID {ID} and returns the clone.
+	// Clones the Profiles with given IDs and returns the clones.
 	//
 	// ---
 	// parameters:
-	// - name: ID
-	//   in: path
-	//   description: ID of Profile to clone
-	//   type: string
+	// - name: IDs
+	//   in: body
+	//   description: IDs of Profiles to clone
 	//   required: false
 	// responses:
 	//   '200':
-	//     description: Profile response
+	//     description: Profiles response
 	//     schema:
 	//       "$ref": "#/responses/ProfileResponseSwagger"
-	router.HandleFunc("/api/profile/{ID}/clone", endpoints.CloneProfileEndpoint).Methods("POST")
+	router.HandleFunc("/api/profile/clone", endpoints.CloneProfilesEndpoint).Methods("POST")
 }

@@ -9,6 +9,12 @@ const ParseDeleteTaskGroupsRequestError = "Parsing the JSON into a DeleteTaskGro
 // ParseCloneTaskGroupsRequestError is the error encountered when parsing JSON into a CloneTaskGroupsRequest object returns an error
 const ParseCloneTaskGroupsRequestError = "Parsing the JSON into a CloneTaskGroupsRequest returned an error: "
 
+// ParseStartTaskGroupsRequestError is the error encountered when parsing JSON into a StartTaskGroupsRequest object returns an error
+const ParseStartTaskGroupsRequestError = "Parsing the JSON into a StartTaskGroupsRequest returned an error: "
+
+// ParseStopTaskGroupsRequestError is the error encountered when parsing JSON into a StopTaskGroupsRequest object returns an error
+const ParseStopTaskGroupsRequestError = "Parsing the JSON into a StopTaskGroupsRequest returned an error: "
+
 // CreateTaskGroupError is the error encountered when inserting a TaskGroup into the DB returns an error
 const CreateTaskGroupError = "Inserting the TaskGroup into the DB returned an error: "
 
@@ -38,6 +44,15 @@ const ParseDeleteTasksRequestError = "Parsing the JSON into a DeleteTasksRequest
 
 // ParseUpdateTasksRequestError is the error encountered when parsing JSON into a UpdateTasksRequest object returns an error
 const ParseUpdateTasksRequestError = "Parsing the JSON into a UpdateTasksRequest returned an error: "
+
+// ParseCloneTasksRequestError is the error encountered when parsing JSON into a CloneTasksRequest object returns an error
+const ParseCloneTasksRequestError = "Parsing the JSON into a CloneTasksRequest returned an error: "
+
+// ParseStartTasksRequestError is the error encountered when parsing JSON into a StartTasksRequest object returns an error
+const ParseStartTasksRequestError = "Parsing the JSON into a StartTasksRequest returned an error: "
+
+// ParseStopTasksRequestError is the error encountered when parsing JSON into a StopTasksRequest object returns an error
+const ParseStopTasksRequestError = "Parsing the JSON into a StopTasksRequest returned an error: "
 
 // CreateTaskError is the error encountered when inserting a Task into the DB returns an error
 const CreateTaskError = "Inserting the Task into the DB returned an error: "

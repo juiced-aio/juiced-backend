@@ -99,59 +99,76 @@ func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	json.NewEncoder(response).Encode(result)
 }
 
-// RemoveProxyGroupEndpoint handles the DELETE request at /api/proxy/group/{GroupID}
-func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Request) {
+// RemoveProxyGroupsEndpoint handles the DELETE request at /api/proxy/group/remove
+func RemoveProxyGroupsEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var proxyGroup entities.ProxyGroup
+	var proxyGroups []entities.ProxyGroup
 	errorsList := make([]string, 0)
 
-	params := mux.Vars(request)
-	groupID, ok := params["GroupID"]
-	if ok {
-		taskGroups, err := queries.GetTaskGroupsByProxyGroupID(groupID)
+	type RemoveProxyGroupsRequest struct {
+		GroupIDs []string `json:"groupIDs"`
+	}
+
+	body, err := ioutil.ReadAll(request.Body)
+	if err == nil {
+		removeProxyGroupsRequest := RemoveProxyGroupsRequest{}
+		err = json.Unmarshal(body, &removeProxyGroupsRequest)
 		if err == nil {
-			next := true
-			monitorStore := stores.GetMonitorStore()
-			for _, taskGroup := range taskGroups {
-				updated := monitorStore.UpdateMonitorProxy(&taskGroup, entities.Proxy{})
-				if !updated {
-					next = false
-				}
-			}
-			if next {
-				tasks, err := queries.GetTasksByProxyGroupID(groupID)
+			for _, groupID := range removeProxyGroupsRequest.GroupIDs {
+				taskGroups, err := queries.GetTaskGroupsByProxyGroupID(groupID)
 				if err == nil {
 					next := true
-					taskStore := stores.GetTaskStore()
-					for _, task := range tasks {
-						updated := taskStore.UpdateTaskProxy(&task, entities.Proxy{})
+					monitorStore := stores.GetMonitorStore()
+					for _, taskGroup := range taskGroups {
+						updated := monitorStore.UpdateMonitorProxy(&taskGroup, entities.Proxy{})
 						if !updated {
 							next = false
-							break
 						}
 					}
 					if next {
-						proxyGroup, err = commands.RemoveProxyGroup(groupID)
-						if err != nil {
-							errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
+						tasks, err := queries.GetTasksByProxyGroupID(groupID)
+						if err == nil {
+							next := true
+							taskStore := stores.GetTaskStore()
+							for _, task := range tasks {
+								updated := taskStore.UpdateTaskProxy(&task, entities.Proxy{})
+								if !updated {
+									next = false
+									break
+								}
+							}
+							if next {
+								proxyGroup, err := commands.RemoveProxyGroup(groupID)
+								if err == nil {
+									proxyGroups = append(proxyGroups, proxyGroup)
+								} else {
+									errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
+								}
+							} else {
+								errorsList = append(errorsList, errors.RemoveProxyGroupError+"error while updating a tasks proxy")
+							}
+						} else {
+							errorsList = append(errorsList, errors.GetTaskError+err.Error())
 						}
 					} else {
-						errorsList = append(errorsList, errors.RemoveProxyGroupError+"error while updating a tasks proxy")
+						errorsList = append(errorsList, errors.RemoveProxyGroupError+"error while updating a taskgroups proxy")
 					}
 				} else {
-					errorsList = append(errorsList, errors.GetTaskError+err.Error())
+					errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
 				}
-			} else {
-				errorsList = append(errorsList, errors.RemoveProxyGroupError+"error while updating a taskgroups proxy")
 			}
 		} else {
-			errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
+			errorsList = append(errorsList, errors.ParseRemoveProxyGroupsRequestError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.MissingParameterError)
+		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{proxyGroup}, Errors: make([]string, 0)}
+
+	data := []entities.ProxyGroup{}
+	data = append(data, proxyGroups...)
+
+	result := &responses.ProxyGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProxyGroupResponse{Success: false, Data: make([]entities.ProxyGroup, 0), Errors: errorsList}
@@ -196,39 +213,55 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	json.NewEncoder(response).Encode(result)
 }
 
-// CloneProxyGroupEndpoint handles the POST request at /api/proxy/group/{GroupID}/clone
-func CloneProxyGroupEndpoint(response http.ResponseWriter, request *http.Request) {
+// CloneProxyGroupsEndpoint handles the POST request at /api/proxy/group/clone
+func CloneProxyGroupsEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var proxyGroup entities.ProxyGroup
+	var proxyGroups []entities.ProxyGroup
 	var err error
 	errorsList := make([]string, 0)
 
-	params := mux.Vars(request)
-	groupID, ok := params["GroupID"]
-	if ok {
-		proxyGroup, err = queries.GetProxyGroup(groupID)
+	type CloneProxyGroupsRequest struct {
+		GroupIDs []string `json:"groupIDs"`
+	}
+	body, err := ioutil.ReadAll(request.Body)
+	if err == nil {
+		cloneProxyGroupsRequest := CloneProxyGroupsRequest{}
+		err = json.Unmarshal(body, &cloneProxyGroupsRequest)
 		if err == nil {
-			newGroupID := uuid.New().String()
-			proxyGroup.SetGroupID(newGroupID)
-			proxyGroup.SetName(proxyGroup.Name + " (Copy " + common.RandID(4) + ")")
-			proxyGroup.CreationDate = time.Now().Unix()
-			for i := 0; i < len(proxyGroup.Proxies); i++ {
-				proxy := &proxyGroup.Proxies[i]
-				proxy.SetID(uuid.New().String())
-				proxy.ProxyGroupID = newGroupID
-			}
-			err = commands.CreateProxyGroup(proxyGroup)
-			if err != nil {
-				errorsList = append(errorsList, errors.CreateProxyGroupError+err.Error())
+			for _, groupID := range cloneProxyGroupsRequest.GroupIDs {
+				proxyGroup, err := queries.GetProxyGroup(groupID)
+				if err == nil {
+					newGroupID := uuid.New().String()
+					proxyGroup.SetGroupID(newGroupID)
+					proxyGroup.SetName(proxyGroup.Name + " (Copy " + common.RandID(4) + ")")
+					proxyGroup.CreationDate = time.Now().Unix()
+					for i := 0; i < len(proxyGroup.Proxies); i++ {
+						proxy := &proxyGroup.Proxies[i]
+						proxy.SetID(uuid.New().String())
+						proxy.ProxyGroupID = newGroupID
+					}
+					err = commands.CreateProxyGroup(proxyGroup)
+					if err == nil {
+						proxyGroups = append(proxyGroups, proxyGroup)
+					} else {
+						errorsList = append(errorsList, errors.CreateProxyGroupError+err.Error())
+					}
+				} else {
+					errorsList = append(errorsList, errors.GetProxyGroupError+err.Error())
+				}
 			}
 		} else {
-			errorsList = append(errorsList, errors.GetProxyGroupError+err.Error())
+			errorsList = append(errorsList, errors.ParseRemoveProxyGroupsRequestError+err.Error())
 		}
 	} else {
-		errorsList = append(errorsList, errors.MissingParameterError)
+		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{proxyGroup}, Errors: make([]string, 0)}
+
+	data := []entities.ProxyGroup{}
+	data = append(data, proxyGroups...)
+
+	result := &responses.ProxyGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProxyGroupResponse{Success: false, Data: make([]entities.ProxyGroup, 0), Errors: errorsList}

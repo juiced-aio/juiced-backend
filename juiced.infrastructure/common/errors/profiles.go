@@ -35,3 +35,21 @@ const RemoveProfileError = "Removing the Profile with the given ID returned an e
 
 // UpdateProfileError is the error encountered when updating a Profile from the DB returns an error
 const UpdateProfileError = "Updating the Profile with the given ID returned an error: "
+
+// ParseRemoveProfileGroupsRequestError is the error encountered when parsing JSON into a RemoveProfileGroupsRequest object returns an error
+const ParseRemoveProfileGroupsRequestError = "Parsing the JSON into a RemoveProfileGroupsRequest returned an error: "
+
+// ParseCloneProfileGroupsRequestError is the error encountered when parsing JSON into a CloneProfileGroupsRequest object returns an error
+const ParseCloneProfileGroupsRequestError = "Parsing the JSON into a CloneProfileGroupsRequest returned an error: "
+
+// ParseAddProfilesToGroupsRequestError is the error encountered when parsing JSON into a AddProfilesToGroupsRequest object returns an error
+const ParseAddProfilesToGroupsRequestError = "Parsing the JSON into a AddProfilesToGroupsRequest returned an error: "
+
+// ParseRemoveProfilesFromGroupsRequestError is the error encountered when parsing JSON into a RemoveProfilesFromGroupsRequest object returns an error
+const ParseRemoveProfilesFromGroupsRequestError = "Parsing the JSON into a RemoveProfilesFromGroupsRequest returned an error: "
+
+// ParseRemoveProfilesRequestError is the error encountered when parsing JSON into a RemoveProfilesRequest object returns an error
+const ParseRemoveProfilesRequestError = "Parsing the JSON into a RemoveProfilesRequest returned an error: "
+
+// ParseCloneProfilesRequestError is the error encountered when parsing JSON into a CloneProfilesRequest object returns an error
+const ParseCloneProfilesRequestError = "Parsing the JSON into a CloneProfilesRequest returned an error: "
