@@ -87,10 +87,11 @@ const MetaData1APIKey = ""
 type AddHeadersFunction func(*http.Request, ...string)
 
 type Task struct {
-	Task         base.Task
-	AccountInfo  AccountInfo
-	TaskInfo     TaskInfo
-	CheckoutInfo CheckoutInfo
+	Task            base.Task
+	AccountInfo     AccountInfo
+	TaskInfo        TaskInfo
+	CheckoutInfo    CheckoutInfo
+	BrowserComplete bool
 }
 type AccountInfo struct {
 	Email          string
