@@ -746,6 +746,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 	return success, status, dontRetry
 }
 
+// Function to stop Target orders from canceling
 func (task *Task) TargetCancelMethod(placeOrderResponse PlaceOrderResponse) {
 	zip := strings.Split(placeOrderResponse.Orders[0].Addresses[0].ZipCode, "-")[0]
 	vID, err := util.GetCookie(task.Task.Client, BaseEndpoint, "visitorId")

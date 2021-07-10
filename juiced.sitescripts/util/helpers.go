@@ -576,6 +576,7 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) 
 	return px3, nil
 }
 
+// Returns the value of a cookie with the given cookieName and url
 func GetCookie(client http.Client, uri string, cookieName string) (string, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
