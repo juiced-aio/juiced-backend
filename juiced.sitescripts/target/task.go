@@ -348,12 +348,12 @@ func (task *Task) Login() bool {
 		}
 	}()
 
-	browser.MustIgnoreCertErrors(true)
+	browserWithCancel.MustIgnoreCertErrors(true)
 
-	defer browser.MustClose()
+	defer func() { browserWithCancel.MustClose(); task.BrowserComplete = true }()
 
 	if userPassProxy {
-		go browser.MustHandleAuth(username, password)()
+		go browserWithCancel.MustHandleAuth(username, password)()
 	}
 
 	page := stealth.MustPage(browserWithCancel)
