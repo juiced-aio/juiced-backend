@@ -44,7 +44,7 @@ type Monitor struct {
 
 type GamestopInStockData struct {
 	SKU        string
-	Price      int
+	Price      float64
 	ItemName   string
 	PID        string
 	ImageURL   string
@@ -79,7 +79,7 @@ type AccountInfo struct {
 type CheckoutInfo struct {
 	SKUInStock           string
 	PID                  string
-	Price                int
+	Price                float64
 	ShipmentUUID         string
 	OriginalShipmentUUID string
 	CSRF                 string
