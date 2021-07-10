@@ -138,6 +138,18 @@ func (task *Task) RunTask() {
 		go task.RefreshLogin()
 	}
 
+	clearedCart := false
+	for !clearedCart {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		clearedCart = task.ClearCart()
+		if !clearedCart {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
 	// 3. WaitForMonitor
 	needToStop := task.WaitForMonitor()
@@ -168,7 +180,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		gotCartInfo = task.GetCartInfo()
+		_, gotCartInfo = task.GetCartInfo()
 		if !gotCartInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -430,6 +442,42 @@ func (task *Task) RefreshLogin() {
 	}
 }
 
+// ClearCart clears the account's cart before starting the task
+func (task *Task) ClearCart() bool {
+	cartInfo, ok := task.GetCartInfo()
+	if !ok {
+		return ok
+	}
+	for _, cartItem := range cartInfo.CartItems {
+		resp, _, err := util.MakeRequest(&util.Request{
+			Client: task.Task.Client,
+			Method: "DELETE",
+			URL:    fmt.Sprintf(ClearCartEndpoint, cartItem.CartItemID),
+			RawHeaders: http.RawHeader{
+				{"pragma", "no-cache"},
+				{"cache-control", "no-cache"},
+				{"sec-ch-ua", `Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+				{"accept", "application/json"},
+				{"x-application-name", "web"},
+				{"sec-ch-ua-mobile", "?0"},
+				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
+				{"content-type", "application/json"},
+				{"origin", BaseEndpoint},
+				{"sec-fetch-site", "same-site"},
+				{"sec-fetch-mode", "cors"},
+				{"sec-fetch-dest", "empty"},
+				{"referer", ClearCartReferer},
+				{"accept-encoding", "gzip, deflate, br"},
+				{"accept-language", "en-US,en;q=0.9"},
+			},
+		})
+		if err != nil || resp.StatusCode != 200 {
+			return false
+		}
+	}
+	return true
+}
+
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
 	for {
@@ -539,11 +587,11 @@ func (task *Task) AddToCart() bool {
 }
 
 // GetCartInfo returns the cart info needed for updating payment and placing an order
-func (task *Task) GetCartInfo() bool {
+func (task *Task) GetCartInfo() (getCartInfoResponse GetCartInfoResponse, _ bool) {
 	getCartInfoRequest := GetCartInfoRequest{
 		CartType: "REGULAR",
 	}
-	getCartInfoResponse := GetCartInfoResponse{}
+
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
@@ -554,15 +602,15 @@ func (task *Task) GetCartInfo() bool {
 		ResponseBodyStruct: &getCartInfoResponse,
 	})
 	if err != nil {
-		return false
+		return getCartInfoResponse, false
 	}
 
 	switch resp.StatusCode {
 	case 201:
 		task.AccountInfo.CartInfo = getCartInfoResponse
-		return true
+		return getCartInfoResponse, true
 	default:
-		return false
+		return getCartInfoResponse, false
 	}
 
 }
