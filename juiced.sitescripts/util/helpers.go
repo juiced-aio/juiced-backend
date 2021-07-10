@@ -575,3 +575,16 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) 
 	}
 	return px3, nil
 }
+
+func GetCookie(client http.Client, uri string, cookieName string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	for _, cookie := range client.Jar.Cookies(u) {
+		if cookie.Name == cookieName {
+			return cookie.Value, nil
+		}
+	}
+	return "", errors.New("no cookie with name: " + cookieName)
+}

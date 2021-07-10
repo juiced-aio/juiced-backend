@@ -706,6 +706,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 	case 200:
 		status = enums.OrderStatusSuccess
 		success = true
+		go task.TargetCancelMethod(placeOrderResponse)
+
 	default:
 		switch placeOrderResponse.Code {
 		case "PAYMENT_DECLINED_EXCEPTION":
@@ -742,4 +744,120 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 	})
 
 	return success, status, dontRetry
+}
+
+func (task *Task) TargetCancelMethod(placeOrderResponse PlaceOrderResponse) {
+	zip := strings.Split(placeOrderResponse.Orders[0].Addresses[0].ZipCode, "-")[0]
+	vID, err := util.GetCookie(task.Task.Client, BaseEndpoint, "visitorId")
+	if err != nil {
+		fmt.Println("no visitorId cookie")
+		return
+	}
+	tealeafAkasID, err := util.GetCookie(task.Task.Client, BaseEndpoint, "TealeafAkaSid")
+	if err != nil {
+		fmt.Println("no TealeafAkaSid cookie")
+		return
+	}
+
+	vi := common.RandString(13) + fmt.Sprint(time.Now().Unix())
+	targetCancelMethodRequest := TargetCancelMethodRequest{
+		Records: []Records{
+			{
+				Appid:     "adaptive",
+				Useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+				Network:   "unknown",
+				B:         "Chrome 91",
+				D:         "desktop",
+				Z:         zip,
+				N:         "adp-node|sha=3efc12b1,number=85098,source=client,canary=false,webCluster=prod",
+				V:         vID,
+				Vi:        vi,
+				T:         time.Now().Unix(),
+				UserAgent: UserAgent{
+					DeviceFormFactor: "desktop",
+					Name:             "Chrome 91",
+					Network:          "unknown",
+					Original:         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+				},
+				Metrics: []Metrics{
+					{
+						E: "checkout_review.checkout_place_order_success",
+						M: M{
+							CartIndicators: CartIndicators{
+								HasShippingRequiredItem:         fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasShippingRequiredItem),
+								HasPaymentApplied:               fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasPaymentApplied),
+								HasPaymentSatisfied:             fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasPaymentSatisfied),
+								HasAddressAssociatedAll:         fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasAddressAssociatedAll),
+								HasPaypalTenderEnabled:          fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasPaypalTenderEnabled),
+								HasApplepayTenderEnabled:        fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasApplepayTenderEnabled),
+								HasGiftcardTenderEnabled:        fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasGiftcardTenderEnabled),
+								HasThirdpartyTenderEnabled:      fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasThirdpartyTenderEnabled),
+								HasTargetTenderEnabled:          fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasTargetTenderEnabled),
+								HasTargetDebitCardTenderEnabled: fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasTargetDebitCardTenderEnabled),
+							},
+							Cartitemsquantity: fmt.Sprint(placeOrderResponse.Orders[0].Summary.ItemsQuantity),
+							ReferenceID:       placeOrderResponse.Orders[0].ReferenceID,
+							CartState:         "PENDING",
+							GuestType:         "REGISTERED",
+							Tealeafakasid:     tealeafAkasID,
+							Addtocart:         Addtocart{},
+							Converted:         "true",
+						},
+						Client: Client{
+							User: User{
+								ID: vID,
+							},
+						},
+						Event: Event{
+							Action: "checkout_review.checkout_place_order_success",
+						},
+						Labels: Labels{
+							Application: "adaptive",
+							BlossomID:   "CI03024104",
+							Cluster:     "prod",
+						},
+						Packages: Packages{
+							BuildVersion: "adp-node|sha=3efc12b1,number=85098,source=client,canary=false,webCluster=prod",
+						},
+						LogDestination: "pipeline3",
+						URL: URL{
+							Domain: "https://www.target.com",
+							Path:   "/co-review",
+						},
+						Tgt: Tgt{
+							CartID: placeOrderResponse.Orders[0].OrderID,
+							Custom: Custom{
+								Text: Text{
+									Num3: placeOrderResponse.Orders[0].ReferenceID,
+									Num4: "PAYMENT_STEP_REDESIGN_ENABLED",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, _, err = util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    TargetCancelMethodEndpoint,
+		RawHeaders: http.RawHeader{
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
+			{"x-api-key", "2db5ccdb386d0a40ca853e7c46bcebb16d6d41cc"},
+			{"content-type", "application/json"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-site"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", TargetCancelMethodReferer},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		RequestBodyStruct: targetCancelMethodRequest,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
 }
