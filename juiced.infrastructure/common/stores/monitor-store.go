@@ -45,7 +45,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
-		if _, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+		if _, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return true
 		}
 
@@ -67,7 +67,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		monitorStore.AmazonMonitors[monitor.GroupID] = &amazonMonitor
 
 	case enums.BestBuy:
-		if _, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+		if _, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return true
 		}
 
@@ -87,7 +87,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		monitorStore.BestbuyMonitors[monitor.GroupID] = &bestbuyMonitor
 
 	case enums.GameStop:
-		if _, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+		if _, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return true
 		}
 
@@ -106,7 +106,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		monitorStore.GamestopMonitors[monitor.GroupID] = &gamestopMonitor
 
 	case enums.HotTopic:
-		if _, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+		if _, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return true
 		}
 
@@ -127,7 +127,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 	case enums.Target:
 		// Check if monitor exists in store already
-		if _, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+		if _, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return true
 		}
 		// Only return false on a query error if the monitor doesn't exist in the store already
@@ -149,7 +149,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 	case enums.Walmart:
 		// Check if monitor exists in store already
-		if _, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+		if _, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return true
 		}
 		// Only return false on a query error if the monitor doesn't exist in the store already
@@ -170,6 +170,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		monitorStore.WalmartMonitors[monitor.GroupID] = &walmartMonitor
 
 	}
+	monitor.UpdateMonitor = false
 	return true
 }
 

@@ -191,101 +191,114 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	groupID, ok := params["GroupID"]
 	if ok {
 		taskGroup, err := queries.GetTaskGroup(groupID)
-		if err == nil {
-			body, err := ioutil.ReadAll(request.Body)
+		monitorStore := stores.GetMonitorStore()
+		stopped := monitorStore.StopMonitor(&taskGroup)
+		if stopped {
 			if err == nil {
-				updateTaskGroupRequestInfo := UpdateTaskGroupRequest{}
-				err = json.Unmarshal(body, &updateTaskGroupRequestInfo)
+				body, err := ioutil.ReadAll(request.Body)
 				if err == nil {
-					taskGroup.Name = updateTaskGroupRequestInfo.Name
-					taskGroup.MonitorDelay = updateTaskGroupRequestInfo.MonitorDelay
-					taskGroup.MonitorProxyGroupID = updateTaskGroupRequestInfo.MonitorProxyGroupID
-					switch taskGroup.MonitorRetailer {
-					case enums.BestBuy:
-						maxPrice := -1
-						if len(taskGroup.BestbuyMonitorInfo.Monitors) > 0 {
-							maxPrice = taskGroup.BestbuyMonitorInfo.Monitors[0].MaxPrice
-						}
-
-						newMonitors := make([]entities.BestbuySingleMonitorInfo, 0)
-						if updateTaskGroupRequestInfo.MonitorInput != "" {
-							skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-							for _, sku := range skus {
-								monitor := entities.BestbuySingleMonitorInfo{
-									MonitorID:   uuid.New().String(),
-									TaskGroupID: taskGroup.GroupID,
-									SKU:         sku,
-									MaxPrice:    maxPrice,
-								}
-								newMonitors = append(newMonitors, monitor)
+					updateTaskGroupRequestInfo := UpdateTaskGroupRequest{}
+					err = json.Unmarshal(body, &updateTaskGroupRequestInfo)
+					if err == nil {
+						taskGroup.Name = updateTaskGroupRequestInfo.Name
+						taskGroup.MonitorDelay = updateTaskGroupRequestInfo.MonitorDelay
+						taskGroup.MonitorProxyGroupID = updateTaskGroupRequestInfo.MonitorProxyGroupID
+						switch taskGroup.MonitorRetailer {
+						case enums.BestBuy:
+							maxPrice := -1
+							if len(taskGroup.BestbuyMonitorInfo.Monitors) > 0 {
+								maxPrice = taskGroup.BestbuyMonitorInfo.Monitors[0].MaxPrice
 							}
-						}
-						taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 
-					case enums.GameStop:
-						maxPrice := -1
-						if len(taskGroup.GamestopMonitorInfo.Monitors) > 0 {
-							maxPrice = taskGroup.GamestopMonitorInfo.Monitors[0].MaxPrice
-						}
-
-						newMonitors := make([]entities.GamestopSingleMonitorInfo, 0)
-						if updateTaskGroupRequestInfo.MonitorInput != "" {
-							skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-							for _, sku := range skus {
-								monitor := entities.GamestopSingleMonitorInfo{
-									MonitorID:   uuid.New().String(),
-									TaskGroupID: taskGroup.GroupID,
-									SKU:         sku,
-									MaxPrice:    maxPrice,
+							newMonitors := make([]entities.BestbuySingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, sku := range skus {
+									monitor := entities.BestbuySingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										SKU:         sku,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
 								}
-								newMonitors = append(newMonitors, monitor)
 							}
-						}
-						taskGroup.GamestopMonitorInfo.Monitors = newMonitors
+							taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 
-					case enums.Target:
-						maxPrice := -1
-						if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {
-							maxPrice = taskGroup.TargetMonitorInfo.Monitors[0].MaxPrice
-						}
+						case enums.GameStop:
+							maxPrice := -1
+							if len(taskGroup.GamestopMonitorInfo.Monitors) > 0 {
+								maxPrice = taskGroup.GamestopMonitorInfo.Monitors[0].MaxPrice
+							}
 
-						newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
-						if updateTaskGroupRequestInfo.MonitorInput != "" {
-							tcins := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-							for _, tcin := range tcins {
-								monitor := entities.TargetSingleMonitorInfo{
-									MonitorID:   uuid.New().String(),
-									TaskGroupID: taskGroup.GroupID,
-									TCIN:        tcin,
-									MaxPrice:    maxPrice,
+							newMonitors := make([]entities.GamestopSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, sku := range skus {
+									monitor := entities.GamestopSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										SKU:         sku,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
 								}
-								newMonitors = append(newMonitors, monitor)
 							}
-						}
-						taskGroup.TargetMonitorInfo.Monitors = newMonitors
+							taskGroup.GamestopMonitorInfo.Monitors = newMonitors
 
-					case enums.Walmart:
-						taskGroup.WalmartMonitorInfo.SKUsJoined = updateTaskGroupRequestInfo.MonitorInput
-						skus := make([]string, 0)
-						if updateTaskGroupRequestInfo.MonitorInput != "" {
-							skus = strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+						case enums.Target:
+							maxPrice := -1
+							if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {
+								maxPrice = taskGroup.TargetMonitorInfo.Monitors[0].MaxPrice
+							}
+
+							newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								tcins := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, tcin := range tcins {
+									monitor := entities.TargetSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										TCIN:        tcin,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.TargetMonitorInfo.Monitors = newMonitors
+
+						case enums.Walmart:
+							taskGroup.WalmartMonitorInfo.SKUsJoined = updateTaskGroupRequestInfo.MonitorInput
+							skus := make([]string, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus = strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+							}
+							taskGroup.WalmartMonitorInfo.SKUs = skus
 						}
-						taskGroup.WalmartMonitorInfo.SKUs = skus
-					}
-					newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
-					if err != nil {
-						errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
+						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
+						if err == nil {
+							newTaskGroup.UpdateMonitor = true
+							added := monitorStore.AddMonitorToStore(&newTaskGroup)
+							if !added {
+								errorsList = append(errorsList, errors.UpdateTaskGroupError+"could not update monitor")
+							}
+						} else {
+							errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
+						}
+					} else {
+						errorsList = append(errorsList, errors.ParseUpdateTaskGroupRequestError+err.Error())
 					}
 				} else {
 					errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 				}
-			} else {
-				errorsList = append(errorsList, errors.StartMonitorError)
-			}
 
+			} else {
+				errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+			}
 		} else {
-			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+			errorsList = append(errorsList, errors.StopMonitorError)
 		}
+
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}

@@ -22,9 +22,10 @@ type RefreshLoginResponse struct {
 
 // AddToCartResponse is returned by the AddToCart endpoint
 type AddToCartResponse struct {
-	Error        Error   `json:"Error"`
-	CartID       string  `json:"cart_id"`
-	CurrentPrice float64 `json:"current_price"`
+	Error        Error    `json:"Error"`
+	CartID       string   `json:"cart_id"`
+	CurrentPrice float64  `json:"current_price"`
+	Alerts       []Alerts `json:"alerts"`
 }
 
 // GetCartInfoResponse is returned by the GetCartInfo endpoint
@@ -50,9 +51,10 @@ type SetPaymentInfoResponse struct {
 }
 
 type PlaceOrderResponse struct {
-	Error   Error  `json:"Error"`
-	Message string `json:"message"`
-	Code    string `json:"code"`
+	Orders  []Orders `json:"orders"`
+	Error   Error    `json:"Error"`
+	Message string   `json:"message"`
+	Code    string   `json:"code"`
 }
 
 type Error struct {

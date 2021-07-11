@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -186,7 +188,29 @@ func (task *Task) Login() bool {
 func (task *Task) browserLogin() bool {
 	cookies := make([]*http.Cookie, 0)
 
-	u := launcher.New().
+	var userPassProxy bool
+	var username string
+	var password string
+
+	launcher_ := launcher.New()
+
+	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	if proxyCleaned != "" {
+		proxyURL := proxyCleaned[7:]
+
+		if strings.Contains(proxyURL, "@") {
+			proxySplit := strings.Split(proxyURL, "@")
+			proxyURL = proxySplit[1]
+			userPass := strings.Split(proxySplit[0], ":")
+			username = userPass[0]
+			password = userPass[1]
+			userPassProxy = true
+		}
+
+		launcher_ = launcher_.Proxy(proxyURL)
+	}
+
+	u := launcher_.
 		Set(flags.Flag("headless")).
 		// Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
@@ -216,9 +240,29 @@ func (task *Task) browserLogin() bool {
 
 	browser := rod.New().ControlURL(u).MustConnect()
 
-	defer browser.MustClose()
+	ctx, cancel := context.WithCancel(context.Background())
+	browserWithCancel := browser.Context(ctx)
 
-	page := stealth.MustPage(browser)
+	go func() {
+		// Wait until either the StopFlag is set to true or the BrowserComplete flag is set to true
+		for !task.Task.StopFlag && !task.BrowserComplete {
+			time.Sleep(10 * time.Millisecond)
+		}
+		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
+		if task.Task.StopFlag {
+			cancel()
+		}
+	}()
+
+	browserWithCancel.MustIgnoreCertErrors(true)
+
+	defer func() { browserWithCancel.MustClose(); task.BrowserComplete = true }()
+
+	if userPassProxy {
+		go browserWithCancel.MustHandleAuth(username, password)()
+	}
+
+	page := stealth.MustPage(browserWithCancel)
 	page.MustNavigate(LoginEndpoint)
 	page.MustWaitLoad()
 	page.MustElement("#ap_email").MustWaitVisible().Input(task.AccountInfo.Email)
@@ -598,7 +642,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		ItemName:     task.TaskInfo.ItemName,
 		Sku:          task.TaskInfo.ASIN,
 		Retailer:     enums.Amazon,
-		Price:        task.CheckoutInfo.Price,
+		Price:        float64(task.CheckoutInfo.Price),
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})

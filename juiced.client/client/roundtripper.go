@@ -63,6 +63,8 @@ func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (rt *roundTripper) getTransport(req *http.Request, addr string) error {
+	rt.Lock()
+	defer rt.Unlock()
 	switch strings.ToLower(req.URL.Scheme) {
 	case "http":
 		rt.cachedTransports[addr] = &http.Transport{DialContext: rt.dialer.DialContext}
@@ -87,8 +89,6 @@ func (rt *roundTripper) getTransport(req *http.Request, addr string) error {
 }
 
 func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.Conn, error) {
-	rt.Lock()
-	defer rt.Unlock()
 
 	// If we have the connection from when we determined the HTTPS
 	// cachedTransports to use, return that.

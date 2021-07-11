@@ -198,10 +198,10 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 
 		switch monitorResponse.Gtmdata.Productinfo.Availability {
 		case "Available":
-			stockData.Price, _ = strconv.Atoi(monitorResponse.Gtmdata.Price.Sellingprice)
-
+			stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
+			fmt.Println(monitorResponse.Gtmdata.Price.Sellingprice)
 			var inBudget bool
-			inBudget = monitor.SKUWithInfo[sku].MaxPrice > stockData.Price || monitor.SKUWithInfo[sku].MaxPrice == -1
+			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
 				for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
 					stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])

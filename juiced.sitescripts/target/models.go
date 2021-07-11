@@ -37,6 +37,8 @@ const (
 	SetPaymentInfoNEWReferer    = "https://www.target.com/co-payment"
 	PlaceOrderEndpoint          = "https://carts.target.com/web_checkouts/v1/checkout?field_groups=ADDRESSES%2CCART%2CCART_ITEMS%2CDELIVERY_WINDOWS%2CPAYMENT_INSTRUCTIONS%2CPICKUP_INSTRUCTIONS%2CPROMOTION_CODES%2CSUMMARY&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
 	PlaceOrderReferer           = "https://www.target.com/co-payment"
+	TargetCancelMethodEndpoint  = "https://api.target.com/rum_analytics/v1"
+	TargetCancelMethodReferer   = "https://www.target.com/assets/commerce/3e5063091c6d0decffbe.worker.js"
 )
 
 // Monitor info
@@ -52,12 +54,13 @@ type Monitor struct {
 
 // Task info
 type Task struct {
-	Task         base.Task
-	CheckoutType enums.CheckoutType
-	AccountInfo  AccountInfo
-	InStockData  SingleStockData
-	TCIN         string
-	TCINType     enums.CheckoutType
+	Task            base.Task
+	CheckoutType    enums.CheckoutType
+	AccountInfo     AccountInfo
+	InStockData     SingleStockData
+	TCIN            string
+	TCINType        enums.CheckoutType
+	BrowserComplete bool
 }
 
 type TargetStockData struct {
@@ -231,13 +234,15 @@ type Addresses struct {
 }
 
 type CartItems struct {
+	Tcin                         string              `json:"tcin"`
+	Dpci                         string              `json:"dpci"`
+	FreeGiftStatus               string              `json:"free_gift_status"`
 	CartID                       string              `json:"cart_id"`
 	TotalCartItemQuantity        int                 `json:"total_cart_item_quantity"`
 	CartItemID                   string              `json:"cart_item_id"`
 	CartItemType                 string              `json:"cart_item_type"`
 	ReturnPolicy                 []ReturnPolicy      `json:"return_policy"`
 	StoreFrontDetails            []StoreFrontDetails `json:"store_front_details"`
-	TCIN                         string              `json:"tcin"`
 	Quantity                     int                 `json:"quantity"`
 	UnitPrice                    float64             `json:"unit_price"`
 	ListPrice                    float64             `json:"list_price"`
@@ -522,4 +527,119 @@ type Product struct {
 
 type PriceData struct {
 	Product Product `json:"product"`
+}
+
+type Alerts struct {
+	Code string `json:"code"`
+}
+
+type Orders struct {
+	ChannelID              string                `json:"channel_id"`
+	OrderID                string                `json:"order_id"`
+	TestCart               bool                  `json:"test_cart"`
+	ReferenceID            string                `json:"reference_id"`
+	GuestID                string                `json:"guest_id"`
+	CartState              string                `json:"cart_state"`
+	CartType               string                `json:"cart_type"`
+	TrackingEmail          string                `json:"tracking_email"`
+	GuestType              string                `json:"guest_type"`
+	GuestLocation          GuestLocation         `json:"guest_location"`
+	GuestProfile           GuestProfile          `json:"guest_profile"`
+	ShoppingContext        string                `json:"shopping_context"`
+	ShoppingLocationID     string                `json:"shopping_location_id"`
+	SubstitutionPreference string                `json:"substitution_preference"`
+	Summary                Summary               `json:"summary"`
+	CartItems              []CartItems           `json:"cart_items"`
+	Addresses              []Addresses           `json:"addresses"`
+	PaymentInstructions    []PaymentInstructions `json:"payment_instructions"`
+	Indicators             Indicators            `json:"indicators"`
+	ParentCartNumber       string                `json:"parent_cart_number"`
+}
+
+type UserAgent struct {
+	DeviceFormFactor string `json:"device_form_factor"`
+	Name             string `json:"name"`
+	Network          string `json:"network"`
+	Original         string `json:"original"`
+}
+type CartIndicators struct {
+	HasShippingRequiredItem         string `json:"has_shipping_required_item"`
+	HasPaymentApplied               string `json:"has_payment_applied"`
+	HasPaymentSatisfied             string `json:"has_payment_satisfied"`
+	HasAddressAssociatedAll         string `json:"has_address_associated_all"`
+	HasPaypalTenderEnabled          string `json:"has_paypal_tender_enabled"`
+	HasApplepayTenderEnabled        string `json:"has_applepay_tender_enabled"`
+	HasGiftcardTenderEnabled        string `json:"has_giftcard_tender_enabled"`
+	HasThirdpartyTenderEnabled      string `json:"has_thirdparty_tender_enabled"`
+	HasTargetTenderEnabled          string `json:"has_target_tender_enabled"`
+	HasTargetDebitCardTenderEnabled string `json:"has_target_debit_card_tender_enabled"`
+}
+type Addtocart struct {
+}
+type M struct {
+	CartIndicators    CartIndicators `json:"cart_indicators"`
+	Cartitemsquantity string         `json:"cartItemsQuantity"`
+	ReferenceID       string         `json:"reference_id"`
+	CartState         string         `json:"cart_state"`
+	GuestType         string         `json:"guest_type"`
+	Tealeafakasid     string         `json:"TealeafAkaSid"`
+	Addtocart         Addtocart      `json:"addToCart"`
+	Converted         string         `json:"converted"`
+}
+type User struct {
+	ID string `json:"id"`
+}
+type Client struct {
+	User User `json:"user"`
+}
+type Event struct {
+	Action string `json:"action"`
+}
+type Labels struct {
+	Application string `json:"application"`
+	BlossomID   string `json:"blossom_id"`
+	Cluster     string `json:"cluster"`
+}
+type Packages struct {
+	BuildVersion string `json:"build_version"`
+}
+type URL struct {
+	Domain string `json:"domain"`
+	Path   string `json:"path"`
+}
+type Text struct {
+	Num3 string `json:"3"`
+	Num4 string `json:"4"`
+}
+type Custom struct {
+	Text Text `json:"text"`
+}
+type Tgt struct {
+	CartID string `json:"cart_id"`
+	Custom Custom `json:"custom"`
+}
+type Metrics struct {
+	E              string   `json:"e"`
+	M              M        `json:"m"`
+	Client         Client   `json:"client"`
+	Event          Event    `json:"event"`
+	Labels         Labels   `json:"labels"`
+	Packages       Packages `json:"packages"`
+	LogDestination string   `json:"log_destination"`
+	URL            URL      `json:"url"`
+	Tgt            Tgt      `json:"tgt"`
+}
+type Records struct {
+	Appid     string    `json:"appId"`
+	Useragent string    `json:"userAgent"`
+	Network   string    `json:"network"`
+	B         string    `json:"b"`
+	D         string    `json:"d"`
+	Z         string    `json:"z"`
+	N         string    `json:"n"`
+	V         string    `json:"v"`
+	Vi        string    `json:"vi"`
+	T         int64     `json:"t"`
+	UserAgent UserAgent `json:"user_agent"`
+	Metrics   []Metrics `json:"metrics"`
 }

@@ -1,9 +1,11 @@
 package target
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/url"
 	"strings"
 	"time"
@@ -77,14 +79,13 @@ func (task *Task) CheckForStop() bool {
 
 // RunTask is the script driver that calls all the individual requests
 // Function order:
-// 		1. Login
-// 		2. RefreshLogin (in background)
-// 		3. WaitForMonitor
-// 		4. AddToCart
-// 		5. GetCartInfo
-//		6. SetShippingInfo
-// 		7. SetPaymentInfo
-// 		8. PlaceOrder
+// 		1. Setup
+// 		2. WaitForMonitor
+// 		3. AddToCart
+// 		4. GetCartInfo
+//		5. SetShippingInfo
+// 		6. SetPaymentInfo
+// 		7. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -101,64 +102,27 @@ func (task *Task) RunTask() {
 	}
 	task.Task.Client = client
 
-	// 1. Login/Find account
+	// 1. Setup task
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
-	if TargetAccountStore.Has(task.AccountInfo.Email) {
-		for {
-			// Error will be nil unless the item isn't in the map which we are already checking above
-			value, _ := TargetAccountStore.Get(task.AccountInfo.Email)
-			client, isClient := value.(http.Client)
-			if isClient {
-				if len(task.Task.Client.Jar.Cookies(baseURL)) == 0 {
-					task.Task.Client = client
-				}
-				break
-			} else {
-				if task.Task.Task.TaskStatus != enums.WaitingForLogin {
-					task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
-				}
-				time.Sleep(1 * time.Millisecond)
-			}
-		}
-
-	} else {
-		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
-		loggedIn := false
-		for !loggedIn {
-			needToStop := task.CheckForStop()
-			if needToStop {
-				return
-			}
-			loggedIn = task.Login()
-			if !loggedIn {
-				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-			}
-		}
-		// 2. RefreshLogin (in background)
-		go task.RefreshLogin()
+	setup := task.Setup()
+	if setup {
+		return
 	}
 
-	clearedCart := false
-	for !clearedCart {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		clearedCart = task.ClearCart()
-		if !clearedCart {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
+	needToStop := task.CheckForStop()
+	if needToStop {
+		return
 	}
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
-	// 3. WaitForMonitor
-	needToStop := task.WaitForMonitor()
+	// 2. WaitForMonitor
+	needToStop = task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
-	// 4. AddtoCart
+	// 3. AddtoCart
 	addedToCart := false
 	for !addedToCart {
 		needToStop := task.CheckForStop()
@@ -173,7 +137,7 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
 	startTime := time.Now()
-	// 5. GetCartInfo
+	// 4. GetCartInfo
 	gotCartInfo := false
 	for !gotCartInfo {
 		needToStop := task.CheckForStop()
@@ -187,7 +151,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
-	// 8. SetShippingInfo
+	// 5. SetShippingInfo
 	if task.AccountInfo.ShippingType == enums.ShippingTypeNEW {
 		setShippingInfo := false
 		for !setShippingInfo {
@@ -203,7 +167,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
-	// 7. SetPaymentInfo
+	// 6. SetPaymentInfo
 	setPaymentInfo := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
@@ -217,7 +181,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	// 8. PlaceOrder
+	// 7. PlaceOrder
 	placedOrder := false
 	dontRetry := false
 	maxRetries := 5
@@ -254,6 +218,72 @@ func (task *Task) RunTask() {
 
 }
 
+// Sets the client up by either logging in or waiting for another task to login that is using the same account
+func (task *Task) Setup() bool {
+	// Bad but quick solution to the multiple logins
+	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+	if TargetAccountStore.Has(task.AccountInfo.Email) {
+		inMap := true
+		for inMap {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return true
+			}
+			// Error will be nil unless the item isn't in the map which we are already checking above
+			value, ok := TargetAccountStore.Get(task.AccountInfo.Email)
+			if ok {
+				client, isClient := value.(http.Client)
+				if isClient {
+					if len(task.Task.Client.Jar.Cookies(baseURL)) == 0 {
+						task.Task.Client.Jar = client.Jar
+					}
+					break
+				} else {
+					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
+						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+					}
+					time.Sleep(1 * time.Millisecond)
+				}
+			} else {
+				inMap = false
+				return task.Setup()
+			}
+		}
+	} else {
+		// Login
+		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+		loggedIn := false
+		for !loggedIn {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return true
+			}
+			loggedIn = task.Login()
+			if !loggedIn {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			}
+		}
+
+		// Refresh login in background
+		go task.RefreshLogin()
+
+	}
+
+	clearedCart := false
+	for !clearedCart {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return true
+		}
+		clearedCart = task.ClearCart()
+		if !clearedCart {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	return false
+}
+
 // Login logs the user in and sets the task's cookies for the logged in user
 // TODO @silent: Handle stop flag within Login function
 func (task *Task) Login() bool {
@@ -286,10 +316,8 @@ func (task *Task) Login() bool {
 		launcher_ = launcher_.Proxy(proxyURL)
 	}
 
-	u := launcher_.Set(flags.Flag("headless")).
-		// @silent: I disabled headless because after logging in a bunch today it seems I'm getting flagged and can't login unless the browser isn't headless,
-		// and I'm guessing the users will run into this too since they might run many tasks with the same login. It's up to you if you want to
-		// keep it headless or not. I also was running some bad chrome-flags for a while so it might actually never happen again.
+	u := launcher_.
+		Set(flags.Flag("headless")).
 		Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
@@ -313,31 +341,55 @@ func (task *Task) Login() bool {
 		Set(flags.Flag("metrics-recording-only")).
 		Set(flags.Flag("safebrowsing-disable-auto-update")).
 		Set(flags.Flag("password-store"), "basic").
-		Delete(flags.Flag("--use-mock-keychain")).
+		Set(flags.Flag("use-mock-keychain")).
 		MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
 
-	browser.MustIgnoreCertErrors(true)
+	ctx, cancel := context.WithCancel(context.Background())
+	browserWithCancel := browser.Context(ctx)
 
-	defer browser.MustClose()
+	go func() {
+		// Wait until either the StopFlag is set to true or the BrowserComplete flag is set to true
+		for !task.Task.StopFlag && !task.BrowserComplete {
+			time.Sleep(10 * time.Millisecond)
+		}
+		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
+		if task.Task.StopFlag {
+			cancel()
+		}
+	}()
+
+	browserWithCancel.MustIgnoreCertErrors(true)
+
+	defer func() { browserWithCancel.MustClose(); task.BrowserComplete = true }()
 
 	if userPassProxy {
-		go browser.MustHandleAuth(username, password)()
+		go browserWithCancel.MustHandleAuth(username, password)()
 	}
 
-	page := stealth.MustPage(browser)
+	page := stealth.MustPage(browserWithCancel)
 
-	page.MustNavigate(LoginEndpoint).WaitLoad()
-
+	page.MustNavigate(LoginEndpoint).MustWaitLoad()
 	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
 		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
 		TargetAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+	usernameBox := page.MustElement("#username").MustWaitVisible()
+	for i := range task.AccountInfo.Email {
+		usernameBox.Input(string(task.AccountInfo.Email[i]))
+		time.Sleep(125 * time.Millisecond)
+	}
 
-	page.MustElement("#username").MustWaitVisible().Input(task.AccountInfo.Email)
-	page.MustElement("#password").MustWaitVisible().Input(task.AccountInfo.Password)
+	time.Sleep(1 * time.Second / 2)
+	passwordBox := page.MustElement("#password").MustWaitVisible()
+	for i := range task.AccountInfo.Password {
+		passwordBox.Input(string(task.AccountInfo.Password[i]))
+		time.Sleep(125 * time.Millisecond)
+	}
+	time.Sleep(1 * time.Second / 2)
+
 	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
 	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
 	page.MustElement("#account").MustWaitLoad()
@@ -567,6 +619,12 @@ func (task *Task) AddToCart() bool {
 		task.AccountInfo.CartID = addToCartResponse.CartID
 		return true
 	default:
+		for _, alert := range addToCartResponse.Alerts {
+			if alert.Code == "MAX_PURCHASE_LIMIT_EXCEEDED" {
+				return true
+			}
+		}
+
 		if addToCartResponse.Error.Message == "Too Many Requests" {
 			var newCookies []*http.Cookie
 			for _, cookie := range task.Task.Client.Jar.Cookies(baseURL) {
@@ -578,7 +636,7 @@ func (task *Task) AddToCart() bool {
 			jar, _ := cookiejar.New(nil)
 			task.Task.Client.Jar = jar
 			// I'm going to modify the cookiejar package soon
-			task.Task.Client.Jar.SetCookies(baseURL, newCookies)
+			task.Task.Client.Jar.SetCookies(resp.Request.URL, newCookies)
 
 		}
 		return false
@@ -608,6 +666,9 @@ func (task *Task) GetCartInfo() (getCartInfoResponse GetCartInfoResponse, _ bool
 	switch resp.StatusCode {
 	case 201:
 		task.AccountInfo.CartInfo = getCartInfoResponse
+		if task.AccountInfo.CartID == "" {
+			task.AccountInfo.CartID = getCartInfoResponse.CartID
+		}
 		return getCartInfoResponse, true
 	default:
 		return getCartInfoResponse, false
@@ -754,6 +815,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 	case 200:
 		status = enums.OrderStatusSuccess
 		success = true
+		go task.TargetCancelMethod(placeOrderResponse)
+
 	default:
 		switch placeOrderResponse.Code {
 		case "PAYMENT_DECLINED_EXCEPTION":
@@ -762,6 +825,9 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 		case "CART_LOCKED":
 			// @silent: This is happens when the account is already currently checking out another item.
 			// I can't really think of a way around this and I'm wasting too much time trying to.
+			success = false
+			dontRetry = true
+		case "MISSING_CREDIT_CARD_CVV":
 			success = false
 			dontRetry = true
 		default:
@@ -784,10 +850,127 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,
-		Price:        int(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
+		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
 	return success, status, dontRetry
+}
+
+// Function to stop Target orders from canceling
+func (task *Task) TargetCancelMethod(placeOrderResponse PlaceOrderResponse) {
+	zip := strings.Split(placeOrderResponse.Orders[0].Addresses[0].ZipCode, "-")[0]
+	vID, err := util.GetCookie(task.Task.Client, BaseEndpoint, "visitorId")
+	if err != nil {
+		fmt.Println("no visitorId cookie")
+		return
+	}
+	tealeafAkasID, err := util.GetCookie(task.Task.Client, BaseEndpoint, "TealeafAkaSid")
+	if err != nil {
+		fmt.Println("no TealeafAkaSid cookie")
+		return
+	}
+
+	vi := common.RandString(13) + fmt.Sprint(time.Now().Unix())
+	targetCancelMethodRequest := TargetCancelMethodRequest{
+		Records: []Records{
+			{
+				Appid:     "adaptive",
+				Useragent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+				Network:   "unknown",
+				B:         "Chrome 91",
+				D:         "desktop",
+				Z:         zip,
+				N:         "adp-node|sha=3efc12b1,number=85098,source=client,canary=false,webCluster=prod",
+				V:         vID,
+				Vi:        vi,
+				T:         time.Now().Unix(),
+				UserAgent: UserAgent{
+					DeviceFormFactor: "desktop",
+					Name:             "Chrome 91",
+					Network:          "unknown",
+					Original:         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+				},
+				Metrics: []Metrics{
+					{
+						E: "checkout_review.checkout_place_order_success",
+						M: M{
+							CartIndicators: CartIndicators{
+								HasShippingRequiredItem:         fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasShippingRequiredItem),
+								HasPaymentApplied:               fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasPaymentApplied),
+								HasPaymentSatisfied:             fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasPaymentSatisfied),
+								HasAddressAssociatedAll:         fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasAddressAssociatedAll),
+								HasPaypalTenderEnabled:          fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasPaypalTenderEnabled),
+								HasApplepayTenderEnabled:        fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasApplepayTenderEnabled),
+								HasGiftcardTenderEnabled:        fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasGiftcardTenderEnabled),
+								HasThirdpartyTenderEnabled:      fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasThirdpartyTenderEnabled),
+								HasTargetTenderEnabled:          fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasTargetTenderEnabled),
+								HasTargetDebitCardTenderEnabled: fmt.Sprint(placeOrderResponse.Orders[0].Indicators.HasTargetDebitCardTenderEnabled),
+							},
+							Cartitemsquantity: fmt.Sprint(placeOrderResponse.Orders[0].Summary.ItemsQuantity),
+							ReferenceID:       placeOrderResponse.Orders[0].ReferenceID,
+							CartState:         "PENDING",
+							GuestType:         "REGISTERED",
+							Tealeafakasid:     tealeafAkasID,
+							Addtocart:         Addtocart{},
+							Converted:         "true",
+						},
+						Client: Client{
+							User: User{
+								ID: vID,
+							},
+						},
+						Event: Event{
+							Action: "checkout_review.checkout_place_order_success",
+						},
+						Labels: Labels{
+							Application: "adaptive",
+							BlossomID:   "CI03024104",
+							Cluster:     "prod",
+						},
+						Packages: Packages{
+							BuildVersion: "adp-node|sha=3efc12b1,number=85098,source=client,canary=false,webCluster=prod",
+						},
+						LogDestination: "pipeline3",
+						URL: URL{
+							Domain: "https://www.target.com",
+							Path:   "/co-review",
+						},
+						Tgt: Tgt{
+							CartID: placeOrderResponse.Orders[0].OrderID,
+							Custom: Custom{
+								Text: Text{
+									Num3: placeOrderResponse.Orders[0].ReferenceID,
+									Num4: "PAYMENT_STEP_REDESIGN_ENABLED",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, _, err = util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    TargetCancelMethodEndpoint,
+		RawHeaders: http.RawHeader{
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
+			{"x-api-key", "2db5ccdb386d0a40ca853e7c46bcebb16d6d41cc"},
+			{"content-type", "application/json"},
+			{"accept", "*/*"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-site"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", TargetCancelMethodReferer},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		RequestBodyStruct: targetCancelMethodRequest,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
 }
