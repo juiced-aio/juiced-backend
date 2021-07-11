@@ -8,7 +8,10 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http/cookiejar"
+
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -20,6 +23,7 @@ import (
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/stealth"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 // TODO @silent: Handle proxies
@@ -29,20 +33,18 @@ import (
 // TODO @Humphreyyyy: Handle mid-checkout sellouts (at some point)
 // 		TODO @silent: Mid-checkout sellout errors may have to propagate back up to the monitor
 
+var TargetAccountStore = cmap.New()
+
 // CreateTargetTask takes a Task entity and turns it into a Target Task
-func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, paymentType enums.PaymentType) (Task, error) {
+func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, storeID string, paymentType enums.PaymentType) (Task, error) {
 	targetTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return targetTask, err
-	}
+
 	targetTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		CheckoutType: checkoutType,
 		AccountInfo: AccountInfo{
@@ -50,9 +52,10 @@ func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entit
 			Password:       password,
 			PaymentType:    paymentType,
 			DefaultCardCVV: profile.CreditCard.CVV,
+			StoreID:        storeID,
 		},
 	}
-	return targetTask, err
+	return targetTask, nil
 }
 
 var baseURL, _ = url.Parse(BaseEndpoint)
@@ -85,27 +88,55 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		task.Task.StopFlag = true
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
-	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
-	// 1. Login
-	loggedIn := false
-	for !loggedIn {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		loggedIn = task.Login()
-		if !loggedIn {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
 	}
+	task.Task.Client = client
 
-	// 2. RefreshLogin (in background)
-	go task.RefreshLogin()
+	// 1. Login/Find account
+	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	if TargetAccountStore.Has(task.AccountInfo.Email) {
+		for {
+			// Error will be nil unless the item isn't in the map which we are already checking above
+			value, _ := TargetAccountStore.Get(task.AccountInfo.Email)
+			client, isClient := value.(http.Client)
+			if isClient {
+				if len(task.Task.Client.Jar.Cookies(baseURL)) == 0 {
+					task.Task.Client = client
+				}
+				break
+			} else {
+				if task.Task.Task.TaskStatus != enums.WaitingForLogin {
+					task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+				}
+				time.Sleep(1 * time.Millisecond)
+			}
+		}
+
+	} else {
+		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+		loggedIn := false
+		for !loggedIn {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return
+			}
+			loggedIn = task.Login()
+			if !loggedIn {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			}
+		}
+		// 2. RefreshLogin (in background)
+		go task.RefreshLogin()
+	}
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
 	// 3. WaitForMonitor
@@ -129,7 +160,6 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-
 	startTime := time.Now()
 	// 5. GetCartInfo
 	gotCartInfo := false
@@ -177,14 +207,21 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 8. PlaceOrder
 	placedOrder := false
-	var status enums.OrderStatus
+	dontRetry := false
+	maxRetries := 5
+	retries := 0
+	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop || status == enums.OrderStatusDeclined {
+		if needToStop {
 			return
 		}
-		status, placedOrder = task.PlaceOrder(startTime)
+		if status == enums.OrderStatusDeclined || retries > maxRetries || dontRetry {
+			break
+		}
+		placedOrder, status, dontRetry = task.PlaceOrder(startTime)
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -194,18 +231,54 @@ func (task *Task) RunTask() {
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
 
 // Login logs the user in and sets the task's cookies for the logged in user
 // TODO @silent: Handle stop flag within Login function
 func (task *Task) Login() bool {
+	defer func() {
+		if recover() != nil {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
+		}
+	}()
+	TargetAccountStore.Set(task.AccountInfo.Email, false)
+	var userPassProxy bool
+	var username string
+	var password string
 	cookies := make([]*http.Cookie, 0)
 
-	u := launcher.New().
-		Set(flags.Flag("headless")).
-		// Delete(flags.Flag("--headless")).
+	launcher_ := launcher.New()
+
+	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	if proxyCleaned != "" {
+		proxyURL := proxyCleaned[7:]
+
+		if strings.Contains(proxyURL, "@") {
+			proxySplit := strings.Split(proxyURL, "@")
+			proxyURL = proxySplit[1]
+			userPass := strings.Split(proxySplit[0], ":")
+			username = userPass[0]
+			password = userPass[1]
+			userPassProxy = true
+		}
+
+		launcher_ = launcher_.Proxy(proxyURL)
+	}
+
+	u := launcher_.Set(flags.Flag("headless")).
+		// @silent: I disabled headless because after logging in a bunch today it seems I'm getting flagged and can't login unless the browser isn't headless,
+		// and I'm guessing the users will run into this too since they might run many tasks with the same login. It's up to you if you want to
+		// keep it headless or not. I also was running some bad chrome-flags for a while so it might actually never happen again.
+		Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
 		Set(flags.Flag("disable-background-networking")).
@@ -228,23 +301,38 @@ func (task *Task) Login() bool {
 		Set(flags.Flag("metrics-recording-only")).
 		Set(flags.Flag("safebrowsing-disable-auto-update")).
 		Set(flags.Flag("password-store"), "basic").
-		Set(flags.Flag("use-mock-keychain")).
+		Delete(flags.Flag("--use-mock-keychain")).
 		MustLaunch()
 
 	browser := rod.New().ControlURL(u).MustConnect()
 
+	browser.MustIgnoreCertErrors(true)
+
 	defer browser.MustClose()
 
+	if userPassProxy {
+		go browser.MustHandleAuth(username, password)()
+	}
+
 	page := stealth.MustPage(browser)
-	page.MustNavigate(LoginEndpoint)
+
+	page.MustNavigate(LoginEndpoint).WaitLoad()
+
+	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
+		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
+		TargetAccountStore.Remove(task.AccountInfo.Email)
+		return false
+	}
+
 	page.MustElement("#username").MustWaitVisible().Input(task.AccountInfo.Email)
 	page.MustElement("#password").MustWaitVisible().Input(task.AccountInfo.Password)
 	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
-	page.MustElement("#login").MustWaitVisible().MustClick()
-	page.MustElement("#account").MustWaitVisible().MustClick()
-	page.MustElement("#accountNav-signIn").MustWaitVisible().MustClick()
+	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
+	page.MustElement("#account").MustWaitLoad()
 	page.MustWaitLoad()
-	page.MustNavigate(BaseEndpoint)
+	page.MustNavigate(BaseEndpoint).MustWaitLoad()
+	page.MustElement("#account").MustWaitLoad().MustWaitInteractable().MustClick()
+	page.MustElement("#accountNav-signIn").MustWaitVisible().MustClick()
 	page.MustWaitLoad()
 
 	startTimeout := time.Now().Unix()
@@ -260,9 +348,11 @@ func (task *Task) Login() bool {
 			}
 		}
 		if time.Now().Unix()-startTimeout > 30 {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
 			return false
 		}
 	}
+
 	for _, cookie := range browserCookies {
 		httpCookie := &http.Cookie{
 			Name:   cookie.Name,
@@ -275,9 +365,10 @@ func (task *Task) Login() bool {
 			cookies = append(cookies, httpCookie)
 		}
 	}
-
 	task.AccountInfo.Cookies = cookies
 	task.Task.Client.Jar.SetCookies(baseURL, cookies)
+	TargetAccountStore.Set(task.AccountInfo.Email, task.Task.Client)
+
 	return true
 }
 
@@ -285,17 +376,21 @@ func (task *Task) Login() bool {
 func (task *Task) RefreshLogin() {
 	// If the function panics due to a runtime error, recover and restart it
 	defer func() {
-		recover()
-		task.RefreshLogin()
+		if recover() != nil {
+			task.RefreshLogin()
+		}
 	}()
 
 	for {
 		success := true
 		if task.AccountInfo.Refresh == 0 || time.Now().Unix() > task.AccountInfo.Refresh {
 			refreshLoginResponse := RefreshLoginResponse{}
-
+			client, hasClient := TargetAccountStore.Get(task.AccountInfo.Email)
+			if !hasClient {
+				continue
+			}
 			resp, _, err := util.MakeRequest(&util.Request{
-				Client:             task.Task.Client,
+				Client:             client.(http.Client),
 				Method:             "POST",
 				URL:                RefreshLoginEndpoint,
 				AddHeadersFunction: AddTargetHeaders,
@@ -309,7 +404,7 @@ func (task *Task) RefreshLogin() {
 			}
 
 			switch resp.StatusCode {
-			case 200:
+			case 201:
 				claims := &LoginJWT{}
 
 				new(jwt.Parser).ParseUnverified(string(refreshLoginResponse.AccessToken), claims)
@@ -342,9 +437,12 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.TCIN != "" {
+		if task.InStockData.TCIN != "" {
+			task.TCINType = task.InStockData.TCINType
+			task.TCIN = task.InStockData.TCIN
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 
@@ -352,26 +450,21 @@ func (task *Task) WaitForMonitor() bool {
 func (task *Task) AddToCart() bool {
 	var data []byte
 	var err error
-	tcinWithType := strings.Split(task.TCIN, "|")
 
-	task.TCINType = tcinWithType[1]
-	task.TCIN = tcinWithType[0]
-
-	shipReq, err := json.Marshal(AddToCartPickupRequest{
+	shipReq, err := json.Marshal(AddToCartShipRequest{
 		CartType:        "REGULAR",
-		ChannelID:       "10",
+		ChannelID:       "90",
 		ShoppingContext: "DIGITAL",
 		CartItem: CartItem{
 			TCIN:          task.TCIN,
 			Quantity:      task.Task.Task.TaskQty,
-			ItemChannelID: "90",
-		},
-		Fulfillment: CartFulfillment{
-			Type:       enums.CheckoutTypePICKUP,
-			LocationID: task.AccountInfo.StoreID,
-			ShipMethod: "STORE_PICKUP",
+			ItemChannelID: "10",
 		},
 	})
+	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	if !ok {
+		return false
+	}
 	pickupReq, err := json.Marshal(AddToCartPickupRequest{
 		CartType:        "REGULAR",
 		ChannelID:       "10",
@@ -387,7 +480,7 @@ func (task *Task) AddToCart() bool {
 			ShipMethod: "STORE_PICKUP",
 		},
 	})
-	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	ok = util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
 		return false
 	}
@@ -407,6 +500,7 @@ func (task *Task) AddToCart() bool {
 	}
 
 	addToCartResponse := AddToCartResponse{}
+
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
@@ -425,6 +519,20 @@ func (task *Task) AddToCart() bool {
 		task.AccountInfo.CartID = addToCartResponse.CartID
 		return true
 	default:
+		if addToCartResponse.Error.Message == "Too Many Requests" {
+			var newCookies []*http.Cookie
+			for _, cookie := range task.Task.Client.Jar.Cookies(baseURL) {
+				if cookie.Name != "TealeafAkaSid" {
+					newCookies = append(newCookies, cookie)
+				}
+			}
+
+			jar, _ := cookiejar.New(nil)
+			task.Task.Client.Jar = jar
+			// I'm going to modify the cookiejar package soon
+			task.Task.Client.Jar.SetCookies(baseURL, newCookies)
+
+		}
 		return false
 	}
 
@@ -450,7 +558,7 @@ func (task *Task) GetCartInfo() bool {
 	}
 
 	switch resp.StatusCode {
-	case 200:
+	case 201:
 		task.AccountInfo.CartInfo = getCartInfoResponse
 		return true
 	default:
@@ -503,7 +611,7 @@ func (task *Task) SetShippingInfo() bool {
 func (task *Task) SetPaymentInfo() bool {
 	var data []byte
 	var err error
-	endpoint := SetPaymentInfoNEWEndpoint
+	var endpoint string
 	if task.AccountInfo.PaymentType == enums.PaymentTypeSAVED && len(task.AccountInfo.CartInfo.PaymentInstructions) > 0 {
 		data, err = json.Marshal(SetPaymentInfoSavedRequest{
 			CartID:      task.AccountInfo.CartID,
@@ -537,6 +645,7 @@ func (task *Task) SetPaymentInfo() bool {
 				Country:      task.Task.Profile.BillingAddress.CountryCode,
 			},
 		})
+		endpoint = fmt.Sprintf(SetPaymentInfoNEWEndpoint, task.AccountInfo.CartInfo.PaymentInstructions[0].PaymentInstructionID)
 	}
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
@@ -565,8 +674,8 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
-	var status enums.OrderStatus
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool) {
+	status := enums.OrderStatusFailed
 	placeOrderRequest := PlaceOrderRequest{
 		CartType:  "REGULAR",
 		ChannelID: 10,
@@ -582,12 +691,17 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 		ResponseBodyStruct: &placeOrderResponse,
 	})
 	if err != nil {
-		return status, false
+		return false, status, false
+	}
+
+	if placeOrderResponse.Error.Message == "Too Many Requests" {
+		return false, status, true
 	}
 
 	// TODO: Handle various responses
 	log.Println(placeOrderResponse.Message)
 	var success bool
+	var dontRetry bool
 	switch resp.StatusCode {
 	case 200:
 		status = enums.OrderStatusSuccess
@@ -597,6 +711,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 		case "PAYMENT_DECLINED_EXCEPTION":
 			status = enums.OrderStatusDeclined
 			success = false
+		case "CART_LOCKED":
+			// @silent: This is happens when the account is already currently checking out another item.
+			// I can't really think of a way around this and I'm wasting too much time trying to.
+			success = false
+			dontRetry = true
 		default:
 			status = enums.OrderStatusFailed
 			success = false
@@ -605,10 +724,10 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return status, success
+		return success, status, false
 	}
 
-	util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
@@ -622,5 +741,5 @@ func (task *Task) PlaceOrder(startTime time.Time) (enums.OrderStatus, bool) {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return status, success
+	return success, status, dontRetry
 }

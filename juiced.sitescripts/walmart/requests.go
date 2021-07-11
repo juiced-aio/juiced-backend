@@ -22,18 +22,41 @@ type GetCartInfoRequest struct {
 
 //SetShippingInfoRequest is the request sent by the SetShippingInfo function
 type SetShippingInfoRequest struct {
-	AddressLineOne     string   `json:"addressLineOne"`
-	City               string   `json:"city"`
-	FirstName          string   `json:"firstName"`
-	LastName           string   `json:"lastName"`
-	Phone              string   `json:"phone"`
-	Email              string   `json:"email"`
-	MarketingEmailPref bool     `json:"marketingEmailPref"`
-	PostalCode         string   `json:"postalCode"`
-	State              string   `json:"state"`
-	CountryCode        string   `json:"countryCode"`
-	AddressType        string   `json:"addressType"`
-	ChangedFields      []string `json:"changedFields"`
+	AddressLineOne     string      `json:"addressLineOne"`
+	City               string      `json:"city"`
+	FirstName          string      `json:"firstName"`
+	LastName           string      `json:"lastName"`
+	Phone              string      `json:"phone"`
+	Email              string      `json:"email"`
+	MarketingEmailPref bool        `json:"marketingEmailPref"`
+	PostalCode         string      `json:"postalCode"`
+	State              string      `json:"state"`
+	CountryCode        string      `json:"countryCode"`
+	ChangedFields      []string    `json:"changedFields"`
+	Storelist          []Storelist `json:"storeList"`
+}
+type Address struct {
+	Postalcode string `json:"postalCode"`
+	Address1   string `json:"address1"`
+	City       string `json:"city"`
+	State      string `json:"state"`
+	Country    string `json:"country"`
+}
+type Storetype struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Displayname string `json:"displayName"`
+}
+type Customerinfo struct {
+	Distance      float64 `json:"distance"`
+	Ispreferred   bool    `json:"isPreferred"`
+	Iswithinrange bool    `json:"isWithinRange"`
+}
+type Storelist struct {
+	ID           int          `json:"id"`
+	Address      Address      `json:"address"`
+	Storetype    Storetype    `json:"storeType"`
+	Customerinfo Customerinfo `json:"customerInfo"`
 }
 
 //SetPaymentInfoRequest is the request sent by the SetPaymentInfo function
@@ -65,8 +88,8 @@ type PlaceOrderRequest struct {
 	VoltagePayment []VoltagePayment `json:"voltagePayments"`
 }
 
-//PaymentsRequest is the request sent by the Payments function
-type PaymentsRequest struct {
-	Payments     []Payment `json:"payments"`
-	CvvInSession bool      `json:"cvvInSession"`
+//SubmitPaymentRequest is the request sent by the Payments function
+type SubmitPaymentRequest struct {
+	Payments     []SubmitPayment `json:"payments"`
+	CvvInSession bool            `json:"cvvInSession"`
 }

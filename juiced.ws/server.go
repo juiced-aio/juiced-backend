@@ -1,11 +1,14 @@
 package ws
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 
 	"flag"
 	"net/http"
@@ -65,16 +68,29 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 	})
 
 	for {
-		mt, message, err := conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err != nil {
-			delete(clients, conn)
+			if err.Error() != "websocket: close 1001 (going away)" {
+				log.Println("Error receiving message from frontend: " + err.Error())
+			}
+			// delete(clients, conn)
 			break
+		} else {
+			incomingMessage := IncomingMessage{}
+			err = json.Unmarshal(message, &incomingMessage)
+			if err != nil {
+				log.Println("Error reading message from frontend: " + err.Error())
+			}
+			if incomingMessage.EventType == "WalmartEncryptionEvent" {
+				taskStore := stores.GetTaskStore()
+				taskStore.SetWalmartCardDetails(incomingMessage.TaskID, incomingMessage.CardDetails)
+			}
 		}
-		err = conn.WriteMessage(mt, message)
-		if err != nil {
-			delete(clients, conn)
-			break
-		}
+		// err = conn.WriteMessage(mt, message)
+		// if err != nil {
+		// 	delete(clients, conn)
+		// 	break
+		// }
 	}
 }
 

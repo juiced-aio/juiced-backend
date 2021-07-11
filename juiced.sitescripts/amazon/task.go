@@ -39,17 +39,13 @@ func (task *Task) CheckForStop() bool {
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
 func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
 	amazonTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return amazonTask, err
-	}
+
 	amazonTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		AccountInfo: AccountInfo{
 			Email:     email,
@@ -57,7 +53,7 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entit
 			LoginType: loginType,
 		},
 	}
-	return amazonTask, err
+	return amazonTask, nil
 }
 
 func (task *Task) RunTask() {
@@ -66,6 +62,12 @@ func (task *Task) RunTask() {
 		recover()
 		// TODO @silent: Let the UI know that a task failed
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login
@@ -89,7 +91,7 @@ func (task *Task) RunTask() {
 	if needToStop {
 		return
 	}
-
+	status := enums.OrderStatusFailed
 	switch task.CheckoutInfo.MonitorType {
 	case enums.SlowSKUMonitor:
 		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
@@ -114,19 +116,25 @@ func (task *Task) RunTask() {
 		startTime := time.Now()
 		// 4. PlaceOrder
 		placedOrder := false
+
 		for !placedOrder {
 			var retries int
 			needToStop := task.CheckForStop()
 			if needToStop {
 				return
 			}
-			placedOrder = task.PlaceOrder(startTime)
+			if status == enums.OrderStatusDeclined {
+				break
+			}
+			placedOrder, status = task.PlaceOrder(startTime)
 			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 			} else {
-				return
+				status = enums.OrderStatusFailed
+				break
 			}
+
 		}
 	case enums.FastSKUMonitor:
 		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
@@ -140,7 +148,10 @@ func (task *Task) RunTask() {
 			if needToStop {
 				return
 			}
-			placedOrder = task.PlaceOrder(startTime)
+			if status == enums.OrderStatusDeclined {
+				break
+			}
+			placedOrder, status = task.PlaceOrder(startTime)
 			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -148,6 +159,14 @@ func (task *Task) RunTask() {
 				return
 			}
 		}
+	}
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 	}
 }
 
@@ -401,8 +420,8 @@ func (task *Task) WaitForMonitor() bool {
 		if task.CheckoutInfo.MonitorType != emptyString {
 			return false
 		}
-		// @silent: Why sleeping here?
-		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		// I see why now
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 
@@ -493,8 +512,8 @@ func (task *Task) AddToCart() bool {
 }
 
 // Places the order
-func (task *Task) PlaceOrder(startTime time.Time) bool {
-
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	status := enums.OrderStatusFailed
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"x-amz-checkout-csrf-token": {task.AccountInfo.SessionID},
@@ -534,11 +553,11 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		},
 		Data: []byte(form.Encode()),
 	})
-	if err != nil {
-		fmt.Println(err.Error())
+	ok := util.HandleErrors(err, util.RequestDoError)
+	if !ok {
+		return false, status
 	}
 
-	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -567,7 +586,7 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false
+		return false, status
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
@@ -584,5 +603,5 @@ func (task *Task) PlaceOrder(startTime time.Time) bool {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return success
+	return success, status
 }

@@ -80,6 +80,10 @@ type SensorRequest struct {
 	SensorData string `json:"sensor_data"`
 }
 
+type SensorResponse struct {
+	Success bool `json:"success"`
+}
+
 // All info needed for ProcessCheckout
 type ProcessCheckoutInfo struct {
 	BaseTask     base.Task

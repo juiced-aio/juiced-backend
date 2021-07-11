@@ -13,23 +13,19 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// CreateWalmartTask takes a Task entity and turns it into a Walmart Task
+// CreateHottopicTask takes a Task entity and turns it into a Hottopic Task
 func CreateHottopicTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
-	walmartTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return walmartTask, err
-	}
-	walmartTask = Task{
+	hottopicTask := Task{}
+
+	hottopicTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 	}
-	return walmartTask, err
+	return hottopicTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -188,6 +184,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.Pid != "" {
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 

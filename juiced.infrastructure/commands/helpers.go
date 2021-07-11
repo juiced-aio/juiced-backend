@@ -20,13 +20,13 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 	monitorID := uuid.New().String()
 	switch taskGroup.MonitorRetailer {
 	case enums.Target:
-		statement, err := database.Preparex(`INSERT INTO targetMonitorInfos (ID, taskGroupID, storeID) VALUES (?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO targetMonitorInfos (ID, taskGroupID, storeID, monitorType) VALUES (?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.TargetMonitorInfo.ID = monitorID
 		taskGroup.TargetMonitorInfo.TaskGroupID = taskGroup.GroupID
-		_, err = statement.Exec(taskGroup.TargetMonitorInfo.ID, taskGroup.TargetMonitorInfo.TaskGroupID, taskGroup.TargetMonitorInfo.StoreID)
+		_, err = statement.Exec(taskGroup.TargetMonitorInfo.ID, taskGroup.TargetMonitorInfo.TaskGroupID, taskGroup.TargetMonitorInfo.StoreID, taskGroup.TargetMonitorInfo.MonitorType)
 		if err != nil {
 			return err
 		}
@@ -43,14 +43,14 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 	case enums.Walmart:
-		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID, skusJoined, maxPrice) VALUES (?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID, monitorType, skusJoined, maxPrice) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.WalmartMonitorInfo.ID = monitorID
 		taskGroup.WalmartMonitorInfo.TaskGroupID = taskGroup.GroupID
 		taskGroup.WalmartMonitorInfo.SKUsJoined = strings.Join(taskGroup.WalmartMonitorInfo.SKUs, ",")
-		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
+		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.MonitorType, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
 		if err != nil {
 			return err
 		}
@@ -248,6 +248,9 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 		taskInfoSchema = "bestbuyTaskInfos"
 	case enums.GameStop:
 		taskInfoSchema = "gamestopTaskInfos"
+	}
+	if taskInfoSchema == "" {
+		return nil
 	}
 	database := common.GetDatabase()
 	if database == nil {

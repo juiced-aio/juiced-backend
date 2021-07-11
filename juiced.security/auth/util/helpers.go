@@ -763,18 +763,31 @@ func PXCap(site, proxy, setID, vid, uuid, token string, userInfo entities.UserIn
 		return "", ERROR_PX_CAP_READ_BODY, err
 	}
 
-	json.Unmarshal(body, &pxCapResponse)
+	json.Unmarshal(body, &encryptedPXCapResponse)
 
 	pxCapResponse, err = DecryptPXCapResponse(encryptedPXCapResponse, timestamp)
 	if err != nil {
 		return "", ERROR_PX_CAP_DECRYPT_RESPONSE, err
 	}
-
+	//fmt.Println(pxCapResponse)
+	//{true {"message":"Internal Server Error"} }
+	// @silent: Success = true on a server error? The Server Error is a problem on the PXAPI end though
 	if !pxCapResponse.Success {
 		return "", ERROR_PX_CAP_FAILED, errors.New(pxCapResponse.ErrorMessage)
 	}
 
-	return pxCapResponse.PX3, SUCCESS_PX_CAP, nil
+	type PX3 struct {
+		PX3 string `json:"_px3"`
+	}
+
+	px3 := PX3{}
+
+	err = json.Unmarshal([]byte(pxCapResponse.PX3), &px3)
+	if err != nil {
+		return "", ERROR_PX_CAP_UNMARSHAL_PX3, err
+	}
+
+	return px3.PX3, SUCCESS_PX_CAP, nil
 }
 
 func DecryptPXCapResponse(response EncryptedPXCapResponse, timestamp int64) (PXCapResponse, error) {

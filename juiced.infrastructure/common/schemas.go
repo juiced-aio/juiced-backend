@@ -41,6 +41,7 @@ var targetTaskInfosSchema = `
 		paymentType TEXT
 	)
 `
+
 var walmartTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
 		taskID TEXT,
@@ -91,11 +92,13 @@ var taskGroupsSchema = `
 		creationDate INTEGER
 	)
 `
+
 var targetMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
 		ID TEXT,
 		taskGroupID TEXT,
-		storeID TEXT
+		storeID TEXT,
+		monitorType TEXT
 	)
 `
 
@@ -113,6 +116,7 @@ var walmartMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
 		ID TEXT,
 		taskGroupID TEXT,
+		monitorType TEXT,
 		skusJoined TEXT,
 		maxPrice INTEGER
 	)
@@ -221,6 +225,7 @@ var shippingAddressesSchema = `
 		countryCode TEXT
 	)
 `
+
 var billingAddressesSchema = `
 	CREATE TABLE IF NOT EXISTS billingAddresses (
 		ID TEXT,
@@ -235,6 +240,7 @@ var billingAddressesSchema = `
 		countryCode TEXT
 	)
 `
+
 var cardsSchema = `
 	CREATE TABLE IF NOT EXISTS cards (
 		ID TEXT,
@@ -268,7 +274,20 @@ var settingsSchema = `
 		failureDiscordWebhook TEXT,
 		twoCaptchaAPIKey TEXT,
 		antiCaptchaAPIKey TEXT,
-		capMonsterAPIKey TEXT
+		capMonsterAPIKey TEXT,
+		aycdAccessToken TEXT,
+		aycdAPIKey TEXT,
+		darkMode INTEGER
+	)
+`
+
+var accountsSchema = `
+	CREATE TABLE IF NOT EXISTS accounts (
+		ID TEXT,
+		retailer TEXT,
+		email TEXT,
+		password TEXT,
+		creationDate INTEGER
 	)
 `
 
@@ -299,4 +318,5 @@ var schemas = []string{
 	cardsSchema,
 	checkoutsSchema,
 	settingsSchema,
+	accountsSchema,
 }

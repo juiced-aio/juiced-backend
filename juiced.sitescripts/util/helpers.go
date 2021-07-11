@@ -15,16 +15,15 @@ import (
 	"strings"
 	"time"
 
+	cclient "backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
-	"backend.juicedbot.io/juiced.sitescripts/base"
-
-	cclient "backend.juicedbot.io/juiced.client/client"
+	utls "backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-	tls "github.com/Titanium-ctrl/utls"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
 // CreateClient creates an HTTP client
@@ -32,12 +31,12 @@ func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
 	var client http.Client
 	var err error
 	if len(proxy) > 0 {
-		client, err = cclient.NewClient(tls.HelloChrome_83, ProxyCleaner(proxy[0]))
+		client, err = cclient.NewClient(utls.HelloChrome_90, ProxyCleaner(proxy[0]))
 		if err != nil {
 			return client, err
 		}
 	} else {
-		client, err = cclient.NewClient(tls.HelloChrome_83)
+		client, err = cclient.NewClient(utls.HelloChrome_90)
 		if err != nil {
 			return client, err
 		}
@@ -151,7 +150,10 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 
 	body, err := ioutil.ReadAll(response.Body)
 	if os.Getenv("JUICED_LOG") == "LOG" {
-		log.Println("RESPONSE BODY: " + string(body) + "\n")
+		log.Println("RESPONSE STATUS CODE: " + fmt.Sprint(response.StatusCode))
+		if response.Header.Get("Content-Type") != "text/html;charset=UTF-8" {
+			log.Println("RESPONSE BODY: " + string(body) + "\n")
+		}
 		log.Println("RESPONSE HEADERS:")
 		for header, values := range response.Header {
 			log.Println(header + ": " + strings.Join(values, ","))
@@ -201,18 +203,18 @@ func DiscordWebhookQueue() {
 			webhookURL = settings.FailureDiscordWebhook
 		}
 		if webhookURL != "" {
-			SendDiscordWebhook(webhookURL, hook.Success, hook.Embeds)
+			SendDiscordWebhook(webhookURL, hook.Embeds)
 		}
 		time.Sleep(2*time.Second + (time.Second / 2))
 	}
 }
 
 // SendDiscordWebhook sends checkout information to the Discord Webhook
-func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) bool {
+func SendDiscordWebhook(discordWebhook string, embeds []Embed) bool {
 	client := http.Client{
 		Transport: &http.Transport{},
 	}
-	response, _, err := MakeRequest(&Request{
+	response, body, err := MakeRequest(&Request{
 		Client: client,
 		Method: "POST",
 		URL:    discordWebhook,
@@ -227,36 +229,9 @@ func SendDiscordWebhook(discordWebhook string, success bool, embeds []Embed) boo
 	if err != nil {
 		return false
 	}
-	return response.StatusCode >= 200 && response.StatusCode < 300
-}
 
-// CreateDiscordWebhook creates a DiscordWebhook struct
-func CreateDiscordWebhook(success bool, fields []Field, imageURL string) DiscordWebhook {
-	webhook := DiscordWebhook{
-		Content: nil,
-		Embeds: []Embed{
-			{
-				Fields: fields,
-				Footer: Footer{
-					Text:    "Juiced AIO",
-					IconURL: "https://cdn.discordapp.com/icons/688572290488991757/b684ee4e3cfb661d32afc48f24776e60.png?size=128",
-				},
-				Timestamp: time.Now(),
-			},
-		},
-	}
-	switch success {
-	case true:
-		webhook.Embeds[0].Title = ":tangerine: Checkout! :tangerine:"
-		webhook.Embeds[0].Color = 16742912
-		webhook.Embeds[0].Thumbnail = Thumbnail{
-			URL: imageURL,
-		}
-	case false:
-		webhook.Embeds[0].Title = ":lemon: Failed to Place Order :lemon:"
-		webhook.Embeds[0].Color = 16766464
-	}
-	return webhook
+	fmt.Println(string(body))
+	return response.StatusCode >= 200 && response.StatusCode < 300
 }
 
 // CreateParams turns a string->string map into a URL parameter string
@@ -285,7 +260,6 @@ func ProxyCleaner(proxyDirty entities.Proxy) string {
 	} else {
 		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
 	}
-
 }
 
 func FindInString(str string, start string, end string) (string, error) {
@@ -372,7 +346,10 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		SensorData: genResponse.SensorData,
 	}
 
-	data, _ := json.Marshal(sensorRequest)
+	data, err := json.Marshal(sensorRequest)
+	if err != nil {
+		return err
+	}
 	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
@@ -414,6 +391,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	}
 	data, _ = json.Marshal(sensorRequest)
 
+	sensorResponse := SensorResponse{}
 	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
@@ -433,12 +411,17 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:               data,
+		ResponseBodyStruct: &sensorResponse,
 	})
 	if err != nil {
 		return err
 	}
-
+	if ParsedBase.Host == "www.gamestop.com" {
+		if sensorResponse.Success {
+			return err
+		}
+	}
 	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			abckCookie = cookie.Value
@@ -488,7 +471,6 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	case 201:
 		for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 			if cookie.Name == "_abck" {
-				fmt.Println(cookie.Value)
 				validator, _ := FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
 					NewAbck(abckClient, location, BaseEndpoint, AkamaiEndpoint)
@@ -533,9 +515,9 @@ func ProcessCheckout(pci ProcessCheckoutInfo) {
 	go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
 	if pci.Success {
 		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, pci.Price, pci.Quantity, pci.UserInfo)
+		go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
-	go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
 }
 
 // Logs the checkout
@@ -565,10 +547,14 @@ func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
 		return "", pxValues, err
 	}
 
+	if pxResponse.PX3 == "" || pxResponse.SetID == "" || pxResponse.UUID == "" || pxResponse.VID == "" {
+		return GetPXCookie(site, proxy)
+	}
+
 	return pxResponse.PX3, PXValues{
 		SetID: pxResponse.SetID,
 		UUID:  pxResponse.UUID,
-		VID:   pxResponse.SetID,
+		VID:   pxResponse.VID,
 	}, nil
 }
 
@@ -581,5 +567,11 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) 
 	}
 
 	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
-	return px3, err
+	if err != nil {
+		return "", err
+	}
+	if px3 == "" {
+		return GetPXCapCookie(site, setID, vid, uuid, token, proxy)
+	}
+	return px3, nil
 }
