@@ -23,6 +23,8 @@ const (
 	LoginEndpoint               = "https://gsp.target.com/gsp/authentications/v1/auth_codes?client_id=ecom-web-1.0.0&state=1619237851891&redirect_uri=https%3A%2F%2Fwww.target.com%2F&assurance_level=M"
 	RefreshLoginEndpoint        = "https://gsp.target.com/gsp/oauth_tokens/v2/client_tokens"
 	RefreshLoginReferer         = "https://www.target.com/"
+	ClearCartEndpoint           = "https://carts.target.com/web_checkouts/v1/cart_items/%v?cart_type=REGULAR&field_groups=CART%%2CCART_ITEMS%%2CSUMMARY%%2CPROMOTION_CODES%%2CADDRESSES%%2CFINANCE_PROVIDERS%%2CFINANCE_PROVIDERS&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
+	ClearCartReferer            = "https://www.target.com/co-cart"
 	AddToCartEndpoint           = "https://carts.target.com/web_checkouts/v1/cart_items?field_groups=CART%2CCART_ITEMS%2CSUMMARY&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
 	AddToCartReferer            = "https://www.target.com/p/-/A-"
 	GetCartInfoEndpoint         = "https://carts.target.com/web_checkouts/v1/pre_checkout?field_groups=PAYMENT_INSTRUCTIONS%2CCART_ITEMS&key=feaf228eb2777fd3eee0fd5192ae7107d6224b39"
