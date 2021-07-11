@@ -50,9 +50,10 @@ type SetPaymentInfoResponse struct {
 }
 
 type PlaceOrderResponse struct {
-	Error   Error  `json:"Error"`
-	Message string `json:"message"`
-	Code    string `json:"code"`
+	Orders  []Orders `json:"orders"`
+	Error   Error    `json:"Error"`
+	Message string   `json:"message"`
+	Code    string   `json:"code"`
 }
 
 type Error struct {
