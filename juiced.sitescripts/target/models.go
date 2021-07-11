@@ -52,12 +52,13 @@ type Monitor struct {
 
 // Task info
 type Task struct {
-	Task         base.Task
-	CheckoutType enums.CheckoutType
-	AccountInfo  AccountInfo
-	InStockData  SingleStockData
-	TCIN         string
-	TCINType     enums.CheckoutType
+	Task            base.Task
+	CheckoutType    enums.CheckoutType
+	AccountInfo     AccountInfo
+	InStockData     SingleStockData
+	TCIN            string
+	TCINType        enums.CheckoutType
+	BrowserComplete bool
 }
 
 type TargetStockData struct {
@@ -524,6 +525,10 @@ type Product struct {
 
 type PriceData struct {
 	Product Product `json:"product"`
+}
+
+type Alerts struct {
+	Code string `json:"code"`
 }
 
 type Orders struct {

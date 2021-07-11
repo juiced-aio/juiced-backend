@@ -188,7 +188,7 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 
 		// For Ship
 		for _, product := range getTCINStockResponse.Data.ProductSummaries {
-			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" {
+			if product.Fulfillment.ShippingOptions.AvailabilityStatus == "IN_STOCK" || product.Fulfillment.ShippingOptions.AvailabilityStatus == "LIMITED_STOCK" {
 				productName, productImageURL, inBudget := monitor.GetTCINInfo(product.TCIN)
 				if inBudget {
 					if ok := monitor.InStockForShip.Has(product.TCIN); !ok {
@@ -201,14 +201,16 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 					}
 				} else {
 					monitor.InStockForShip.Remove(product.TCIN)
+					targetStockData.OutOfStockForShip = append(targetStockData.OutOfStockForShip, SingleStockData{TCIN: product.TCIN})
 				}
 			} else {
 				monitor.InStockForShip.Remove(product.TCIN)
+				targetStockData.OutOfStockForShip = append(targetStockData.OutOfStockForShip, SingleStockData{TCIN: product.TCIN})
 			}
 
 			// For Pickup
 			for _, store := range product.Fulfillment.StoreOptions {
-				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" && store.LocationID == monitor.StoreID {
+				if store.OrderPickup.AvailabilityStatus == "IN_STOCK" || store.OrderPickup.AvailabilityStatus == "LIMITED_STOCK" && store.LocationID == monitor.StoreID {
 					productName, productImageURL, inBudget := monitor.GetTCINInfo(product.TCIN)
 					if inBudget {
 						if ok := monitor.InStockForPickup.Has(product.TCIN); !ok {
@@ -221,9 +223,11 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 						}
 					} else {
 						monitor.InStockForPickup.Remove(product.TCIN)
+						targetStockData.OutOfStockForPickup = append(targetStockData.OutOfStockForPickup, SingleStockData{TCIN: product.TCIN})
 					}
 				} else {
 					monitor.InStockForPickup.Remove(product.TCIN)
+					targetStockData.OutOfStockForPickup = append(targetStockData.OutOfStockForPickup, SingleStockData{TCIN: product.TCIN})
 				}
 			}
 
