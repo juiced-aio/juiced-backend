@@ -514,8 +514,8 @@ func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
 func ProcessCheckout(pci ProcessCheckoutInfo) {
 	go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
 	if pci.Success {
-		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, pci.Price, pci.Quantity, pci.UserInfo)
-		go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, pci.Price, pci.Quantity, pci.MsToCheckout)
+		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, int(pci.Price), pci.Quantity, pci.UserInfo)
+		go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
 }
@@ -574,4 +574,18 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) 
 		return GetPXCapCookie(site, setID, vid, uuid, token, proxy)
 	}
 	return px3, nil
+}
+
+// Returns the value of a cookie with the given cookieName and url
+func GetCookie(client http.Client, uri string, cookieName string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+	for _, cookie := range client.Jar.Cookies(u) {
+		if cookie.Name == cookieName {
+			return cookie.Value, nil
+		}
+	}
+	return "", errors.New("no cookie with name: " + cookieName)
 }

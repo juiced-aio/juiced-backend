@@ -129,6 +129,7 @@ type TaskGroup struct {
 	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
 	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
 	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
+	UpdateMonitor       bool
 	CreationDate        int64               `json:"creationDate" db:"creationDate"`
 	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
