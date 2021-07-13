@@ -12,6 +12,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -23,12 +24,13 @@ import (
 
 // TaskStore stores information about running Tasks
 type TaskStore struct {
-	TargetTasks   map[string]*target.Task
-	WalmartTasks  map[string]*walmart.Task
-	AmazonTasks   map[string]*amazon.Task
-	BestbuyTasks  map[string]*bestbuy.Task
-	HottopicTasks map[string]*hottopic.Task
-	GamestopTasks map[string]*gamestop.Task
+	TargetTasks        map[string]*target.Task
+	WalmartTasks       map[string]*walmart.Task
+	AmazonTasks        map[string]*amazon.Task
+	BestbuyTasks       map[string]*bestbuy.Task
+	HottopicTasks      map[string]*hottopic.Task
+	GamestopTasks      map[string]*gamestop.Task
+	PokemonCenterTasks map[string]*pokemoncenter.Task
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
