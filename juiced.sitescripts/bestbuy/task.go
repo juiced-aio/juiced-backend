@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -17,23 +17,20 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
+
+	browser "github.com/eddycjy/fake-useragent"
 	"github.com/google/uuid"
 )
 
 // CreateBestbuyTask takes a Task entity and turns it into a Bestbuy Task
 func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	bestbuyTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return bestbuyTask, err
-	}
 	bestbuyTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -41,7 +38,7 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy enti
 		},
 		TaskType: taskType,
 	}
-	return bestbuyTask, err
+	return bestbuyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -71,11 +68,19 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		// TODO @silent: Let the UI know that a task failed
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
-	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
+
 	// 1. Login / Become a guest
 	sessionMade := false
 	for !sessionMade {
@@ -85,8 +90,10 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
+			task.PublishEvent(enums.SettingUp, enums.TaskStart)
 			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
@@ -102,8 +109,6 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	startTime := time.Now()
-
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	// 3. AddtoCart / Handle a queue
 	addedToCart := false
@@ -117,8 +122,14 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
+	needToStop = task.CheckForStop()
+	if needToStop {
+		return
+	}
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+
+	startTime := time.Now()
 	// 4. Checkout
 	gotCartInfo := false
 	for !gotCartInfo {
@@ -163,14 +174,17 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 7. PlaceOrder
-	// TODO @Humphrey: Don't retry if declined
 	placedOrder := false
+	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		placedOrder = task.PlaceOrder()
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		placedOrder, status = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -180,9 +194,17 @@ func (task *Task) RunTask() {
 
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
-	log.Println("TIME TO CHECK OUT: " + endTime.Sub(startTime).String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
+
 }
 
 // Login logs the task's client into the account specified
@@ -198,7 +220,10 @@ func (task *Task) Login() bool {
 		return false
 	}
 
-	util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -208,7 +233,7 @@ func (task *Task) Login() bool {
 			{"pragma", "no-cache"},
 			{"cache-control", "no-cache"},
 			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "navigate"},
@@ -220,6 +245,23 @@ func (task *Task) Login() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
+	})
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err.Error())
+		return false
+	}
+
+	tmxURL := "https://tmx.bestbuy.com/jx2u3dtlvr835clj.js?%v=ummqowa2&%v=%v"
+	var ZPLANK string
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "ZPLANK" {
+			ZPLANK = cookie.Value
+		}
+	}
+	_, _, err = util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    fmt.Sprintf(tmxURL, common.RandString(16), common.RandString(16), ZPLANK),
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err.Error())
@@ -255,7 +297,7 @@ func (task *Task) Login() bool {
 		}
 	}
 
-	var userAgent = `{"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"}`
+	var userAgent = `{"userAgent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}`
 	var email = task.AccountInfo.Email
 	var password = task.AccountInfo.Password
 	timestamp := time.Now().Format("2006-01-02T15:04:05.000Z")
@@ -278,14 +320,13 @@ func (task *Task) Login() bool {
 	encryptedEmail := encrypt([]byte(email), emailKey)
 
 	data := bytes.NewBuffer([]byte(`
-	{"token":"` + signinJson.Token + `","activity":"1:user-activity-2016-09:` + encryptedActivity + `","loginMethod":"UID_PASSWORD","flowOptions":"000000010000000","alpha":"` + correctData["alpha"] + `","Salmon":"FA7F2","encryptedEmail":"1:email-2017-01:` + encryptedEmail + `","` + correctData["pass"] + `":"` + password + `","info":"1:user-activity-2016-09:` + encryptedInfo + `","` + signinJson.Emailfieldname + `":"` + email + `"}
+	{"token":"` + signinJson.Token + `","activity":"1:user-activity-2016-09:` + encryptedActivity + `","loginMethod":"UID_PASSWORD","flowOptions":"000000000000000","alpha":"` + correctData["alpha"] + `","Salmon":"FA7F2","encryptedEmail":"1:email-2017-01:` + encryptedEmail + `","` + correctData["pass"] + `":"` + password + `","info":"1:user-activity-2016-09:` + encryptedInfo + `","` + signinJson.Emailfieldname + `":"` + email + `"}
 	`))
 
-	task.Task.Client.Jar.SetCookies(ParsedBase, []*http.Cookie{
-		{Name: "ZPLANK", Value: "0e0a383f97f24e5ab11fef6269000a93"},
-	})
-
-	util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	err = util.NewAbck(&task.Task.Client, LoginPageEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
 	var loginResponse LoginResponse
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -298,7 +339,7 @@ func (task *Task) Login() bool {
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "application/json"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"},
 			{"content-type", "application/json"},
 			{"origin", BaseEndpoint},
 			{"sec-fetch-site", "same-origin"},
@@ -353,6 +394,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.CheckoutInfo.SKUInStock != "" {
 			return false
 		}
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 
@@ -372,12 +414,19 @@ func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
 	var handled bool
 	for !handled {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return true
+		}
 		for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
 					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
-					util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					if err != nil {
+						return false
+					}
 				}
 			}
 		}
@@ -391,7 +440,7 @@ func (task *Task) AddToCart() bool {
 				{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 				{"accept", "application/json"},
 				{"sec-ch-ua-mobile", "?0"},
-				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+				{"user-agent", browser.Chrome()},
 				{"content-type", "application/json; charset=UTF-8"},
 				{"origin", BaseEndpoint},
 				{"sec-fetch-site", "same-origin"},
@@ -418,19 +467,46 @@ func (task *Task) AddToCart() bool {
 			times, err := CheckTime(a2TransactionCode)
 			if err != nil {
 				fmt.Println(err.Error())
+				return false
 			}
 			fmt.Println(times)
-			if times < 5 {
+			if times < 6 {
+				// @silent: I added these just because, I think the users will like something like this though
+				task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Joining Queue", enums.TaskUpdate)
 				for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 					if cookie.Name == "_abck" {
 						validator, _ := util.FindInString(cookie.Value, "~", "~")
 						if validator == "-1" {
-							util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+							err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+							if err != nil {
+								return false
+							}
 						}
 					}
 				}
 				fmt.Println("Joining Queue")
-				time.Sleep(time.Duration(times*60000) * time.Millisecond)
+				queueChan := make(chan bool)
+				go func() {
+					time.Sleep(time.Duration(times*60000) * time.Millisecond)
+					queueChan <- true
+				}()
+				go func() {
+					for {
+						queueChan <- false
+						time.Sleep(1 * time.Millisecond)
+					}
+				}()
+				for {
+					qaf := <-queueChan
+					if qaf {
+						break
+					}
+					needToStop := task.CheckForStop()
+					if needToStop {
+						return true
+					}
+				}
+				task.PublishEvent("Queue is up", enums.TaskUpdate)
 				fmt.Println("Out of Queue")
 				addToCartResponse = AddToCartResponse{}
 				resp, _, err := util.MakeRequest(&util.Request{
@@ -472,10 +548,21 @@ func (task *Task) AddToCart() bool {
 					case "CONSTRAINED_ITEM":
 						fmt.Println("Requeued")
 					}
+
 				}
 			} else {
-				// TODO @Humphrey: use default task delay if guest mode, 3 second delay if account mode
+				task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Retrying", enums.TaskUpdate)
 				//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
+				if task.TaskType == enums.TaskTypeGuest {
+					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+				} else {
+					time.Sleep(3 * time.Second)
+				}
+			}
+		case 500:
+			if task.TaskType == enums.TaskTypeGuest {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			} else {
 				time.Sleep(3 * time.Second)
 			}
 		}
@@ -527,6 +614,17 @@ func (task *Task) Checkout() bool {
 
 // SetShippingInfo sets the shipping info in checkout
 func (task *Task) SetShippingInfo() bool {
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				err := util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
+			}
+		}
+	}
 	setShippingRequest := SetShippingRequest{
 		Phonenumber:     task.Task.Profile.PhoneNumber,
 		Smsnotifynumber: "",
@@ -610,6 +708,10 @@ func (task *Task) SetShippingInfo() bool {
 	if resp.StatusCode != 200 {
 		log.Println(606)
 		log.Println(resp.StatusCode)
+		err = util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+		if err != nil {
+			return false
+		}
 		return false
 	}
 
@@ -659,14 +761,27 @@ func (task *Task) SetShippingInfo() bool {
 	case 200:
 		return true
 	default:
+		err = util.NewAbck(&task.Task.Client, BaseShippingEndpoint, BaseEndpoint, AkamaiEndpoint)
+		if err != nil {
+			return false
+		}
 		return false
 	}
 }
 
 // SetPaymentInfo sets the payment info in checkout
 func (task *Task) SetPaymentInfo() bool {
-	util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
-
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				err := util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
+			}
+		}
+	}
 	billing := Billingaddress{
 		Country:             task.Task.Profile.BillingAddress.CountryCode,
 		Useaddressasbilling: true,
@@ -739,6 +854,7 @@ func (task *Task) SetPaymentInfo() bool {
 	}
 
 	if resp.StatusCode != 200 {
+		util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 		return false
 	}
 
@@ -746,7 +862,10 @@ func (task *Task) SetPaymentInfo() bool {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
-				util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				err = util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
 			}
 		}
 	}
@@ -781,6 +900,7 @@ func (task *Task) SetPaymentInfo() bool {
 	}
 
 	if resp.StatusCode != 200 {
+		util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 		return false
 	}
 
@@ -847,7 +967,19 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
-func (task *Task) PlaceOrder() bool {
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	status := enums.OrderStatusFailed
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				err := util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false, status
+				}
+			}
+		}
+	}
 	data, err := json.Marshal(PlaceOrderRequest{
 		Orderid: task.CheckoutInfo.ID,
 		Threedsecurestatus: Threedsecurestatus{
@@ -856,7 +988,7 @@ func (task *Task) PlaceOrder() bool {
 	})
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false
+		return false, status
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -886,11 +1018,11 @@ func (task *Task) PlaceOrder() bool {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false
+		return false, status
 	}
 
 	if resp.StatusCode != 200 {
-		return false
+		return false, status
 	}
 
 	data, _ = json.Marshal(Browserinfo{
@@ -930,11 +1062,11 @@ func (task *Task) PlaceOrder() bool {
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
 	if !ok {
-		return false
+		return false, status
 	}
 
-	var status enums.OrderStatus
 	var success bool
+
 	switch resp.StatusCode {
 	case 200:
 		for _, cookie := range resp.Cookies() {
@@ -968,20 +1100,22 @@ func (task *Task) PlaceOrder() bool {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false
+		return false, status
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask: task.Task,
-		Success:  success,
-		Content:  "",
-		Embeds:   task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo: user,
-		ItemName: task.CheckoutInfo.ItemName,
-		Sku:      task.CheckoutInfo.SKUInStock,
-		Price:    task.CheckoutInfo.Price,
-		Quantity: 1,
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo:     user,
+		ItemName:     task.CheckoutInfo.ItemName,
+		Sku:          task.CheckoutInfo.SKUInStock,
+		Retailer:     enums.BestBuy,
+		Price:        float64(task.CheckoutInfo.Price),
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return success
+	return success, status
 }

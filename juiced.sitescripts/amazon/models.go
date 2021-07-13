@@ -7,7 +7,6 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -46,8 +45,21 @@ type Monitor struct {
 	AccountClient   http.Client
 	AddressID       string
 	SessionID       string
-	EventInfo       events.AmazonSingleStockData
+	InStock         []AmazonInStockData
 	ASINWithInfo    map[string]entities.AmazonSingleMonitorInfo
+}
+
+type AmazonInStockData struct {
+	ASIN        string
+	OfferID     string
+	Price       int
+	ItemName    string
+	AntiCsrf    string
+	PID         string
+	RID         string
+	ImageURL    string
+	UA          string
+	MonitorType enums.MonitorType
 }
 
 type AccChan struct {
@@ -75,10 +87,11 @@ const MetaData1APIKey = ""
 type AddHeadersFunction func(*http.Request, ...string)
 
 type Task struct {
-	Task         base.Task
-	AccountInfo  AccountInfo
-	TaskInfo     TaskInfo
-	CheckoutInfo CheckoutInfo
+	Task            base.Task
+	AccountInfo     AccountInfo
+	TaskInfo        TaskInfo
+	CheckoutInfo    CheckoutInfo
+	BrowserComplete bool
 }
 type AccountInfo struct {
 	Email          string

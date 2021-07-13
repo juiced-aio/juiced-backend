@@ -2,6 +2,7 @@ package queries
 
 import (
 	"errors"
+	"sort"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -28,10 +29,16 @@ func GetAllProfileGroups() ([]entities.ProfileGroup, error) {
 		if err != nil {
 			return profileGroups, err
 		}
-		tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
 
+		if tempProfileGroup.ProfileIDsJoined != "" {
+			tempProfileGroup.ProfileIDs = strings.Split(tempProfileGroup.ProfileIDsJoined, ",")
+		}
+
+		profileGroups = append(profileGroups, tempProfileGroup)
 	}
-
+	sort.SliceStable(profileGroups, func(i, j int) bool {
+		return profileGroups[i].CreationDate < profileGroups[j].CreationDate
+	})
 	return profileGroups, err
 }
 
@@ -61,7 +68,9 @@ func GetProfileGroup(groupID string) (entities.ProfileGroup, error) {
 		}
 	}
 
-	profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	if profileGroup.ProfileIDsJoined != "" {
+		profileGroup.ProfileIDs = strings.Split(profileGroup.ProfileIDsJoined, ",")
+	}
 
 	return profileGroup, err
 }
@@ -87,8 +96,14 @@ func GetAllProfiles() ([]entities.Profile, error) {
 			return profiles, err
 		}
 		tempProfile, err = GetProfileInfo(tempProfile)
-		profiles = append(profiles, tempProfile)
+		if tempProfile.ID != "" && tempProfile.Name != "" {
+			profiles = append(profiles, tempProfile)
+		}
 	}
+
+	sort.SliceStable(profiles, func(i, j int) bool {
+		return profiles[i].CreationDate < profiles[j].CreationDate
+	})
 
 	return profiles, err
 }
@@ -122,17 +137,42 @@ func GetProfile(ID string) (entities.Profile, error) {
 	return GetProfileInfo(profile)
 }
 
+// GetProfileByName returns the Profile object from the database with the given name (if it exists)
+func GetProfileByName(name string) (entities.Profile, error) {
+	profile := entities.Profile{}
+	database := common.GetDatabase()
+	if database == nil {
+		return profile, errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex("SELECT * FROM profiles WHERE Name = @p1")
+	if err != nil {
+		return profile, err
+	}
+
+	rows, err := statement.Queryx(name)
+	if err != nil {
+		return profile, err
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.StructScan(&profile)
+		if err != nil {
+			return profile, err
+		}
+	}
+
+	return GetProfileInfo(profile)
+}
+
 // ConvertProfileIDsToProfiles returns a ProfileGroupWithProfiles object from a ProfileGroup object
 func ConvertProfileIDsToProfiles(profileGroup *entities.ProfileGroup) (entities.ProfileGroupWithProfiles, error) {
 	profileGroupWithProfiles := entities.ProfileGroupWithProfiles{GroupID: profileGroup.GroupID, Name: profileGroup.Name, Profiles: []entities.Profile{}}
 	profiles := []entities.Profile{}
 	for i := 0; i < len(profileGroup.ProfileIDs); i++ {
 		profile, err := GetProfile(profileGroup.ProfileIDs[i])
-		if err != nil {
-			if profile.ID == "" {
-				return profileGroupWithProfiles, err
-			}
-		} else {
+		if err == nil && profile.ID != "" && profile.Name != "" {
 			profiles = append(profiles, profile)
 		}
 	}

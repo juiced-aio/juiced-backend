@@ -7,7 +7,6 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -18,7 +17,7 @@ const (
 	ProductEndpoint       = "https://www.gamestop.com/products/%s.html"
 	MonitorEndpoint       = "https://www.gamestop.com/on/demandware.store/Sites-gamestop-us-Site/default/Product-Variation?pid=%s"
 	GenEndpoint           = "https://notanapi.com/api/akamai/get/sensor-data"
-	AkamaiEndpoint        = "https://www.gamestop.com/webcontent/cab9a11bui241be662d611b4abc42e"
+	AkamaiEndpoint        = "https://www.gamestop.com/2qvO5_xmdvFlK/HTu3HSUrmgZO/X0/uOOtQf1E/ORolEQ4D/ChJ/jfhxDHXg"
 	AddToCartEndpoint     = "https://www.gamestop.com/on/demandware.store/Sites-gamestop-us-Site/default/Cart-AddProduct?redesignFlag=true&productID=%s"
 	CheckoutLoginEndpoint = "https://www.gamestop.com/checkout/login"
 	CheckoutEndpoint      = "https://www.gamestop.com/spcheckout"
@@ -39,8 +38,17 @@ type Monitor struct {
 	RunningMonitors []string
 	OutOfStockSKUs  []string
 	SKUs            []string
-	EventInfo       events.GamestopSingleStockData
+	InStock         []GamestopInStockData
 	SKUWithInfo     map[string]entities.GamestopSingleMonitorInfo
+}
+
+type GamestopInStockData struct {
+	SKU        string
+	Price      float64
+	ItemName   string
+	PID        string
+	ImageURL   string
+	ProductURL string
 }
 
 var DefaultRawHeaders = [][2]string{
@@ -71,7 +79,7 @@ type AccountInfo struct {
 type CheckoutInfo struct {
 	SKUInStock           string
 	PID                  string
-	Price                int
+	Price                float64
 	ShipmentUUID         string
 	OriginalShipmentUUID string
 	CSRF                 string
@@ -130,6 +138,7 @@ type Product struct {
 }
 
 type Productinfo struct {
+	SKU          string `json:"sku"`
 	Productid    string `json:"productID"`
 	Name         string `json:"name"`
 	Availability string `json:"availability"`

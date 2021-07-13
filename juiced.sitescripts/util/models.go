@@ -46,6 +46,12 @@ type DiscordWebhook struct {
 	Embeds  []Embed     `json:"embeds"`
 }
 
+type HookInfo struct {
+	Success bool
+	Content string
+	Embeds  []Embed
+}
+
 type Embed struct {
 	Title     string    `json:"title"`
 	Color     int       `json:"color"`
@@ -74,15 +80,28 @@ type SensorRequest struct {
 	SensorData string `json:"sensor_data"`
 }
 
-// All info needed for ProccessCheckout
+type SensorResponse struct {
+	Success bool `json:"success"`
+}
+
+// All info needed for ProcessCheckout
 type ProcessCheckoutInfo struct {
-	BaseTask base.Task
-	Success  bool
-	Content  string
-	Embeds   []sec.DiscordEmbed
-	UserInfo entities.UserInfo
-	ItemName string
-	Sku      string
-	Price    int
-	Quantity int
+	BaseTask     base.Task
+	Success      bool
+	Content      string
+	Embeds       []sec.DiscordEmbed
+	UserInfo     entities.UserInfo
+	ItemName     string
+	Sku          string
+	Retailer     string
+	Price        float64
+	Quantity     int
+	MsToCheckout int64
+}
+
+type PXValues struct {
+	RefreshAt int64
+	SetID     string
+	VID       string
+	UUID      string
 }

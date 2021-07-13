@@ -1,7 +1,7 @@
 package client
 
 import (
-	utls "github.com/Titanium-ctrl/utls"
+	utls "backend.juicedbot.io/juiced.client/utls"
 	"golang.org/x/net/proxy"
 
 	"backend.juicedbot.io/juiced.client/http"

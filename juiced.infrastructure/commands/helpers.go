@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"fmt"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -21,13 +20,13 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 	monitorID := uuid.New().String()
 	switch taskGroup.MonitorRetailer {
 	case enums.Target:
-		statement, err := database.Preparex(`INSERT INTO targetMonitorInfos (ID, taskGroupID, storeID) VALUES (?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO targetMonitorInfos (ID, taskGroupID, storeID, monitorType) VALUES (?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.TargetMonitorInfo.ID = monitorID
 		taskGroup.TargetMonitorInfo.TaskGroupID = taskGroup.GroupID
-		_, err = statement.Exec(taskGroup.TargetMonitorInfo.ID, taskGroup.TargetMonitorInfo.TaskGroupID, taskGroup.TargetMonitorInfo.StoreID)
+		_, err = statement.Exec(taskGroup.TargetMonitorInfo.ID, taskGroup.TargetMonitorInfo.TaskGroupID, taskGroup.TargetMonitorInfo.StoreID, taskGroup.TargetMonitorInfo.MonitorType)
 		if err != nil {
 			return err
 		}
@@ -44,14 +43,14 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 	case enums.Walmart:
-		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID, skusJoined, maxPrice) VALUES (?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID, monitorType, skusJoined, maxPrice) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.WalmartMonitorInfo.ID = monitorID
 		taskGroup.WalmartMonitorInfo.TaskGroupID = taskGroup.GroupID
 		taskGroup.WalmartMonitorInfo.SKUsJoined = strings.Join(taskGroup.WalmartMonitorInfo.SKUs, ",")
-		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
+		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.MonitorType, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
 		if err != nil {
 			return err
 		}
@@ -96,7 +95,6 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
-			fmt.Println(monitor)
 			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
 			if err != nil {
 				return err
@@ -236,6 +234,41 @@ func CreateTaskInfos(task entities.Task) error {
 	}
 	return nil
 }
+func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
+	var taskInfoSchema string
+
+	switch retailer {
+	case enums.Target:
+		taskInfoSchema = "targetTaskInfos"
+	case enums.Walmart:
+		taskInfoSchema = "walmartTaskInfos"
+	case enums.Amazon:
+		taskInfoSchema = "amazonTaskInfos"
+	case enums.BestBuy:
+		taskInfoSchema = "bestbuyTaskInfos"
+	case enums.GameStop:
+		taskInfoSchema = "gamestopTaskInfos"
+	}
+	if taskInfoSchema == "" {
+		return nil
+	}
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	statement, err := database.Preparex(`DELETE FROM ` + taskInfoSchema + ` WHERE taskID = @p1`)
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(taskID)
+	if err != nil {
+		return err
+	}
+
+	return err
+}
 
 func CreateShippingAddresses(profile entities.Profile) error {
 	database := common.GetDatabase()
@@ -243,12 +276,12 @@ func CreateShippingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO shippingAddresses (ID, profileID, profileGroupID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO shippingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.ShippingAddress.ID, profile.ID, profile.ProfileGroupID, profile.ShippingAddress.FirstName, profile.ShippingAddress.LastName, profile.ShippingAddress.Address1, profile.ShippingAddress.Address2, profile.ShippingAddress.City, profile.ShippingAddress.ZipCode, profile.ShippingAddress.StateCode, profile.ShippingAddress.CountryCode)
+	_, err = statement.Exec(profile.ShippingAddress.ID, profile.ID, profile.ShippingAddress.FirstName, profile.ShippingAddress.LastName, profile.ShippingAddress.Address1, profile.ShippingAddress.Address2, profile.ShippingAddress.City, profile.ShippingAddress.ZipCode, profile.ShippingAddress.StateCode, profile.ShippingAddress.CountryCode)
 	if err != nil {
 		return err
 	}
@@ -261,12 +294,12 @@ func CreateBillingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO billingAddresses (ID, profileID, profileGroupID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO billingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.BillingAddress.ID, profile.ID, profile.ProfileGroupID, profile.BillingAddress.FirstName, profile.BillingAddress.LastName, profile.BillingAddress.Address1, profile.BillingAddress.Address2, profile.BillingAddress.City, profile.BillingAddress.ZipCode, profile.BillingAddress.StateCode, profile.BillingAddress.CountryCode)
+	_, err = statement.Exec(profile.BillingAddress.ID, profile.ID, profile.BillingAddress.FirstName, profile.BillingAddress.LastName, profile.BillingAddress.Address1, profile.BillingAddress.Address2, profile.BillingAddress.City, profile.BillingAddress.ZipCode, profile.BillingAddress.StateCode, profile.BillingAddress.CountryCode)
 	if err != nil {
 		return err
 	}
@@ -279,12 +312,12 @@ func CreateCards(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO cards (ID, profileID, profileGroupID, cardHolderName, cardNumber, expMonth, expYear, cvv, cardType) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO cards (ID, profileID, cardHolderName, cardNumber, expMonth, expYear, cvv, cardType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.CreditCard.ID, profile.ID, profile.ProfileGroupID, profile.CreditCard.CardholderName, profile.CreditCard.CardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, profile.CreditCard.CVV, profile.CreditCard.CardType)
+	_, err = statement.Exec(profile.CreditCard.ID, profile.ID, profile.CreditCard.CardholderName, profile.CreditCard.CardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, profile.CreditCard.CVV, profile.CreditCard.CardType)
 	if err != nil {
 		return err
 	}

@@ -1,9 +1,14 @@
 package ws
 
 import (
+	"encoding/json"
+	"fmt"
+	"log"
 	"os"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 
 	"flag"
 	"net/http"
@@ -13,6 +18,7 @@ import (
 
 var clients = make(map[*websocket.Conn]bool)
 var upgrader = websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
+var timer *time.Timer
 
 // Message is any WebSocket message
 type Message struct {
@@ -29,6 +35,13 @@ type ErrorResponse struct {
 // StartWebsocketServer launches the local server that hosts the WebSocket connection for two-way communication between the app and the backend
 func StartWebsocketServer(eventBus *events.EventBus) {
 	go ManageEvents(eventBus)
+	go func() {
+		timer = time.NewTimer(999999 * time.Hour)
+		<-timer.C
+		http.DefaultClient.Get("http://localhost:9999/close")
+		fmt.Println("Close")
+		os.Exit(0)
+	}()
 	addr := flag.String("addr", "localhost:8080", "http service address")
 	flag.Parse()
 	http.HandleFunc("/", HandleConnections)
@@ -46,18 +59,38 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 
 	clients[conn] = true
 	events.GetEventBus().PublishConnectEvent()
+	timer.Reset(999999 * time.Hour)
+	conn.SetCloseHandler(func(code int, text string) error {
+		clients[conn] = false
+		// @silent: Here is where you can change the amount of time before it exits
+		timer.Reset(5 * time.Minute)
+		return nil
+	})
 
 	for {
-		mt, message, err := conn.ReadMessage()
+		_, message, err := conn.ReadMessage()
 		if err != nil {
-			delete(clients, conn)
+			if err.Error() != "websocket: close 1001 (going away)" {
+				log.Println("Error receiving message from frontend: " + err.Error())
+			}
+			// delete(clients, conn)
 			break
+		} else {
+			incomingMessage := IncomingMessage{}
+			err = json.Unmarshal(message, &incomingMessage)
+			if err != nil {
+				log.Println("Error reading message from frontend: " + err.Error())
+			}
+			if incomingMessage.EventType == "WalmartEncryptionEvent" {
+				taskStore := stores.GetTaskStore()
+				taskStore.SetWalmartCardDetails(incomingMessage.TaskID, incomingMessage.CardDetails)
+			}
 		}
-		err = conn.WriteMessage(mt, message)
-		if err != nil {
-			delete(clients, conn)
-			break
-		}
+		// err = conn.WriteMessage(mt, message)
+		// if err != nil {
+		// 	delete(clients, conn)
+		// 	break
+		// }
 	}
 }
 

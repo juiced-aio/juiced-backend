@@ -19,6 +19,7 @@ type Task struct {
 	TaskQty          int              `json:"qty" db:"qty"`
 	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
 	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
+	CreationDate     int64            `json:"creationDate" db:"creationDate"`
 	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
 	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
@@ -41,6 +42,7 @@ type TargetTaskInfo struct {
 	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
 	Email        string             `json:"email" db:"email"`
 	Password     string             `json:"password" db:"password"`
+	StoreID      string             `json:"storeID" db:"storeID"`
 	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
 }
 
@@ -126,15 +128,17 @@ type TaskGroup struct {
 	MonitorInput        string              `json:"input" db:"input"`
 	MonitorDelay        int                 `json:"delay" db:"delay"`
 	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
+	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
+	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
+	UpdateMonitor       bool
+	CreationDate        int64               `json:"creationDate" db:"creationDate"`
+	BoxlunchMonitorInfo BoxlunchMonitorInfo `json:"boxlunchMonitorInfo"`
 	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
-	BoxlunchMonitorInfo BoxlunchMonitorInfo `json:"boxlunchMonitorInfo"`
-	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
-	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
 	// Future sitescripts will have a field here
 }
 
@@ -152,6 +156,7 @@ type TargetMonitorInfo struct {
 	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
 	Monitors    []TargetSingleMonitorInfo `json:"monitors"`
 	StoreID     string                    `json:"storeID" db:"storeID"`
+	MonitorType enums.MonitorType         `json:"monitorType" db:"monitorType"`
 }
 
 type WalmartMonitorInfo struct {

@@ -7,6 +7,7 @@ type MonitorStatus = string
 const (
 	MonitorIdle               MonitorStatus = "Idle"
 	WaitingForProductData     MonitorStatus = "Searching"
+	UnableToFindProduct       MonitorStatus = "Product not found"
 	WaitingForInStock         MonitorStatus = "Out of stock"
 	SendingProductInfoToTasks MonitorStatus = "Sending to tasks"
 	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
@@ -15,9 +16,11 @@ const (
 type MonitorEventType = string
 
 const (
-	MonitorStart  MonitorEventType = "MonitorStart"
-	MonitorUpdate MonitorEventType = "MonitorUpdate"
-	MonitorStop   MonitorEventType = "MonitorStop"
+	MonitorStart    MonitorEventType = "MonitorStart"
+	MonitorUpdate   MonitorEventType = "MonitorUpdate"
+	MonitorFail     MonitorEventType = "MonitorFail"
+	MonitorStop     MonitorEventType = "MonitorStop"
+	MonitorComplete MonitorEventType = "MonitorComplete"
 )
 
 // TaskStatus is a list of possible statuses that a Task can have
@@ -25,23 +28,25 @@ type TaskStatus = string
 
 // Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
 const (
-	TaskIdle            TaskStatus    = "Idle"
-	LoggingIn           TaskStatus    = "Logging in"
-	SettingUp           TaskStatus    = "Setting up task"
-	UnableToFindProduct MonitorStatus = "Product not found"
-	WaitingForMonitor   TaskStatus    = "Waiting for monitor"
-	AddingToCart        TaskStatus    = "Adding to cart"
-	GettingCartInfo     TaskStatus    = "Getting cart info"
-	SettingCartInfo     TaskStatus    = "Setting cart info"
-	GettingShippingInfo TaskStatus    = "Getting shipping info"
-	SettingShippingInfo TaskStatus    = "Setting shipping info"
-	GettingBillingInfo  TaskStatus    = "Getting billing info"
-	SettingBillingInfo  TaskStatus    = "Setting billing info"
-	GettingOrderInfo    TaskStatus    = "Getting order info"
-	SettingOrderInfo    TaskStatus    = "Setting order info"
-	CheckingOut         TaskStatus    = "Checking out"
-	CheckedOut          TaskStatus    = "Checked out!"
-	CheckoutFailed      TaskStatus    = "Checkout failed"
+	TaskIdle            TaskStatus = "Idle"
+	LoggingIn           TaskStatus = "Logging in"
+	WaitingForLogin     TaskStatus = "Waiting for login cookies"
+	SettingUp           TaskStatus = "Setting up task"
+	WaitingForMonitor   TaskStatus = "Waiting for monitor"
+	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
+	AddingToCart        TaskStatus = "Adding to cart"
+	GettingCartInfo     TaskStatus = "Getting cart info"
+	SettingCartInfo     TaskStatus = "Setting cart info"
+	GettingShippingInfo TaskStatus = "Getting shipping info"
+	SettingShippingInfo TaskStatus = "Setting shipping info"
+	EncryptingCardInfo  TaskStatus = "Encrypting card details"
+	GettingBillingInfo  TaskStatus = "Getting billing info"
+	SettingBillingInfo  TaskStatus = "Setting billing info"
+	GettingOrderInfo    TaskStatus = "Getting order info"
+	SettingOrderInfo    TaskStatus = "Setting order info"
+	CheckingOut         TaskStatus = "Checking out"
+	CheckedOut          TaskStatus = "Checked out!"
+	CheckoutFailed      TaskStatus = "Checkout failed"
 )
 
 type TaskEventType = string
@@ -50,6 +55,7 @@ const (
 	TaskStart    TaskEventType = "TaskStart"
 	TaskUpdate   TaskEventType = "TaskUpdate"
 	TaskStop     TaskEventType = "TaskStop"
+	TaskFail     TaskEventType = "TaskFail"
 	TaskComplete TaskEventType = "TaskComplete"
 )
 

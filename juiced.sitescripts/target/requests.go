@@ -81,3 +81,7 @@ type PlaceOrderRequest struct {
 	CartType  string `json:"cart_type"`
 	ChannelID int    `json:"channel_id"`
 }
+
+type TargetCancelMethodRequest struct {
+	Records []Records `json:"records"`
+}

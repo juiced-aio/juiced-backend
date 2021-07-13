@@ -2,7 +2,6 @@ package events
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"sync"
 )
@@ -131,74 +130,6 @@ func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, eventType enum
 			TaskID:    taskID,
 		},
 	}, eb.Subscribers)
-	eb.RM.RUnlock()
-}
-
-// PublishProductEvent publishes a ProductEvent for any site
-func (eb *EventBus) PublishProductEvent(retailer enums.Retailer, data interface{}, monitorID string) {
-	eb.RM.RLock()
-	// By retrieving this right after picking up the product data, we ensure we have the latest webhook info
-	// without having to retrieve it once per task.
-	settings, err := queries.GetSettings()
-	discordWebhook := ""
-	if err != nil {
-		discordWebhook = settings.DiscordWebhook
-	}
-	event := Event{
-		EventType: ProductEventType,
-		ProductEvent: ProductEvent{
-			DiscordWebhook: discordWebhook,
-			Retailer:       retailer,
-			MonitorID:      monitorID,
-		},
-	}
-	switch retailer {
-	case enums.Target:
-		targetData, ok := data.(TargetStockData)
-		if !ok {
-			return
-		}
-		event.ProductEvent.TargetData = targetData
-	case enums.Walmart:
-		walmartData, ok := data.(WalmartStockData)
-		if !ok {
-			return
-		}
-		event.ProductEvent.WalmartData = walmartData
-	case enums.Amazon:
-		amazonData, ok := data.(AmazonStockData)
-		if !ok {
-			return
-		}
-		event.ProductEvent.AmazonData = amazonData
-	case enums.BestBuy:
-		bestbuyData, ok := data.(BestbuyStockData)
-		if !ok {
-			return
-		}
-		event.ProductEvent.BestbuyData = bestbuyData
-	case enums.HotTopic:
-		hottopicData, ok := data.(HottopicStockData)
-		if !ok {
-			return
-		}
-		event.ProductEvent.HottopicData = hottopicData
-	case enums.GameStop:
-		gamestopData, ok := data.(GamestopStockData)
-		if !ok {
-			return
-		}
-		event.ProductEvent.GamestopData = gamestopData
-	}
-	// Will panic if any channel is closed
-	go func(event Event, channels []EventChannel) {
-		defer func() {
-			recover()
-		}()
-		for _, ch := range channels {
-			ch <- event
-		}
-	}(event, eb.Subscribers)
 	eb.RM.RUnlock()
 }
 

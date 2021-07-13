@@ -2,8 +2,13 @@ package hottopic
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
+	"sync"
 
+	"backend.juicedbot.io/juiced.client/client"
+
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -14,7 +19,7 @@ import (
 )
 
 // CreateHottopicMonitor takes a TaskGroup entity and turns it into a Hottopic Monitor
-func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
+func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
 	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
 	hottopicMonitor := Monitor{}
 
@@ -33,7 +38,7 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 			hottopicMonitor = Monitor{
 				Monitor: base.Monitor{
 					TaskGroup: taskGroup,
-					Proxy:     proxy,
+					Proxies:   proxies,
 					EventBus:  eventBus,
 				},
 				Pids: pids,
@@ -66,26 +71,60 @@ func (monitor *Monitor) RunMonitor() {
 	if needToStop {
 		return
 	}
-	for _, pid := range monitor.Pids {
-		somethingInStock := false
-		switch monitor.PidWithInfo[pid.Pid].MonitorType {
-		case enums.SKUMonitor:
-			somethingInStock = monitor.StockMonitor(pid)
-		}
-		if somethingInStock {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-			monitor.RunningMonitors = util.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
-			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-			monitor.SendToTasks()
-		}
 
+	if monitor.Monitor.Client.Transport == nil {
+		monitorClient, err := util.CreateClient()
+		if err != nil {
+			return
+		}
+		monitor.Monitor.Client = monitorClient
+
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(monitor.Pids))
+	for _, pid := range monitor.Pids {
+		go func(x PidSingle) {
+			monitor.RunSingleMonitor(x)
+			wg.Done()
+		}(pid)
+	}
+	wg.Wait()
 }
 
-func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
+func (monitor *Monitor) RunSingleMonitor(pid PidSingle) {
+	stockData := HotTopicInStockData{}
+
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
+	switch monitor.PidWithInfo[pid.Pid].MonitorType {
+	case enums.SKUMonitor:
+		stockData = monitor.StockMonitor(pid)
+	}
+	if stockData.PID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.PID == stockData.PID
+		}
+		if !inSlice {
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+		}
+	}
+	monitor.RunSingleMonitor(pid)
+}
+
+func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
+	stockData := HotTopicInStockData{}
 	BuildEndpoint := MonitorEndpoint + pid.Pid
 
 	//Values have to be exact and case sensistive
@@ -125,24 +164,23 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) bool {
 	})
 	if err != nil {
 		fmt.Println(err)
+		return stockData
 	}
-
-	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
-		stockInfo := monitor.StockInfo(body, pid)
-		return stockInfo
+		return monitor.StockInfo(body, pid)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate)
-		return false
+		return stockData
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
-		return false
+		return stockData
 	}
 }
 
-func (monitor *Monitor) StockInfo(body string, pid PidSingle) bool {
+func (monitor *Monitor) StockInfo(body string, pid PidSingle) HotTopicInStockData {
+	stockData := HotTopicInStockData{}
 	doc := soup.HTMLParse(body)
 
 	ShipTable := doc.Find("div", "class", "method-descr__label")
@@ -152,7 +190,7 @@ func (monitor *Monitor) StockInfo(body string, pid PidSingle) bool {
 	}
 	if !InStock {
 		//not instock or backorder return false
-		return InStock
+		return stockData
 	}
 
 	//We are in stock for this size/color, lets check price is in budget.
@@ -162,20 +200,11 @@ func (monitor *Monitor) StockInfo(body string, pid PidSingle) bool {
 
 	if !InBudget {
 		//not in budget return false
-		return InBudget
+		return stockData
 	}
 
 	//we are in stock and in budget
-	monitor.EventInfo = events.HotTopicSingleStockData{
+	return HotTopicInStockData{
 		PID: pid.Pid,
 	}
-
-	//EventInfo updated now we return true
-	return true
-}
-func (monitor *Monitor) SendToTasks() {
-	data := events.HottopicStockData{
-		InStock: []events.HotTopicSingleStockData{monitor.EventInfo},
-	}
-	monitor.Monitor.EventBus.PublishProductEvent(enums.HotTopic, data, monitor.Monitor.TaskGroup.GroupID)
 }

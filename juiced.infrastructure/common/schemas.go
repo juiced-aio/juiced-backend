@@ -6,6 +6,7 @@ var userInfoSchema = `
 		email TEXT,
 		licenseKey TEXT,
 		deviceName TEXT,
+		userVer TEXT,
 		discordID TEXT,
 		discordUsername TEXT,
 		discordAvatarURL TEXT,
@@ -25,7 +26,8 @@ var tasksSchema = `
 		sizeJoined TEXT,
 		qty INTEGER,
 		status TEXT,
-		taskDelay INTEGER
+		taskDelay INTEGER,
+		creationDate INTEGER
 	)
 `
 
@@ -39,6 +41,7 @@ var targetTaskInfosSchema = `
 		paymentType TEXT
 	)
 `
+
 var walmartTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
 		taskID TEXT,
@@ -85,14 +88,17 @@ var taskGroupsSchema = `
 		input TEXT,
 		delay INTEGER,
 		status TEXT,
-		taskIDsJoined TEXT
+		taskIDsJoined TEXT,
+		creationDate INTEGER
 	)
 `
+
 var targetMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
 		ID TEXT,
 		taskGroupID TEXT,
-		storeID TEXT
+		storeID TEXT,
+		monitorType TEXT
 	)
 `
 
@@ -110,6 +116,7 @@ var walmartMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
 		ID TEXT,
 		taskGroupID TEXT,
+		monitorType TEXT,
 		skusJoined TEXT,
 		maxPrice INTEGER
 	)
@@ -168,7 +175,8 @@ var gamestopSingleMonitorInfosSchema = `
 var proxyGroupsSchema = `
 	CREATE TABLE IF NOT EXISTS proxyGroups (
 		groupID TEXT,
-		name TEXT
+		name TEXT,
+		creationDate INTEGER
 	)
 `
 
@@ -187,17 +195,19 @@ var profileGroupsSchema = `
 	CREATE TABLE IF NOT EXISTS profileGroups (
 		groupID TEXT,
 		name TEXT,
-		profileIDsJoined TEXT
+		profileIDsJoined TEXT,
+		creationDate INTEGER
 	)
 `
 
 var profilesSchema = `
 	CREATE TABLE IF NOT EXISTS profiles (
 		ID TEXT,
-		profileGroupID TEXT,
+		profileGroupIDsJoined TEXT,
 		name TEXT,
 		email TEXT,
-		phoneNumber TEXT
+		phoneNumber TEXT,
+		creationDate INTEGER
 	)
 `
 
@@ -205,7 +215,6 @@ var shippingAddressesSchema = `
 	CREATE TABLE IF NOT EXISTS shippingAddresses (
 		ID TEXT,
 		profileID TEXT,
-		profileGroupID TEXT,
 		firstName TEXT,
 		lastName TEXT,
 		address1 TEXT,
@@ -216,11 +225,11 @@ var shippingAddressesSchema = `
 		countryCode TEXT
 	)
 `
+
 var billingAddressesSchema = `
 	CREATE TABLE IF NOT EXISTS billingAddresses (
 		ID TEXT,
 		profileID TEXT,
-		profileGroupID TEXT,
 		firstName TEXT,
 		lastName TEXT,
 		address1 TEXT,
@@ -231,11 +240,11 @@ var billingAddressesSchema = `
 		countryCode TEXT
 	)
 `
+
 var cardsSchema = `
 	CREATE TABLE IF NOT EXISTS cards (
 		ID TEXT,
 		profileID TEXT,
-		profileGroupID TEXT,
 		cardHolderName TEXT,
 		cardNumber TEXT,
 		expMonth TEXT,
@@ -253,6 +262,7 @@ var checkoutsSchema = `
 		quantity INTEGER,
 		retailer TEXT,
 		profileName TEXT,
+		msToCheckout INTEGER,
 		time INTEGER
 	)
 `
@@ -260,10 +270,24 @@ var checkoutsSchema = `
 var settingsSchema = `
 	CREATE TABLE IF NOT EXISTS settings (
 		id TEXT,
-		discordWebhook TEXT,
+		successDiscordWebhook TEXT,
+		failureDiscordWebhook TEXT,
 		twoCaptchaAPIKey TEXT,
 		antiCaptchaAPIKey TEXT,
-		capMonsterAPIKey TEXT
+		capMonsterAPIKey TEXT,
+		aycdAccessToken TEXT,
+		aycdAPIKey TEXT,
+		darkMode INTEGER
+	)
+`
+
+var accountsSchema = `
+	CREATE TABLE IF NOT EXISTS accounts (
+		ID TEXT,
+		retailer TEXT,
+		email TEXT,
+		password TEXT,
+		creationDate INTEGER
 	)
 `
 
@@ -294,4 +318,5 @@ var schemas = []string{
 	cardsSchema,
 	checkoutsSchema,
 	settingsSchema,
+	accountsSchema,
 }

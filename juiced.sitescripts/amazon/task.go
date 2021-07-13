@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -39,17 +41,13 @@ func (task *Task) CheckForStop() bool {
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
 func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
 	amazonTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return amazonTask, err
-	}
+
 	amazonTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 		AccountInfo: AccountInfo{
 			Email:     email,
@@ -57,7 +55,7 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entit
 			LoginType: loginType,
 		},
 	}
-	return amazonTask, err
+	return amazonTask, nil
 }
 
 func (task *Task) RunTask() {
@@ -66,6 +64,12 @@ func (task *Task) RunTask() {
 		recover()
 		// TODO @silent: Let the UI know that a task failed
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
 	// 1. Login
@@ -89,7 +93,7 @@ func (task *Task) RunTask() {
 	if needToStop {
 		return
 	}
-
+	status := enums.OrderStatusFailed
 	switch task.CheckoutInfo.MonitorType {
 	case enums.SlowSKUMonitor:
 		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
@@ -110,24 +114,34 @@ func (task *Task) RunTask() {
 			}
 		}
 		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+
+		startTime := time.Now()
 		// 4. PlaceOrder
 		placedOrder := false
+
 		for !placedOrder {
 			var retries int
 			needToStop := task.CheckForStop()
 			if needToStop {
 				return
 			}
-			placedOrder = task.PlaceOrder()
+			if status == enums.OrderStatusDeclined {
+				break
+			}
+			placedOrder, status = task.PlaceOrder(startTime)
 			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 			} else {
-				return
+				status = enums.OrderStatusFailed
+				break
 			}
+
 		}
 	case enums.FastSKUMonitor:
 		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+
+		startTime := time.Now()
 		// 3. PlaceOrder
 		placedOrder := false
 		for !placedOrder {
@@ -136,7 +150,10 @@ func (task *Task) RunTask() {
 			if needToStop {
 				return
 			}
-			placedOrder = task.PlaceOrder()
+			if status == enums.OrderStatusDeclined {
+				break
+			}
+			placedOrder, status = task.PlaceOrder(startTime)
 			if !placedOrder && retries < 5 {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -144,6 +161,14 @@ func (task *Task) RunTask() {
 				return
 			}
 		}
+	}
+	switch status {
+	case enums.OrderStatusSuccess:
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	case enums.OrderStatusDeclined:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	case enums.OrderStatusFailed:
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 	}
 }
 
@@ -163,7 +188,29 @@ func (task *Task) Login() bool {
 func (task *Task) browserLogin() bool {
 	cookies := make([]*http.Cookie, 0)
 
-	u := launcher.New().
+	var userPassProxy bool
+	var username string
+	var password string
+
+	launcher_ := launcher.New()
+
+	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	if proxyCleaned != "" {
+		proxyURL := proxyCleaned[7:]
+
+		if strings.Contains(proxyURL, "@") {
+			proxySplit := strings.Split(proxyURL, "@")
+			proxyURL = proxySplit[1]
+			userPass := strings.Split(proxySplit[0], ":")
+			username = userPass[0]
+			password = userPass[1]
+			userPassProxy = true
+		}
+
+		launcher_ = launcher_.Proxy(proxyURL)
+	}
+
+	u := launcher_.
 		Set(flags.Flag("headless")).
 		// Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
@@ -193,9 +240,29 @@ func (task *Task) browserLogin() bool {
 
 	browser := rod.New().ControlURL(u).MustConnect()
 
-	defer browser.MustClose()
+	ctx, cancel := context.WithCancel(context.Background())
+	browserWithCancel := browser.Context(ctx)
 
-	page := stealth.MustPage(browser)
+	go func() {
+		// Wait until either the StopFlag is set to true or the BrowserComplete flag is set to true
+		for !task.Task.StopFlag && !task.BrowserComplete {
+			time.Sleep(10 * time.Millisecond)
+		}
+		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
+		if task.Task.StopFlag {
+			cancel()
+		}
+	}()
+
+	browserWithCancel.MustIgnoreCertErrors(true)
+
+	defer func() { browserWithCancel.MustClose(); task.BrowserComplete = true }()
+
+	if userPassProxy {
+		go browserWithCancel.MustHandleAuth(username, password)()
+	}
+
+	page := stealth.MustPage(browserWithCancel)
 	page.MustNavigate(LoginEndpoint)
 	page.MustWaitLoad()
 	page.MustElement("#ap_email").MustWaitVisible().Input(task.AccountInfo.Email)
@@ -397,8 +464,8 @@ func (task *Task) WaitForMonitor() bool {
 		if task.CheckoutInfo.MonitorType != emptyString {
 			return false
 		}
-		// @silent: Why sleeping here?
-		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		// I see why now
+		time.Sleep(1 * time.Millisecond)
 	}
 }
 
@@ -489,8 +556,8 @@ func (task *Task) AddToCart() bool {
 }
 
 // Places the order
-func (task *Task) PlaceOrder() bool {
-
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	status := enums.OrderStatusFailed
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"x-amz-checkout-csrf-token": {task.AccountInfo.SessionID},
@@ -530,11 +597,11 @@ func (task *Task) PlaceOrder() bool {
 		},
 		Data: []byte(form.Encode()),
 	})
-	if err != nil {
-		fmt.Println(err.Error())
+	ok := util.HandleErrors(err, util.RequestDoError)
+	if !ok {
+		return false, status
 	}
 
-	var status enums.OrderStatus
 	var success bool
 	switch resp.StatusCode {
 	case 200:
@@ -563,20 +630,22 @@ func (task *Task) PlaceOrder() bool {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false
+		return false, status
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask: task.Task,
-		Success:  success,
-		Content:  "",
-		Embeds:   task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo: user,
-		ItemName: task.TaskInfo.ItemName,
-		Sku:      task.TaskInfo.ASIN,
-		Price:    task.CheckoutInfo.Price,
-		Quantity: 1,
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
+		UserInfo:     user,
+		ItemName:     task.TaskInfo.ItemName,
+		Sku:          task.TaskInfo.ASIN,
+		Retailer:     enums.Amazon,
+		Price:        float64(task.CheckoutInfo.Price),
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return success
+	return success, status
 }

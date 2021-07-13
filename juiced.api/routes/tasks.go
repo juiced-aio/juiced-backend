@@ -117,6 +117,42 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskGroupResponseSwagger"
 	router.HandleFunc("/api/task/group/{GroupID}/clone", endpoints.CloneTaskGroupEndpoint).Methods("POST")
 
+	// swagger:operation POST /api/task/group/{GroupID}/start TaskGroup StartTaskGroupEndpoint
+	//
+	// Starts a TaskGroup's Monitor and all of its Tasks
+	//
+	// ---
+	// parameters:
+	// - name: GroupID
+	//   in: path
+	//   description: GroupID of TaskGroup to start
+	//   type: string
+	//   required: false
+	// responses:
+	//   '200':
+	//     description: TaskGroup response
+	//     schema:
+	//       "$ref": "#/responses/TaskGroupResponseSwagger"
+	router.HandleFunc("/api/task/group/{GroupID}/start", endpoints.StartTaskGroupEndpoint).Methods("POST")
+
+	// swagger:operation POST /api/task/group/{GroupID}/stop TaskGroup StopTaskGroupEndpoint
+	//
+	// Stops a TaskGroup's Monitor and all of its Tasks
+	//
+	// ---
+	// parameters:
+	// - name: GroupID
+	//   in: path
+	//   description: GroupID of TaskGroup to stop
+	//   type: string
+	//   required: false
+	// responses:
+	//   '200':
+	//     description: TaskGroup response
+	//     schema:
+	//       "$ref": "#/responses/TaskGroupResponseSwagger"
+	router.HandleFunc("/api/task/group/{GroupID}/stop", endpoints.StopTaskGroupEndpoint).Methods("POST")
+
 	// swagger:operation POST /api/task/group/{GroupID}/removeTasks TaskGroup RemoveTasksEndpoint
 	//
 	// Deletes Tasks from the group with GroupID {GroupID}.
@@ -195,9 +231,9 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//       "$ref": "#/responses/TaskResponseSwagger"
 	router.HandleFunc("/api/task/{GroupID}", endpoints.CreateTaskEndpoint).Methods("POST")
 
-	// swagger:operation PUT /api/task/{ID} Task UpdateTaskEndpoint
+	// swagger:operation PUT /api/task/group/{GroupID}/updateTasks Task UpdateTasksEndpoint
 	//
-	// Updates and returns the Task with ID {ID}.
+	// Updates and returns the Tasks in group with ID {GroupID}.
 	//
 	// ---
 	// parameters:
@@ -217,7 +253,7 @@ func RouteTasksEndpoints(router *mux.Router) {
 	//     description: Task response
 	//     schema:
 	//       "$ref": "#/responses/TaskResponseSwagger"
-	router.HandleFunc("/api/task/{ID}", endpoints.UpdateTaskEndpoint).Methods("PUT")
+	router.HandleFunc("/api/task/group/{GroupID}/updateTasks", endpoints.UpdateTasksEndpoint).Methods("PUT")
 
 	// swagger:operation POST /api/task/{ID}/clone Task CloneTaskEndpoint
 	//

@@ -18,13 +18,13 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO taskGroups (groupID, name, proxyGroupID, retailer, input, delay, status, taskIDsJoined) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO taskGroups (groupID, name, proxyGroupID, retailer, input, delay, status, taskIDsJoined, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 	taskIDsJoined := strings.Join(taskGroup.TaskIDs, ",")
 
-	_, err = statement.Exec(taskGroup.GroupID, taskGroup.Name, taskGroup.MonitorProxyGroupID, taskGroup.MonitorRetailer, taskGroup.MonitorInput, taskGroup.MonitorDelay, taskGroup.MonitorStatus, taskIDsJoined)
+	_, err = statement.Exec(taskGroup.GroupID, taskGroup.Name, taskGroup.MonitorProxyGroupID, taskGroup.MonitorRetailer, taskGroup.MonitorInput, taskGroup.MonitorDelay, taskGroup.MonitorStatus, taskIDsJoined, taskGroup.CreationDate)
 	if err != nil {
 		return err
 	}
@@ -33,7 +33,7 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) error {
 }
 
 // RemoveTaskGroup removes the TaskGroup from the database with the given groupID and returns it (if it exists)
-func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
+func RemoveTaskGroup(groupID string, deleteTasks bool) (entities.TaskGroup, error) {
 	taskGroup := entities.TaskGroup{}
 	database := common.GetDatabase()
 	if database == nil {
@@ -43,6 +43,15 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 	taskGroup, err := queries.GetTaskGroup(groupID)
 	if err != nil {
 		return taskGroup, err
+	}
+
+	if deleteTasks {
+		for _, taskID := range taskGroup.TaskIDs {
+			_, err := RemoveTask(taskID)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
 	}
 
 	statement, err := database.Preparex(`DELETE FROM taskGroups WHERE groupID = @p1`)
@@ -61,7 +70,7 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 
 // UpdateTaskGroup updates the TaskGroup from the database with the given groupID and returns it (if it exists)
 func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (entities.TaskGroup, error) {
-	taskGroup, err := RemoveTaskGroup(groupID)
+	taskGroup, err := RemoveTaskGroup(groupID, false)
 	if err != nil {
 		return taskGroup, err
 	}
@@ -81,13 +90,13 @@ func CreateTask(task entities.Task) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO tasks (ID, taskGroupID, profileID, proxyGroupID, retailer, sizeJoined, qty, status, taskDelay) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO tasks (ID, taskGroupID, profileID, proxyGroupID, retailer, sizeJoined, qty, status, taskDelay, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
 	sizeJoined := strings.Join(task.TaskSize, ",")
-	_, err = statement.Exec(task.ID, task.TaskGroupID, task.TaskProfileID, task.TaskProxyGroupID, task.TaskRetailer, sizeJoined, task.TaskQty, task.TaskStatus, task.TaskDelay)
+	_, err = statement.Exec(task.ID, task.TaskGroupID, task.TaskProfileID, task.TaskProxyGroupID, task.TaskRetailer, sizeJoined, task.TaskQty, task.TaskStatus, task.TaskDelay, task.CreationDate)
 	if err != nil {
 		return err
 	}
@@ -113,10 +122,15 @@ func RemoveTask(ID string) (entities.Task, error) {
 		return task, err
 	}
 	_, err = statement.Exec(ID)
+	if err != nil {
+		return task, err
+	}
 
-	task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
+	if task.TaskSizeJoined != "" {
+		task.TaskSize = strings.Split(task.TaskSizeJoined, ",")
+	}
 
-	return task, err
+	return task, DeleteTaskInfos(task.ID, task.TaskRetailer)
 }
 
 // UpdateTask updates the Task from the database with the given ID and returns it (if it exists)
@@ -134,4 +148,26 @@ func UpdateTask(ID string, newTask entities.Task) (entities.Task, error) {
 	}
 
 	return task, err
+}
+
+// RemoveTasksWithProfileID removes any Tasks with the given profileID and returns any errors
+func RemoveTasksByProfileID(profileID string) error {
+	database := common.GetDatabase()
+	if database == nil {
+		return errors.New("database not initialized")
+	}
+
+	tasks, err := queries.GetTasksByProfileID(profileID)
+	if err != nil {
+		return err
+	}
+
+	for _, task := range tasks {
+		_, err = RemoveTask(task.ID)
+		if err != nil {
+			return err
+		}
+	}
+
+	return err
 }
