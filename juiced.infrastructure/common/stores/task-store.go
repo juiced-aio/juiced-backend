@@ -166,13 +166,11 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		if queryError {
 			return false
 		}
-
 		// Make sure necessary fields exist
 		emptyString := ""
 		if task.GamestopTaskInfo.TaskType == emptyString || (task.GamestopTaskInfo.TaskType == enums.TaskTypeAccount && (task.GamestopTaskInfo.Email == emptyString || task.GamestopTaskInfo.Password == emptyString)) {
 			return false
 		}
-
 		// Create task
 		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxy, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
 		if err != nil {
@@ -181,6 +179,26 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		// Add task to store
 		taskStore.GamestopTasks[task.ID] = &gamestopTask
 
+	case enums.PokemonCenter:
+		// Check if task exists in store already
+		if _, ok := taskStore.PokemonCenterTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if len(task.PokemonCenterTaskInfo.AddToCartForms) < 1 {
+			return false
+		}
+		// Create task
+		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.PokemonCenterTasks[task.ID] = &pokemonCenterTask
 	}
 	return true
 }
@@ -322,6 +340,13 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 					return true
 				}
 			}
+
+		case enums.PokemonCenter:
+			if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok {
+				if !pokemonCenterTask.Task.StopFlag {
+					return true
+				}
+			}
 		}
 	}
 
@@ -365,7 +390,14 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.
 			gamestopTask.Task.Proxy = proxy
 		}
 		return true
+
+	case enums.PokemonCenter:
+		if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[task.ID]; ok {
+			pokemonCenterTask.Task.Proxy = proxy
+		}
+		return true
 	}
+
 	return false
 }
 
@@ -395,6 +427,9 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 
 	case enums.GameStop:
 		go taskStore.GamestopTasks[taskID].RunTask()
+
+	case enums.PokemonCenter:
+		go taskStore.PokemonCenterTasks[taskID].RunTask()
 	}
 }
 
@@ -403,13 +438,14 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		TargetTasks:   make(map[string]*target.Task),
-		WalmartTasks:  make(map[string]*walmart.Task),
-		AmazonTasks:   make(map[string]*amazon.Task),
-		BestbuyTasks:  make(map[string]*bestbuy.Task),
-		HottopicTasks: make(map[string]*hottopic.Task),
-		GamestopTasks: make(map[string]*gamestop.Task),
-		EventBus:      eventBus,
+		TargetTasks:        make(map[string]*target.Task),
+		WalmartTasks:       make(map[string]*walmart.Task),
+		AmazonTasks:        make(map[string]*amazon.Task),
+		BestbuyTasks:       make(map[string]*bestbuy.Task),
+		HottopicTasks:      make(map[string]*hottopic.Task),
+		GamestopTasks:      make(map[string]*gamestop.Task),
+		PokemonCenterTasks: make(map[string]*pokemoncenter.Task),
+		EventBus:           eventBus,
 	}
 }
 
