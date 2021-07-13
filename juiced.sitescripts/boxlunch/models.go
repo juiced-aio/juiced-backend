@@ -2,7 +2,6 @@ package boxlunch
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -41,8 +40,8 @@ const (
 type Monitor struct {
 	Monitor         base.Monitor
 	RunningMonitors []string
-	Pids            []PidSingle
-	EventInfo       events.BoxLunchSingleStockData
+	Pids            []string
+	InStock         []BoxLunchInStockData
 	PidWithInfo     map[string]entities.BoxLunchSingleMonitorInfo
 }
 
@@ -62,4 +61,10 @@ type Task struct {
 	Dwcont    string
 	OldDwcont string
 	SecureKey string
+}
+
+type BoxLunchInStockData struct {
+	PID         string
+	ProductName string
+	ImageURL    string
 }

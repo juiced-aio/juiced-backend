@@ -399,6 +399,24 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 	}
 }
 
+func (monitorStore *MonitorStore) CheckBoxLunchMonitorStock() {
+	for {
+		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
+			if len(boxlunchMonitor.InStock) > 0 {
+				taskGroup := boxlunchMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
+						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
+							boxlunchTask.Pid = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].PID
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(1 * time.Second / 100)
+	}
+}
+
 func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 	for {
 		for monitorID, gamestopMonitor := range monitorStore.GamestopMonitors {
@@ -518,6 +536,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 
 	go monitorStore.CheckAmazonMonitorStock()
 	go monitorStore.CheckBestBuyMonitorStock()
+	go monitorStore.CheckBoxLunchMonitorStock()
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
