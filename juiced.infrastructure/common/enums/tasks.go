@@ -64,16 +64,17 @@ type Retailer = string
 
 // Choose one per Task/Monitor
 const (
-	Target      Retailer = "Target"
-	Walmart     Retailer = "Walmart"
-	Amazon      Retailer = "Amazon"
-	BestBuy     Retailer = "BestBuy"
-	GameStop    Retailer = "GameStop"
-	HotWheels   Retailer = "HotWheels"
-	Shopify     Retailer = "Shopify"
-	BigCartel   Retailer = "BigCartel"
-	SquareSpace Retailer = "SquareSpace"
-	HotTopic    Retailer = "HotTopic"
+	Target        Retailer = "Target"
+	Walmart       Retailer = "Walmart"
+	Amazon        Retailer = "Amazon"
+	BestBuy       Retailer = "BestBuy"
+	GameStop      Retailer = "GameStop"
+	HotWheels     Retailer = "HotWheels"
+	Shopify       Retailer = "Shopify"
+	BigCartel     Retailer = "BigCartel"
+	SquareSpace   Retailer = "SquareSpace"
+	HotTopic      Retailer = "HotTopic"
+	PokemonCenter Retailer = "PokemonCenter"
 )
 
 // MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)

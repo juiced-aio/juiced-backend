@@ -120,24 +120,24 @@ func (taskGroup *TaskGroupWithTasks) SetTasks(tasks []Task) {
 
 // TaskGroup is a class that holds a list of TaskIDs and a Monitor
 type TaskGroup struct {
-	GroupID             string              `json:"groupID" db:"groupID"`
-	Name                string              `json:"name" db:"name"`
-	MonitorProxyGroupID string              `json:"proxyGroupID" db:"proxyGroupID"`
-	MonitorRetailer     enums.Retailer      `json:"retailer" db:"retailer"`
-	MonitorInput        string              `json:"input" db:"input"`
-	MonitorDelay        int                 `json:"delay" db:"delay"`
-	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
-	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
-	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
-	UpdateMonitor       bool
-	CreationDate        int64               `json:"creationDate" db:"creationDate"`
-	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
-	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
-	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
-	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
-	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
-	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
-
+	GroupID                  string              `json:"groupID" db:"groupID"`
+	Name                     string              `json:"name" db:"name"`
+	MonitorProxyGroupID      string              `json:"proxyGroupID" db:"proxyGroupID"`
+	MonitorRetailer          enums.Retailer      `json:"retailer" db:"retailer"`
+	MonitorInput             string              `json:"input" db:"input"`
+	MonitorDelay             int                 `json:"delay" db:"delay"`
+	MonitorStatus            enums.MonitorStatus `json:"status" db:"status"`
+	TaskIDs                  []string            `json:"taskIDs" db:"taskIDs"`
+	TaskIDsJoined            string              `json:"taskIDsJoined" db:"taskIDsJoined"`
+	UpdateMonitor            bool
+	CreationDate             int64                    `json:"creationDate" db:"creationDate"`
+	TargetMonitorInfo        TargetMonitorInfo        `json:"targetMonitorInfo"`
+	WalmartMonitorInfo       WalmartMonitorInfo       `json:"walmartMonitorInfo"`
+	AmazonMonitorInfo        AmazonMonitorInfo        `json:"amazonMonitorInfo"`
+	BestbuyMonitorInfo       BestbuyMonitorInfo       `json:"bestbuyMonitorInfo"`
+	GamestopMonitorInfo      GamestopMonitorInfo      `json:"gamestopMonitorInfo"`
+	HottopicMonitorInfo      HottopicMonitorInfo      `json:"hottopicMonitorInfo"`
+	PokemonCenterMonitorInfo PokemonCenterMonitorInfo `json:"pokemoncenterMonitorInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -222,6 +222,19 @@ type GamestopMonitorInfo struct {
 	ID          string                      `json:"ID" db:"ID"`
 	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
 	Monitors    []GamestopSingleMonitorInfo `json:"monitors"`
+}
+
+type PokemonCenterSingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	SKU         string `json:"sku" db:"sku"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
+type PokemonCenterMonitorInfo struct {
+	ID          string                           `json:"ID" db:"ID"`
+	TaskGroupID string                           `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []PokemonCenterSingleMonitorInfo `json:"monitors"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup
