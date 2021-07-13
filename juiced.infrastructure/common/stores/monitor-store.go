@@ -303,7 +303,6 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 			pokemonCenterMonitor.Monitor.StopFlag = true
 		}
 		return true
-
 	}
 	return false
 }
@@ -353,7 +352,6 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 			pokemonCenterMonitor.Monitor.Proxy = proxy
 		}
 		return true
-
 	}
 	return false
 }
@@ -547,6 +545,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
 	go monitorStore.CheckWalmartMonitorStock()
+	go monitorStore.CheckPokemonCenterMonitorStock()
 }
 
 // GetMonitorStore returns the singleton instance of the EventBus
