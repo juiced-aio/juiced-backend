@@ -1,9 +1,8 @@
 package hottopic
 
 import (
-	"strings"
-
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
@@ -22,24 +21,10 @@ func AddHottopicHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-func getDwCont(resp string) string {
-	return getStringInBetweenTwoString(resp, "cart?dwcont=", "\" method")
+func getDwCont(resp string) (string, error) {
+	return common.FindInString(resp, "cart?dwcont=", "\" method")
 }
 
-func getSecureKey(resp string) string {
-	return getStringInBetweenTwoString(resp, "_securekey\" value=\"", "\"/>")
-}
-
-func getStringInBetweenTwoString(str string, startS string, endS string) (result string) {
-	s := strings.Index(str, startS)
-	if s == -1 {
-		return result
-	}
-	newS := str[s+len(startS):]
-	e := strings.Index(newS, endS)
-	if e == -1 {
-		return result
-	}
-	result = newS[:e]
-	return result
+func getSecureKey(resp string) (string, error) {
+	return common.FindInString(resp, "_securekey\" value=\"", "\"/>")
 }

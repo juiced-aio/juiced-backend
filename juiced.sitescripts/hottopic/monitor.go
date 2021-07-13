@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strconv"
 	"sync"
+	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
 
@@ -23,41 +24,33 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
 	hottopicMonitor := Monitor{}
 
-	pids := []PidSingle{}
+	pids := []string{}
 	for _, monitor := range singleMonitors {
-		storedHottopicMonitors[monitor.Pid] = entities.HottopicSingleMonitorInfo{
-			Pid: monitor.Pid,
-		}
-		pidV := PidSingle{
-			Pid:   monitor.Pid,
-			size:  monitor.Size,
-			color: monitor.Color,
-		}
-		pids = append(pids, pidV)
-		for created := false; !created; {
-			hottopicMonitor = Monitor{
-				Monitor: base.Monitor{
-					TaskGroup: taskGroup,
-					Proxies:   proxies,
-					EventBus:  eventBus,
-				},
-				Pids: pids,
-			}
-			created = true
-		}
+		storedHottopicMonitors[monitor.Pid] = monitor
+		pids = append(pids, monitor.Pid)
 	}
+
+	hottopicMonitor = Monitor{
+		Monitor: base.Monitor{
+			TaskGroup: taskGroup,
+			Proxies:   proxies,
+			EventBus:  eventBus,
+		},
+		Pids: pids,
+	}
+
 	return hottopicMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
-func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType) {
+func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
 	monitor.Monitor.TaskGroup.SetMonitorStatus(status)
-	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, nil, monitor.Monitor.TaskGroup.GroupID)
+	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, data, monitor.Monitor.TaskGroup.GroupID)
 }
 
 func (monitor *Monitor) CheckForStop() bool {
 	if monitor.Monitor.StopFlag {
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop)
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
 		return true
 	}
 	return false
@@ -65,7 +58,7 @@ func (monitor *Monitor) CheckForStop() bool {
 
 func (monitor *Monitor) RunMonitor() {
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
-		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
+		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
 	}
 	needToStop := monitor.CheckForStop()
 	if needToStop {
@@ -87,7 +80,7 @@ func (monitor *Monitor) RunMonitor() {
 	wg := sync.WaitGroup{}
 	wg.Add(len(monitor.Pids))
 	for _, pid := range monitor.Pids {
-		go func(x PidSingle) {
+		go func(x string) {
 			monitor.RunSingleMonitor(x)
 			wg.Done()
 		}(pid)
@@ -95,37 +88,62 @@ func (monitor *Monitor) RunMonitor() {
 	wg.Wait()
 }
 
-func (monitor *Monitor) RunSingleMonitor(pid PidSingle) {
+func (monitor *Monitor) RunSingleMonitor(pid string) {
+	needToStop := monitor.CheckForStop()
+	if needToStop {
+		return
+	}
+
 	stockData := HotTopicInStockData{}
 
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	}
 
-	switch monitor.PidWithInfo[pid.Pid].MonitorType {
+	switch monitor.PidWithInfo[pid].MonitorType {
 	case enums.SKUMonitor:
 		stockData = monitor.StockMonitor(pid)
 	}
+
+	needToStop = monitor.CheckForStop()
+	if needToStop {
+		return
+	}
+
 	if stockData.PID != "" {
-		needToStop := monitor.CheckForStop()
-		if needToStop {
-			return
-		}
 		var inSlice bool
 		for _, monitorStock := range monitor.InStock {
 			inSlice = monitorStock.PID == stockData.PID
 		}
 		if !inSlice {
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
-			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+			})
 		}
+	} else {
+		if len(monitor.RunningMonitors) > 0 {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+			}
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.PID == stockData.PID {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
+			}
+		}
+
+		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+		monitor.RunSingleMonitor(pid)
 	}
-	monitor.RunSingleMonitor(pid)
 }
 
-func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
+func (monitor *Monitor) StockMonitor(pid string) HotTopicInStockData {
 	stockData := HotTopicInStockData{}
-	BuildEndpoint := MonitorEndpoint + pid.Pid
+	BuildEndpoint := MonitorEndpoint + pid
 
 	//Values have to be exact and case sensistive
 	//XXS
@@ -135,13 +153,13 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
 	//XL
 	//2X
 	//3X
-	if len(pid.size) > 0 {
-		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_size=" + pid.size
+	if len(monitor.PidWithInfo[pid].Size) > 0 {
+		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid + "_size=" + monitor.PidWithInfo[pid].Size
 	}
 
 	//Default seems to be BLACK case sensitive
-	if len(pid.color) > 0 {
-		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid.Pid + "_color=" + pid.color
+	if len(monitor.PidWithInfo[pid].Color) > 0 {
+		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid + "_color=" + monitor.PidWithInfo[pid].Color
 	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
@@ -169,9 +187,10 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
 
 	switch resp.StatusCode {
 	case 200:
+		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
 		return monitor.StockInfo(body, pid)
 	case 404:
-		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate)
+		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 		return stockData
 	default:
 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
@@ -179,7 +198,7 @@ func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
 	}
 }
 
-func (monitor *Monitor) StockInfo(body string, pid PidSingle) HotTopicInStockData {
+func (monitor *Monitor) StockInfo(body string, pid string) HotTopicInStockData {
 	stockData := HotTopicInStockData{}
 	doc := soup.HTMLParse(body)
 
@@ -196,8 +215,9 @@ func (monitor *Monitor) StockInfo(body string, pid PidSingle) HotTopicInStockDat
 	//We are in stock for this size/color, lets check price is in budget.
 	PriceText := doc.Find("span", "class", "productdetail__info-pricing-original").Text()
 	Price, _ := strconv.Atoi(PriceText)
-	InBudget := monitor.PidWithInfo[pid.Pid].MaxPrice > Price
+	InBudget := monitor.PidWithInfo[pid].MaxPrice > Price
 
+	ProductName := doc.Find("a", "class", "name-link").Text()
 	if !InBudget {
 		//not in budget return false
 		return stockData
@@ -205,6 +225,8 @@ func (monitor *Monitor) StockInfo(body string, pid PidSingle) HotTopicInStockDat
 
 	//we are in stock and in budget
 	return HotTopicInStockData{
-		PID: pid.Pid,
+		PID:         pid,
+		ProductName: ProductName,
+		ImageURL:    "https://hottopic.scene7.com/is/image/HotTopic/" + pid + "_hi",
 	}
 }
