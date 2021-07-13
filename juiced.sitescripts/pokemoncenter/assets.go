@@ -1,4 +1,4 @@
-package walmart
+package pokemoncenter
 
 import "net/url"
 
