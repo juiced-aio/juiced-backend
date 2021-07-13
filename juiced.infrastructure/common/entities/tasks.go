@@ -9,23 +9,24 @@ import (
 
 // Task is a class that holds details about a single bot task
 type Task struct {
-	ID               string           `json:"ID" db:"ID"`
-	TaskGroupID      string           `json:"taskGroupID" db:"taskGroupID"`
-	TaskProfileID    string           `json:"profileID" db:"profileID"`
-	TaskProxyGroupID string           `json:"proxyGroupID" db:"proxyGroupID"`
-	TaskRetailer     enums.Retailer   `json:"retailer" db:"retailer"`
-	TaskSize         []string         `json:"size" db:"size"`
-	TaskSizeJoined   string           `json:"sizeJoined" db:"sizeJoined"`
-	TaskQty          int              `json:"qty" db:"qty"`
-	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
-	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
-	CreationDate     int64            `json:"creationDate" db:"creationDate"`
-	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
-	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
-	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
-	BestbuyTaskInfo  BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
-	GamestopTaskInfo GamestopTaskInfo `json:"gamestopTaskInfo"`
-	HottopicTaskInfo HottopicTaskInfo `json:"hottopicTaskInfo"`
+	ID                    string                `json:"ID" db:"ID"`
+	TaskGroupID           string                `json:"taskGroupID" db:"taskGroupID"`
+	TaskProfileID         string                `json:"profileID" db:"profileID"`
+	TaskProxyGroupID      string                `json:"proxyGroupID" db:"proxyGroupID"`
+	TaskRetailer          enums.Retailer        `json:"retailer" db:"retailer"`
+	TaskSize              []string              `json:"size" db:"size"`
+	TaskSizeJoined        string                `json:"sizeJoined" db:"sizeJoined"`
+	TaskQty               int                   `json:"qty" db:"qty"`
+	TaskStatus            enums.TaskStatus      `json:"status" db:"status"`
+	TaskDelay             int                   `json:"taskDelay" db:"taskDelay"`
+	CreationDate          int64                 `json:"creationDate" db:"creationDate"`
+	TargetTaskInfo        TargetTaskInfo        `json:"targetTaskInfo"`
+	WalmartTaskInfo       WalmartTaskInfo       `json:"walmartTaskInfo"`
+	AmazonTaskInfo        AmazonTaskInfo        `json:"amazonTaskInfo"`
+	BestbuyTaskInfo       BestbuyTaskInfo       `json:"bestbuyTaskInfo"`
+	GamestopTaskInfo      GamestopTaskInfo      `json:"gamestopTaskInfo"`
+	HottopicTaskInfo      HottopicTaskInfo      `json:"hottopicTaskInfo"`
+	PokemonCenterTaskInfo PokemonCenterTaskInfo `json:"pokemoncenterTaskInfo"`
 	// Future sitescripts will have a field here
 }
 
@@ -33,6 +34,12 @@ type HottopicTaskInfo struct {
 	TaskID      string   `json:"taskID" db:"taskID"`
 	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
 	Pids        []string `json:"pids" db:"pids"`
+}
+
+type PokemonCenterTaskInfo struct {
+	TaskID         string   `json:"taskID" db:"taskID"`
+	TaskGroupID    string   `json:"taskGroupID" db:"taskGroupID"`
+	AddToCartForms []string `json:"addToCartForms" db:"addToCartForms"`
 }
 
 type TargetTaskInfo struct {

@@ -8,26 +8,21 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
-	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // CreatePokemonCenterTask takes a Task entity and turns it into a PokemonCenter Task
 func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
 	pokemonCenterTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return pokemonCenterTask, err
-	}
+
 	pokemonCenterTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 	}
-	return pokemonCenterTask, err
+	return pokemonCenterTask, nil
 }
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
