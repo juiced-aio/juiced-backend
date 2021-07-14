@@ -9,7 +9,9 @@ import (
 const (
 	BaseEndpoint = "https://www.pokemoncenter.com/"
 
-	MonitorEndpoint = "https://www.pokemoncenter.com/product/%s"
+	MonitorEndpoint          = "https://www.pokemoncenter.com/product/%s"
+	AddToCartEndpoint        = "https://www.pokemoncenter.com/tpci-ecommweb-api/cart?type=product&format=zoom.nodatalinks"
+	AddToCartRefererEndpoint = "https://www.pokemoncenter.com/product/%s"
 )
 
 // Monitor info
@@ -62,6 +64,17 @@ type CheckoutInfo struct {
 	AddToCartForm string
 	AuthId        string
 	ImageURL      string
-	Price         int
+	Price         float64
 	ItemName      string
+	SKU           string
+}
+
+type AddToCartRequest struct {
+	ProductUri    string `json:"productUri`
+	Quantity      int    `json:"quantity`
+	Configuration string `json:"configuration"`
+}
+type AddToCartResponse struct {
+	Type     string `json:"type"`
+	Quantity int    `json:"quantity"`
 }

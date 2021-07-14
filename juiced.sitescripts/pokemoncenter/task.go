@@ -1,6 +1,9 @@
 package pokemoncenter
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
@@ -8,6 +11,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // CreatePokemonCenterTask takes a Task entity and turns it into a PokemonCenter Task
@@ -76,8 +80,6 @@ func (task *Task) RunTask() {
 
 	startTime := time.Now()
 
-	// @Tehnic: The endpoint that you are monitoring with automatically adds it to the cart so you should somehow pass the
-	// cookies/client to here and then completely cut out the AddToCart request, otherwise using a faster endpoint to monitor would be better.
 	// 2. AddToCart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	addedToCart := false
@@ -179,4 +181,87 @@ func (task *Task) WaitForMonitor() bool {
 			return true
 		}
 	}
+}
+
+func (task *Task) Login() bool {
+	return true
+}
+
+func (task *Task) AddToCart() bool {
+	//Setup request using data passed from 'Instock' data to the tasks 'Checkout data' (Done in monitor-store)
+	addToCartRequest := AddToCartRequest{ProductUri: task.CheckoutInfo.AddToCartForm, Quantity: 1, Configuration: ""}
+	//Empty Response for the response
+	addToCartResponse := AddToCartResponse{}
+
+	//json marshal this for content length.
+	addToCartRequestBytes, err := json.Marshal(addToCartRequest)
+	if err != nil {
+		log.Fatal("Marshal payload failed with error " + err.Error())
+	}
+
+	//setup request
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    fmt.Sprintf(AddToCartEndpoint),
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(bytes.NewReader(addToCartRequestBytes).Size())},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.CheckoutInfo.SKU)},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		ResponseBodyStruct: &addToCartResponse,
+		RequestBodyStruct:  &addToCartRequest,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		switch addToCartResponse.Type {
+		case "carts.line-item":
+			//instock
+			return true
+		default:
+			//anything else is out of stock but we can get specific if need be, For example captcha
+			return false
+		}
+	default:
+		return false
+	}
+}
+
+func (task *Task) SubmitEmailAddress() bool {
+	return true
+}
+
+func (task *Task) SubmitAddressDetailsValidate() bool {
+	return true
+}
+
+func (task *Task) SubmitAddressDetails() bool {
+	return true
+}
+
+func (task *Task) GetPaymentKeyId() bool {
+	return true
+}
+
+func (task *Task) SubmitPaymentDetails() bool {
+	return true
+}
+
+func (task *Task) Checkout() bool {
+	return true
 }
