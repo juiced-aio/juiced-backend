@@ -31,24 +31,6 @@ var tasksSchema = `
 	)
 `
 
-var targetTaskInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetTaskInfos (
-		taskID TEXT,
-		taskGroupID TEXT,
-		checkoutType TEXT,
-		email TEXT,
-		password TEXT,
-		paymentType TEXT
-	)
-`
-
-var walmartTaskInfosSchema = `
-	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
-		taskID TEXT,
-		taskGroupID TEXT
-	)
-`
-
 var amazonTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS amazonTaskInfos (
 		taskID TEXT,
@@ -78,6 +60,42 @@ var gamestopTaskInfosSchema = `
 		taskType TEXT
 	)
 `
+var shopifyTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		siteURL TEXT,
+		shopifyRetailer TEXT
+	)
+`
+
+// Shopify sites that need schemas will go here
+var hotwheelsTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hotwheelsTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT
+	)
+`
+
+var targetTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		checkoutType TEXT,
+		email TEXT,
+		password TEXT,
+		paymentType TEXT
+	)
+`
+
+var walmartTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT
+	)
+`
 
 var taskGroupsSchema = `
 	CREATE TABLE IF NOT EXISTS taskGroups (
@@ -90,35 +108,6 @@ var taskGroupsSchema = `
 		status TEXT,
 		taskIDsJoined TEXT,
 		creationDate INTEGER
-	)
-`
-
-var targetMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT,
-		storeID TEXT,
-		monitorType TEXT
-	)
-`
-
-var targetSingleMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetSingleMonitorInfos (
-		monitorID TEXT,
-		taskGroupID TEXT,
-		tcin TEXT,
-		maxPrice INTEGER,
-		checkoutType TEXT
-	)
-`
-
-var walmartMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT,
-		monitorType TEXT,
-		skusJoined TEXT,
-		maxPrice INTEGER
 	)
 `
 
@@ -168,6 +157,50 @@ var gamestopSingleMonitorInfosSchema = `
 		monitorID TEXT,
 		taskGroupID TEXT,
 		sku TEXT,
+		maxPrice INTEGER
+	)
+`
+var shopifyMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifyMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		siteURL TEXT,
+	)
+`
+
+var shopifySingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifySingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		variantID TEXT,
+		maxPrice INTEGER
+	)
+`
+var targetMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		storeID TEXT,
+		monitorType TEXT
+	)
+`
+
+var targetSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		tcin TEXT,
+		maxPrice INTEGER,
+		checkoutType TEXT
+	)
+`
+
+var walmartMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		monitorType TEXT,
+		skusJoined TEXT,
 		maxPrice INTEGER
 	)
 `
@@ -292,30 +325,48 @@ var accountsSchema = `
 `
 
 var schemas = []string{
+
+	// UserInfo
 	userInfoSchema,
+
+	// Tasks
 	tasksSchema,
-	targetTaskInfosSchema,
-	walmartTaskInfosSchema,
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
 	gamestopTaskInfosSchema,
+	targetTaskInfosSchema,
+	walmartTaskInfosSchema,
+
+	// Shopify
+	shopifyTaskInfosSchema,
+	hotwheelsTaskInfosSchema,
+
+	// Task Groups/Monitors
 	taskGroupsSchema,
-	targetMonitorInfosSchema,
-	targetSingleMonitorInfosSchema,
-	walmartMonitorInfosSchema,
 	amazonMonitorInfosSchema,
 	amazonSingleMonitorInfosSchema,
 	bestbuyMonitorInfosSchema,
 	bestbuySingleMonitorInfosSchema,
 	gamestopMonitorInfosSchema,
 	gamestopSingleMonitorInfosSchema,
+	shopifyMonitorInfosSchema,
+	shopifySingleMonitorInfosSchema,
+	targetMonitorInfosSchema,
+	targetSingleMonitorInfosSchema,
+	walmartMonitorInfosSchema,
+
+	// Proxys
 	proxyGroupsSchema,
 	proxysSchema,
+
+	// Profiles
 	profileGroupsSchema,
 	profilesSchema,
 	shippingAddressesSchema,
 	billingAddressesSchema,
 	cardsSchema,
+
+	// Checkouts/Settings/Accounts
 	checkoutsSchema,
 	settingsSchema,
 	accountsSchema,

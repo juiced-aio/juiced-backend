@@ -245,7 +245,26 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 								}
 							}
 							taskGroup.GamestopMonitorInfo.Monitors = newMonitors
+						case enums.Shopify:
+							maxPrice := -1
+							if len(taskGroup.ShopifyMonitorInfo.Monitors) > 0 {
+								maxPrice = taskGroup.ShopifyMonitorInfo.Monitors[0].MaxPrice
+							}
 
+							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								vids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, vid := range vids {
+									monitor := entities.ShopifySingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										VariantID:   vid,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
 						case enums.Target:
 							maxPrice := -1
 							if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {
@@ -590,12 +609,13 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		Sizes              []string                  `json:"sizes"`
 		Quantity           int                       `json:"quantity"`
 		Delay              int                       `json:"delay"`
-		TargetTaskInfo     entities.TargetTaskInfo   `json:"targetTaskInfo"`
-		WalmartTaskInfo    entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 		AmazonTaskInfo     entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
 		BestbuyTaskInfo    entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
 		GamestopTaskInfo   entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo   entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		ShopifyTaskInfo    entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
+		TargetTaskInfo     entities.TargetTaskInfo   `json:"targetTaskInfo"`
+		WalmartTaskInfo    entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -629,6 +649,9 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 
 				case enums.HotTopic:
 					task.HottopicTaskInfo = createTaskRequestInfo.HottopicTaskInfo
+
+				case enums.Shopify:
+					task.ShopifyTaskInfo = createTaskRequestInfo.ShopifyTaskInfo
 
 				case enums.Target:
 					task.TargetTaskInfo = createTaskRequestInfo.TargetTaskInfo
@@ -715,12 +738,13 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		TaskIDs          []string                  `json:"taskIDs"`
 		ProfileID        string                    `json:"profileID"`
 		ProxyGroupID     string                    `json:"proxyGroupID"`
-		TargetTaskInfo   entities.TargetTaskInfo   `json:"targetTaskInfo"`
-		WalmartTaskInfo  entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 		AmazonTaskInfo   entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
 		BestbuyTaskInfo  entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
 		GamestopTaskInfo entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		ShopifyTaskInfo  entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
+		TargetTaskInfo   entities.TargetTaskInfo   `json:"targetTaskInfo"`
+		WalmartTaskInfo  entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -776,6 +800,17 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 
 							case enums.HotTopic:
 								// TODO @silent
+
+							case enums.Shopify:
+								if updateTasksRequestInfo.ShopifyTaskInfo.SiteURL != "DO_NOT_UPDATE" {
+									task.ShopifyTaskInfo.SiteURL = updateTasksRequestInfo.ShopifyTaskInfo.SiteURL
+								}
+								if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" {
+									task.ShopifyTaskInfo.HotWheelsTaskInfo.Email = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password != "" {
+									task.ShopifyTaskInfo.HotWheelsTaskInfo.Password = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password
+								}
 
 							case enums.Target:
 								if updateTasksRequestInfo.TargetTaskInfo.CheckoutType != "DO_NOT_UPDATE" {

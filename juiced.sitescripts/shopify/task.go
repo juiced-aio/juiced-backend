@@ -20,7 +20,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, email string, password string) (Task, error) {
+func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, siteURL string, email string, password string) (Task, error) {
 	shopifyTask := Task{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
@@ -38,8 +38,8 @@ func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy enti
 			Email:    email,
 			Password: password,
 		},
+		SiteURL: siteURL,
 	}
-	shopifyTask.BaseURL = enums.ShopifyBaseURLs[shopifyTask.ShopifyRetailer]
 
 	return shopifyTask, err
 }
@@ -219,10 +219,11 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.SKU != "" {
+		if task.InStockData.VariantID != "" {
+			time.Sleep(1 * time.Millisecond)
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		task.VariantID = task.InStockData.VariantID
 	}
 }
 
@@ -230,7 +231,7 @@ func (task *Task) AddToCart() bool {
 	paramsString := util.CreateParams(map[string]string{
 		"form_type": "product",
 		"utf8":      "✓",
-		"id":        task.SKU,
+		"id":        task.VariantID,
 		"quantity":  "1",
 	})
 
@@ -247,11 +248,11 @@ func (task *Task) AddToCart() bool {
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", task.BaseURL},
+			{"origin", task.SiteURL},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-site", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.BaseURL + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -292,7 +293,7 @@ func (task *Task) Checkout() bool {
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"origin", task.BaseURL},
+			{"origin", task.SiteURL},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"sec-fetch-site", "same-origin"},
@@ -343,19 +344,19 @@ func (task *Task) HandleQueue() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Client,
 		Method: "POST",
-		URL:    task.BaseURL + "/throttle/queue",
+		URL:    task.SiteURL + "/throttle/queue",
 		RawHeaders: http.RawHeader{
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"origin", task.BaseURL},
+			{"origin", task.SiteURL},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.BaseURL + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -369,7 +370,7 @@ func (task *Task) HandleQueue() bool {
 		return false
 	}
 
-	parsedBase, _ := url.Parse(task.BaseURL)
+	parsedBase, _ := url.Parse(task.SiteURL)
 	var currentToken string
 	for _, cookie := range task.Client.Jar.Cookies(parsedBase) {
 		if cookie.Name == "_checkout_queue_token" {
@@ -390,19 +391,19 @@ func (task *Task) HandleQueue() bool {
 		_, _, err := util.MakeRequest(&util.Request{
 			Client: task.Client,
 			Method: "POST",
-			URL:    task.BaseURL + "/queue/poll",
+			URL:    task.SiteURL + "/queue/poll",
 			RawHeaders: http.RawHeader{
 				{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
 				{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 				{"x-requested-with", "XMLHttpRequest"},
 				{"sec-ch-ua-mobile", "?0"},
-				{"origin", task.BaseURL},
+				{"origin", task.SiteURL},
 				{"content-type", "application/x-www-form-urlencoded"},
 				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 				{"sec-fetch-site", "same-origin"},
 				{"sec-fetch-mode", "cors"},
 				{"sec-fetch-dest", "empty"},
-				{"referer", task.BaseURL + "/"},
+				{"referer", task.SiteURL + "/"},
 				{"accept-encoding", "gzip, deflate"},
 				{"accept-language", "en-US,en;q=0.9"},
 			},
@@ -462,13 +463,13 @@ func (task *Task) SetShippingInfo() bool {
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"origin", task.BaseURL},
+			{"origin", task.SiteURL},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.BaseURL + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -493,11 +494,11 @@ func (task *Task) SetShippingRate() bool {
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
-			{"origin", task.BaseURL},
+			{"origin", task.SiteURL},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.BaseURL + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -544,13 +545,13 @@ func (task *Task) SetShippingRate() bool {
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"origin", task.BaseURL},
+			{"origin", task.SiteURL},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.BaseURL + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -599,7 +600,7 @@ func (task *Task) GetCreditID() bool {
 			Year:              expYearInt,
 			VerificationValue: task.Task.Profile.CreditCard.CVV,
 		},
-		PaymentSessionScope: task.BaseURL[7:],
+		PaymentSessionScope: task.SiteURL[7:],
 	}
 
 	creditIDResponse := CreditIDResponse{}
@@ -660,14 +661,14 @@ func (task *Task) SetPaymentInfo() bool {
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
 			{"sec-ch-ua-mobile", "?0"},
 			{"upgrade-insecure-requests", "1"},
-			{"origin", task.BaseURL},
+			{"origin", task.SiteURL},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.BaseURL + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -697,7 +698,7 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "navigate"},
 			{"sec-fetch-dest", "document"},
-			{"referer", task.BaseURL + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -731,9 +732,9 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
 		UserInfo:     user,
 		ItemName:     task.TaskInfo.Name,
-		Sku:          task.SKU,
-		Retailer:     enums.Target,
-		Price:        int(task.TaskInfo.Price),
+		Sku:          task.VariantID,
+		Retailer:     enums.Shopify,
+		Price:        float64(task.TaskInfo.Price),
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})

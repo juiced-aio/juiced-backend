@@ -82,7 +82,7 @@ const (
 	HotWheels      ShopifyRetailer = "HotWheels"
 )
 
-var ShopifyBaseURLs = map[ShopifyRetailer]string{
+var ShopifySiteURLs = map[ShopifyRetailer]string{
 	HotWheels: "https://hotwheelscollectors.com",
 }
 

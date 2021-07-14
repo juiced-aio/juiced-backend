@@ -286,13 +286,15 @@ func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWit
 		MonitorRetailer:     taskGroup.MonitorRetailer,
 		MonitorDelay:        taskGroup.MonitorDelay,
 		MonitorStatus:       taskGroup.MonitorStatus,
-		TargetMonitorInfo:   taskGroup.TargetMonitorInfo,
-		WalmartMonitorInfo:  taskGroup.WalmartMonitorInfo,
 		AmazonMonitorInfo:   taskGroup.AmazonMonitorInfo,
 		BestbuyMonitorInfo:  taskGroup.BestbuyMonitorInfo,
-		HottopicMonitorInfo: taskGroup.HottopicMonitorInfo,
 		GamestopMonitorInfo: taskGroup.GamestopMonitorInfo,
-		Tasks:               []entities.Task{},
+		HottopicMonitorInfo: taskGroup.HottopicMonitorInfo,
+		ShopifyMonitorInfo:  taskGroup.ShopifyMonitorInfo,
+		TargetMonitorInfo:   taskGroup.TargetMonitorInfo,
+		WalmartMonitorInfo:  taskGroup.WalmartMonitorInfo,
+
+		Tasks: []entities.Task{},
 	}
 	tasks := []entities.Task{}
 	for i := 0; i < len(taskGroup.TaskIDs); i++ {

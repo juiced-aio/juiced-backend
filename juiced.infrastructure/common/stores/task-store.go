@@ -12,6 +12,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
@@ -23,12 +24,14 @@ import (
 
 // TaskStore stores information about running Tasks
 type TaskStore struct {
-	TargetTasks   map[string]*target.Task
-	WalmartTasks  map[string]*walmart.Task
 	AmazonTasks   map[string]*amazon.Task
 	BestbuyTasks  map[string]*bestbuy.Task
-	HottopicTasks map[string]*hottopic.Task
 	GamestopTasks map[string]*gamestop.Task
+	HottopicTasks map[string]*hottopic.Task
+	ShopifyTasks  map[string]*shopify.Task
+	TargetTasks   map[string]*target.Task
+	WalmartTasks  map[string]*walmart.Task
+
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
 }
@@ -51,45 +54,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 	}
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
-	case enums.Target:
-		// Check if task exists in store already
-		if _, ok := taskStore.TargetTasks[task.ID]; ok {
-			return true
-		}
-		// Only return false on a query error if the task doesn't exist in the store already
-		if queryError {
-			return false
-		}
-		// Make sure necessary fields exist
-		emptyString := ""
-		if task.TargetTaskInfo.CheckoutType == emptyString || task.TargetTaskInfo.Email == emptyString || task.TargetTaskInfo.Password == emptyString || task.TargetTaskInfo.PaymentType == emptyString {
-			return false
-		}
-		// Create task
-		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.StoreID, task.TargetTaskInfo.PaymentType)
-		if err != nil {
-			return false
-		}
-		// Add task to store
-		taskStore.TargetTasks[task.ID] = &targetTask
-
-	case enums.Walmart:
-		// Check if task exists in store already
-		if _, ok := taskStore.WalmartTasks[task.ID]; ok {
-			return true
-		}
-		// Only return false on a query error if the task doesn't exist in the store already
-		if queryError {
-			return false
-		}
-		// Create task
-		walmartTask, err := walmart.CreateWalmartTask(task, profile, proxy, taskStore.EventBus)
-		if err != nil {
-			return false
-		}
-		// Add task to store
-		taskStore.WalmartTasks[task.ID] = &walmartTask
-
 	case enums.Amazon:
 		// Check if task exists in store already
 		if _, ok := taskStore.AmazonTasks[task.ID]; ok {
@@ -134,27 +98,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		// Add task to store
 		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
 
-	case enums.HotTopic:
-		// Check if task exists in store already
-		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
-			return true
-		}
-		// Only return false on a query error if the task doesn't exist in the store already
-		if queryError {
-			return false
-		}
-		// Make sure necessary fields exist
-		if len(task.HottopicTaskInfo.Pids) == 0 {
-			return false
-		}
-		// Create task
-		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxy, taskStore.EventBus)
-		if err != nil {
-			return false
-		}
-		// Add task to store
-		taskStore.HottopicTasks[task.ID] = &hottopicTask
-
 	case enums.GameStop:
 		// Check if task exists in store already
 		if _, ok := taskStore.GamestopTasks[task.ID]; ok {
@@ -178,6 +121,99 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.GamestopTasks[task.ID] = &gamestopTask
+
+	case enums.HotTopic:
+		// Check if task exists in store already
+		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if len(task.HottopicTaskInfo.Pids) == 0 {
+			return false
+		}
+		// Create task
+		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.HottopicTasks[task.ID] = &hottopicTask
+
+	case enums.Shopify:
+		// Check if task exists in store already
+		if _, ok := taskStore.ShopifyTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.ShopifyTaskInfo.SiteURL == emptyString || task.ShopifyTaskInfo.ShopifyRetailer == emptyString {
+			return false
+		}
+
+		// Shopify Site specifics
+		site := task.ShopifyTaskInfo.ShopifyRetailer
+		switch site {
+		case enums.HotWheels:
+			if task.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" && task.ShopifyTaskInfo.HotWheelsTaskInfo.Password != "" {
+				return false
+			}
+		}
+
+		// Create task
+		shopifyTask, err := shopify.CreateShopifyTask(task, profile, proxy, taskStore.EventBus, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.ShopifyTasks[task.ID] = &shopifyTask
+
+	case enums.Target:
+		// Check if task exists in store already
+		if _, ok := taskStore.TargetTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.TargetTaskInfo.CheckoutType == emptyString || task.TargetTaskInfo.Email == emptyString || task.TargetTaskInfo.Password == emptyString || task.TargetTaskInfo.PaymentType == emptyString {
+			return false
+		}
+		// Create task
+		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.StoreID, task.TargetTaskInfo.PaymentType)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.TargetTasks[task.ID] = &targetTask
+
+	case enums.Walmart:
+		// Check if task exists in store already
+		if _, ok := taskStore.WalmartTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Create task
+		walmartTask, err := walmart.CreateWalmartTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.WalmartTasks[task.ID] = &walmartTask
 
 	}
 	return true
@@ -279,20 +315,6 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 	for _, taskID := range taskGroup.TaskIDs {
 		switch taskGroup.MonitorRetailer {
 		// Future sitescripts will have a case here
-		case enums.Target:
-			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
-				if !targetTask.Task.StopFlag {
-					return true
-				}
-			}
-
-		case enums.Walmart:
-			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
-				if !walmartTask.Task.StopFlag {
-					return true
-				}
-			}
-
 		case enums.Amazon:
 			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
 				if !amazonTask.Task.StopFlag {
@@ -307,6 +329,13 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 				}
 			}
 
+		case enums.GameStop:
+			if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
+				if !gamestopTask.Task.StopFlag {
+					return true
+				}
+			}
+
 		case enums.HotTopic:
 			if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
 				if !hottopicTask.Task.StopFlag {
@@ -314,12 +343,28 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 				}
 			}
 
-		case enums.GameStop:
-			if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
-				if !gamestopTask.Task.StopFlag {
+		case enums.Shopify:
+			if shopifyTask, ok := taskStore.ShopifyTasks[taskID]; ok {
+				if !shopifyTask.Task.StopFlag {
 					return true
 				}
 			}
+			return true
+
+		case enums.Target:
+			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
+				if !targetTask.Task.StopFlag {
+					return true
+				}
+			}
+
+		case enums.Walmart:
+			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+				if !walmartTask.Task.StopFlag {
+					return true
+				}
+			}
+
 		}
 	}
 
@@ -328,18 +373,6 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 
 func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.Proxy) bool {
 	switch task.TaskRetailer {
-	case enums.Target:
-		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
-			targetTask.Task.Proxy = proxy
-		}
-		return true
-
-	case enums.Walmart:
-		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
-			walmartTask.Task.Proxy = proxy
-		}
-		return true
-
 	case enums.Amazon:
 		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {
 			amazonTask.Task.Proxy = proxy
@@ -352,17 +385,36 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.
 		}
 		return true
 
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
+			gamestopTask.Task.Proxy = proxy
+		}
+		return true
+
 	case enums.HotTopic:
 		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
 			hottopicTask.Task.Proxy = proxy
 		}
 		return true
 
-	case enums.GameStop:
-		if gamestopTask, ok := taskStore.GamestopTasks[task.ID]; ok {
-			gamestopTask.Task.Proxy = proxy
+	case enums.Shopify:
+		if shopifyTask, ok := taskStore.ShopifyTasks[task.ID]; ok {
+			shopifyTask.Task.Proxy = proxy
 		}
 		return true
+
+	case enums.Target:
+		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
+			targetTask.Task.Proxy = proxy
+		}
+		return true
+
+	case enums.Walmart:
+		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
+			walmartTask.Task.Proxy = proxy
+		}
+		return true
+
 	}
 	return false
 }
@@ -376,23 +428,27 @@ func (taskStore *TaskStore) SetWalmartCardDetails(taskID string, cardInfo walmar
 func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 	switch retailer {
 	// Future sitescripts will have a case here
-	case enums.Target:
-		go taskStore.TargetTasks[taskID].RunTask()
-
-	case enums.Walmart:
-		go taskStore.WalmartTasks[taskID].RunTask()
-
 	case enums.Amazon:
 		go taskStore.AmazonTasks[taskID].RunTask()
 
 	case enums.BestBuy:
 		go taskStore.BestbuyTasks[taskID].RunTask()
 
+	case enums.GameStop:
+		go taskStore.GamestopTasks[taskID].RunTask()
+
 	case enums.HotTopic:
 		go taskStore.HottopicTasks[taskID].RunTask()
 
-	case enums.GameStop:
-		go taskStore.GamestopTasks[taskID].RunTask()
+	case enums.Shopify:
+		go taskStore.ShopifyTasks[taskID].RunTask()
+
+	case enums.Target:
+		go taskStore.TargetTasks[taskID].RunTask()
+
+	case enums.Walmart:
+		go taskStore.WalmartTasks[taskID].RunTask()
+
 	}
 }
 
@@ -401,13 +457,15 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		TargetTasks:   make(map[string]*target.Task),
-		WalmartTasks:  make(map[string]*walmart.Task),
 		AmazonTasks:   make(map[string]*amazon.Task),
 		BestbuyTasks:  make(map[string]*bestbuy.Task),
-		HottopicTasks: make(map[string]*hottopic.Task),
 		GamestopTasks: make(map[string]*gamestop.Task),
-		EventBus:      eventBus,
+		HottopicTasks: make(map[string]*hottopic.Task),
+		ShopifyTasks:  make(map[string]*shopify.Task),
+		TargetTasks:   make(map[string]*target.Task),
+		WalmartTasks:  make(map[string]*walmart.Task),
+
+		EventBus: eventBus,
 	}
 }
 

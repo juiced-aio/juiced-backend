@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 
 	"backend.juicedbot.io/juiced.sitescripts/base"
@@ -31,11 +32,31 @@ type Task struct {
 	Task            base.Task
 	Step            Step
 	ShopifyRetailer enums.ShopifyRetailer
-	BaseURL         string
-	SKU             string
+	SiteURL         string
+	VariantID       string
+	InStockData     ShopifyInStockData
 	AccountInfo     AccountInfo
 	TaskInfo        TaskInfo
 	Client          http.Client
+}
+
+type ShopifyInStockData struct {
+	VariantID string
+	Price     float64
+	ItemName  string
+	ImageURL  string
+}
+
+// Monitor info
+type Monitor struct {
+	Monitor         base.Monitor
+	SKUsSentToTask  []string
+	RunningMonitors []string
+	OutOfStockSKUs  []string
+	VIDs            []string
+	InStock         []ShopifyInStockData
+	SiteURL         string
+	SKUWithInfo     map[string]entities.ShopifySingleMonitorInfo
 }
 
 type AccountInfo struct {
