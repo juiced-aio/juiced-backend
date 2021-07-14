@@ -20,11 +20,6 @@ import (
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
 func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
 	walmartTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return walmartTask, err
-	}
-
 	if task.TaskDelay == 0 {
 		task.TaskDelay = 2000
 	}
@@ -35,10 +30,9 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
-			Client:   client,
 		},
 	}
-	return walmartTask, err
+	return walmartTask, nil
 }
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
@@ -97,6 +91,12 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
 
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()
@@ -239,7 +239,7 @@ func (task *Task) RunTask() {
 	// 9. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	placedOrder := false
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -302,10 +302,10 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 
 // Setup sends a GET request to the BaseEndpoint
 func (task *Task) Setup() bool {
-	_, _, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
-		URL:    BaseEndpoint,
+		URL:    BlockedToBaseEndpoint,
 		RawHeaders: [][2]string{
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"accept-encoding", "gzip, deflate, br"},
@@ -322,6 +322,13 @@ func (task *Task) Setup() bool {
 	})
 	if err != nil {
 		log.Println("Setup error: " + err.Error())
+	}
+	if strings.Contains(resp.Request.URL.String(), "blocked") {
+		handled := task.HandlePXCap(resp, BaseEndpoint)
+		if handled {
+			task.PublishEvent(enums.SettingUp, enums.TaskUpdate)
+		}
+		return false
 	}
 
 	return err == nil
@@ -822,7 +829,7 @@ func (task *Task) SetPaymentInfo() bool {
 
 // PlaceOrder completes the checkout process
 func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	data := PlaceOrderRequest{
 		CvvInSession: true,

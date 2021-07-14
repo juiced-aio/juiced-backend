@@ -94,7 +94,7 @@ type ProcessCheckoutInfo struct {
 	ItemName     string
 	Sku          string
 	Retailer     string
-	Price        int
+	Price        float64
 	Quantity     int
 	MsToCheckout int64
 }

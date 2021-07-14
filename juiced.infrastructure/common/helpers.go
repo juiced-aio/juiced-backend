@@ -43,6 +43,7 @@ func RemoveFromSlice(s []string, x string) []string {
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
 var runes = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var runesWithLower = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz123456789")
 
 func FindInString(str string, start string, end string) (string, error) {
 	comp := regexp.MustCompile(fmt.Sprintf("%v(.*?)%v", start, end))
@@ -70,6 +71,15 @@ func RandID(n int) string {
 	return string(b)
 }
 
+// RandString returns a random n-digit string of digits and uppercase/lowercase letters
+func RandString(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = runesWithLower[seededRand.Intn(len(runesWithLower))]
+	}
+	return string(b)
+}
+
 var database *sqlx.DB
 
 // InitDatabase initializes the database singleton
@@ -89,6 +99,9 @@ func InitDatabase() error {
 
 	for _, schema := range schemas {
 		_, err = database.Exec(schema)
+		if err != nil {
+			fmt.Println(err)
+		}
 		tableName, _ := FindInString(schema, "EXISTS ", " \\(")
 		missing, extra := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
 		for i := range extra {
@@ -102,7 +115,13 @@ func InitDatabase() error {
 
 		for i := range missing {
 			missingSplit := strings.Split(missing[i], "|")
-			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT ''", tableName, missingSplit[0], missingSplit[1]))
+			if strings.Contains(missing[i], "TEXT") {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT ''", tableName, missingSplit[0], missingSplit[1]))
+			} else if strings.Contains(missing[i], "INTEGER") {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v DEFAULT 0", tableName, missingSplit[0], missingSplit[1]))
+			} else {
+				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v", tableName, missingSplit[0], missingSplit[1]))
+			}
 			if err != nil {
 				fmt.Println(err)
 				return err
@@ -110,7 +129,10 @@ func InitDatabase() error {
 		}
 
 	}
-
+	_, err = database.Exec("DELETE FROM checkouts WHERE time < 1625782953")
+	if err != nil {
+		fmt.Println(err)
+	}
 	return err
 }
 
@@ -189,4 +211,48 @@ func CompareColumns(x []string, y []string) ([]string, []string) {
 	}
 
 	return missing, extra
+}
+
+func DetectCardType(cardNumber []byte) string {
+	matched, _ := regexp.Match(`^4`, cardNumber)
+	if matched {
+		return "Visa"
+	}
+
+	matched, _ = regexp.Match(`^(5[1-5][0-9]{14}|2(22[1-9][0-9]{12}|2[3-9][0-9]{13}|[3-6][0-9]{14}|7[0-1][0-9]{13}|720[0-9]{12}))$`, cardNumber)
+	if matched {
+		return "Mastercard"
+	}
+
+	matched, _ = regexp.Match(`^3[47]`, cardNumber)
+	if matched {
+		return "AMEX"
+	}
+
+	matched, _ = regexp.Match(`^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)`, cardNumber)
+	if matched {
+		return "Discover"
+	}
+
+	matched, _ = regexp.Match(`^36`, cardNumber)
+	if matched {
+		return "Diners"
+	}
+
+	matched, _ = regexp.Match(`^30[0-5]`, cardNumber)
+	if matched {
+		return "Diners - Carte Blanche"
+	}
+
+	matched, _ = regexp.Match(`^35(2[89]|[3-8][0-9])`, cardNumber)
+	if matched {
+		return "JCB"
+	}
+
+	matched, _ = regexp.Match(`^(4026|417500|4508|4844|491(3|7))`, cardNumber)
+	if matched {
+		return "Visa Electron"
+	}
+
+	return ""
 }

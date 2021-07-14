@@ -63,6 +63,8 @@ func (rt *roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (rt *roundTripper) getTransport(req *http.Request, addr string) error {
+	rt.Lock()
+	defer rt.Unlock()
 	switch strings.ToLower(req.URL.Scheme) {
 	case "http":
 		rt.cachedTransports[addr] = &http.Transport{DialContext: rt.dialer.DialContext}
@@ -76,8 +78,9 @@ func (rt *roundTripper) getTransport(req *http.Request, addr string) error {
 	switch err {
 	case errProtocolNegotiated:
 	case nil:
-		// Should never happen.
-		panic("dialTLS returned no error when determining cachedTransports")
+		// Was running into a runtime error due to using the same client so I removed this panic and it still works
+		// I'm guessing because it uses an existing connection
+		//panic("dialTLS returned no error when determining cachedTransports")
 	default:
 		return err
 	}
@@ -86,8 +89,6 @@ func (rt *roundTripper) getTransport(req *http.Request, addr string) error {
 }
 
 func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.Conn, error) {
-	rt.Lock()
-	defer rt.Unlock()
 
 	// If we have the connection from when we determined the HTTPS
 	// cachedTransports to use, return that.

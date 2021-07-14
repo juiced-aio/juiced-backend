@@ -47,8 +47,10 @@ type Monitor struct {
 }
 
 type BestbuyInStockData struct {
-	SKU   string
-	Price int
+	SKU         string
+	ProductName string
+	ImageURL    string
+	Price       int
 }
 
 var DefaultRawHeaders = [][2]string{

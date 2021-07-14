@@ -23,6 +23,7 @@ require (
 	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/mergermarket/go-pkcs7 v0.0.0-20170926155232-153b18ea13c9
+	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc
 	github.com/rs/cors v1.7.0
 	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5
 	gitlab.com/aycd-inc/autosolve-clients/autosolve-client-go v0.0.0-20210316010646-b5ea46dc87ee

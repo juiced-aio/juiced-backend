@@ -9,6 +9,7 @@ import (
 type Monitor struct {
 	TaskGroup  *entities.TaskGroup
 	Proxy      entities.Proxy
+	Proxies    []entities.Proxy
 	EventBus   *events.EventBus
 	Client     http.Client
 	StopFlag   bool

@@ -2,7 +2,11 @@ package hottopic
 
 import (
 	"fmt"
+	"math/rand"
 	"strconv"
+	"sync"
+
+	"backend.juicedbot.io/juiced.client/client"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -15,7 +19,7 @@ import (
 )
 
 // CreateHottopicMonitor takes a TaskGroup entity and turns it into a Hottopic Monitor
-func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
+func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
 	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
 	hottopicMonitor := Monitor{}
 
@@ -34,7 +38,7 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxy entities.Proxy, 
 			hottopicMonitor = Monitor{
 				Monitor: base.Monitor{
 					TaskGroup: taskGroup,
-					Proxy:     proxy,
+					Proxies:   proxies,
 					EventBus:  eventBus,
 				},
 				Pids: pids,
@@ -67,28 +71,56 @@ func (monitor *Monitor) RunMonitor() {
 	if needToStop {
 		return
 	}
-	for _, pid := range monitor.Pids {
-		stockData := HotTopicInStockData{}
-		switch monitor.PidWithInfo[pid.Pid].MonitorType {
-		case enums.SKUMonitor:
-			stockData = monitor.StockMonitor(pid)
-		}
-		if stockData.PID != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.PID == stockData.PID
-			}
-			if !inSlice {
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-			}
-		}
 
+	if monitor.Monitor.Client.Transport == nil {
+		monitorClient, err := util.CreateClient()
+		if err != nil {
+			return
+		}
+		monitor.Monitor.Client = monitorClient
+
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
 	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(monitor.Pids))
+	for _, pid := range monitor.Pids {
+		go func(x PidSingle) {
+			monitor.RunSingleMonitor(x)
+			wg.Done()
+		}(pid)
+	}
+	wg.Wait()
+}
+
+func (monitor *Monitor) RunSingleMonitor(pid PidSingle) {
+	stockData := HotTopicInStockData{}
+
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
+	switch monitor.PidWithInfo[pid.Pid].MonitorType {
+	case enums.SKUMonitor:
+		stockData = monitor.StockMonitor(pid)
+	}
+	if stockData.PID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.PID == stockData.PID
+		}
+		if !inSlice {
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid.Pid)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
+		}
+	}
+	monitor.RunSingleMonitor(pid)
 }
 
 func (monitor *Monitor) StockMonitor(pid PidSingle) HotTopicInStockData {
