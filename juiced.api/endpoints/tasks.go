@@ -246,6 +246,27 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							}
 							taskGroup.GamestopMonitorInfo.Monitors = newMonitors
 
+						case enums.HotTopic:
+							maxPrice := -1
+							if len(taskGroup.HottopicMonitorInfo.Monitors) > 0 {
+								maxPrice = taskGroup.HottopicMonitorInfo.Monitors[0].MaxPrice
+							}
+
+							newMonitors := make([]entities.HottopicSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, pid := range pids {
+									monitor := entities.HottopicSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										Pid:         pid,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.HottopicMonitorInfo.Monitors = newMonitors
+
 						case enums.Target:
 							maxPrice := -1
 							if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {

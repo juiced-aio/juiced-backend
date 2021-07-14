@@ -79,6 +79,14 @@ var gamestopTaskInfosSchema = `
 	)
 `
 
+var hottopicTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		pidsJoined TEXT
+	)
+`
+
 var taskGroupsSchema = `
 	CREATE TABLE IF NOT EXISTS taskGroups (
 		groupID TEXT,
@@ -169,6 +177,25 @@ var gamestopSingleMonitorInfosSchema = `
 		taskGroupID TEXT,
 		sku TEXT,
 		maxPrice INTEGER
+	)
+`
+
+var hottopicMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var hottopicSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
 	)
 `
 
@@ -299,6 +326,7 @@ var schemas = []string{
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
 	gamestopTaskInfosSchema,
+	hottopicTaskInfosSchema,
 	taskGroupsSchema,
 	targetMonitorInfosSchema,
 	targetSingleMonitorInfosSchema,
@@ -309,6 +337,8 @@ var schemas = []string{
 	bestbuySingleMonitorInfosSchema,
 	gamestopMonitorInfosSchema,
 	gamestopSingleMonitorInfosSchema,
+	hottopicMonitorInfosSchema,
+	hottopicSingleMonitorInfosSchema,
 	proxyGroupsSchema,
 	proxysSchema,
 	profileGroupsSchema,

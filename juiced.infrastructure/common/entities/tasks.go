@@ -14,7 +14,7 @@ type Task struct {
 	TaskProfileID    string           `json:"profileID" db:"profileID"`
 	TaskProxyGroupID string           `json:"proxyGroupID" db:"proxyGroupID"`
 	TaskRetailer     enums.Retailer   `json:"retailer" db:"retailer"`
-	TaskSize         []string         `json:"size" db:"size"`
+	TaskSize         []string         `json:"size"`
 	TaskSizeJoined   string           `json:"sizeJoined" db:"sizeJoined"`
 	TaskQty          int              `json:"qty" db:"qty"`
 	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
@@ -32,7 +32,8 @@ type Task struct {
 type HottopicTaskInfo struct {
 	TaskID      string   `json:"taskID" db:"taskID"`
 	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
-	Pids        []string `json:"pids" db:"pids"`
+	Pids        []string `json:"pids"`
+	PidsJoined  string   `json:"pidsJoined" db:"pidsJoined"`
 }
 
 type TargetTaskInfo struct {
@@ -199,12 +200,13 @@ type BestbuyMonitorInfo struct {
 type HottopicSingleMonitorInfo struct {
 	MonitorID   string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
-	Pid         string            `json:"pids" db:"pids"`
+	Pid         string            `json:"pid" db:"pid"`
 	Size        string            `json:"size" db:"size"`
 	Color       string            `json:"color" db:"color"`
 	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
 	MonitorType enums.MonitorType `json:"monitorType" db:"monitorType"`
 }
+
 type HottopicMonitorInfo struct {
 	ID          string                      `json:"ID" db:"ID"`
 	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
