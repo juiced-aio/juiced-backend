@@ -183,10 +183,12 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
+//Login and retrieve access code for auth cookie
 func (task *Task) Login() bool {
 	return true
 }
 
+//add product to cart passed from monitor via checkoutinfo
 func (task *Task) AddToCart() bool {
 	//Setup request using data passed from 'Instock' data to the tasks 'Checkout data' (Done in monitor-store)
 	addToCartRequest := AddToCartRequest{ProductUri: task.CheckoutInfo.AddToCartForm, Quantity: 1, Configuration: ""}
@@ -229,39 +231,50 @@ func (task *Task) AddToCart() bool {
 
 	switch resp.StatusCode {
 	case 200:
-		switch addToCartResponse.Type {
-		case "carts.line-item":
-			//instock
-			return true
-		default:
-			//anything else is out of stock but we can get specific if need be, For example captcha
-			return false
+		if addToCartResponse.Type == "carts.line-item" {
+			//we must check quantity as if logged in it could have previously stored items.
+			if addToCartResponse.Quantity != 1 {
+				//If guest, remove cookies get new auth ID
+				//If logged in, Empty cart or alert user
+			} else {
+				//instock
+				return true
+			}
 		}
-	default:
-		return false
 	}
+	//If we reached this point we are out of stock.
+	return false
 }
 
+//only needs doing on guest
 func (task *Task) SubmitEmailAddress() bool {
 	return true
 }
 
+//only needs doing on guest
 func (task *Task) SubmitAddressDetailsValidate() bool {
+	//This task isn't 'needed' pe se, IF there is an issue with the address formatting this will tell us
+	//The submitAddressDetails will not and seemingly always gives the same response, even if it hasn't worked.
 	return true
 }
 
+//only needs doing on guest
 func (task *Task) SubmitAddressDetails() bool {
+	//If user is logged in and has address details on teh account then we dont need to submit address details
 	return true
 }
 
+//GET request to retrieve paymentKey used for encryption
 func (task *Task) GetPaymentKeyId() bool {
 	return true
 }
 
+//Where we post encrypted payment details too
 func (task *Task) SubmitPaymentDetails() bool {
 	return true
 }
 
+//Checkout - self explanitory
 func (task *Task) Checkout() bool {
 	return true
 }
