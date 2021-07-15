@@ -248,8 +248,6 @@ func (task *Task) Login() bool {
 	case 200:
 		return true
 	}
-
-	//If we reached this point we are out of stock.
 	return false
 }
 
@@ -312,15 +310,11 @@ func (task *Task) AddToCart() bool {
 	return false
 }
 
-//only needs doing on guest
 func (task *Task) SubmitEmailAddress() bool {
-	//This task isn't 'needed' pe se, IF there is an issue with the address formatting this will tell us
-	//The submitAddressDetails will not and seemingly always gives the same response, even if it hasn't worked.
 	email := Email{
-		Email: "theemailaddress@email.com",
+		Email: task.Task.Profile.Email,
 	}
 
-	//json marshal this for content length.
 	emailBytes, err := json.Marshal(email)
 	if err != nil {
 		log.Fatal("Marshal payload failed with error " + err.Error())
@@ -360,10 +354,7 @@ func (task *Task) SubmitEmailAddress() bool {
 	return false
 }
 
-//only needs doing on guest
 func (task *Task) SubmitAddressDetailsValidate() bool {
-	//This task isn't 'needed' pe se, IF there is an issue with the address formatting this will tell us
-	//The submitAddressDetails will not and seemingly always gives the same response, even if it hasn't worked.
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
 			FamilyName:      task.Task.Profile.BillingAddress.LastName,
@@ -429,9 +420,7 @@ func (task *Task) SubmitAddressDetailsValidate() bool {
 	return false
 }
 
-//only needs doing on guest
 func (task *Task) SubmitAddressDetails() bool {
-	//If user is logged in and has address details on teh account then we dont need to submit address details
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
 			FamilyName:      task.Task.Profile.BillingAddress.LastName,
@@ -457,7 +446,6 @@ func (task *Task) SubmitAddressDetails() bool {
 		},
 	}
 
-	//json marshal this for content length.
 	submitAddressRequestBytes, err := json.Marshal(submitAddressRequest)
 	if err != nil {
 		log.Fatal("Marshal payload failed with error " + err.Error())
@@ -526,8 +514,6 @@ func (task *Task) GetPaymentKeyId() bool {
 		fmt.Println(err.Error())
 	}
 
-	//need to do someting with payment key.
-
 	switch resp.StatusCode {
 	case 200:
 		task.CyberSecureInfo.PublicKey = paymentKeyResponse.KeyId
@@ -564,8 +550,6 @@ func (task *Task) GetAuthId() bool {
 		fmt.Println(err.Error())
 	}
 
-	//need to do someting with payment key.
-
 	switch resp.StatusCode {
 	case 200:
 		rawHeader := resp.Header.Get("Set-Cookie")
@@ -581,12 +565,11 @@ func (task *Task) GetAuthId() bool {
 	return false
 }
 
-//Where we post encrypted payment details too
 func (task *Task) SubmitPaymentDetails() bool {
 	//Payment display example: "Visa 02/2026"
 	paymentDetails := PaymentDetails{PaymentDisplay: task.Task.Profile.CreditCard.CardType + task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear, PaymentKey: task.CyberSecureInfo.PublicKey, PaymentToken: task.CyberSecureInfo.JtiToken}
 	submitPaymentResponse := SubmitPaymentResponse{}
-	//json marshal this for content length.
+
 	paymentDetailsBytes, err := json.Marshal(paymentDetails)
 	if err != nil {
 		log.Fatal("Marshal payload failed with error " + err.Error())
@@ -627,7 +610,7 @@ func (task *Task) SubmitPaymentDetails() bool {
 	return false
 }
 
-//Uses encrypted key to get the private key
+//Uses encrypted public key to get the private key
 func (task *Task) RetrieveToken() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -668,7 +651,6 @@ func (task *Task) RetrieveToken() bool {
 func (task *Task) Checkout() bool {
 	checkoutDetailsRequest := CheckoutDetailsRequest{PurchaseFrom: strings.Replace(task.CheckoutInfo.CheckoutUri, "paymentmethods", "purchases", 1) + "/form"}
 
-	//json marshal this for content length.
 	submitAddressRequestBytes, err := json.Marshal(checkoutDetailsRequest)
 	if err != nil {
 		log.Fatal("Marshal payload failed with error " + err.Error())
