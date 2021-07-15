@@ -91,8 +91,8 @@ type CheckoutInfo struct {
 }
 
 type AddToCartRequest struct {
-	ProductUri    string `json:"productUri`
-	Quantity      int    `json:"quantity`
+	ProductUri    string `json:"productUri"`
+	Quantity      int    `json:"quantity"`
 	Configuration string `json:"configuration"`
 }
 
