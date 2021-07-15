@@ -236,11 +236,11 @@ func (task *Task) AddToCart() bool {
 
 // Submit email address
 func (task *Task) SubmitEmailAddress() bool {
-	email := Email{
+	emailRequest := EmailRequest{
 		Email: task.Task.Profile.Email,
 	}
 
-	emailBytes, err := json.Marshal(email)
+	emailBytes, err := json.Marshal(emailRequest)
 	if err != nil {
 		log.Fatal("Marshal payload failed with error " + err.Error())
 	}
@@ -265,7 +265,7 @@ func (task *Task) SubmitEmailAddress() bool {
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
-		RequestBodyStruct: &email,
+		RequestBodyStruct: &emailRequest,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -414,10 +414,10 @@ func (task *Task) SubmitAddressDetails() bool {
 // Submit payment details
 func (task *Task) SubmitPaymentDetails() bool {
 	//Payment display example: "Visa 02/2026"
-	paymentDetails := PaymentDetails{PaymentDisplay: task.Task.Profile.CreditCard.CardType + task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear, PaymentKey: task.CyberSecureInfo.PublicKey, PaymentToken: task.CyberSecureInfo.JtiToken}
+	submitPaymentRequest := SubmitPaymentRequest{PaymentDisplay: task.Task.Profile.CreditCard.CardType + task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear, PaymentKey: task.CyberSecureInfo.PublicKey, PaymentToken: task.CyberSecureInfo.JtiToken}
 	submitPaymentResponse := SubmitPaymentResponse{}
 
-	paymentDetailsBytes, err := json.Marshal(paymentDetails)
+	paymentDetailsBytes, err := json.Marshal(submitPaymentRequest)
 	if err != nil {
 		log.Fatal("Marshal payload failed with error " + err.Error())
 	}
@@ -442,7 +442,7 @@ func (task *Task) SubmitPaymentDetails() bool {
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
-		RequestBodyStruct:  &paymentDetails,
+		RequestBodyStruct:  &submitPaymentRequest,
 		ResponseBodyStruct: &submitPaymentResponse,
 	})
 	if err != nil {
@@ -539,8 +539,6 @@ func (task *Task) RetrievePublicKey() bool {
 
 // When using guest account retrieves the auth ID generated when you go on cart
 func (task *Task) RetrieveGuestAuthId() bool {
-	paymentKeyResponse := PaymentKeyResponse{}
-
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
@@ -560,7 +558,6 @@ func (task *Task) RetrieveGuestAuthId() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		ResponseBodyStruct: &paymentKeyResponse,
 	})
 	if err != nil {
 		fmt.Println(err.Error())

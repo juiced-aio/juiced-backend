@@ -36,14 +36,6 @@ type Monitor struct {
 	SKUWithInfo     map[string]entities.PokemonCenterSingleMonitorInfo
 }
 
-type PokemonCenterInStockData struct {
-	SKU           string
-	Price         float64
-	ItemName      string
-	AddToCartForm string
-	ImageURL      string
-}
-
 type MonitorResponse struct {
 	Props struct {
 		IsServer     bool
@@ -65,7 +57,15 @@ type MonitorResponse struct {
 	}
 }
 
-// Task info
+//Populated when item comes into stock, then populates checkout info
+type PokemonCenterInStockData struct {
+	SKU           string
+	Price         float64
+	ItemName      string
+	AddToCartForm string
+	ImageURL      string
+}
+
 type Task struct {
 	Task            base.Task
 	CheckoutInfo    CheckoutInfo
@@ -73,6 +73,7 @@ type Task struct {
 	AccessToken     string
 }
 
+//Info used for payment encryption
 type CyberSecureInfo struct {
 	PublicKey   string
 	PublicToken string
@@ -80,6 +81,7 @@ type CyberSecureInfo struct {
 	JtiToken    string
 }
 
+//Info used for checkout
 type CheckoutInfo struct {
 	AddToCartForm string
 	ImageURL      string
@@ -89,22 +91,12 @@ type CheckoutInfo struct {
 	CheckoutUri   string
 }
 
-type AddToCartRequest struct {
-	ProductUri    string `json:"productUri"`
-	Quantity      int    `json:"quantity"`
-	Configuration string `json:"configuration"`
+//Used to Retrieve the GuestAuthId
+type AccessToken struct {
+	Access_token string
 }
 
-type AddToCartResponse struct {
-	Type     string `json:"type"`
-	Quantity int    `json:"quantity"`
-}
-
-type SubmitAddressRequest struct {
-	Shipping Address `json:"shipping"`
-	Billing  Address `json:"billing"`
-}
-
+//Used in a couple of requests
 type Address struct {
 	FamilyName      string `json:"familyName"`
 	GivenName       string `json:"givenName"`
@@ -115,75 +107,4 @@ type Address struct {
 	PostalCode      string `json:"postalCode"`
 	CountryName     string `json:"countryName"`
 	PhoneNumber     string `json:"phoneNumber"`
-}
-
-type Email struct {
-	Email string `json:"email"`
-}
-
-type PaymentKeyResponse struct {
-	KeyId string `json:"keyId"`
-}
-
-type PaymentToken struct {
-	Jti string `json:"jti"`
-}
-
-type Encrypt struct {
-	Flx struct {
-		Jwk struct {
-			Kty string
-			E   string
-			Use string
-			N   string
-			Kid string
-		}
-	}
-}
-
-type RSA struct {
-	Kty string `json:"kty"`
-	E   string `json:"e"`
-	Use string `json:"use"`
-	Kid string `json:"kid"`
-	N   string `json:"n"`
-}
-
-type Header__ struct {
-	Kid string `json:"kid"`
-	Jwk RSA    `json:"jwk"`
-}
-
-type EncryptedObject struct {
-	Context string `json:"context"`
-	Index   int    `json:"index"`
-	Data    Card   `json:"data"`
-}
-
-type Card struct {
-	SecurityCode string `json:"securityCode"`
-	Number       string `json:"number"`
-	Type         string `json:"type"`
-	ExpMonth     string `json:"expMonth"`
-	ExpYear      string `json:"expYear"`
-}
-
-type CheckoutDetailsRequest struct {
-	PurchaseFrom string `json:"purchaseForm"`
-}
-
-type PaymentDetails struct {
-	PaymentDisplay string `json:"paymentDisplay"`
-	PaymentKey     string `json:"paymentKey"`
-	PaymentToken   string `json:"paymentToken"`
-}
-
-type SubmitPaymentResponse struct {
-	Self struct {
-		Uri string
-	}
-}
-
-type AccessToken struct {
-	Access_token string
 }
