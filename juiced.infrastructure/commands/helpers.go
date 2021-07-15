@@ -100,6 +100,31 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+
+	case enums.BoxLunch:
+		statement, err := database.Preparex(`INSERT INTO boxlunchMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.BoxLunchMonitorInfo.ID = monitorID
+		taskGroup.BoxLunchMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.BoxLunchMonitorInfo.ID, taskGroup.BoxLunchMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.BoxLunchMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO boxlunchSingleMonitorInfos (monitorID, taskGroupID, pid, size, color, maxPrice, monitorType) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.Pid, monitor.Size, monitor.Color, monitor.MaxPrice, monitor.MonitorType)
+			if err != nil {
+				return err
+			}
+		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`INSERT INTO gamestopMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
@@ -144,6 +169,9 @@ func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 	case enums.BestBuy:
 		monitorInfoSchema = "bestbuyMonitorInfos"
 		singleMonitorInfoSchema = "bestbuySingleMonitorInfos"
+	case enums.BoxLunch:
+		monitorInfoSchema = "boxlunchMonitorInfos"
+		singleMonitorInfoSchema = "boxlunchSingleMonitorInfos"
 	case enums.GameStop:
 		monitorInfoSchema = "gamestopMonitorInfos"
 		singleMonitorInfoSchema = "gamestopSingleMonitorInfos"
@@ -222,6 +250,20 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+
+	case enums.BoxLunch:
+		statement, err := database.Preparex(`INSERT INTO boxlunchTaskInfos (taskID, taskGroupID, pidsJoined) VALUES (?, ?, ?)`)
+		if err != nil {
+			return err
+		}
+
+		task.BoxLunchTaskInfo.PidsJoined = strings.Join(task.BoxLunchTaskInfo.Pids, ",")
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.BoxLunchTaskInfo.PidsJoined)
+		if err != nil {
+			return err
+		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`INSERT INTO gamestopTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -246,6 +288,8 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 		taskInfoSchema = "amazonTaskInfos"
 	case enums.BestBuy:
 		taskInfoSchema = "bestbuyTaskInfos"
+	case enums.BoxLunch:
+		taskInfoSchema = "boxlunchTaskInfos"
 	case enums.GameStop:
 		taskInfoSchema = "gamestopTaskInfos"
 	}

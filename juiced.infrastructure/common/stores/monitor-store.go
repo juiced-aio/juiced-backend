@@ -97,11 +97,11 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		if len(monitor.BoxlunchMonitorInfo.Monitors) == 0 {
+		if len(monitor.BoxLunchMonitorInfo.Monitors) == 0 {
 			return false
 		}
 
-		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
+		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxLunchMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}
@@ -274,6 +274,12 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 		}
 		return true
 
+	case enums.BoxLunch:
+		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+			boxlunchMonitor.Monitor.StopFlag = true
+		}
+		return true
+
 	case enums.GameStop:
 		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
 			gamestopMonitor.Monitor.StopFlag = true
@@ -317,6 +323,7 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 			bestbuyMonitor.Monitor.Proxy = proxy
 		}
 		return true
+
 	case enums.BoxLunch:
 		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
 			boxlunchMonitor.Monitor.StopFlag = true
