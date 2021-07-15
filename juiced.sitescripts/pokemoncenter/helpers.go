@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	jose "github.com/dvsekhvalnov/jose2go"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -166,4 +168,20 @@ func retrievePaymentToken(keyId string) (jti string) {
 		fmt.Println(err)
 	}
 	return encrypt.Jti
+}
+
+//Helps to keep RunTask readable
+func ExecuteTaskLoop(task *Task, status string, runTask bool) {
+	task.PublishEvent(status, enums.TaskUpdate)
+	taskRun := false
+	for !taskRun {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		taskRun = runTask
+		if !taskRun {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
 }

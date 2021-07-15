@@ -48,6 +48,21 @@ func (task *Task) CheckForStop() bool {
 	return false
 }
 
+func ExecuteTaskLoop(task *Task, status string, runTask bool) {
+	task.PublishEvent(status, enums.TaskUpdate)
+	taskRun := false
+	for !taskRun {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		taskRun = runTask
+		if !taskRun {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+}
+
 // RunTask is the script driver that calls all the individual requests
 // Function order:
 // 		1. WaitForMonitor
@@ -79,116 +94,40 @@ func (task *Task) RunTask() {
 	//We do this by logging in or by doing a 'get' on the cart and parsing the set-cookie header.
 	UseAccountLogin := false //this needs to come from the front end user selection somewhere
 
-	task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
-	loggedIn := false
-	needToStop = task.CheckForStop()
-	if needToStop {
-		return
-	}
+	// 1. Login or get auth token if guest
 	if UseAccountLogin {
-		loggedIn = task.Login()
+		ExecuteTaskLoop(task, enums.LoggingIn, task.Login())
 	} else {
-		loggedIn = task.GetAuthId()
-	}
-	if !loggedIn {
-		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-	} else {
-		//Set auth cookie, might do in task itself.
+		ExecuteTaskLoop(task, enums.LoggingIn, task.RetrieveGuestAuthId())
 	}
 
-	//now were logged in we can add item to cart
 	// 2. AddToCart
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
-	addedToCart := false
-	for !addedToCart {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		addedToCart = task.AddToCart()
-		if !addedToCart {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-	//If we are logged in we can skip address details else do this
+	ExecuteTaskLoop(task, enums.AddingToCart, task.AddToCart())
+
 	if !UseAccountLogin {
-		// 3. GetCartInfo
-		task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-		gotCartInfo := false
-		for !gotCartInfo {
-			needToStop := task.CheckForStop()
-			if needToStop {
-				return
-			}
-			gotCartInfo = task.SubmitAddressDetails()
-			if !gotCartInfo {
-				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-			}
-		}
-	}
-	//Set the paymentKeyId for payment encryption
-	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)
-	getPaymentKey := false
-	for !getPaymentKey {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		getPaymentKey = task.GetPaymentKeyId()
-		if !getPaymentKey {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
+		// 3. Submit address details - Skip if logged in
+		ExecuteTaskLoop(task, enums.AddingToCart, task.SubmitEmailAddress())
+		// 4. Submit address details - Skip if logged in
+		ExecuteTaskLoop(task, enums.AddingToCart, task.SubmitAddressDetails())
 	}
 
-	//Now we have the public payment key, encrypt using CyberSecure encrpytion
+	// 5.A. Set public key for payment encryption
+	ExecuteTaskLoop(task, enums.AddingToCart, task.RetrievePublicKey())
+
+	// 5.B. Now we have the public payment key, encrypt using CyberSecure encrpytion
 	task.CyberSecureInfo.PublicToken = CyberSourceV2(task.CyberSecureInfo.PublicKey)
-	//Now we post this key to cyber secure to retrieve the token
 
-	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
-	retrieveKey := false
-	for !retrieveKey {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		retrieveKey = task.RetrieveToken()
-		if !retrieveKey {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-	//Now that we have the token we can retrieve the JTI token from this.
+	// 5.C. Now we post this key to cyber secure to retrieve the token
+	ExecuteTaskLoop(task, enums.AddingToCart, task.RetrieveToken())
+
+	// 5.D. Now that we have the token we can retrieve the JTI token from this.
 	task.CyberSecureInfo.JtiToken = retrievePaymentToken(task.CyberSecureInfo.Privatekey)
 
-	//Now we have the public key and JTI Token we can submit the payment information
+	// 5.E. SubmitPaymentInfo - Now we have the public key and JTI Token we can submit the payment information
+	ExecuteTaskLoop(task, enums.AddingToCart, task.SubmitPaymentDetails())
 
-	// 4. SubmitPaymentInfo
-	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
-	submitPayment := false
-	for !submitPayment {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		submitPayment = task.SubmitPaymentDetails()
-		if !submitPayment {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-
-	//now we can checkout
-	// 5. checkout
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
-	checkout := false
-	for !checkout {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		checkout = task.Checkout()
-		if !checkout {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
+	// 6. Checkout
+	ExecuteTaskLoop(task, enums.AddingToCart, task.Checkout())
 
 	endTime := time.Now()
 
