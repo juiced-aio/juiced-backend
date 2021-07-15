@@ -82,7 +82,6 @@ type CyberSecureInfo struct {
 
 type CheckoutInfo struct {
 	AddToCartForm string
-	AuthId        string
 	ImageURL      string
 	Price         float64
 	ItemName      string

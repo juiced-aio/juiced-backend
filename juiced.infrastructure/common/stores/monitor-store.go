@@ -516,7 +516,7 @@ func (monitorStore *MonitorStore) CheckPokemonCenterMonitorStock() {
 						if ok && pokemonCenterTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(pokemonCenterMonitor.InStock))
 							pokemonCenterTask.CheckoutInfo.AddToCartForm = pokemonCenterMonitor.InStock[randomNumber].AddToCartForm
-							pokemonCenterTask.CheckoutInfo.Sku = pokemonCenterMonitor.InStock[randomNumber].SKU
+							pokemonCenterTask.CheckoutInfo.SKU = pokemonCenterMonitor.InStock[randomNumber].SKU
 							pokemonCenterTask.CheckoutInfo.ItemName = pokemonCenterMonitor.InStock[randomNumber].ItemName
 							pokemonCenterTask.CheckoutInfo.ImageURL = pokemonCenterMonitor.InStock[randomNumber].ImageURL
 							pokemonCenterTask.CheckoutInfo.Price = pokemonCenterMonitor.InStock[randomNumber].Price

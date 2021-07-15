@@ -250,7 +250,6 @@ func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) bool {
 	// Set the tasks StopFlags to true
 	for _, taskID := range taskGroup.TaskIDs {
 		taskStore.SetStopFlag(taskGroup.MonitorRetailer, taskID, true)
-
 	}
 
 	return true
