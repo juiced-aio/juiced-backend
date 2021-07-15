@@ -209,7 +209,7 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
-//Login and retrieve access code for auth cookie
+// Login and retrieve access code for auth cookie
 func (task *Task) Login() bool {
 	params := url.Values{}
 	params.Add("username", "anthonyreeder123@gmail.com")
@@ -251,7 +251,7 @@ func (task *Task) Login() bool {
 	return false
 }
 
-//add product to cart passed from monitor via checkoutinfo
+// Add product to cart passed from monitor via checkoutinfo
 func (task *Task) AddToCart() bool {
 	//Setup request using data passed from 'Instock' data to the tasks 'Checkout data' (Done in monitor-store)
 	addToCartRequest := AddToCartRequest{ProductUri: task.CheckoutInfo.AddToCartForm, Quantity: 1, Configuration: ""}
@@ -310,6 +310,7 @@ func (task *Task) AddToCart() bool {
 	return false
 }
 
+// Submit email address
 func (task *Task) SubmitEmailAddress() bool {
 	email := Email{
 		Email: task.Task.Profile.Email,
@@ -354,6 +355,7 @@ func (task *Task) SubmitEmailAddress() bool {
 	return false
 }
 
+// Validate address details (not needed but might be useful if there are problems later)
 func (task *Task) SubmitAddressDetailsValidate() bool {
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
@@ -420,6 +422,7 @@ func (task *Task) SubmitAddressDetailsValidate() bool {
 	return false
 }
 
+// Submit address details
 func (task *Task) SubmitAddressDetails() bool {
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
@@ -484,87 +487,7 @@ func (task *Task) SubmitAddressDetails() bool {
 	return false
 }
 
-//GET request to retrieve paymentKey used for encryption
-func (task *Task) GetPaymentKeyId() bool {
-	paymentKeyResponse := PaymentKeyResponse{}
-
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "GET",
-		URL:    fmt.Sprintf(PaymentKeyEndpoint),
-		RawHeaders: [][2]string{
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"accept", "*/*"},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
-		},
-		ResponseBodyStruct: &paymentKeyResponse,
-	})
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	switch resp.StatusCode {
-	case 200:
-		task.CyberSecureInfo.PublicKey = paymentKeyResponse.KeyId
-		return true
-	}
-	return false
-}
-
-func (task *Task) GetAuthId() bool {
-	paymentKeyResponse := PaymentKeyResponse{}
-
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "GET",
-		URL:    fmt.Sprintf(PaymentKeyEndpoint),
-		RawHeaders: [][2]string{
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"accept", "*/*"},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		ResponseBodyStruct: &paymentKeyResponse,
-	})
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	switch resp.StatusCode {
-	case 200:
-		rawHeader := resp.Header.Get("Set-Cookie")
-		re := regexp.MustCompile("({)(.*?)(})")
-		match := re.FindStringSubmatch(rawHeader)
-		fmt.Println(match[0])
-
-		accessToken := AccessToken{}
-		json.Unmarshal([]byte(match[0]), &accessToken)
-		task.AccessToken = accessToken.Access_token
-		return true
-	}
-	return false
-}
-
+// Submit payment details
 func (task *Task) SubmitPaymentDetails() bool {
 	//Payment display example: "Visa 02/2026"
 	paymentDetails := PaymentDetails{PaymentDisplay: task.Task.Profile.CreditCard.CardType + task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear, PaymentKey: task.CyberSecureInfo.PublicKey, PaymentToken: task.CyberSecureInfo.JtiToken}
@@ -610,44 +533,7 @@ func (task *Task) SubmitPaymentDetails() bool {
 	return false
 }
 
-//Uses encrypted public key to get the private key
-func (task *Task) RetrieveToken() bool {
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "POST",
-		URL:    fmt.Sprintf(CyberSourceTokenEndpoint),
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(bytes.NewReader([]byte(task.CyberSecureInfo.PublicToken)).Size())},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"accept", "*/*"},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: []byte(task.CyberSecureInfo.PublicToken),
-	})
-	if err != nil {
-		fmt.Println(err.Error())
-	}
-
-	switch resp.StatusCode {
-	case 200:
-		body, _ := ioutil.ReadAll(resp.Body)
-		task.CyberSecureInfo.Privatekey = string(body)
-		return true
-	}
-	return false
-}
-
-//Checkout - self explanitory
+// Checkout - self explanitory
 func (task *Task) Checkout() bool {
 	checkoutDetailsRequest := CheckoutDetailsRequest{PurchaseFrom: strings.Replace(task.CheckoutInfo.CheckoutUri, "paymentmethods", "purchases", 1) + "/form"}
 
@@ -684,6 +570,125 @@ func (task *Task) Checkout() bool {
 
 	switch resp.StatusCode {
 	case 200:
+		return true
+	}
+	return false
+}
+
+// Retrieve public key
+func (task *Task) RetrievePublicKey() bool {
+	paymentKeyResponse := PaymentKeyResponse{}
+
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    fmt.Sprintf(PaymentKeyEndpoint),
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
+		},
+		ResponseBodyStruct: &paymentKeyResponse,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		task.CyberSecureInfo.PublicKey = paymentKeyResponse.KeyId
+		return true
+	}
+	return false
+}
+
+// When using guest account retrieves the auth ID generated when you go on cart
+func (task *Task) RetrieveGuestAuthId() bool {
+	paymentKeyResponse := PaymentKeyResponse{}
+
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    fmt.Sprintf(PaymentKeyEndpoint),
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		ResponseBodyStruct: &paymentKeyResponse,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		rawHeader := resp.Header.Get("Set-Cookie")
+		re := regexp.MustCompile("({)(.*?)(})")
+		match := re.FindStringSubmatch(rawHeader)
+		fmt.Println(match[0])
+
+		accessToken := AccessToken{}
+		json.Unmarshal([]byte(match[0]), &accessToken)
+		task.AccessToken = accessToken.Access_token
+		return true
+	}
+	return false
+}
+
+// Uses encrypted public key to get the JTI private key
+func (task *Task) RetrieveToken() bool {
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    fmt.Sprintf(CyberSourceTokenEndpoint),
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(bytes.NewReader([]byte(task.CyberSecureInfo.PublicToken)).Size())},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: []byte(task.CyberSecureInfo.PublicToken),
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		body, _ := ioutil.ReadAll(resp.Body)
+		task.CyberSecureInfo.Privatekey = string(body)
 		return true
 	}
 	return false
