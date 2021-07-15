@@ -67,8 +67,17 @@ type MonitorResponse struct {
 
 // Task info
 type Task struct {
-	Task         base.Task
-	CheckoutInfo CheckoutInfo
+	Task            base.Task
+	CheckoutInfo    CheckoutInfo
+	CyberSecureInfo CyberSecureInfo
+	AccessToken     string
+}
+
+type CyberSecureInfo struct {
+	PublicKey   string
+	PublicToken string
+	Privatekey  string
+	JtiToken    string
 }
 
 type CheckoutInfo struct {
@@ -78,6 +87,7 @@ type CheckoutInfo struct {
 	Price         float64
 	ItemName      string
 	SKU           string
+	CheckoutUri   string
 }
 
 type AddToCartRequest struct {
@@ -167,4 +177,14 @@ type PaymentDetails struct {
 	PaymentDisplay string `json:"paymentDisplay"`
 	PaymentKey     string `json:"paymentKey"`
 	PaymentToken   string `json:"paymentToken"`
+}
+
+type SubmitPaymentResponse struct {
+	Self struct {
+		Uri string
+	}
+}
+
+type AccessToken struct {
+	Access_token string
 }

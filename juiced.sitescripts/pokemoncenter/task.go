@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/url"
+	"regexp"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -138,8 +141,7 @@ func (task *Task) RunTask() {
 	}
 
 	//Now we have the public payment key, encrypt using CyberSecure encrpytion
-	tempKey := "" //This will be the key ID returned from GetPaymentKeyId()
-	UnlockedKey := CyberSourceV2(tempKey)
+	task.CyberSecureInfo.PublicToken = CyberSourceV2(task.CyberSecureInfo.PublicKey)
 	//Now we post this key to cyber secure to retrieve the token
 
 	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
@@ -154,9 +156,8 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
-	tokenReturnedFromCyberSecure := "" // temp for imp
 	//Now that we have the token we can retrieve the JTI token from this.
-	jtiToken := retrievePaymentToken(tokenReturnedFromCyberSecure)
+	task.CyberSecureInfo.JtiToken = retrievePaymentToken(task.CyberSecureInfo.Privatekey)
 
 	//Now we have the public key and JTI Token we can submit the payment information
 
@@ -285,6 +286,7 @@ func (task *Task) AddToCart() bool {
 			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.CheckoutInfo.SKU)},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		ResponseBodyStruct: &addToCartResponse,
 		RequestBodyStruct:  &addToCartRequest,
@@ -342,6 +344,7 @@ func (task *Task) SubmitEmailAddress() bool {
 			{"referer", fmt.Sprintf(SubmitAddresValidateRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct: &email,
 	})
@@ -410,6 +413,7 @@ func (task *Task) SubmitAddressDetailsValidate() bool {
 			{"referer", fmt.Sprintf(SubmitAddresValidateRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct: &submitAddressRequest,
 	})
@@ -477,6 +481,7 @@ func (task *Task) SubmitAddressDetails() bool {
 			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct: &submitAddressRequest,
 	})
@@ -513,6 +518,7 @@ func (task *Task) GetPaymentKeyId() bool {
 			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		ResponseBodyStruct: &paymentKeyResponse,
 	})
@@ -524,6 +530,7 @@ func (task *Task) GetPaymentKeyId() bool {
 
 	switch resp.StatusCode {
 	case 200:
+		task.CyberSecureInfo.PublicKey = paymentKeyResponse.KeyId
 		return true
 	}
 	return false
@@ -561,6 +568,14 @@ func (task *Task) GetAuthId() bool {
 
 	switch resp.StatusCode {
 	case 200:
+		rawHeader := resp.Header.Get("Set-Cookie")
+		re := regexp.MustCompile("({)(.*?)(})")
+		match := re.FindStringSubmatch(rawHeader)
+		fmt.Println(match[0])
+
+		accessToken := AccessToken{}
+		json.Unmarshal([]byte(match[0]), &accessToken)
+		task.AccessToken = accessToken.Access_token
 		return true
 	}
 	return false
@@ -568,9 +583,9 @@ func (task *Task) GetAuthId() bool {
 
 //Where we post encrypted payment details too
 func (task *Task) SubmitPaymentDetails() bool {
-	//populate using values passed from cyberSecure encryption
-	paymentDetails := PaymentDetails{}
-
+	//Payment display example: "Visa 02/2026"
+	paymentDetails := PaymentDetails{PaymentDisplay: task.Task.Profile.CreditCard.CardType + task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear, PaymentKey: task.CyberSecureInfo.PublicKey, PaymentToken: task.CyberSecureInfo.JtiToken}
+	submitPaymentResponse := SubmitPaymentResponse{}
 	//json marshal this for content length.
 	paymentDetailsBytes, err := json.Marshal(paymentDetails)
 	if err != nil {
@@ -595,8 +610,10 @@ func (task *Task) SubmitPaymentDetails() bool {
 			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
-		RequestBodyStruct: &paymentDetails,
+		RequestBodyStruct:  &paymentDetails,
+		ResponseBodyStruct: &submitPaymentResponse,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -604,21 +621,20 @@ func (task *Task) SubmitPaymentDetails() bool {
 
 	switch resp.StatusCode {
 	case 200:
+		task.CheckoutInfo.CheckoutUri = submitPaymentResponse.Self.Uri
 		return true
 	}
 	return false
 }
 
-//Uses enlocked key to get the JTI token
+//Uses encrypted key to get the private key
 func (task *Task) RetrieveToken() bool {
-	temp := "Empty string" //get the encrypted key returned from cyberSecure and use here
-
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    fmt.Sprintf(CyberSourceTokenEndpoint),
 		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(bytes.NewReader([]byte(temp)).Size())},
+			{"content-length", fmt.Sprint(bytes.NewReader([]byte(task.CyberSecureInfo.PublicToken)).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
@@ -633,7 +649,7 @@ func (task *Task) RetrieveToken() bool {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: []byte(temp),
+		Data: []byte(task.CyberSecureInfo.PublicToken),
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -641,6 +657,8 @@ func (task *Task) RetrieveToken() bool {
 
 	switch resp.StatusCode {
 	case 200:
+		body, _ := ioutil.ReadAll(resp.Body)
+		task.CyberSecureInfo.Privatekey = string(body)
 		return true
 	}
 	return false
@@ -648,20 +666,17 @@ func (task *Task) RetrieveToken() bool {
 
 //Checkout - self explanitory
 func (task *Task) Checkout() bool {
-	//If user is logged in and has address details on teh account then we dont need to submit address details
-
-	//populate using values passed from submitPaymentDetails
-	submitAddressRequest := CheckoutDetailsRequest{}
+	checkoutDetailsRequest := CheckoutDetailsRequest{PurchaseFrom: strings.Replace(task.CheckoutInfo.CheckoutUri, "paymentmethods", "purchases", 1) + "/form"}
 
 	//json marshal this for content length.
-	submitAddressRequestBytes, err := json.Marshal(submitAddressRequest)
+	submitAddressRequestBytes, err := json.Marshal(checkoutDetailsRequest)
 	if err != nil {
 		log.Fatal("Marshal payload failed with error " + err.Error())
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(SubmitAddressEndpoint),
+		URL:    fmt.Sprintf(CheckoutEndpoint),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader(submitAddressRequestBytes).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -677,8 +692,9 @@ func (task *Task) Checkout() bool {
 			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
-		RequestBodyStruct: &submitAddressRequest,
+		RequestBodyStruct: &checkoutDetailsRequest,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
