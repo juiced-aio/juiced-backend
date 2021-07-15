@@ -48,21 +48,6 @@ func (task *Task) CheckForStop() bool {
 	return false
 }
 
-func ExecuteTaskLoop(task *Task, status string, runTask bool) {
-	task.PublishEvent(status, enums.TaskUpdate)
-	taskRun := false
-	for !taskRun {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		taskRun = runTask
-		if !taskRun {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-}
-
 // RunTask is the script driver that calls all the individual requests
 // Function order:
 // 		1. WaitForMonitor
