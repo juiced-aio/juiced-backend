@@ -20,7 +20,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, siteURL string, email string, password string) (Task, error) {
+func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL string, email string, password string) (Task, error) {
 	shopifyTask := Task{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
@@ -38,7 +38,8 @@ func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy enti
 			Email:    email,
 			Password: password,
 		},
-		SiteURL: siteURL,
+		CouponCode: couponCode,
+		SiteURL:    siteURL,
 	}
 
 	return shopifyTask, err
@@ -83,6 +84,20 @@ func (task *Task) RunTask() {
 
 	task.CheckForAdditionalSteps()
 
+	task.Step = Preloading
+
+	preloaded := false
+	for !preloaded {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		preloaded = task.Preload()
+		if !preloaded {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
 	task.Step = WaitingForMonitor
 
 	// 1. WaitForMonitor
@@ -106,7 +121,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		addedToCart = task.AddToCart()
+		addedToCart = task.AddToCart(task.VariantID)
 		if !addedToCart {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -212,6 +227,82 @@ func (task *Task) RunTask() {
 
 }
 
+func (task *Task) ClearCart() bool {
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Client,
+		Method: "GET",
+		URL:    task.SiteURL + ClearCartEndpoint,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"accept", "application/json, text/javascript, */*; q=0.01"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", task.SiteURL},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-site", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", task.SiteURL + "/"},
+			{"accept-encoding", "gzip, deflate"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+	return true
+}
+
+func (task *Task) Preload() bool {
+	productsResponse := ProductsResponse{}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Client,
+		Method: "GET",
+		URL:    task.SiteURL + AddToCartEndpoint,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"accept", "application/json, text/javascript, */*; q=0.01"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", task.SiteURL},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-site", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", task.SiteURL + "/"},
+			{"accept-encoding", "gzip, deflate"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+
+		ResponseBodyStruct: &productsResponse,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+
+	var added bool
+	for _, product := range productsResponse.Products {
+		if added {
+			break
+		}
+		for _, variant := range product.Variants {
+			if task.AddToCart(fmt.Sprint(variant.ID)) {
+				added = true
+				break
+			}
+		}
+	}
+
+	if !task.Checkout() {
+		task.ClearCart()
+		return false
+	}
+
+	return task.ClearCart()
+}
+
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
 	for {
@@ -227,19 +318,19 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
-func (task *Task) AddToCart() bool {
+func (task *Task) AddToCart(vid string) bool {
 	paramsString := util.CreateParams(map[string]string{
 		"form_type": "product",
 		"utf8":      "✓",
-		"id":        task.VariantID,
-		"quantity":  "1",
+		"id":        vid,
+		"quantity":  fmt.Sprint(task.Task.Task.TaskQty),
 	})
 
 	addToCartResponse := AddToCartResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Client,
 		Method: "POST",
-		URL:    AddToCartEndpoint,
+		URL:    task.SiteURL + AddToCartEndpoint,
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(paramsString))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -260,7 +351,7 @@ func (task *Task) AddToCart() bool {
 		ResponseBodyStruct: &addToCartResponse,
 	})
 	if err != nil {
-		fmt.Println("err")
+		return false
 	}
 
 	switch resp.StatusCode {
@@ -283,54 +374,59 @@ func (task *Task) AddToCart() bool {
 }
 
 func (task *Task) Checkout() bool {
-	data := []byte("checkout=")
-	resp, body, err := util.MakeRequest(&util.Request{
-		Client: task.Client,
-		Method: "POST",
-		URL:    CartEndpoint,
-		RawHeaders: http.RawHeader{
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"origin", task.SiteURL},
-			{"content-type", "application/x-www-form-urlencoded"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", CartEndpoint},
-			{"accept-encoding", "gzip, deflate"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	switch resp.StatusCode {
-	case 200:
-		AuthToken, err := common.FindInString(body, `"authenticity_token" value="`, `"`)
+	if task.TaskInfo.CheckoutURL != "" {
+		data := []byte("checkout=")
+		resp, body, err := util.MakeRequest(&util.Request{
+			Client: task.Client,
+			Method: "POST",
+			URL:    task.SiteURL + CartEndpoint,
+			RawHeaders: http.RawHeader{
+				{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+				{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+				{"x-requested-with", "XMLHttpRequest"},
+				{"sec-ch-ua-mobile", "?0"},
+				{"origin", task.SiteURL},
+				{"content-type", "application/x-www-form-urlencoded"},
+				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
+				{"sec-fetch-site", "same-origin"},
+				{"sec-fetch-mode", "cors"},
+				{"sec-fetch-dest", "empty"},
+				{"referer", CartEndpoint},
+				{"accept-encoding", "gzip, deflate"},
+				{"accept-language", "en-US,en;q=0.9"},
+			},
+			Data: data,
+		})
 		if err != nil {
-			//Couldn't find auth
+			fmt.Println(err)
+		}
+
+		switch resp.StatusCode {
+		case 200:
+			AuthToken, err := common.FindInString(body, `"authenticity_token" value="`, `"`)
+			if err != nil {
+				//Couldn't find auth
+				return false
+			}
+			task.TaskInfo.AuthToken = AuthToken
+			checkoutURL := resp.Request.URL.String()
+			if strings.Contains(checkoutURL, "throttle") {
+				return task.HandleQueue()
+			}
+
+			if strings.Contains(checkoutURL, "checkpoint") {
+				return task.HandleQueue()
+			}
+
+			task.TaskInfo.CheckoutURL = checkoutURL
+			return true
+		default:
 			return false
 		}
-		task.TaskInfo.AuthToken = AuthToken
-		checkoutURL := resp.Request.URL.String()
-		if strings.Contains(checkoutURL, "throttle") {
-			return task.HandleQueue()
-		}
-
-		if strings.Contains(checkoutURL, "checkpoint") {
-			return task.HandleQueue()
-		}
-
-		task.TaskInfo.CheckoutURL = checkoutURL
+	} else {
 		return true
-	default:
-		return false
 	}
+
 }
 
 func (task *Task) HandleQueue() bool {
@@ -487,7 +583,7 @@ func (task *Task) SetShippingRate() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(ShippingRatesEndpoint, task.Task.Profile.ShippingAddress.ZipCode, task.Task.Profile.ShippingAddress.CountryCode, task.Task.Profile.ShippingAddress.StateCode),
+		URL:    task.SiteURL + fmt.Sprintf(ShippingRatesEndpoint, task.Task.Profile.ShippingAddress.ZipCode, task.Task.Profile.ShippingAddress.CountryCode, task.Task.Profile.ShippingAddress.StateCode),
 		RawHeaders: http.RawHeader{
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
 			{"accept", "application/json, text/javascript, */*; q=0.01"},
@@ -638,6 +734,7 @@ func (task *Task) SetPaymentInfo() bool {
 	data := []byte(util.CreateParams(map[string]string{
 		"_method":                             "patch",
 		"authenticity_token":                  task.TaskInfo.AuthToken,
+		`checkout[reduction_code]`:            task.CouponCode,
 		"previous_step":                       "payment_method",
 		"step":                                "",
 		"s":                                   task.TaskInfo.CreditID,
@@ -735,7 +832,7 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Sku:          task.VariantID,
 		Retailer:     enums.Shopify,
 		Price:        float64(task.TaskInfo.Price),
-		Quantity:     1,
+		Quantity:     task.Task.Task.TaskQty,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 

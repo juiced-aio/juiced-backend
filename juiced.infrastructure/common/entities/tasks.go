@@ -70,6 +70,7 @@ type HotWheelsTaskInfo struct {
 type ShopifyTaskInfo struct {
 	TaskID            string                `json:"taskID" db:"taskID"`
 	TaskGroupID       string                `json:"taskGroupID" db:"taskGroupID"`
+	CouponCode        string                `json:"couponCode" db:"couponCode"`
 	SiteURL           string                `json:"siteURL" db:"siteURL"`
 	ShopifyRetailer   enums.ShopifyRetailer `json:"shopifyRetailer" db:"shopifyRetailer"`
 	HotWheelsTaskInfo HotWheelsTaskInfo     `json:"hotWheelsTaskInfo"`

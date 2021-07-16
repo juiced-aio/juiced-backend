@@ -805,6 +805,9 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								if updateTasksRequestInfo.ShopifyTaskInfo.SiteURL != "DO_NOT_UPDATE" {
 									task.ShopifyTaskInfo.SiteURL = updateTasksRequestInfo.ShopifyTaskInfo.SiteURL
 								}
+								if updateTasksRequestInfo.ShopifyTaskInfo.CouponCode != "DO_NOT_UPDATE" {
+									task.ShopifyTaskInfo.CouponCode = updateTasksRequestInfo.ShopifyTaskInfo.CouponCode
+								}
 								if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" {
 									task.ShopifyTaskInfo.HotWheelsTaskInfo.Email = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email
 								}

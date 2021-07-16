@@ -11,6 +11,8 @@ import (
 )
 
 const (
+	ClearCartEndpoint     = "/cart/clear"
+	ProductsEndpoint      = "/products.json"
 	SearchEndpoint        = "/search/suggest.json?q=%v&resources[type]=product"
 	AddToCartEndpoint     = "/cart/add.js"
 	CartEndpoint          = "/cart"
@@ -23,9 +25,10 @@ type Step = int
 
 const (
 	SettingUp           Step = 0
-	WaitingForMonitor   Step = 1
-	AddingToCart        Step = 2
-	SettingShippingInfo Step = 3
+	Preloading          Step = 1
+	WaitingForMonitor   Step = 2
+	AddingToCart        Step = 3
+	SettingShippingInfo Step = 4
 )
 
 type Task struct {
@@ -34,6 +37,7 @@ type Task struct {
 	ShopifyRetailer enums.ShopifyRetailer
 	SiteURL         string
 	VariantID       string
+	CouponCode      string
 	InStockData     ShopifyInStockData
 	AccountInfo     AccountInfo
 	TaskInfo        TaskInfo
@@ -77,17 +81,16 @@ type TaskInfo struct {
 	OrderTotal     string
 }
 
-type Request struct {
-	Client             http.Client
-	Method             string
-	URL                string
-	Headers            http.Header
-	RawHeaders         [][2]string
-	Referer            string
-	Data               []byte
-	RequestBodyStruct  interface{}
-	ResponseBodyStruct interface{}
-	RandOpt            string
+type ProductsResponse struct {
+	Products []Products `json:"products"`
+}
+
+type Products struct {
+	Variants []Variants `json:"variants"`
+}
+
+type Variants struct {
+	ID int64 `json:"id"`
 }
 
 type AddToCartResponse struct {

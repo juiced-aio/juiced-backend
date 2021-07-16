@@ -64,6 +64,7 @@ var shopifyTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
 		taskID TEXT,
 		taskGroupID TEXT,
+		couponCode TEXT,
 		siteURL TEXT,
 		shopifyRetailer TEXT
 	)
