@@ -851,7 +851,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,
 		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,
-		Quantity:     1,
+		Quantity:     task.Task.Task.TaskQty,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 

@@ -410,7 +410,7 @@ func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
 	data := AddToCartRequest{
 		OfferID:               task.OfferID,
-		Quantity:              1,
+		Quantity:              task.Task.Task.TaskQty,
 		ShipMethodDefaultRule: "SHIP_RULE_1",
 	}
 	dataStr, err := json.Marshal(data)
@@ -916,7 +916,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Sku:          task.Sku,
 		Retailer:     enums.Walmart,
 		Price:        0, // TODO: @TeHNiC
-		Quantity:     1,
+		Quantity:     task.Task.Task.TaskQty,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
