@@ -498,7 +498,7 @@ func (task *Task) RetrievePublicKey() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(PaymentKeyEndpoint),
+		URL:    fmt.Sprintf(PublicPaymentKeyEndpoint),
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
@@ -534,7 +534,7 @@ func (task *Task) RetrieveGuestAuthId() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(PaymentKeyEndpoint),
+		URL:    fmt.Sprintf(AuthKeyEndpoint),
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
