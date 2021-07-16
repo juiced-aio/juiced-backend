@@ -66,6 +66,7 @@ var shopifyTaskInfosSchema = `
 		taskGroupID TEXT,
 		couponCode TEXT,
 		siteURL TEXT,
+		sitePassword TEXT,
 		shopifyRetailer TEXT
 	)
 `
@@ -166,6 +167,7 @@ var shopifyMonitorInfosSchema = `
 		ID TEXT,
 		taskGroupID TEXT,
 		siteURL TEXT,
+		sitePassword TEXT
 	)
 `
 

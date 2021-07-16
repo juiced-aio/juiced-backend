@@ -72,6 +72,7 @@ type ShopifyTaskInfo struct {
 	TaskGroupID       string                `json:"taskGroupID" db:"taskGroupID"`
 	CouponCode        string                `json:"couponCode" db:"couponCode"`
 	SiteURL           string                `json:"siteURL" db:"siteURL"`
+	SitePassword      string                `json:"sitePassword" db:"sitePassword"`
 	ShopifyRetailer   enums.ShopifyRetailer `json:"shopifyRetailer" db:"shopifyRetailer"`
 	HotWheelsTaskInfo HotWheelsTaskInfo     `json:"hotWheelsTaskInfo"`
 }
@@ -252,10 +253,11 @@ type ShopifySingleMonitorInfo struct {
 }
 
 type ShopifyMonitorInfo struct {
-	ID          string                     `json:"ID" db:"ID"`
-	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
-	SiteURL     string                     `json:"siteURL"`
-	Monitors    []ShopifySingleMonitorInfo `json:"monitors"`
+	ID           string                     `json:"ID" db:"ID"`
+	TaskGroupID  string                     `json:"taskGroupID" db:"taskGroupID"`
+	SiteURL      string                     `json:"siteURL" db:"siteURL"`
+	SitePassword string                     `json:"sitePassword" db:"sitePassword"`
+	Monitors     []ShopifySingleMonitorInfo `json:"monitors"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup

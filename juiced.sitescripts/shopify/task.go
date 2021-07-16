@@ -20,7 +20,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL string, email string, password string) (Task, error) {
+func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL, sitePassword, email, password string) (Task, error) {
 	shopifyTask := Task{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
@@ -38,8 +38,9 @@ func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy enti
 			Email:    email,
 			Password: password,
 		},
-		CouponCode: couponCode,
-		SiteURL:    siteURL,
+		CouponCode:   couponCode,
+		SiteURL:      siteURL,
+		SitePassword: sitePassword,
 	}
 
 	return shopifyTask, err
@@ -84,7 +85,21 @@ func (task *Task) RunTask() {
 
 	task.CheckForAdditionalSteps()
 
+	becameGuest := false
+	for !becameGuest {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		becameGuest = BecomeGuest(task.Client, task.SiteURL, task.SitePassword)
+		if !becameGuest {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
 	task.Step = Preloading
+
+	task.CheckForAdditionalSteps()
 
 	preloaded := false
 	for !preloaded {

@@ -89,13 +89,13 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 	case enums.Shopify:
-		statement, err := database.Preparex(`INSERT INTO shopifyMonitorInfos (ID, taskGroupID, siteURL) VALUES (?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO shopifyMonitorInfos (ID, taskGroupID, siteURL, sitePassword) VALUES (?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.ShopifyMonitorInfo.ID = monitorID
 		taskGroup.ShopifyMonitorInfo.TaskGroupID = taskGroup.GroupID
-		_, err = statement.Exec(taskGroup.ShopifyMonitorInfo.ID, taskGroup.ShopifyMonitorInfo.TaskGroupID, taskGroup.ShopifyMonitorInfo.SiteURL)
+		_, err = statement.Exec(taskGroup.ShopifyMonitorInfo.ID, taskGroup.ShopifyMonitorInfo.TaskGroupID, taskGroup.ShopifyMonitorInfo.SiteURL, taskGroup.ShopifyMonitorInfo.SitePassword)
 		if err != nil {
 			return err
 		}
@@ -242,11 +242,11 @@ func CreateTaskInfos(task entities.Task) error {
 		}
 
 	case enums.Shopify:
-		statement, err := database.Preparex(`INSERT INTO shopifyTaskInfos (taskID, taskGroupID, siteURL, shopifyRetailer) VALUES (?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO shopifyTaskInfos (taskID, taskGroupID, couponCode, siteURL, sitePassword, shopifyRetailer) VALUES (?, ?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.ShopifyRetailer)
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.ShopifyTaskInfo.CouponCode, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.SitePassword, task.ShopifyTaskInfo.ShopifyRetailer)
 		if err != nil {
 			return err
 		}

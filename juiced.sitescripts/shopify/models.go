@@ -36,6 +36,7 @@ type Task struct {
 	Step            Step
 	ShopifyRetailer enums.ShopifyRetailer
 	SiteURL         string
+	SitePassword    string
 	VariantID       string
 	CouponCode      string
 	InStockData     ShopifyInStockData
@@ -60,6 +61,7 @@ type Monitor struct {
 	VIDs            []string
 	InStock         []ShopifyInStockData
 	SiteURL         string
+	SitePassword    string
 	SKUWithInfo     map[string]entities.ShopifySingleMonitorInfo
 }
 

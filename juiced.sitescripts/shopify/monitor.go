@@ -17,7 +17,7 @@ import (
 )
 
 // CreateShopifyMonitor takes a TaskGroup entity and turns it into a Shopify Monitor
-func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteURL string, singleMonitors []entities.ShopifySingleMonitorInfo) (Monitor, error) {
+func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteURL, sitePassword string, singleMonitors []entities.ShopifySingleMonitorInfo) (Monitor, error) {
 	storedShopifyMonitors := make(map[string]entities.ShopifySingleMonitorInfo)
 	shopifyMonitor := Monitor{}
 	vIDs := []string{}
@@ -33,9 +33,10 @@ func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
-		SiteURL:     siteURL,
-		VIDs:        vIDs,
-		SKUWithInfo: storedShopifyMonitors,
+		SiteURL:      siteURL,
+		SitePassword: sitePassword,
+		VIDs:         vIDs,
+		SKUWithInfo:  storedShopifyMonitors,
 	}
 
 	return shopifyMonitor, nil
@@ -78,6 +79,18 @@ func (monitor *Monitor) RunMonitor() {
 
 		if len(monitor.Monitor.Proxies) > 0 {
 			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
+
+		becameGuest := false
+		for !becameGuest {
+			needToStop := monitor.CheckForStop()
+			if needToStop {
+				return
+			}
+			becameGuest = BecomeGuest(monitor.Monitor.Client, monitor.SiteURL, monitor.SitePassword)
+			if !becameGuest {
+				time.Sleep(1000 * time.Millisecond)
+			}
 		}
 
 	}

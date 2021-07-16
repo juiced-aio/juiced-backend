@@ -802,11 +802,14 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								// TODO @silent
 
 							case enums.Shopify:
-								if updateTasksRequestInfo.ShopifyTaskInfo.SiteURL != "DO_NOT_UPDATE" {
-									task.ShopifyTaskInfo.SiteURL = updateTasksRequestInfo.ShopifyTaskInfo.SiteURL
-								}
 								if updateTasksRequestInfo.ShopifyTaskInfo.CouponCode != "DO_NOT_UPDATE" {
 									task.ShopifyTaskInfo.CouponCode = updateTasksRequestInfo.ShopifyTaskInfo.CouponCode
+								}
+								if updateTasksRequestInfo.ShopifyTaskInfo.SitePassword != "DO_NOT_UPDATE" {
+									task.ShopifyTaskInfo.SitePassword = updateTasksRequestInfo.ShopifyTaskInfo.SitePassword
+								}
+								if updateTasksRequestInfo.ShopifyTaskInfo.SiteURL != "DO_NOT_UPDATE" {
+									task.ShopifyTaskInfo.SiteURL = updateTasksRequestInfo.ShopifyTaskInfo.SiteURL
 								}
 								if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" {
 									task.ShopifyTaskInfo.HotWheelsTaskInfo.Email = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email
