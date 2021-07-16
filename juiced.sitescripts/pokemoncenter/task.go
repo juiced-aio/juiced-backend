@@ -49,14 +49,6 @@ func (task *Task) CheckForStop() bool {
 }
 
 // RunTask is the script driver that calls all the individual requests
-// Function order:
-// 		1. WaitForMonitor
-//		2. AddToCart
-//		3. GetCartInfo
-// 		4. SetPCID
-//		5. SetShippingInfo
-//		6. SetPaymentInfo
-//		7. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -67,7 +59,7 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 
-	// 1. WaitForMonitor
+	// WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
@@ -91,28 +83,28 @@ func (task *Task) RunTask() {
 
 	if !UseAccountLogin {
 		// 3. Submit address details - Skip if logged in
-		ExecuteTaskLoop(task, enums.AddingToCart, task.SubmitEmailAddress())
+		ExecuteTaskLoop(task, enums.GettingShippingInfo, task.SubmitEmailAddress())
 		// 4. Submit address details - Skip if logged in
-		ExecuteTaskLoop(task, enums.AddingToCart, task.SubmitAddressDetails())
+		ExecuteTaskLoop(task, enums.SettingShippingInfo, task.SubmitAddressDetails())
 	}
 
 	// 5.A. Set public key for payment encryption
-	ExecuteTaskLoop(task, enums.AddingToCart, task.RetrievePublicKey())
+	ExecuteTaskLoop(task, enums.GettingBillingInfo, task.RetrievePublicKey())
 
 	// 5.B. Now we have the public payment key, encrypt using CyberSecure encrpytion
 	task.CyberSecureInfo.PublicToken = CyberSourceV2(task.CyberSecureInfo.PublicKey)
 
 	// 5.C. Now we post this key to cyber secure to retrieve the token
-	ExecuteTaskLoop(task, enums.AddingToCart, task.RetrieveToken())
+	ExecuteTaskLoop(task, enums.SettingBillingInfo, task.RetrieveToken())
 
 	// 5.D. Now that we have the token we can retrieve the JTI token from this.
 	task.CyberSecureInfo.JtiToken = retrievePaymentToken(task.CyberSecureInfo.Privatekey)
 
 	// 5.E. SubmitPaymentInfo - Now we have the public key and JTI Token we can submit the payment information
-	ExecuteTaskLoop(task, enums.AddingToCart, task.SubmitPaymentDetails())
+	ExecuteTaskLoop(task, enums.SettingBillingInfo, task.SubmitPaymentDetails())
 
 	// 6. Checkout
-	ExecuteTaskLoop(task, enums.AddingToCart, task.Checkout())
+	ExecuteTaskLoop(task, enums.CheckingOut, task.Checkout())
 
 	endTime := time.Now()
 
