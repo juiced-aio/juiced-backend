@@ -195,13 +195,9 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 	switch resp.StatusCode {
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-
-		switch monitorResponse.Gtmdata.Productinfo.Availability {
-		case "Available":
+		if monitorResponse.Gtmdata.Productinfo.Availability == "Available" || monitorResponse.Product.Availability.ButtonText == "Pre-Order" {
 			stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
-			fmt.Println(monitorResponse.Gtmdata.Price.Sellingprice)
-			var inBudget bool
-			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
+			inBudget := monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
 				for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
 					stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])
@@ -216,11 +212,8 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 
 			}
 			return stockData
-		case "Not Available":
+		} else {
 			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
-			return stockData
-		default:
-			fmt.Println(monitorResponse.Gtmdata.Productinfo.Availability)
 			return stockData
 		}
 	default:
