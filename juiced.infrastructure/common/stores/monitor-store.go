@@ -329,16 +329,17 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
 						if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
-							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ASIN
-							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].OfferID
-							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ItemName
-							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].Price
-							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].AntiCsrf
-							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].PID
-							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].RID
-							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ImageURL
-							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].UA
-							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].MonitorType)
+							randomNumber := rand.Intn(len(amazonMonitor.InStock))
+							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[randomNumber].ASIN
+							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[randomNumber].OfferID
+							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[randomNumber].ItemName
+							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[randomNumber].Price
+							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[randomNumber].AntiCsrf
+							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[randomNumber].PID
+							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[randomNumber].RID
+							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[randomNumber].ImageURL
+							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[randomNumber].UA
+							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[randomNumber].MonitorType)
 						}
 					}
 				}
@@ -356,8 +357,9 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
 						if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
-							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].SKU
-							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].Price
+							randomNumber := rand.Intn(len(bestbuyMonitor.InStock))
+							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[randomNumber].SKU
+							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[randomNumber].Price
 						}
 					}
 				}
@@ -375,12 +377,13 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
 						if ok && gamestopTask.Task.Task.TaskGroupID == monitorID {
-							gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].SKU
-							gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].Price
-							gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ItemName
-							gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].PID
-							gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ImageURL
-							gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ProductURL
+							randomNumber := rand.Intn(len(gamestopMonitor.InStock))
+							gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[randomNumber].SKU
+							gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[randomNumber].Price
+							gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[randomNumber].ItemName
+							gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[randomNumber].PID
+							gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[randomNumber].ImageURL
+							gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[randomNumber].ProductURL
 						}
 					}
 				}
@@ -457,8 +460,9 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
 						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
-							walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
-							walmartTask.OfferID = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].OfferID
+							randomNumber := rand.Intn(len(walmartMonitor.InStockForShip))
+							walmartTask.Sku = walmartMonitor.InStockForShip[randomNumber].Sku
+							walmartTask.OfferID = walmartMonitor.InStockForShip[randomNumber].OfferID
 						}
 					}
 				}
