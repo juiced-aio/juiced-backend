@@ -495,6 +495,30 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckWalmartMonitorStock()
 }
 
+// GetMonitorStatus returns the status of the given TaskGroup's monitor
+func GetMonitorStatus(groupID string) string {
+	if monitor, ok := monitorStore.AmazonMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.BestbuyMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.GamestopMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.HottopicMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.TargetMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.WalmartMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+
+	return ""
+}
+
 // GetMonitorStore returns the singleton instance of the EventBus
 func GetMonitorStore() *MonitorStore {
 	return monitorStore

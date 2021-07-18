@@ -21,6 +21,27 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// UpdateTaskStatuses updates the TaskGroupWithTask's Tasks with the correct statuses from the task store
+func UpdateStatuses(taskGroupWithTasks entities.TaskGroupWithTasks) entities.TaskGroupWithTasks {
+	taskStatuses := stores.GetTaskStatuses()
+	newTasks := []entities.Task{}
+	for _, task := range taskGroupWithTasks.Tasks {
+		status := taskStatuses[task.ID]
+		if status != "" {
+			task.SetTaskStatus(status)
+		}
+		newTasks = append(newTasks, task)
+	}
+	taskGroupWithTasks.SetTasks(newTasks)
+
+	monitorStatus := stores.GetMonitorStatus(taskGroupWithTasks.GroupID)
+	if monitorStatus != "" {
+		taskGroupWithTasks.MonitorStatus = monitorStatus
+	}
+
+	return taskGroupWithTasks
+}
+
 // GetTaskGroupEndpoint handles the GET request at /api/task/group/{groupID}
 func GetTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
@@ -43,7 +64,7 @@ func GetTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -67,7 +88,7 @@ func GetAllTaskGroupsEndpoint(response http.ResponseWriter, request *http.Reques
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
-		data = append(data, newTaskGroupWithTasks)
+		data = append(data, UpdateStatuses(newTaskGroupWithTasks))
 	}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
