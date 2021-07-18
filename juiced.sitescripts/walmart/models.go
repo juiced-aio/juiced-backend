@@ -54,11 +54,12 @@ type WalmartInStockData struct {
 
 // Task info
 type Task struct {
-	Task     base.Task
-	OfferID  string
-	Sku      string
-	CardInfo CardInfo
-	PXValues util.PXValues
+	Task           base.Task
+	OfferID        string
+	Sku            string
+	CardInfo       CardInfo
+	PXValues       util.PXValues
+	CheckoutStatus string
 }
 
 //Part of the Task struct

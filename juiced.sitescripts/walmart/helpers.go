@@ -52,6 +52,7 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, erro
 	cookies := client.Jar.Cookies(u)
 	cookies = append(cookies, cookie)
 	client.Jar.SetCookies(u, cookies)
+
 	return pxValues, nil
 }
 
@@ -107,6 +108,7 @@ func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.P
 	}
 	newCookies = append(newCookies, px3Cookie)
 	client.Jar.SetCookies(u, newCookies)
+
 	return nil
 }
 
@@ -182,5 +184,18 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 	}
 
 	return embeds
+}
 
+//Improves readability on RunTask
+func (task *Task) IsSuccessful(runTaskResult bool, event bool) (bool, bool) {
+	needToStop := task.CheckForStop()
+	if needToStop {
+		return true, true
+	}
+	if !runTaskResult {
+		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		return false, false
+	}
+
+	return true, false
 }

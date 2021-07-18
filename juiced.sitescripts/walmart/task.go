@@ -57,9 +57,13 @@ func (task *Task) RefreshPX3() {
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) bool {
+	if task.Task.Task.TaskStatus == status {
+		return true
+	}
 	task.Task.Task.SetTaskStatus(status)
 	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	return true
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
@@ -117,30 +121,21 @@ func (task *Task) RunTask() {
 	}
 
 	// 1. WaitForMonitor
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
-	needToStop := task.WaitForMonitor()
-	if needToStop {
-		return
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.WaitForMonitor(), task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)); !isSuccess || needtostop; {
+		if needtostop {
+			return
+		}
 	}
 
 	startTime := time.Now()
 
-	// @Tehnic: The endpoint that you are monitoring with automatically adds it to the cart so you should somehow pass the
-	// cookies/client to here and then completely cut out the AddToCart request, otherwise using a faster endpoint to monitor would be better.
 	// 2. AddToCart
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
-	addedToCart := false
-	for !addedToCart {
-		needToStop := task.CheckForStop()
-		if needToStop {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.AddToCart(), task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)); !isSuccess || needtostop; {
+		if needtostop {
 			return
 		}
-		addedToCart = task.AddToCart()
-		if !addedToCart {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
 	}
-
+	//can this happen before the monitor is ran?
 	go func() {
 		pieValues := PIEValues{}
 		for pieValues.K == "" {
@@ -158,59 +153,37 @@ func (task *Task) RunTask() {
 	}()
 
 	// 3. GetCartInfo
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-	gotCartInfo := false
-	for !gotCartInfo {
-		needToStop := task.CheckForStop()
-		if needToStop {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.GetCartInfo(), task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)); !isSuccess || needtostop; {
+		if needtostop {
 			return
-		}
-		gotCartInfo = task.GetCartInfo()
-		if !gotCartInfo {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
-
 	// // 4. SetPCID
-	// task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
-	// setPCID := false
-	// for !setPCID {
-	// 	needToStop := task.CheckForStop()
-	// 	if needToStop {
-	// 		return
-	// 	}
-	// 	setPCID = task.SetPCID()
-	// 	if !setPCID {
-	// 		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-	// 	}
-	// }
+	//for isSuccess, needtostop := task.RunUntilSuccessful(task.SetPCID(), enums.SettingCartInfo); !isSuccess || needtostop; {
+	//	if needtostop {
+	//		return
+	//	}
+	//}
 
 	// 5. SetShippingInfo
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
-	setShippingInfo := false
-	for !setShippingInfo {
-		needToStop := task.CheckForStop()
-		if needToStop {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SetShippingInfo(), task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)); !isSuccess || needtostop; {
+		if needtostop {
 			return
-		}
-		setShippingInfo = task.SetShippingInfo()
-		if !setShippingInfo {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
 	// 6. WaitForEncryptedPaymentInfo
-	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)
-	needToStop = task.WaitForEncryptedPaymentInfo()
-	if needToStop {
-		return
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.WaitForEncryptedPaymentInfo(), task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)); !isSuccess || needtostop; {
+		if needtostop {
+			return
+		}
 	}
 
 	// * @silent: The piHash that this SetCreditCard is returning isn't needed but it may help with cancels in the future so it will take some testing during beta,
 	// * but for now we should just comment it out
 
 	// 7. SetCreditCard
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	//	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	/* setCreditCard := false
 	for !setCreditCard {
 		needToStop := task.CheckForStop()
@@ -224,50 +197,25 @@ func (task *Task) RunTask() {
 	} */
 
 	// 8. SetPaymentInfo
-	setPaymentInfo := false
-	for !setPaymentInfo {
-		needToStop := task.CheckForStop()
-		if needToStop {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SetPaymentInfo(), task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)); !isSuccess || needtostop; {
+		if needtostop {
 			return
-		}
-		setPaymentInfo = task.SetPaymentInfo()
-		if !setPaymentInfo {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
 	// 9. PlaceOrder
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	placedOrder := false
-	status := enums.OrderStatusFailed
-	for !placedOrder {
-		needToStop := task.CheckForStop()
-		if needToStop {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.PlaceOrder(startTime), task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)); !isSuccess || needtostop; {
+		if needtostop {
 			return
-		}
-		if status == enums.OrderStatusDeclined {
-			break
-		}
-		placedOrder, status = task.PlaceOrder(startTime)
-		if !placedOrder {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
 	endTime := time.Now()
-
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
-	switch status {
-	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
-	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
-	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
-	}
+	task.PublishEvent(task.CheckoutStatus, enums.TaskComplete)
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -462,6 +410,7 @@ func (task *Task) AddToCart() bool {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 && addToCartResponse.Cart.ItemCount > 0 {
 		return true
 	}
+
 	return false
 }
 
@@ -528,6 +477,7 @@ func (task *Task) GetCartInfo() bool {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return true
 	}
+
 	return false
 }
 
@@ -576,6 +526,7 @@ func (task *Task) SetPCID() bool {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return true
 	}
+
 	return false
 }
 
@@ -647,6 +598,7 @@ func (task *Task) SetShippingInfo() bool {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return true
 	}
+
 	return false
 }
 
@@ -739,6 +691,7 @@ func (task *Task) SetCreditCard() bool {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return true
 	}
+
 	return false
 }
 
@@ -824,11 +777,12 @@ func (task *Task) SetPaymentInfo() bool {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return true
 	}
+
 	return false
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder(startTime time.Time) bool {
 	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	data := PlaceOrderRequest{
@@ -845,7 +799,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	dataStr, err := json.Marshal(data)
 	if err != nil {
 		log.Println("PlaceOrder Request Error: " + err.Error())
-		return false, status
+		return false
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -882,12 +836,13 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	}
 	if err != nil {
 		log.Println("PlaceOrder Request Error: " + err.Error())
-		return false, status
+		return false
 	}
 	var success bool
 	switch resp.StatusCode {
 	case 400:
 		status = enums.OrderStatusDeclined
+		task.Task.StopFlag = true
 	case 404:
 		status = enums.OrderStatusFailed
 		log.Printf("Not Found: %v\n", resp.Status)
@@ -903,7 +858,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false, status
+		return false
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
@@ -920,5 +875,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return success, status
+	if !success {
+		task.CheckoutStatus = enums.CheckoutFailed
+	} else {
+		task.CheckoutStatus = enums.CheckedOut
+	}
+
+	return success
 }
