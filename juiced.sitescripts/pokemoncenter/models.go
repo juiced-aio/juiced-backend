@@ -72,6 +72,7 @@ type Task struct {
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
 	RefreshAt       int64
+	Retry           int
 }
 
 //Info used for payment encryption

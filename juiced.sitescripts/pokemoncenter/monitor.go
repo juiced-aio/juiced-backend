@@ -173,7 +173,6 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		//ResponseBodyStruct: &monitorResponse,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
@@ -190,11 +189,8 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 		nextDataString := nextData.Pointer.FirstChild.Data
 		json.Unmarshal([]byte(nextDataString), &monitorResponse)
 
-		//priceText := priceBlock.Find("span", "class", "visuallyhidden").Text()
-		//price, err = strconv.Atoi(reg.ReplaceAllString(priceText, ""))
-
 		switch monitorResponse.Props.InitialState.Product.Availability {
-		case "Available": //double check this
+		case "AVAILABLE":
 			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
 			fmt.Println(monitorResponse.Props.InitialState.Product.ListPrice.Amount)
 			var inBudget bool
@@ -207,7 +203,7 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
 			}
 			return stockData
-		case "Not Available":
+		case "NOT_AVAILABLE":
 			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 			return stockData
 		default:

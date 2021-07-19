@@ -28,26 +28,46 @@ type TaskStatus = string
 
 // Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
 const (
-	TaskIdle            TaskStatus = "Idle"
-	LoggingIn           TaskStatus = "Logging in"
-	LoginFailed         TaskStatus = "Login failed"
-	WaitingForLogin     TaskStatus = "Waiting for login cookies"
-	SettingUp           TaskStatus = "Setting up task"
-	WaitingForMonitor   TaskStatus = "Waiting for monitor"
-	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
-	AddingToCart        TaskStatus = "Adding to cart"
+	TaskIdle TaskStatus = "Idle"
+
+	LoggingIn   TaskStatus = "Logging in"
+	LoginFailed TaskStatus = "Login failed retry: %s"
+
+	EncryptingCardInfo        TaskStatus = "Encrypting card details"
+	EncryptingCardInfoFailure TaskStatus = "Failed to encrypt card details retry: %s"
+	CardDetailsMissing        TaskStatus = "Card information missing"
+
+	AddingToCart                TaskStatus = "Adding to cart"
+	AddingToCartFailure         TaskStatus = "Add cart failed retry: %s"
+	AddingToCartQuantityFailure TaskStatus = "Expected quantity of 1 but found %s"
+
+	SettingEmailAddress        TaskStatus = "Setting email address"
+	SettingEmailAddressFailure TaskStatus = "Setting email failed retry: %s"
+
+	SettingShippingInfo        TaskStatus = "Setting shipping info"
+	SettingShippingInfoFailure TaskStatus = "Setting shipping failed retry: %s"
+
+	SettingBillingInfo        TaskStatus = "Setting billing info"
+	SettingBillingInfoFailure TaskStatus = "Setting billing info failed retry %s"
+
+	CheckingOut        TaskStatus = "Checking out"
+	CheckingOutFailure TaskStatus = "Checkout failed retry %s"
+
+	WaitingForLogin   TaskStatus = "Waiting for login cookies"
+	SettingUp         TaskStatus = "Setting up task"
+	WaitingForMonitor TaskStatus = "Waiting for monitor"
+	WaitingForCaptcha TaskStatus = "Waiting for Captcha"
+
 	GettingCartInfo     TaskStatus = "Getting cart info"
 	SettingCartInfo     TaskStatus = "Setting cart info"
 	GettingShippingInfo TaskStatus = "Getting shipping info"
-	SettingShippingInfo TaskStatus = "Setting shipping info"
-	EncryptingCardInfo  TaskStatus = "Encrypting card details"
-	GettingBillingInfo  TaskStatus = "Getting billing info"
-	SettingBillingInfo  TaskStatus = "Setting billing info"
-	GettingOrderInfo    TaskStatus = "Getting order info"
-	SettingOrderInfo    TaskStatus = "Setting order info"
-	CheckingOut         TaskStatus = "Checking out"
-	CheckedOut          TaskStatus = "Checked out!"
-	CheckoutFailed      TaskStatus = "Checkout failed"
+
+	GettingBillingInfo TaskStatus = "Getting billing info"
+
+	GettingOrderInfo TaskStatus = "Getting order info"
+	SettingOrderInfo TaskStatus = "Setting order info"
+	CheckoutFailed   TaskStatus = "Checkout failed"
+	CheckedOut       TaskStatus = "Checked out!"
 )
 
 type TaskEventType = string

@@ -44,7 +44,8 @@ func dumpMap(space string, m map[string]interface{}) {
 	}
 }
 
-func CyberSourceV2(keyId string) (returnVal string) {
+//We could of made this task apart of 'task' and pulled details from here but as this will be moved later to security its best to pass these details in.
+func CyberSourceV2(keyId string, card Card) (returnVal string) {
 	key := strings.Split(keyId, ".")[1]
 
 	decodedKeyBytes, _ := base64.StdEncoding.DecodeString(key)
@@ -72,11 +73,11 @@ func CyberSourceV2(keyId string) (returnVal string) {
 	header_.Jwk = *rsa_
 
 	card_ := new(Card)
-	card_.SecurityCode = "260"
-	card_.Number = "4767718212263745"
-	card_.Type = "001"
-	card_.ExpMonth = "02"
-	card_.ExpYear = "2026"
+	card_.SecurityCode = card.SecurityCode
+	card_.Number = card.Number
+	card_.Type = "001" //visa and 002 = mastercard
+	card_.ExpMonth = card.ExpMonth
+	card_.ExpYear = card.ExpYear
 
 	encryptedObject_ := new(EncryptedObject)
 	encryptedObject_.Context = keyId
@@ -170,18 +171,24 @@ func retrievePaymentToken(keyId string) (jti string) {
 	return encrypt.Jti
 }
 
-//Helps to keep RunTask readable
-func ExecuteTaskLoop(task *Task, status string, runTask bool) {
-	task.PublishEvent(status, enums.TaskUpdate)
-	taskRun := false
-	for !taskRun {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		taskRun = runTask
-		if !taskRun {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
+//Improves readability on RunTask
+func (task *Task) RunUntilSuccessful(runTaskResult bool, onFailure string) (bool, bool) {
+	needToStop := task.CheckForStop()
+	x := 5 //should come from front-end somewhere, unless we want to hard code a 'retry' amount.
+	//If we want individual tasks to have different retry amouunts we can assign each task and pass in as a paramater.
+	// -1 retry = unlimited amount of retries.
+	if needToStop || task.Retry > x {
+		task.Task.StopFlag = true //if retry is over the limit we want to set our stop flag.
+		return true, true
 	}
+	if !runTaskResult {
+		task.Retry++
+		if onFailure != "" {
+			task.PublishEvent(fmt.Sprintf(onFailure, task.Retry), enums.TaskUpdate)
+		}
+		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		return false, false
+	}
+
+	return true, false
 }
