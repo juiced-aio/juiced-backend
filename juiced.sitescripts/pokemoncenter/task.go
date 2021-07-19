@@ -133,11 +133,11 @@ func (task *Task) Login() bool {
 	loginResponse := LoginResponse{}
 
 	params := url.Values{}
-	params.Add("username", "anthonyreeder123@gmail.com")
-	params.Add("password", "pass")
-	params.Add("grant_type", "password") //hardcode
-	params.Add("role", "REGISTERED")     //hardcode
-	params.Add("scope", "pokemon")       //hardcode
+	params.Add("username", "anthonyreeder123@gmail.com") //needs to come from front end
+	params.Add("password", "pass")                       //needs to come from front end
+	params.Add("grant_type", "password")                 //hardcode
+	params.Add("role", "REGISTERED")                     //hardcode
+	params.Add("scope", "pokemon")                       //hardcode
 
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -585,7 +585,7 @@ func (task *Task) RetrieveGuestAuthId() bool {
 	return false
 }
 
-// Uses encrypted public key to get the JTI private key
+// Uses encrypted public key to get the JTI Token
 func (task *Task) RetrieveToken() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
