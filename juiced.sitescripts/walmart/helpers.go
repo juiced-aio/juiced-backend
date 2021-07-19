@@ -187,7 +187,7 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 }
 
 //Improves readability on RunTask
-func (task *Task) IsSuccessful(runTaskResult bool, event bool) (bool, bool) {
+func (task *Task) RunUntilSuccessful(runTaskResult bool, event bool) (bool, bool) {
 	needToStop := task.CheckForStop()
 	if needToStop {
 		return true, true
