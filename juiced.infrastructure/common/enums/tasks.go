@@ -30,6 +30,7 @@ type TaskStatus = string
 const (
 	TaskIdle            TaskStatus = "Idle"
 	LoggingIn           TaskStatus = "Logging in"
+	LoginFailed         TaskStatus = "Login failed"
 	WaitingForLogin     TaskStatus = "Waiting for login cookies"
 	SettingUp           TaskStatus = "Setting up task"
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
