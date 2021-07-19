@@ -185,7 +185,9 @@ func (task *Task) RunUntilSuccessful(runTaskResult bool, status string) (bool, b
 		if status != "" {
 			task.PublishEvent(fmt.Sprint(status, " Retry: ", task.Retry), enums.TaskUpdate) //if failure then also send back retry number
 		}
-		task.Retry++
+		if task.Retry >= 0 {
+			task.Retry++
+		}
 		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		return false, false
 	} else {
