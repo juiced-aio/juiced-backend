@@ -71,6 +71,7 @@ type Task struct {
 	CheckoutInfo    CheckoutInfo
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
+	RefreshAt       int64
 }
 
 //Info used for payment encryption
