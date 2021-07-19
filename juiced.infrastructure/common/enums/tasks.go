@@ -32,31 +32,31 @@ const (
 
 	LoggingIn    TaskStatus = "Logging in"
 	LoginSuccess TaskStatus = "Login success"
-	LoginFailed  TaskStatus = "Login failed retry: %s"
+	LoginFailed  TaskStatus = "Login failed"
 
 	EncryptingCardInfo        TaskStatus = "Encrypting card details"
 	EncryptingCardInfoSuccess TaskStatus = "Encrypting card details success"
-	EncryptingCardInfoFailure TaskStatus = "Failed to encrypt card details retry: %s"
+	EncryptingCardInfoFailure TaskStatus = "Failed to encrypt card details"
 	CardDetailsMissing        TaskStatus = "Card information missing"
 
 	AddingToCart                TaskStatus = "Adding to cart"
-	AddingToCartFailure         TaskStatus = "Add cart failed retry: %s"
+	AddingToCartFailure         TaskStatus = "Add cart failed retry"
 	AddingToCartSuccess         TaskStatus = "Add cart success"
-	AddingToCartQuantityFailure TaskStatus = "Expected quantity of 1 but found %s"
+	AddingToCartQuantityFailure TaskStatus = "Expected quantity of 1 but found"
 
 	SettingEmailAddress        TaskStatus = "Setting email address"
-	SettingEmailAddressFailure TaskStatus = "Setting email failed retry: %s"
+	SettingEmailAddressFailure TaskStatus = "Setting email failed"
 	SettingEmailAddressSuccess TaskStatus = "Setting email address success"
 
 	SettingShippingInfo        TaskStatus = "Setting shipping info"
-	SettingShippingInfoFailure TaskStatus = "Setting shipping failed retry: %s"
+	SettingShippingInfoFailure TaskStatus = "Setting shipping failed"
 	SettingShippingInfoSuccess TaskStatus = "Setting shipping info success"
 
 	SettingBillingInfo        TaskStatus = "Setting billing info"
-	SettingBillingInfoFailure TaskStatus = "Setting billing info failed retry %s"
+	SettingBillingInfoFailure TaskStatus = "Setting billing info failed retry"
 
 	CheckingOut        TaskStatus = "Checking out"
-	CheckingOutFailure TaskStatus = "Checkout failed retry %s"
+	CheckingOutFailure TaskStatus = "Checkout failed retry"
 
 	WaitingForLogin     TaskStatus = "Waiting for login cookies"
 	SettingUp           TaskStatus = "Setting up task"
