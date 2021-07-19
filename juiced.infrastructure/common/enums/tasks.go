@@ -58,21 +58,18 @@ const (
 	CheckingOut        TaskStatus = "Checking out"
 	CheckingOutFailure TaskStatus = "Checkout failed retry %s"
 
-	WaitingForLogin   TaskStatus = "Waiting for login cookies"
-	SettingUp         TaskStatus = "Setting up task"
-	WaitingForMonitor TaskStatus = "Waiting for monitor"
-	WaitingForCaptcha TaskStatus = "Waiting for Captcha"
-
+	WaitingForLogin     TaskStatus = "Waiting for login cookies"
+	SettingUp           TaskStatus = "Setting up task"
+	WaitingForMonitor   TaskStatus = "Waiting for monitor"
+	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
 	GettingCartInfo     TaskStatus = "Getting cart info"
 	SettingCartInfo     TaskStatus = "Setting cart info"
 	GettingShippingInfo TaskStatus = "Getting shipping info"
-
-	GettingBillingInfo TaskStatus = "Getting billing info"
-
-	GettingOrderInfo TaskStatus = "Getting order info"
-	SettingOrderInfo TaskStatus = "Setting order info"
-	CheckoutFailed   TaskStatus = "Checkout failed"
-	CheckedOut       TaskStatus = "Checked out!"
+	GettingBillingInfo  TaskStatus = "Getting billing info"
+	GettingOrderInfo    TaskStatus = "Getting order info"
+	SettingOrderInfo    TaskStatus = "Setting order info"
+	CheckoutFailed      TaskStatus = "Checkout failed"
+	CheckedOut          TaskStatus = "Checked out!"
 )
 
 type TaskEventType = string
