@@ -172,7 +172,10 @@ func retrievePaymentToken(keyId string) (jti string) {
 }
 
 //Improves readability on RunTask
-func (task *Task) RunUntilSuccessful(runTaskResult bool, onFailure string) (bool, bool) {
+func (task *Task) RunUntilSuccessful(runTaskResult bool, status string) (bool, bool) {
+	if status != "" {
+		task.PublishEvent(fmt.Sprintf(status, task.Retry), enums.TaskUpdate)
+	}
 	needToStop := task.CheckForStop()
 	x := 5 //should come from front-end somewhere, unless we want to hard code a 'retry' amount.
 	//If we want individual tasks to have different retry amouunts we can assign each task and pass in as a paramater.
@@ -183,9 +186,6 @@ func (task *Task) RunUntilSuccessful(runTaskResult bool, onFailure string) (bool
 	}
 	if !runTaskResult {
 		task.Retry++
-		if onFailure != "" {
-			task.PublishEvent(fmt.Sprintf(onFailure, task.Retry), enums.TaskUpdate)
-		}
 		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		return false, false
 	}

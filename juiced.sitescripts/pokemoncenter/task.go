@@ -58,16 +58,16 @@ func (task *Task) RunTask() {
 	}()
 
 	UseAccountLogin := false //this needs to come from the front end user selection somewhere
+	task.RefreshAt = 0
+	//set to 0 so we refresh now
+	go task.RefreshLogin(UseAccountLogin)
 	//Refresh login data using login or guest
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.RefreshLogin(UseAccountLogin), enums.LoginFailed); !isSuccess || needtostop; {
+
+	//Setup card encryption details for later
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.RetrieveEncryptedCardDetails()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
-	}
-
-	//Setup card encryption details for later
-	if !task.RetrieveEncryptedCardDetails() {
-		return
 	}
 
 	// WaitForMonitor
@@ -79,35 +79,35 @@ func (task *Task) RunTask() {
 	startTime := time.Now()
 
 	// 1. AddToCart
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.AddToCart(), enums.AddingToCartFailure); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.AddToCart()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
 	}
 
 	// 2. Submit email details
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitEmailAddress(UseAccountLogin), enums.SettingEmailAddressFailure); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitEmailAddress(UseAccountLogin)); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
 	}
 
 	// 3. Submit address details
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitAddressDetails(UseAccountLogin), enums.SettingShippingInfoFailure); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitAddressDetails(UseAccountLogin)); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
 	}
 
 	// 4. SubmitPaymentInfo
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitPaymentDetails(), enums.SettingBillingInfoFailure); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitPaymentDetails()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
 	}
 
 	// 5. Checkout
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout(), enums.CheckingOutFailure); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
@@ -122,20 +122,19 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
 
-func (task *Task) RetrieveEncryptedCardDetails() bool {
+func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
 	task.PublishEvent(enums.EncryptingCardInfo, enums.TaskUpdate)
 	card := Card{SecurityCode: task.Task.Profile.CreditCard.CVV, Number: task.Task.Profile.CreditCard.CardNumber, ExpMonth: task.Task.Profile.CreditCard.ExpMonth, ExpYear: task.Task.Profile.CreditCard.ExpYear}
 
 	//check card details have been put in
 	if card.SecurityCode == "" || card.Number == "" || card.ExpYear == "" || card.ExpMonth == "" {
-		task.PublishEvent(enums.CardDetailsMissing, enums.TaskUpdate)
-		return false
+		return false, enums.CardDetailsMissing
 	}
 
 	// Set public key for payment encryption
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.RetrievePublicKey(), enums.SettingBillingInfoFailure); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.RetrievePublicKey()); !isSuccess || needtostop; {
 		if needtostop {
-			return false
+			return false, enums.EncryptingCardInfoFailure
 		}
 	}
 
@@ -144,23 +143,23 @@ func (task *Task) RetrieveEncryptedCardDetails() bool {
 	// Now we have the public payment key, encrypt using CyberSecure encrpytion
 	task.CyberSecureInfo.PublicToken = CyberSourceV2(task.CyberSecureInfo.PublicKey, card)
 	if task.CyberSecureInfo.PublicToken == "" {
-		return false
+		return false, enums.EncryptingCardInfoFailure
 	}
 	// Now we post this key to cyber secure to retrieve the token
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.RetrieveToken(), enums.SettingBillingInfoFailure); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.RetrieveToken()); !isSuccess || needtostop; {
 		if needtostop {
-			return false
+			return false, enums.SettingBillingInfoFailure
 		}
 	}
 
 	// Now that we have the token we can retrieve the JTI token from this.
 	task.CyberSecureInfo.JtiToken = retrievePaymentToken(task.CyberSecureInfo.Privatekey)
 	if task.CyberSecureInfo.JtiToken == "" {
-		return false
+		return false, enums.EncryptingCardInfoFailure
 	}
 
 	//If we reach this point everything should be working as intended return true.
-	return true
+	return true, enums.EncryptingCardInfoSuccess
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -179,7 +178,7 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 // Login and retrieve access code for auth cookie
-func (task *Task) Login() bool {
+func (task *Task) Login() (bool, string) {
 	loginResponse := LoginResponse{}
 
 	params := url.Values{}
@@ -219,15 +218,15 @@ func (task *Task) Login() bool {
 	switch resp.StatusCode {
 	case 200:
 		task.AccessToken = loginResponse.Access_token
-		return true
+		return true, enums.LoginSuccess
 	case 401:
 		//Wrong user/password
 		task.PublishEvent(enums.LoginFailed, enums.TaskFail)
 	}
-	return false
+	return false, enums.LoginFailed
 }
 
-func (task *Task) RefreshLogin(useAccountLogin bool) bool {
+func (task *Task) RefreshLogin(useAccountLogin bool) {
 	task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
 
 	defer func() {
@@ -239,20 +238,16 @@ func (task *Task) RefreshLogin(useAccountLogin bool) bool {
 	for {
 		if task.RefreshAt == 0 || time.Now().Unix() > task.RefreshAt {
 			if useAccountLogin {
-				if !task.Login() {
-					//add more functionliaty here if we want, in the case of failure...
-					task.Task.StopFlag = true
-					//Currently we are just flagging the task to stop.
-					//Suggest we do not re-try logins on failure, or have it try 'x' amount of times. Spamming logins could get someones account blocked/banned.
-					return false
+				for isSuccess, needtostop := task.RunUntilSuccessful(task.Login()); !isSuccess || needtostop; {
+					if needtostop {
+						return
+					}
 				}
 			} else {
-				if !task.RetrieveGuestAuthId() {
-					//add more functionliaty here if we want, in the case of failure...
-					task.Task.StopFlag = true
-					//Currently we are just flagging the task to stop.
-					//might want to sleep here, if we are gong to re-try. Or it will spam logins
-					return false
+				for isSuccess, needtostop := task.RunUntilSuccessful(task.LoginGuest()); !isSuccess || needtostop; {
+					if needtostop {
+						return
+					}
 				}
 			}
 			task.RefreshAt = time.Now().Unix() + 1800
@@ -261,7 +256,7 @@ func (task *Task) RefreshLogin(useAccountLogin bool) bool {
 }
 
 // Add product to cart passed from monitor via checkoutinfo
-func (task *Task) AddToCart() bool {
+func (task *Task) AddToCart() (bool, string) {
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 
 	//Setup request using data passed from 'Instock' data to the tasks 'Checkout data' (Done in monitor-store)
@@ -309,22 +304,21 @@ func (task *Task) AddToCart() bool {
 		if addToCartResponse.Type == "carts.line-item" {
 			//we must check quantity as if logged in it could have previously stored items.
 			if addToCartResponse.Quantity != 1 {
-				task.PublishEvent(fmt.Sprint(enums.AddingToCartQuantityFailure, addToCartResponse.Quantity), enums.TaskFail)
-				return false
+				return false, fmt.Sprint(enums.AddingToCartQuantityFailure, addToCartResponse.Quantity)
 			} else {
 				//instock
-				return true
+				return true, enums.AddingToCartSuccess
 			}
 		}
 	}
 	//If we reached this point we are out of stock or another issue.
-	return false
+	return false, enums.AddingToCartFailure
 }
 
 // Submit email address
-func (task *Task) SubmitEmailAddress(useAccountLogin bool) bool {
+func (task *Task) SubmitEmailAddress(useAccountLogin bool) (bool, string) {
 	if useAccountLogin {
-		return true
+		return true, ""
 	}
 	task.PublishEvent(enums.SettingEmailAddress, enums.TaskUpdate)
 
@@ -366,13 +360,13 @@ func (task *Task) SubmitEmailAddress(useAccountLogin bool) bool {
 	switch resp.StatusCode {
 	case 200:
 		//read response for errors etc...
-		return true
+		return true, enums.SettingEmailAddressSuccess
 	}
-	return false
+	return false, enums.SettingEmailAddressFailure
 }
 
 // Validate address details (not needed but might be useful if there are problems later)
-func (task *Task) SubmitAddressDetailsValidate() bool {
+func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
@@ -434,15 +428,15 @@ func (task *Task) SubmitAddressDetailsValidate() bool {
 	switch resp.StatusCode {
 	case 200:
 		//read response for errors etc...
-		return true
+		return true, ""
 	}
-	return false
+	return false, ""
 }
 
 // Submit address details
-func (task *Task) SubmitAddressDetails(useAccountLogin bool) bool {
+func (task *Task) SubmitAddressDetails(useAccountLogin bool) (bool, string) {
 	if useAccountLogin {
-		return true
+		return true, ""
 	}
 
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
@@ -505,13 +499,13 @@ func (task *Task) SubmitAddressDetails(useAccountLogin bool) bool {
 
 	switch resp.StatusCode {
 	case 200:
-		return true
+		return true, enums.SettingShippingInfoSuccess
 	}
-	return false
+	return false, enums.SettingShippingInfoFailure
 }
 
 // Submit payment details
-func (task *Task) SubmitPaymentDetails() bool {
+func (task *Task) SubmitPaymentDetails() (bool, string) {
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 
 	//Payment display example: "Visa 02/2026"
@@ -553,13 +547,13 @@ func (task *Task) SubmitPaymentDetails() bool {
 	switch resp.StatusCode {
 	case 200:
 		task.CheckoutInfo.CheckoutUri = submitPaymentResponse.Self.Uri
-		return true
+		return true, enums.CheckedOut
 	}
-	return false
+	return false, enums.CheckingOutFailure
 }
 
 // Checkout - self explanitory
-func (task *Task) Checkout() bool {
+func (task *Task) Checkout() (bool, string) {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 
 	checkoutDetailsRequest := CheckoutDetailsRequest{PurchaseFrom: strings.Replace(task.CheckoutInfo.CheckoutUri, "paymentmethods", "purchases", 1) + "/form"}
@@ -597,13 +591,13 @@ func (task *Task) Checkout() bool {
 
 	switch resp.StatusCode {
 	case 200:
-		return true
+		return true, enums.CheckedOut
 	}
-	return false
+	return false, enums.CheckoutFailed
 }
 
 // Retrieve public key
-func (task *Task) RetrievePublicKey() bool {
+func (task *Task) RetrievePublicKey() (bool, string) {
 	paymentKeyResponse := PaymentKeyResponse{}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -635,13 +629,13 @@ func (task *Task) RetrievePublicKey() bool {
 	switch resp.StatusCode {
 	case 200:
 		task.CyberSecureInfo.PublicKey = paymentKeyResponse.KeyId
-		return true
+		return true, ""
 	}
-	return false
+	return false, ""
 }
 
 // When using guest account retrieves the auth ID generated when you go on cart
-func (task *Task) RetrieveGuestAuthId() bool {
+func (task *Task) LoginGuest() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
@@ -676,18 +670,18 @@ func (task *Task) RetrieveGuestAuthId() bool {
 		accessToken := AccessToken{}
 		json.Unmarshal([]byte(match[0]), &accessToken)
 		task.AccessToken = accessToken.Access_token
-		return true
+		return true, ""
 
 		//add captcha support here
 	default:
 		//if we reach here then login has failed, we can read the response if we want specifics.
 		task.PublishEvent(enums.LoginFailed, enums.TaskFail)
 	}
-	return false
+	return false, ""
 }
 
 // Uses encrypted public key to get the JTI Token
-func (task *Task) RetrieveToken() bool {
+func (task *Task) RetrieveToken() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -718,7 +712,7 @@ func (task *Task) RetrieveToken() bool {
 	case 200:
 		body, _ := ioutil.ReadAll(resp.Body)
 		task.CyberSecureInfo.Privatekey = string(body)
-		return true
+		return true, ""
 	}
-	return false
+	return false, ""
 }
