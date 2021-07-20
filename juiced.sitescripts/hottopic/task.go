@@ -1,6 +1,7 @@
 package hottopic
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"strings"
@@ -206,7 +207,7 @@ func (task *Task) AddToCart() bool {
 	data := url.Values{
 		"shippingMethod-13249991": {"shipToHome"},
 		"pid":                     {task.Pid},
-		"Quantity":                {"1"},
+		"Quantity":                {fmt.Sprint(task.Task.Task.TaskQty)},
 		"hasColorSelected":        {colorSelected},
 		"hasSizeSelected":         {sizeSelected},
 		"hasInseamSelected":       {inseamSelected},
