@@ -227,6 +227,8 @@ func (monitor *Monitor) StockInfo(body string, pid string) HotTopicInStockData {
 	//we are in stock and in budget
 	return HotTopicInStockData{
 		PID:         pid,
+		Size:        monitor.PidWithInfo[pid].Size,
+		Color:       monitor.PidWithInfo[pid].Color,
 		ProductName: ProductName,
 		ImageURL:    "https://hottopic.scene7.com/is/image/HotTopic/" + pid + "_hi",
 	}
