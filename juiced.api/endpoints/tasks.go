@@ -790,9 +790,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 									task.BestbuyTaskInfo.Password = updateTasksRequestInfo.BestbuyTaskInfo.Password
 								}
 							case enums.BoxLunch:
-								if updateTasksRequestInfo.BoxLunchTaskInfo.PidsJoined != "DO_NOT_UPDATE" {
-									task.BoxLunchTaskInfo.PidsJoined = updateTasksRequestInfo.BoxLunchTaskInfo.PidsJoined
-								}
+
 							case enums.GameStop:
 								if updateTasksRequestInfo.GamestopTaskInfo.TaskType != "DO_NOT_UPDATE" {
 									task.GamestopTaskInfo.TaskType = updateTasksRequestInfo.GamestopTaskInfo.TaskType
