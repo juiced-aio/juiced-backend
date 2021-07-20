@@ -191,7 +191,7 @@ func (task *Task) Login() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint),
+		URL:    fmt.Sprintf(LoginEndpoint),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader([]byte(params.Encode())).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
