@@ -102,7 +102,9 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
-		task.BoxLunchTaskInfo.Pids = strings.Split(task.BoxLunchTaskInfo.PidsJoined, ",")
+		if task.BoxLunchTaskInfo.PidsJoined != "" {
+			task.BoxLunchTaskInfo.Pids = strings.Split(task.BoxLunchTaskInfo.PidsJoined, ",")
+		}
 
 	case enums.GameStop:
 		statement, err := database.Preparex(`SELECT * FROM gamestopTaskInfos WHERE taskID = @p1`)

@@ -35,7 +35,8 @@ func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
-		Pids: pids,
+		Pids:        pids,
+		PidWithInfo: storedBoxlunchMonitors,
 	}
 
 	return boxlunchMonitor, nil

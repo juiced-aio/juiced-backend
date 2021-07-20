@@ -246,7 +246,10 @@ func (task *Task) GetCheckout() bool {
 		return false
 	}
 
-	task.Dwcont = getDwCont(string(body))
+	task.Dwcont, err = getDwCont(string(body))
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -271,8 +274,15 @@ func (task *Task) ProceedToCheckout() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
-	task.SecureKey = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
+
+	task.SecureKey, err = getSecureKey(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -298,8 +308,15 @@ func (task *Task) GuestCheckout() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
-	task.SecureKey = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
+
+	task.SecureKey, err = getSecureKey(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -339,7 +356,10 @@ func (task *Task) SubmitShipping() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -363,8 +383,15 @@ func (task *Task) UseOrigAddress() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
-	task.SecureKey = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
+
+	task.SecureKey, err = getSecureKey(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
