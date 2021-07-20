@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/target"
@@ -32,6 +33,17 @@ var bestbuyMonitorInfoAsset = entities.BestbuyMonitorInfo{
 	Monitors: []entities.BestbuySingleMonitorInfo{
 		{
 			SKU:      "6457447",
+			MaxPrice: -1,
+		},
+	},
+}
+
+var boxlunchMonitorAsset = map[string]*boxlunch.Monitor{"boxlunch_test_monitor": {Monitor: monitorAsset, Pids: []string{""}}}
+
+var boxlunchMonitorInfoAsset = entities.BoxLunchMonitorInfo{
+	Monitors: []entities.BoxLunchSingleMonitorInfo{
+		{
+			Pid:      "",
 			MaxPrice: -1,
 		},
 	},
@@ -138,6 +150,9 @@ func TestStartMonitor(t *testing.T) {
 			tt.args.monitor.AmazonMonitorInfo = amazonMonitorInfoAsset
 		case enums.BestBuy:
 			tt.monitorStore.BestbuyMonitors = bestbuyMonitorAsset
+			tt.args.monitor.BestbuyMonitorInfo = bestbuyMonitorInfoAsset
+		case enums.BoxLunch:
+			tt.monitorStore.BoxlunchMonitors = boxlunchMonitorAsset
 			tt.args.monitor.BestbuyMonitorInfo = bestbuyMonitorInfoAsset
 		case enums.GameStop:
 			tt.monitorStore.GamestopMonitors = gamestopMonitorAsset

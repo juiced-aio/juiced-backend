@@ -69,6 +69,14 @@ var bestbuyTaskInfosSchema = `
 	)
 `
 
+var boxlunchTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		pidsJoined TEXT
+	)
+`
+
 var gamestopTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS gamestopTaskInfos (
 		taskID TEXT,
@@ -161,6 +169,25 @@ var bestbuySingleMonitorInfosSchema = `
 		taskGroupID TEXT,
 		sku TEXT,
 		maxPrice INTEGER
+	)
+`
+
+var boxlunchMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var boxlunchSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
 	)
 `
 
@@ -325,6 +352,7 @@ var schemas = []string{
 	walmartTaskInfosSchema,
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
+	boxlunchTaskInfosSchema,
 	gamestopTaskInfosSchema,
 	hottopicTaskInfosSchema,
 	taskGroupsSchema,
@@ -335,6 +363,8 @@ var schemas = []string{
 	amazonSingleMonitorInfosSchema,
 	bestbuyMonitorInfosSchema,
 	bestbuySingleMonitorInfosSchema,
+	boxlunchMonitorInfosSchema,
+	boxlunchSingleMonitorInfosSchema,
 	gamestopMonitorInfosSchema,
 	gamestopSingleMonitorInfosSchema,
 	hottopicMonitorInfosSchema,

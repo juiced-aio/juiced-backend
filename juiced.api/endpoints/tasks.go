@@ -246,6 +246,28 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							}
 							taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 
+						case enums.BoxLunch:
+							maxPrice := -1
+							if len(taskGroup.BoxLunchMonitorInfo.Monitors) > 0 {
+								maxPrice = taskGroup.BoxLunchMonitorInfo.Monitors[0].MaxPrice
+							}
+
+							newMonitors := make([]entities.BoxLunchSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, pid := range pids {
+									monitor := entities.BoxLunchSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										Pid:         pid,
+
+										MaxPrice: maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.BoxLunchMonitorInfo.Monitors = newMonitors
+
 						case enums.GameStop:
 							maxPrice := -1
 							if len(taskGroup.GamestopMonitorInfo.Monitors) > 0 {
@@ -636,6 +658,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		WalmartTaskInfo    entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 		AmazonTaskInfo     entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
 		BestbuyTaskInfo    entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
+		BoxLunchTaskInfo   entities.BoxLunchTaskInfo `json:"boxlunchTaskInfo"`
 		GamestopTaskInfo   entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo   entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
 	}
@@ -665,6 +688,9 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 
 				case enums.BestBuy:
 					task.BestbuyTaskInfo = createTaskRequestInfo.BestbuyTaskInfo
+
+				case enums.BoxLunch:
+					task.BoxLunchTaskInfo = createTaskRequestInfo.BoxLunchTaskInfo
 
 				case enums.GameStop:
 					task.GamestopTaskInfo = createTaskRequestInfo.GamestopTaskInfo
@@ -761,6 +787,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		WalmartTaskInfo  entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 		AmazonTaskInfo   entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
 		BestbuyTaskInfo  entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
+		BoxLunchTaskInfo entities.BoxLunchTaskInfo `json:"boxlunchTaskInfo"`
 		GamestopTaskInfo entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
 	}
@@ -804,6 +831,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
 									task.BestbuyTaskInfo.Password = updateTasksRequestInfo.BestbuyTaskInfo.Password
 								}
+							case enums.BoxLunch:
 
 							case enums.GameStop:
 								if updateTasksRequestInfo.GamestopTaskInfo.TaskType != "DO_NOT_UPDATE" {

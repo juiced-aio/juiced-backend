@@ -10,6 +10,7 @@ import (
 
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/target"
@@ -27,6 +28,7 @@ type TaskStore struct {
 	WalmartTasks  map[string]*walmart.Task
 	AmazonTasks   map[string]*amazon.Task
 	BestbuyTasks  map[string]*bestbuy.Task
+	BoxlunchTasks map[string]*boxlunch.Task
 	HottopicTasks map[string]*hottopic.Task
 	GamestopTasks map[string]*gamestop.Task
 	// Future sitescripts will have a field here
@@ -133,6 +135,27 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Add task to store
 		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
+
+	case enums.BoxLunch:
+		// Check if task exists in store already
+		if _, ok := taskStore.BoxlunchTasks[task.ID]; ok {
+			return true
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError {
+			return false
+		}
+		// Make sure necessary fields exist
+		if len(task.BoxLunchTaskInfo.Pids) == 0 {
+			return false
+		}
+		// Create task
+		boxlunchTask, err := boxlunch.CreateBoxlunchTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return false
+		}
+		// Add task to store
+		taskStore.BoxlunchTasks[task.ID] = &boxlunchTask
 
 	case enums.HotTopic:
 		// Check if task exists in store already
@@ -306,6 +329,12 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 					return true
 				}
 			}
+		case enums.BoxLunch:
+			if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
+				if !boxlunchTask.Task.StopFlag {
+					return true
+				}
+			}
 
 		case enums.HotTopic:
 			if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
@@ -352,6 +381,12 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.
 		}
 		return true
 
+	case enums.BoxLunch:
+		if boxlunchTask, ok := taskStore.BoxlunchTasks[task.ID]; ok {
+			boxlunchTask.Task.Proxy = proxy
+		}
+		return true
+
 	case enums.HotTopic:
 		if hottopicTask, ok := taskStore.HottopicTasks[task.ID]; ok {
 			hottopicTask.Task.Proxy = proxy
@@ -388,6 +423,9 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 	case enums.BestBuy:
 		go taskStore.BestbuyTasks[taskID].RunTask()
 
+	case enums.BoxLunch:
+		go taskStore.BestbuyTasks[taskID].RunTask()
+
 	case enums.HotTopic:
 		go taskStore.HottopicTasks[taskID].RunTask()
 
@@ -405,6 +443,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 		WalmartTasks:  make(map[string]*walmart.Task),
 		AmazonTasks:   make(map[string]*amazon.Task),
 		BestbuyTasks:  make(map[string]*bestbuy.Task),
+		BoxlunchTasks: make(map[string]*boxlunch.Task),
 		HottopicTasks: make(map[string]*hottopic.Task),
 		GamestopTasks: make(map[string]*gamestop.Task),
 		EventBus:      eventBus,
