@@ -100,6 +100,31 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+
+	case enums.Disney:
+		statement, err := database.Preparex(`INSERT INTO disneyMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.DisneyMonitorInfo.ID = monitorID
+		taskGroup.DisneyMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.DisneyMonitorInfo.ID, taskGroup.DisneyMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.DisneyMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO disneySingleMonitorInfos (monitorID, taskGroupID, pid, size, color, maxPrice) VALUES (?, ?, ?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.PID, monitor.Size, monitor.Color, monitor.MaxPrice)
+			if err != nil {
+				return err
+			}
+		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`INSERT INTO gamestopMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
@@ -133,20 +158,24 @@ func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 	var monitorInfoSchema string
 	var singleMonitorInfoSchema string
 	switch retailer {
-	case enums.Target:
-		monitorInfoSchema = "targetMonitorInfos"
-		singleMonitorInfoSchema = "targetSingleMonitorInfos"
-	case enums.Walmart:
-		monitorInfoSchema = "walmartMonitorInfos"
 	case enums.Amazon:
 		monitorInfoSchema = "amazonMonitorInfos"
 		singleMonitorInfoSchema = "amazonSingleMonitorInfos"
 	case enums.BestBuy:
 		monitorInfoSchema = "bestbuyMonitorInfos"
 		singleMonitorInfoSchema = "bestbuySingleMonitorInfos"
+	case enums.Disney:
+		monitorInfoSchema = "disneyMonitorInfos"
+		singleMonitorInfoSchema = "disneySingleMonitorInfos"
 	case enums.GameStop:
 		monitorInfoSchema = "gamestopMonitorInfos"
 		singleMonitorInfoSchema = "gamestopSingleMonitorInfos"
+	case enums.Target:
+		monitorInfoSchema = "targetMonitorInfos"
+		singleMonitorInfoSchema = "targetSingleMonitorInfos"
+	case enums.Walmart:
+		monitorInfoSchema = "walmartMonitorInfos"
+
 	}
 	database := common.GetDatabase()
 	if database == nil {
@@ -186,24 +215,6 @@ func CreateTaskInfos(task entities.Task) error {
 	}
 
 	switch task.TaskRetailer {
-	case enums.Target:
-		statement, err := database.Preparex(`INSERT INTO targetTaskInfos (taskID, taskGroupID, checkoutType, email, password, paymentType) VALUES (?, ?, ?, ?, ?, ?)`)
-		if err != nil {
-			return err
-		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
-		if err != nil {
-			return err
-		}
-	case enums.Walmart:
-		statement, err := database.Preparex(`INSERT INTO walmartTaskInfos (taskID, taskGroupID) VALUES (?, ?)`)
-		if err != nil {
-			return err
-		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID)
-		if err != nil {
-			return err
-		}
 	case enums.Amazon:
 		statement, err := database.Preparex(`INSERT INTO amazonTaskInfos (taskID, taskGroupID, email, password, loginType) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -222,6 +233,15 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+	case enums.Disney:
+		statement, err := database.Preparex(`INSERT INTO disneyTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password, task.DisneyTaskInfo.TaskType)
+		if err != nil {
+			return err
+		}
 	case enums.GameStop:
 		statement, err := database.Preparex(`INSERT INTO gamestopTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -231,6 +251,25 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+	case enums.Target:
+		statement, err := database.Preparex(`INSERT INTO targetTaskInfos (taskID, taskGroupID, checkoutType, email, password, paymentType) VALUES (?, ?, ?, ?, ?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
+		if err != nil {
+			return err
+		}
+	case enums.Walmart:
+		statement, err := database.Preparex(`INSERT INTO walmartTaskInfos (taskID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(task.ID, task.TaskGroupID)
+		if err != nil {
+			return err
+		}
+
 	}
 	return nil
 }
@@ -238,16 +277,19 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 	var taskInfoSchema string
 
 	switch retailer {
-	case enums.Target:
-		taskInfoSchema = "targetTaskInfos"
-	case enums.Walmart:
-		taskInfoSchema = "walmartTaskInfos"
 	case enums.Amazon:
 		taskInfoSchema = "amazonTaskInfos"
 	case enums.BestBuy:
 		taskInfoSchema = "bestbuyTaskInfos"
+	case enums.Disney:
+		taskInfoSchema = "disneyTaskInfos"
 	case enums.GameStop:
 		taskInfoSchema = "gamestopTaskInfos"
+	case enums.Target:
+		taskInfoSchema = "targetTaskInfos"
+	case enums.Walmart:
+		taskInfoSchema = "walmartTaskInfos"
+
 	}
 	if taskInfoSchema == "" {
 		return nil

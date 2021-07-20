@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/target"
@@ -32,6 +33,18 @@ var bestbuyMonitorInfoAsset = entities.BestbuyMonitorInfo{
 	Monitors: []entities.BestbuySingleMonitorInfo{
 		{
 			SKU:      "6457447",
+			MaxPrice: -1,
+		},
+	},
+}
+
+var disneyMonitorAsset = map[string]*disney.Monitor{"disney_test_monitor": {Monitor: monitorAsset, Pids: []string{"5813057814019M"}}}
+
+var disneyMonitorInfoAsset = entities.DisneyMonitorInfo{
+	Monitors: []entities.DisneySingleMonitorInfo{
+		{
+			PID:      "5813057814019M",
+			Size:     "2",
 			MaxPrice: -1,
 		},
 	},
@@ -124,6 +137,7 @@ func TestStartMonitor(t *testing.T) {
 	}{
 		//{"amazon_test", enums.Amazon, &MonitorStore{}, args{&taskgroupAsset}, true},
 		{"bestbuy_test", enums.BestBuy, &MonitorStore{}, args{&taskgroupAsset}, true},
+		{"disney_test", enums.Disney, &MonitorStore{}, args{&taskgroupAsset}, true},
 		{"gamestop_test", enums.GameStop, &MonitorStore{}, args{&taskgroupAsset}, true},
 		{"hottopic_test", enums.HotTopic, &MonitorStore{}, args{&taskgroupAsset}, true},
 		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, true},
@@ -139,6 +153,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.BestBuy:
 			tt.monitorStore.BestbuyMonitors = bestbuyMonitorAsset
 			tt.args.monitor.BestbuyMonitorInfo = bestbuyMonitorInfoAsset
+		case enums.Disney:
+			tt.monitorStore.DisneyMonitors = disneyMonitorAsset
+			tt.args.monitor.DisneyMonitorInfo = disneyMonitorInfoAsset
 		case enums.GameStop:
 			tt.monitorStore.GamestopMonitors = gamestopMonitorAsset
 			tt.args.monitor.GamestopMonitorInfo = gamestopMonitorInfoAsset

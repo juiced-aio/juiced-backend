@@ -69,6 +69,16 @@ var bestbuyTaskInfosSchema = `
 	)
 `
 
+var disneyTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS disneyTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT,
+		taskType TEXT
+	)
+`
+
 var gamestopTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS gamestopTaskInfos (
 		taskID TEXT,
@@ -152,6 +162,24 @@ var bestbuySingleMonitorInfosSchema = `
 		monitorID TEXT,
 		taskGroupID TEXT,
 		sku TEXT,
+		maxPrice INTEGER
+	)
+`
+
+var disneyMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS disneyMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var disneySingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS disneySingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
 		maxPrice INTEGER
 	)
 `
@@ -294,21 +322,24 @@ var accountsSchema = `
 var schemas = []string{
 	userInfoSchema,
 	tasksSchema,
-	targetTaskInfosSchema,
-	walmartTaskInfosSchema,
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
+	disneyTaskInfosSchema,
 	gamestopTaskInfosSchema,
+	targetTaskInfosSchema,
+	walmartTaskInfosSchema,
 	taskGroupsSchema,
-	targetMonitorInfosSchema,
-	targetSingleMonitorInfosSchema,
-	walmartMonitorInfosSchema,
 	amazonMonitorInfosSchema,
 	amazonSingleMonitorInfosSchema,
 	bestbuyMonitorInfosSchema,
 	bestbuySingleMonitorInfosSchema,
+	disneyMonitorInfosSchema,
+	disneySingleMonitorInfosSchema,
 	gamestopMonitorInfosSchema,
 	gamestopSingleMonitorInfosSchema,
+	targetMonitorInfosSchema,
+	targetSingleMonitorInfosSchema,
+	walmartMonitorInfosSchema,
 	proxyGroupsSchema,
 	proxysSchema,
 	profileGroupsSchema,

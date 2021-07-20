@@ -24,6 +24,7 @@ type Task struct {
 	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
 	BestbuyTaskInfo  BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
+	DisneyTaskInfo   DisneyTaskInfo   `json:"disneyTaskInfo"`
 	GamestopTaskInfo GamestopTaskInfo `json:"gamestopTaskInfo"`
 	HottopicTaskInfo HottopicTaskInfo `json:"hottopicTaskInfo"`
 	// Future sitescripts will have a field here
@@ -59,6 +60,14 @@ type AmazonTaskInfo struct {
 }
 
 type BestbuyTaskInfo struct {
+	TaskID      string         `json:"taskID" db:"taskID"`
+	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
+	Email       string         `json:"email" db:"email"`
+	Password    string         `json:"password" db:"password"`
+	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
+}
+
+type DisneyTaskInfo struct {
 	TaskID      string         `json:"taskID" db:"taskID"`
 	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
 	Email       string         `json:"email" db:"email"`
@@ -108,6 +117,7 @@ type TaskGroupWithTasks struct {
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
+	DisneyMonitorInfo   DisneyMonitorInfo   `json:"disneyMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
 	// Future sitescripts will have a field here
@@ -135,6 +145,7 @@ type TaskGroup struct {
 	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
+	DisneyMonitorInfo   DisneyMonitorInfo   `json:"disneyMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
 
@@ -194,6 +205,20 @@ type BestbuyMonitorInfo struct {
 	ID          string                     `json:"ID" db:"ID"`
 	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
 	Monitors    []BestbuySingleMonitorInfo `json:"monitors"`
+}
+
+type DisneySingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	PID         string `json:"pid" db:"pid"`
+	Size        string `json:"size" db:"size"`
+	Color       string `json:"color" db:"color"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+type DisneyMonitorInfo struct {
+	ID          string                    `json:"ID" db:"ID"`
+	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []DisneySingleMonitorInfo `json:"monitors"`
 }
 
 type HottopicSingleMonitorInfo struct {

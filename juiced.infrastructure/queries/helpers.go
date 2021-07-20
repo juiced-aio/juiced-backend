@@ -16,40 +16,6 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 	}
 
 	switch task.TaskRetailer {
-	case enums.Target:
-		statement, err := database.Preparex(`SELECT * FROM targetTaskInfos WHERE taskID = @p1`)
-		if err != nil {
-			return task, err
-		}
-		rows, err := statement.Queryx(task.ID)
-		if err != nil {
-			return task, err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			err = rows.StructScan(&task.TargetTaskInfo)
-			if err != nil {
-				return task, err
-			}
-		}
-	case enums.Walmart:
-		statement, err := database.Preparex(`SELECT * FROM walmartTaskInfos WHERE taskID = @p1`)
-		if err != nil {
-			return task, err
-		}
-		rows, err := statement.Queryx(task.ID)
-		if err != nil {
-			return task, err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			err = rows.StructScan(&task.WalmartTaskInfo)
-			if err != nil {
-				return task, err
-			}
-		}
 	case enums.Amazon:
 		statement, err := database.Preparex(`SELECT * FROM amazonTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -84,6 +50,23 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+	case enums.Disney:
+		statement, err := database.Preparex(`SELECT * FROM disneyTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&task.DisneyTaskInfo)
+			if err != nil {
+				return task, err
+			}
+		}
 	case enums.GameStop:
 		statement, err := database.Preparex(`SELECT * FROM gamestopTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -101,6 +84,41 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+	case enums.Target:
+		statement, err := database.Preparex(`SELECT * FROM targetTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&task.TargetTaskInfo)
+			if err != nil {
+				return task, err
+			}
+		}
+	case enums.Walmart:
+		statement, err := database.Preparex(`SELECT * FROM walmartTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&task.WalmartTaskInfo)
+			if err != nil {
+				return task, err
+			}
+		}
+
 	}
 	return task, nil
 }
@@ -111,67 +129,6 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 		return taskGroup, errors.New("database not initialized")
 	}
 	switch taskGroup.MonitorRetailer {
-	case enums.Target:
-		statement, err := database.Preparex(`SELECT * FROM targetMonitorInfos WHERE taskGroupID = @p1`)
-		if err != nil {
-			return taskGroup, err
-		}
-		rows, err := statement.Queryx(taskGroup.GroupID)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			err = rows.StructScan(&taskGroup.TargetMonitorInfo)
-			if err != nil {
-				return taskGroup, err
-			}
-		}
-
-		statement, err = database.Preparex(`SELECT * FROM targetSingleMonitorInfos WHERE monitorID = @p1`)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		rows, err = statement.Queryx(taskGroup.TargetMonitorInfo.ID)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			tempSingleMonitor := entities.TargetSingleMonitorInfo{}
-			err = rows.StructScan(&tempSingleMonitor)
-			if err != nil {
-				return taskGroup, err
-			}
-			taskGroup.TargetMonitorInfo.Monitors = append(taskGroup.TargetMonitorInfo.Monitors, tempSingleMonitor)
-		}
-
-	case enums.Walmart:
-		statement, err := database.Preparex(`SELECT * FROM walmartMonitorInfos WHERE taskGroupID = @p1`)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		rows, err := statement.Queryx(taskGroup.GroupID)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			err = rows.StructScan(&taskGroup.WalmartMonitorInfo)
-			if err != nil {
-				return taskGroup, err
-			}
-		}
-
-		if taskGroup.WalmartMonitorInfo.SKUsJoined != "" {
-			taskGroup.WalmartMonitorInfo.SKUs = strings.Split(taskGroup.WalmartMonitorInfo.SKUsJoined, ",")
-		}
-
 	case enums.Amazon:
 		statement, err := database.Preparex(`SELECT * FROM amazonMonitorInfos WHERE taskGroupID = @p1`)
 		if err != nil {
@@ -249,6 +206,45 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 			taskGroup.BestbuyMonitorInfo.Monitors = append(taskGroup.BestbuyMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
+	case enums.Disney:
+		statement, err := database.Preparex(`SELECT * FROM disneyMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.DisneyMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+
+		statement, err = database.Preparex(`SELECT * FROM disneySingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.DisneyMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempSingleMonitor := entities.DisneySingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.DisneyMonitorInfo.Monitors = append(taskGroup.DisneyMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`SELECT * FROM gamestopMonitorInfos WHERE taskGroupID = @p1`)
 		if err != nil {
@@ -285,6 +281,67 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.GamestopMonitorInfo.Monitors = append(taskGroup.GamestopMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.Target:
+		statement, err := database.Preparex(`SELECT * FROM targetMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.TargetMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+
+		statement, err = database.Preparex(`SELECT * FROM targetSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.TargetMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempSingleMonitor := entities.TargetSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.TargetMonitorInfo.Monitors = append(taskGroup.TargetMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.Walmart:
+		statement, err := database.Preparex(`SELECT * FROM walmartMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.WalmartMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+
+		if taskGroup.WalmartMonitorInfo.SKUsJoined != "" {
+			taskGroup.WalmartMonitorInfo.SKUs = strings.Split(taskGroup.WalmartMonitorInfo.SKUsJoined, ",")
 		}
 
 	}
