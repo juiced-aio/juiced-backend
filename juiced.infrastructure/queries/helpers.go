@@ -118,8 +118,11 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+		if task.HottopicTaskInfo.PidsJoined != "" {
+			task.HottopicTaskInfo.Pids = strings.Split(task.HottopicTaskInfo.PidsJoined, ",")
+		}
 	}
-	task.HottopicTaskInfo.Pids = strings.Split(task.HottopicTaskInfo.PidsJoined, ",")
+
 	return task, nil
 }
 

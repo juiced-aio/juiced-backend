@@ -36,7 +36,8 @@ func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
-		Pids: pids,
+		Pids:        pids,
+		PidWithInfo: storedHottopicMonitors,
 	}
 
 	return hottopicMonitor, nil

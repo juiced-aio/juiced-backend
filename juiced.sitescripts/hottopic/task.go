@@ -271,6 +271,9 @@ func (task *Task) ProceedToCheckout() bool {
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
 	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
 	task.SecureKey, err = getSecureKey(bodyText)
 	if err != nil {
 		return false
@@ -301,6 +304,9 @@ func (task *Task) GuestCheckout() bool {
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
 	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
 	task.SecureKey, err = getSecureKey(bodyText)
 	if err != nil {
 		return false
@@ -372,6 +378,9 @@ func (task *Task) UseOrigAddress() bool {
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
 	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
 	task.SecureKey, err = getSecureKey(bodyText)
 	if err != nil {
 		return false
