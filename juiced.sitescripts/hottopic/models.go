@@ -53,10 +53,6 @@ type HotTopicInStockData struct {
 	ImageURL    string
 }
 
-type PidSingle struct {
-	Pid string
-}
-
 // Task info
 type Task struct {
 	Task      base.Task
