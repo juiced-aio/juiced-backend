@@ -123,7 +123,28 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+	case enums.HotTopic:
+		statement, err := database.Preparex(`SELECT * FROM hottopicTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&task.HottopicTaskInfo)
+			if err != nil {
+				return task, err
+			}
+		}
+		if task.HottopicTaskInfo.PidsJoined != "" {
+			task.HottopicTaskInfo.Pids = strings.Split(task.HottopicTaskInfo.PidsJoined, ",")
+		}
 	}
+
 	return task, nil
 }
 
@@ -346,6 +367,44 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.GamestopMonitorInfo.Monitors = append(taskGroup.GamestopMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.HotTopic:
+		statement, err := database.Preparex(`SELECT * FROM hottopicMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.HottopicMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+		statement, err = database.Preparex(`SELECT * FROM hottopicSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.HottopicMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tempSingleMonitor := entities.HottopicSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.HottopicMonitorInfo.Monitors = append(taskGroup.HottopicMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	}

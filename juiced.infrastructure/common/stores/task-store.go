@@ -450,6 +450,32 @@ func InitTaskStore(eventBus *events.EventBus) {
 	}
 }
 
+// GetTaskStatuses returns a list of tasks with the most up to date status
+func GetTaskStatuses() map[string]string {
+	taskStatuses := make(map[string]string)
+
+	for taskID, task := range taskStore.AmazonTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.BestbuyTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.GamestopTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.HottopicTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.TargetTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.WalmartTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+
+	return taskStatuses
+}
+
 // GetTaskStore returns the singleton instance of the EventBus
 func GetTaskStore() *TaskStore {
 	return taskStore

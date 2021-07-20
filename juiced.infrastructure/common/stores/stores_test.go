@@ -60,7 +60,7 @@ var gamestopMonitorInfoAsset = entities.GamestopMonitorInfo{
 	},
 }
 
-var hottopicMonitorAsset = map[string]*hottopic.Monitor{"hottopic_test_monitor": {Monitor: monitorAsset, Pids: []hottopic.PidSingle{{Pid: "16078565"}}}}
+var hottopicMonitorAsset = map[string]*hottopic.Monitor{"hottopic_test_monitor": {Monitor: monitorAsset, Pids: []string{"16078565"}}}
 
 var hottopicMonitorInfoAsset = entities.HottopicMonitorInfo{
 	Monitors: []entities.HottopicSingleMonitorInfo{

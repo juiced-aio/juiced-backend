@@ -148,6 +148,29 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+	case enums.HotTopic:
+		statement, err := database.Preparex(`INSERT INTO hottopicMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.HottopicMonitorInfo.ID = monitorID
+		taskGroup.HottopicMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.HottopicMonitorInfo.ID, taskGroup.HottopicMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.HottopicMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO hottopicSingleMonitorInfos (monitorID, taskGroupID, pid, size, color, maxPrice, monitorType) VALUES (?, ?, ?, ?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.Pid, monitor.Size, monitor.Color, monitor.MaxPrice, monitor.MonitorType)
+			if err != nil {
+				return err
+			}
+		}
 
 	}
 
@@ -175,6 +198,9 @@ func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 	case enums.GameStop:
 		monitorInfoSchema = "gamestopMonitorInfos"
 		singleMonitorInfoSchema = "gamestopSingleMonitorInfos"
+	case enums.HotTopic:
+		monitorInfoSchema = "hottopicMonitorInfos"
+		singleMonitorInfoSchema = "hottopicSingleMonitorInfos"
 	}
 	database := common.GetDatabase()
 	if database == nil {
@@ -273,6 +299,16 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+	case enums.HotTopic:
+		task.HottopicTaskInfo.PidsJoined = strings.Join(task.HottopicTaskInfo.Pids, ",")
+		statement, err := database.Preparex(`INSERT INTO hottopicTaskInfos (taskID, taskGroupID, pidsJoined) VALUES (?, ?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.HottopicTaskInfo.PidsJoined)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -292,6 +328,8 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 		taskInfoSchema = "boxlunchTaskInfos"
 	case enums.GameStop:
 		taskInfoSchema = "gamestopTaskInfos"
+	case enums.HotTopic:
+		taskInfoSchema = "hottopicTaskInfos"
 	}
 	if taskInfoSchema == "" {
 		return nil

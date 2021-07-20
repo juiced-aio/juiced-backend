@@ -356,13 +356,15 @@ func (task *Task) Login() bool {
 		}
 		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
 		if task.Task.StopFlag {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
+			browserWithCancel.MustClose()
 			cancel()
 		}
 	}()
 
 	browserWithCancel.MustIgnoreCertErrors(true)
 
-	defer func() { browserWithCancel.MustClose(); task.BrowserComplete = true }()
+	defer func() { browserWithCancel.MustClose() }()
 
 	if userPassProxy {
 		go browserWithCancel.MustHandleAuth(username, password)()
@@ -392,6 +394,15 @@ func (task *Task) Login() bool {
 
 	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
 	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
+
+	time.Sleep(1 * time.Second / 2)
+	if strings.Contains(page.MustHTML(), "That password is incorrect.") {
+		task.PublishEvent("Incorrect password", enums.TaskUpdate)
+		return false
+	} else if strings.Contains(page.MustHTML(), "Your account is locked") {
+		task.PublishEvent("Account is locked", enums.TaskUpdate)
+		return false
+	}
 	page.MustElement("#account").MustWaitLoad()
 	page.MustWaitLoad()
 	page.MustNavigate(BaseEndpoint).MustWaitLoad()
@@ -432,6 +443,7 @@ func (task *Task) Login() bool {
 	task.AccountInfo.Cookies = cookies
 	task.Task.Client.Jar.SetCookies(baseURL, cookies)
 	TargetAccountStore.Set(task.AccountInfo.Email, task.Task.Client)
+	task.BrowserComplete = true
 
 	return true
 }
