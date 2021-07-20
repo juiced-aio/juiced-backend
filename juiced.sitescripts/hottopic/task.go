@@ -1,6 +1,7 @@
 package hottopic
 
 import (
+	"fmt"
 	"log"
 	"net/url"
 	"strings"
@@ -43,7 +44,7 @@ func (task *Task) CheckForStop() bool {
 	return false
 }
 
-//sSart tasks
+// Start task
 func (task *Task) RunTask() {
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
@@ -206,7 +207,7 @@ func (task *Task) AddToCart() bool {
 	data := url.Values{
 		"shippingMethod-13249991": {"shipToHome"},
 		"pid":                     {task.Pid},
-		"Quantity":                {"1"},
+		"Quantity":                {fmt.Sprint(task.Task.Task.TaskQty)},
 		"hasColorSelected":        {colorSelected},
 		"hasSizeSelected":         {sizeSelected},
 		"hasInseamSelected":       {inseamSelected},
@@ -220,7 +221,7 @@ func (task *Task) AddToCart() bool {
 		URL:                AddToCartEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            AddToCartReferer + task.Pid + ".html",
-		RequestBodyStruct:  data,
+		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
 		return false
@@ -242,7 +243,10 @@ func (task *Task) GetCheckout() bool {
 		return false
 	}
 
-	task.Dwcont = getDwCont(string(body))
+	task.Dwcont, err = getDwCont(string(body))
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -259,7 +263,7 @@ func (task *Task) ProceedToCheckout() bool {
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            ProceedToCheckoutReferer,
-		RequestBodyStruct:  data,
+		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
 		return false
@@ -267,8 +271,14 @@ func (task *Task) ProceedToCheckout() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
-	task.SecureKey = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
+	task.SecureKey, err = getSecureKey(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -286,7 +296,7 @@ func (task *Task) GuestCheckout() bool {
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
-		RequestBodyStruct:  data,
+		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
 		return false
@@ -294,8 +304,14 @@ func (task *Task) GuestCheckout() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
-	task.SecureKey = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
+	task.SecureKey, err = getSecureKey(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -327,7 +343,7 @@ func (task *Task) SubmitShipping() bool {
 		URL:                SubmitShippingEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
-		RequestBodyStruct:  data,
+		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
 		return false
@@ -335,7 +351,10 @@ func (task *Task) SubmitShipping() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -351,7 +370,7 @@ func (task *Task) UseOrigAddress() bool {
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
-		RequestBodyStruct:  data,
+		Data:               []byte(data.Encode()),
 	})
 	if err != nil { //check the cart isnt empty somehow maybe
 		return false
@@ -359,8 +378,14 @@ func (task *Task) UseOrigAddress() bool {
 
 	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont = getDwCont(bodyText)
-	task.SecureKey = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(bodyText)
+	if err != nil {
+		return false
+	}
+	task.SecureKey, err = getSecureKey(bodyText)
+	if err != nil {
+		return false
+	}
 
 	defer resp.Body.Close()
 
@@ -403,7 +428,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
-		RequestBodyStruct:  data,
+		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
 		return false
@@ -424,7 +449,7 @@ func (task *Task) SubmitOrder() bool {
 		URL:                SubmitOrderEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
-		RequestBodyStruct:  data,
+		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
 		return false

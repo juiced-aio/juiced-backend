@@ -402,6 +402,8 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
 						if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
 							hottopicTask.Pid = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].PID
+							hottopicTask.Size = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].Size
+							hottopicTask.Color = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].Color
 						}
 					}
 				}
