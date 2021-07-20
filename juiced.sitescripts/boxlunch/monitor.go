@@ -228,6 +228,8 @@ func (monitor *Monitor) StockInfo(body string, pid string) BoxLunchInStockData {
 	//EventInfo updated now we return true
 	return BoxLunchInStockData{
 		PID:         pid,
+		Size:        monitor.PidWithInfo[pid].Size,
+		Color:       monitor.PidWithInfo[pid].Color,
 		ProductName: ProductName,
 		// BoxLunch and HotTopic use the same image links
 		ImageURL: "https://hottopic.scene7.com/is/image/HotTopic/" + pid + "_hi",

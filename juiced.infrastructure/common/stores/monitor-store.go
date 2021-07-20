@@ -415,6 +415,8 @@ func (monitorStore *MonitorStore) CheckBoxLunchMonitorStock() {
 					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
 						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
 							boxlunchTask.Pid = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].PID
+							boxlunchTask.Size = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Size
+							boxlunchTask.Color = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Color
 						}
 					}
 				}

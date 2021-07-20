@@ -45,12 +45,6 @@ type Monitor struct {
 	PidWithInfo     map[string]entities.BoxLunchSingleMonitorInfo
 }
 
-type PidSingle struct {
-	Pid   string
-	size  string
-	color string
-}
-
 // Task info
 type Task struct {
 	Task      base.Task
@@ -65,6 +59,8 @@ type Task struct {
 
 type BoxLunchInStockData struct {
 	PID         string
+	Size        string
+	Color       string
 	ProductName string
 	ImageURL    string
 }
