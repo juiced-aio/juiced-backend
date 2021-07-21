@@ -49,7 +49,14 @@ func GetCaptchaStore() *CaptchaStore {
 }
 
 // RequestCaptchaToken returns a Captcha token from the Store, or requests one if none are available
-func RequestCaptchaToken(requestCaptchaTokenInfo RequestCaptchaTokenInfo) (interface{}, error) {
+func RequestCaptchaToken(_requestCaptchaTokenInfo interface{}) (interface{}, error) {
+	requestCaptchaTokenInfo := RequestCaptchaTokenInfo{}
+	if info, ok := _requestCaptchaTokenInfo.(RequestCaptchaTokenInfo); ok {
+		requestCaptchaTokenInfo = info
+	} else {
+		return _requestCaptchaTokenInfo, errors.New("Interfaced passed is not the correct struct")
+	}
+
 	var err error
 	switch requestCaptchaTokenInfo.CaptchaType {
 	case enums.ReCaptchaV2:

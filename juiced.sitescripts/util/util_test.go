@@ -281,8 +281,13 @@ func TestGetPXCapCookie(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	requestCaptchaTokenInfo := RequestCaptchaTokenInfo{}
+	requestCaptchaTokenInfo.CaptchaType = enums.ReCaptchaV2
+	requestCaptchaTokenInfo.Retailer = enums.Walmart
+	requestCaptchaTokenInfo.Url = walmartURL + "/blocked"
+	requestCaptchaTokenInfo.MinScore = 0
 
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Walmart, walmartURL+"/blocked", "", 0, entities.Proxy{})
+	token, err := captcha.RequestCaptchaToken(requestCaptchaTokenInfo)
 	if err != nil {
 		t.Fatal(err)
 	}
