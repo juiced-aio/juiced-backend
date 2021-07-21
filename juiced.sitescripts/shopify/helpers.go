@@ -2,6 +2,7 @@ package shopify
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
@@ -10,8 +11,15 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func SplitCard(card string) []string {
-	return []string{card[:4], card[4:8], card[8:12], card[12:16]}
+func SplitCard(card string, cardType string) string {
+	var cardSplit string
+	switch cardType {
+	case "AMEX":
+		cardSplit = strings.Join([]string{card[:4], card[4:10], card[10:15]}, " ")
+	default:
+		cardSplit = strings.Join([]string{card[:4], card[4:8], card[8:12], card[12:16]}, " ")
+	}
+	return cardSplit
 }
 
 // Creates a embed for the DiscordWebhook function

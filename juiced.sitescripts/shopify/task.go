@@ -693,7 +693,7 @@ func (task *Task) SetShippingRate() bool {
 }
 
 func (task *Task) GetCreditID() bool {
-	cardSplit := SplitCard(task.Task.Profile.CreditCard.CardNumber)
+	cardSplit := SplitCard(task.Task.Profile.CreditCard.CardNumber, task.Task.Profile.CreditCard.CardType)
 	var expMonthString string
 	if string(task.Task.Profile.CreditCard.ExpMonth[0]) == "0" {
 		expMonthString = string(task.Task.Profile.CreditCard.ExpMonth[1])
@@ -705,7 +705,7 @@ func (task *Task) GetCreditID() bool {
 
 	creditIDRequest := CreditIDRequest{
 		CreditCard: CreditCard{
-			Number:            cardSplit[0] + " " + cardSplit[1] + " " + cardSplit[2] + " " + cardSplit[3],
+			Number:            cardSplit,
 			Name:              task.Task.Profile.BillingAddress.FirstName + " " + task.Task.Profile.BillingAddress.LastName,
 			Month:             expMonthInt,
 			Year:              expYearInt,
