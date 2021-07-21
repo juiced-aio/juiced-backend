@@ -140,7 +140,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		shopifyMonitor, err := shopify.CreateShopifyMonitor(monitor, proxies, monitorStore.EventBus, monitor.ShopifyMonitorInfo.SiteURL, monitor.ShopifyMonitorInfo.Monitors)
+		shopifyMonitor, err := shopify.CreateShopifyMonitor(monitor, proxies, monitorStore.EventBus, monitor.ShopifyMonitorInfo.SiteURL, monitor.ShopifyMonitorInfo.SitePassword, monitor.ShopifyMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}
