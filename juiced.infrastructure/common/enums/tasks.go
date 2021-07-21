@@ -84,7 +84,7 @@ const (
 )
 
 var ShopifySiteURLs = map[ShopifyRetailer]string{
-	HotWheels: "https://hotwheelscollectors.com",
+	HotWheels: "https://creations.mattel.com",
 }
 
 // MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)
