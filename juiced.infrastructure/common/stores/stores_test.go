@@ -85,6 +85,8 @@ var walmartMonitorInfoAsset = entities.WalmartMonitorInfo{
 	MaxPrice:    -1,
 }
 
+var pokemonCenterMonitorAsset = map[string]*walmart.Monitor{"pokemoncenter_test_monitor": {Monitor: monitorAsset, MonitorType: enums.SKUMonitor, SKUs: []string{""}}}
+
 var taskgroupAsset = entities.TaskGroup{
 	GroupID:             "",
 	Name:                "test_taskgroup",
@@ -128,6 +130,7 @@ func TestStartMonitor(t *testing.T) {
 		{"hottopic_test", enums.HotTopic, &MonitorStore{}, args{&taskgroupAsset}, true},
 		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, true},
 		{"walmart_test", enums.Walmart, &MonitorStore{}, args{&taskgroupAsset}, true},
+		{"pokemoncenter_test", enums.PokemonCenter, &MonitorStore{}, args{&taskgroupAsset}, true},
 	}
 
 	for _, tt := range tests {
@@ -151,6 +154,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.Walmart:
 			tt.monitorStore.WalmartMonitors = walmartMonitorAsset
 			tt.args.monitor.WalmartMonitorInfo = walmartMonitorInfoAsset
+		case enums.PokemonCenter:
+			tt.monitorStore.PokemonCenterMonitors = pokemonCenterMonitorAsset
+			tt.args.monitor.PokemonCenterMonitorInfo = pokemonCenterMonitorInfoAsset
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.monitorStore.StartMonitor(tt.args.monitor); got != tt.want {
