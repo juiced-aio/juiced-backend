@@ -81,6 +81,7 @@ type Task struct {
 	AccessToken     string
 	RefreshAt       int64
 	Retry           int
+	MaxRetry        int
 }
 
 //Info used for payment encryption

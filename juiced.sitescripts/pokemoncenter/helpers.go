@@ -236,10 +236,8 @@ func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL st
 //Improves readability on RunTask
 func (task *Task) RunUntilSuccessful(runTaskResult bool, status string) (bool, bool) {
 	needToStop := task.CheckForStop()
-	x := 5 //should come from front-end somewhere, unless we want to hard code a 'retry' amount.
-	//If we want individual tasks to have different retry amouunts we can pass in as a paramater from runTask or use a global 'retry' amouont..
 	// -1 retry = unlimited amount of retries.
-	if needToStop || task.Retry > x {
+	if needToStop || task.Retry > task.MaxRetry {
 		task.Task.StopFlag = true //if retry is over the limit we want to set our stop flag.
 		return true, true
 	}

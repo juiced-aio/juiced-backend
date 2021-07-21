@@ -57,7 +57,7 @@ func (task *Task) RunTask() {
 		task.Task.StopFlag = true
 		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
-
+	task.MaxRetry = 5
 	UseAccountLogin := false //this needs to come from the front end user selection somewhere
 	task.RefreshAt = 0
 	//set to 0 so we refresh now
