@@ -1,5 +1,10 @@
 package captcha
 
+import (
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+)
+
 type KeyError = string
 
 const (
@@ -105,4 +110,14 @@ type TwoCaptchaGeeTestResponse struct {
 	Challenge string `json:"challenge"`
 	Validate  string `json:"validate"`
 	Seccode   string `json:"seccode"`
+}
+
+type RequestCaptchaTokenInfo struct {
+	CaptchaType enums.CaptchaType
+	Retailer    enums.Retailer
+	Url         string
+	Action      string
+	MinScore    float32
+	Proxy       entities.Proxy
+	Sitekey     []string
 }
