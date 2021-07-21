@@ -10,9 +10,11 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 )
@@ -38,14 +40,24 @@ var bestbuyMonitorInfoAsset = entities.BestbuyMonitorInfo{
 	},
 }
 
+var boxlunchMonitorAsset = map[string]*boxlunch.Monitor{"boxlunch_test_monitor": {Monitor: monitorAsset, Pids: []string{""}}}
+
+var boxlunchMonitorInfoAsset = entities.BoxLunchMonitorInfo{
+	Monitors: []entities.BoxLunchSingleMonitorInfo{
+		{
+			Pid:      "",
+			MaxPrice: -1,
+		},
+	},
+}
+
 var disneyMonitorAsset = map[string]*disney.Monitor{"disney_test_monitor": {Monitor: monitorAsset, Pids: []string{"5813057814019M"}}}
 
 var disneyMonitorInfoAsset = entities.DisneyMonitorInfo{
 	Monitors: []entities.DisneySingleMonitorInfo{
 		{
-			PID:      "5813057814019M",
-			Size:     "2",
-			MaxPrice: -1,
+			PID:  "5813057814019M",
+			Size: "2",
 		},
 	},
 }
@@ -61,7 +73,7 @@ var gamestopMonitorInfoAsset = entities.GamestopMonitorInfo{
 	},
 }
 
-var hottopicMonitorAsset = map[string]*hottopic.Monitor{"hottopic_test_monitor": {Monitor: monitorAsset, Pids: []hottopic.PidSingle{{Pid: "16078565"}}}}
+var hottopicMonitorAsset = map[string]*hottopic.Monitor{"hottopic_test_monitor": {Monitor: monitorAsset, Pids: []string{"16078565"}}}
 
 var hottopicMonitorInfoAsset = entities.HottopicMonitorInfo{
 	Monitors: []entities.HottopicSingleMonitorInfo{
@@ -71,6 +83,17 @@ var hottopicMonitorInfoAsset = entities.HottopicMonitorInfo{
 			Color:       "RED",
 			MaxPrice:    -1,
 			MonitorType: enums.SKUMonitor,
+		},
+	},
+}
+
+var shopifyMonitorAsset = map[string]*shopify.Monitor{"shopify_test_monitor": {Monitor: monitorAsset, VIDs: []string{""}}}
+
+var shopifyMonitorInfoAsset = entities.ShopifyMonitorInfo{
+	Monitors: []entities.ShopifySingleMonitorInfo{
+		{
+			VariantID: "",
+			MaxPrice:  -1,
 		},
 	},
 }
@@ -153,6 +176,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.BestBuy:
 			tt.monitorStore.BestbuyMonitors = bestbuyMonitorAsset
 			tt.args.monitor.BestbuyMonitorInfo = bestbuyMonitorInfoAsset
+		case enums.BoxLunch:
+			tt.monitorStore.BoxlunchMonitors = boxlunchMonitorAsset
+			tt.args.monitor.BoxLunchMonitorInfo = boxlunchMonitorInfoAsset
 		case enums.Disney:
 			tt.monitorStore.DisneyMonitors = disneyMonitorAsset
 			tt.args.monitor.DisneyMonitorInfo = disneyMonitorInfoAsset
@@ -162,6 +188,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.HotTopic:
 			tt.monitorStore.HottopicMonitors = hottopicMonitorAsset
 			tt.args.monitor.HottopicMonitorInfo = hottopicMonitorInfoAsset
+		case enums.Shopify:
+			tt.monitorStore.ShopifyMonitors = shopifyMonitorAsset
+			tt.args.monitor.ShopifyMonitorInfo = shopifyMonitorInfoAsset
 		case enums.Target:
 			tt.monitorStore.TargetMonitors = targetMonitorsAsset
 			tt.args.monitor.TargetMonitorInfo = targetMonitorInfoAsset

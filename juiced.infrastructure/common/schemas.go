@@ -31,24 +31,6 @@ var tasksSchema = `
 	)
 `
 
-var targetTaskInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetTaskInfos (
-		taskID TEXT,
-		taskGroupID TEXT,
-		checkoutType TEXT,
-		email TEXT,
-		password TEXT,
-		paymentType TEXT
-	)
-`
-
-var walmartTaskInfosSchema = `
-	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
-		taskID TEXT,
-		taskGroupID TEXT
-	)
-`
-
 var amazonTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS amazonTaskInfos (
 		taskID TEXT,
@@ -66,6 +48,13 @@ var bestbuyTaskInfosSchema = `
 		email TEXT,
 		password TEXT,
 		taskType TEXT
+	)
+`
+var boxlunchTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		pidsJoined TEXT
 	)
 `
 
@@ -89,6 +78,53 @@ var gamestopTaskInfosSchema = `
 	)
 `
 
+var hottopicTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		pidsJoined TEXT
+	)
+`
+
+// Shopify sites that need schemas will go here
+var hotwheelsTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hotwheelsTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT
+	)
+`
+
+var shopifyTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		couponCode TEXT,
+		siteURL TEXT,
+		sitePassword TEXT,
+		shopifyRetailer TEXT
+	)
+`
+
+var targetTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		checkoutType TEXT,
+		email TEXT,
+		password TEXT,
+		paymentType TEXT
+	)
+`
+
+var walmartTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT
+	)
+`
+
 var taskGroupsSchema = `
 	CREATE TABLE IF NOT EXISTS taskGroups (
 		groupID TEXT,
@@ -100,35 +136,6 @@ var taskGroupsSchema = `
 		status TEXT,
 		taskIDsJoined TEXT,
 		creationDate INTEGER
-	)
-`
-
-var targetMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT,
-		storeID TEXT,
-		monitorType TEXT
-	)
-`
-
-var targetSingleMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetSingleMonitorInfos (
-		monitorID TEXT,
-		taskGroupID TEXT,
-		tcin TEXT,
-		maxPrice INTEGER,
-		checkoutType TEXT
-	)
-`
-
-var walmartMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT,
-		monitorType TEXT,
-		skusJoined TEXT,
-		maxPrice INTEGER
 	)
 `
 
@@ -166,6 +173,25 @@ var bestbuySingleMonitorInfosSchema = `
 	)
 `
 
+var boxlunchMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var boxlunchSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
+	)
+`
+
 var disneyMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS disneyMonitorInfos (
 		ID TEXT,
@@ -197,6 +223,70 @@ var gamestopSingleMonitorInfosSchema = `
 		taskGroupID TEXT,
 		sku TEXT,
 		maxPrice INTEGER
+	)
+`
+var shopifyMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifyMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		siteURL TEXT,
+		sitePassword TEXT
+	)
+`
+
+var shopifySingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifySingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		variantID TEXT,
+		maxPrice INTEGER
+	)
+`
+var targetMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		storeID TEXT,
+		monitorType TEXT
+	)
+`
+
+var targetSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		tcin TEXT,
+		maxPrice INTEGER,
+		checkoutType TEXT
+	)
+`
+
+var walmartMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		monitorType TEXT,
+		skusJoined TEXT,
+		maxPrice INTEGER
+	)
+`
+
+var hottopicMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var hottopicSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
 	)
 `
 
@@ -320,33 +410,57 @@ var accountsSchema = `
 `
 
 var schemas = []string{
+
+	// UserInfo
 	userInfoSchema,
+
+	// Tasks
 	tasksSchema,
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
+	boxlunchTaskInfosSchema,
 	disneyTaskInfosSchema,
+	hottopicTaskInfosSchema,
 	gamestopTaskInfosSchema,
 	targetTaskInfosSchema,
 	walmartTaskInfosSchema,
+
+	// Shopify
+	shopifyTaskInfosSchema,
+	hotwheelsTaskInfosSchema,
+
+	// Task Groups/Monitors
 	taskGroupsSchema,
 	amazonMonitorInfosSchema,
 	amazonSingleMonitorInfosSchema,
 	bestbuyMonitorInfosSchema,
 	bestbuySingleMonitorInfosSchema,
+	boxlunchMonitorInfosSchema,
+	boxlunchSingleMonitorInfosSchema,
 	disneyMonitorInfosSchema,
 	disneySingleMonitorInfosSchema,
 	gamestopMonitorInfosSchema,
 	gamestopSingleMonitorInfosSchema,
+	hottopicMonitorInfosSchema,
+	hottopicSingleMonitorInfosSchema,
+	shopifyMonitorInfosSchema,
+	shopifySingleMonitorInfosSchema,
 	targetMonitorInfosSchema,
 	targetSingleMonitorInfosSchema,
 	walmartMonitorInfosSchema,
+
+	// Proxys
 	proxyGroupsSchema,
 	proxysSchema,
+
+	// Profiles
 	profileGroupsSchema,
 	profilesSchema,
 	shippingAddressesSchema,
 	billingAddressesSchema,
 	cardsSchema,
+
+	// Checkouts/Settings/Accounts
 	checkoutsSchema,
 	settingsSchema,
 	accountsSchema,

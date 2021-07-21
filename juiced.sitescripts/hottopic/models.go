@@ -40,19 +40,17 @@ const (
 type Monitor struct {
 	Monitor         base.Monitor
 	RunningMonitors []string
-	Pids            []PidSingle
+	Pids            []string
 	InStock         []HotTopicInStockData
 	PidWithInfo     map[string]entities.HottopicSingleMonitorInfo
 }
 
 type HotTopicInStockData struct {
-	PID string
-}
-
-type PidSingle struct {
-	Pid   string
-	size  string
-	color string
+	PID         string
+	Size        string
+	Color       string
+	ProductName string
+	ImageURL    string
 }
 
 // Task info

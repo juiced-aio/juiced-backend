@@ -19,6 +19,12 @@ func (taskStore *TaskStore) SetStopFlag(retailer enums.Retailer, ID string, flag
 		}
 		return true
 
+	case enums.BoxLunch:
+		if boxlunchTask, ok := taskStore.BoxlunchTasks[ID]; ok {
+			boxlunchTask.Task.StopFlag = flag
+		}
+		return true
+
 	case enums.Disney:
 		if disneyTask, ok := taskStore.DisneyTasks[ID]; ok {
 			disneyTask.Task.StopFlag = flag
@@ -34,6 +40,12 @@ func (taskStore *TaskStore) SetStopFlag(retailer enums.Retailer, ID string, flag
 	case enums.HotTopic:
 		if hottopicTask, ok := taskStore.HottopicTasks[ID]; ok {
 			hottopicTask.Task.StopFlag = flag
+		}
+		return true
+
+	case enums.Shopify:
+		if shopifyTask, ok := taskStore.ShopifyTasks[ID]; ok {
+			shopifyTask.Task.StopFlag = flag
 		}
 		return true
 

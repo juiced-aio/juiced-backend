@@ -70,12 +70,23 @@ const (
 	BestBuy     Retailer = "BestBuy"
 	Disney      Retailer = "Disney"
 	GameStop    Retailer = "GameStop"
-	HotWheels   Retailer = "HotWheels"
 	Shopify     Retailer = "Shopify"
 	BigCartel   Retailer = "BigCartel"
 	SquareSpace Retailer = "SquareSpace"
 	HotTopic    Retailer = "HotTopic"
+	BoxLunch    Retailer = "BoxLunch"
 )
+
+type ShopifyRetailer = string
+
+const (
+	GenericShopify ShopifyRetailer = "GenericShopify"
+	HotWheels      ShopifyRetailer = "HotWheels"
+)
+
+var ShopifySiteURLs = map[ShopifyRetailer]string{
+	HotWheels: "https://creations.mattel.com",
+}
 
 // MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)
 type MonitorType = string

@@ -137,7 +137,7 @@ type Availability struct {
 }
 
 type Product struct {
-	Availability       Availability `json:"availability`
+	Availability       Availability `json:"availability"`
 	ID                 string       `json:"id"`
 	Selectedproducturl string       `json:"selectedProductUrl"`
 }

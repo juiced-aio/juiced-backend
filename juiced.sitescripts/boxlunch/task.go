@@ -1,4 +1,4 @@
-package hottopic
+package boxlunch
 
 import (
 	"fmt"
@@ -14,19 +14,23 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// CreateHottopicTask takes a Task entity and turns it into a Hottopic Task
-func CreateHottopicTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
-	hottopicTask := Task{}
-
-	hottopicTask = Task{
+// CreateBoxLunch takes a Task entity and turns it into a BoxLunch Task
+func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+	boxLunchTask := Task{}
+	client, err := util.CreateClient(proxy)
+	if err != nil {
+		return boxLunchTask, err
+	}
+	boxLunchTask = Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
+			Client:   client,
 		},
 	}
-	return hottopicTask, nil
+	return boxLunchTask, err
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -44,7 +48,7 @@ func (task *Task) CheckForStop() bool {
 	return false
 }
 
-// Start task
+//sSart tasks
 func (task *Task) RunTask() {
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
@@ -52,6 +56,8 @@ func (task *Task) RunTask() {
 	if needToStop {
 		return
 	}
+
+	startTime := time.Now()
 
 	//AddTocart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
@@ -67,7 +73,6 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	startTime := time.Now()
 	//GetCheckout
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
 	GetCheckout := false
@@ -170,7 +175,7 @@ func (task *Task) RunTask() {
 
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
-	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
+	log.Println("TIME TO CHECK OUT: " + endTime.Sub(startTime).String())
 
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
@@ -185,7 +190,6 @@ func (task *Task) WaitForMonitor() bool {
 		if task.Pid != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
 	}
 }
 
@@ -219,7 +223,7 @@ func (task *Task) AddToCart() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            AddToCartReferer + task.Pid + ".html",
 		Data:               []byte(data.Encode()),
 	})
@@ -236,7 +240,7 @@ func (task *Task) GetCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            GetCheckoutReferer,
 	})
 	if err != nil {
@@ -261,7 +265,7 @@ func (task *Task) ProceedToCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            ProceedToCheckoutReferer,
 		Data:               []byte(data.Encode()),
 	})
@@ -275,6 +279,7 @@ func (task *Task) ProceedToCheckout() bool {
 	if err != nil {
 		return false
 	}
+
 	task.SecureKey, err = getSecureKey(bodyText)
 	if err != nil {
 		return false
@@ -294,7 +299,7 @@ func (task *Task) GuestCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -308,6 +313,7 @@ func (task *Task) GuestCheckout() bool {
 	if err != nil {
 		return false
 	}
+
 	task.SecureKey, err = getSecureKey(bodyText)
 	if err != nil {
 		return false
@@ -341,7 +347,7 @@ func (task *Task) SubmitShipping() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -368,7 +374,7 @@ func (task *Task) UseOrigAddress() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -382,6 +388,7 @@ func (task *Task) UseOrigAddress() bool {
 	if err != nil {
 		return false
 	}
+
 	task.SecureKey, err = getSecureKey(bodyText)
 	if err != nil {
 		return false
@@ -426,7 +433,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -447,7 +454,7 @@ func (task *Task) SubmitOrder() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitOrderEndpoint,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxLunchHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
