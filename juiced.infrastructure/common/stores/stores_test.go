@@ -13,6 +13,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 )
@@ -70,6 +71,17 @@ var hottopicMonitorInfoAsset = entities.HottopicMonitorInfo{
 			Color:       "RED",
 			MaxPrice:    -1,
 			MonitorType: enums.SKUMonitor,
+		},
+	},
+}
+
+var shopifyMonitorAsset = map[string]*shopify.Monitor{"shopify_test_monitor": {Monitor: monitorAsset, VIDs: []string{""}}}
+
+var shopifyMonitorInfoAsset = entities.ShopifyMonitorInfo{
+	Monitors: []entities.ShopifySingleMonitorInfo{
+		{
+			VariantID: "",
+			MaxPrice:  -1,
 		},
 	},
 }
@@ -160,6 +172,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.HotTopic:
 			tt.monitorStore.HottopicMonitors = hottopicMonitorAsset
 			tt.args.monitor.HottopicMonitorInfo = hottopicMonitorInfoAsset
+		case enums.Shopify:
+			tt.monitorStore.ShopifyMonitors = shopifyMonitorAsset
+			tt.args.monitor.ShopifyMonitorInfo = shopifyMonitorInfoAsset
 		case enums.Target:
 			tt.monitorStore.TargetMonitors = targetMonitorsAsset
 			tt.args.monitor.TargetMonitorInfo = targetMonitorInfoAsset

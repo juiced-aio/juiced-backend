@@ -31,24 +31,6 @@ var tasksSchema = `
 	)
 `
 
-var targetTaskInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetTaskInfos (
-		taskID TEXT,
-		taskGroupID TEXT,
-		checkoutType TEXT,
-		email TEXT,
-		password TEXT,
-		paymentType TEXT
-	)
-`
-
-var walmartTaskInfosSchema = `
-	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
-		taskID TEXT,
-		taskGroupID TEXT
-	)
-`
-
 var amazonTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS amazonTaskInfos (
 		taskID TEXT,
@@ -68,7 +50,6 @@ var bestbuyTaskInfosSchema = `
 		taskType TEXT
 	)
 `
-
 var boxlunchTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS boxlunchTaskInfos (
 		taskID TEXT,
@@ -95,6 +76,45 @@ var hottopicTaskInfosSchema = `
 	)
 `
 
+// Shopify sites that need schemas will go here
+var hotwheelsTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hotwheelsTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT
+	)
+`
+
+var shopifyTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		couponCode TEXT,
+		siteURL TEXT,
+		sitePassword TEXT,
+		shopifyRetailer TEXT
+	)
+`
+
+var targetTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		checkoutType TEXT,
+		email TEXT,
+		password TEXT,
+		paymentType TEXT
+	)
+`
+
+var walmartTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT
+	)
+`
+
 var taskGroupsSchema = `
 	CREATE TABLE IF NOT EXISTS taskGroups (
 		groupID TEXT,
@@ -106,35 +126,6 @@ var taskGroupsSchema = `
 		status TEXT,
 		taskIDsJoined TEXT,
 		creationDate INTEGER
-	)
-`
-
-var targetMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT,
-		storeID TEXT,
-		monitorType TEXT
-	)
-`
-
-var targetSingleMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS targetSingleMonitorInfos (
-		monitorID TEXT,
-		taskGroupID TEXT,
-		tcin TEXT,
-		maxPrice INTEGER,
-		checkoutType TEXT
-	)
-`
-
-var walmartMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT,
-		monitorType TEXT,
-		skusJoined TEXT,
-		maxPrice INTEGER
 	)
 `
 
@@ -203,6 +194,51 @@ var gamestopSingleMonitorInfosSchema = `
 		monitorID TEXT,
 		taskGroupID TEXT,
 		sku TEXT,
+		maxPrice INTEGER
+	)
+`
+var shopifyMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifyMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		siteURL TEXT,
+		sitePassword TEXT
+	)
+`
+
+var shopifySingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifySingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		variantID TEXT,
+		maxPrice INTEGER
+	)
+`
+var targetMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		storeID TEXT,
+		monitorType TEXT
+	)
+`
+
+var targetSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS targetSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		tcin TEXT,
+		maxPrice INTEGER,
+		checkoutType TEXT
+	)
+`
+
+var walmartMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		monitorType TEXT,
+		skusJoined TEXT,
 		maxPrice INTEGER
 	)
 `
@@ -346,19 +382,26 @@ var accountsSchema = `
 `
 
 var schemas = []string{
+
+	// UserInfo
 	userInfoSchema,
+
+	// Tasks
 	tasksSchema,
-	targetTaskInfosSchema,
-	walmartTaskInfosSchema,
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
 	boxlunchTaskInfosSchema,
-	gamestopTaskInfosSchema,
 	hottopicTaskInfosSchema,
+	gamestopTaskInfosSchema,
+	targetTaskInfosSchema,
+	walmartTaskInfosSchema,
+
+	// Shopify
+	shopifyTaskInfosSchema,
+	hotwheelsTaskInfosSchema,
+
+	// Task Groups/Monitors
 	taskGroupsSchema,
-	targetMonitorInfosSchema,
-	targetSingleMonitorInfosSchema,
-	walmartMonitorInfosSchema,
 	amazonMonitorInfosSchema,
 	amazonSingleMonitorInfosSchema,
 	bestbuyMonitorInfosSchema,
@@ -369,13 +412,24 @@ var schemas = []string{
 	gamestopSingleMonitorInfosSchema,
 	hottopicMonitorInfosSchema,
 	hottopicSingleMonitorInfosSchema,
+	shopifyMonitorInfosSchema,
+	shopifySingleMonitorInfosSchema,
+	targetMonitorInfosSchema,
+	targetSingleMonitorInfosSchema,
+	walmartMonitorInfosSchema,
+
+	// Proxys
 	proxyGroupsSchema,
 	proxysSchema,
+
+	// Profiles
 	profileGroupsSchema,
 	profilesSchema,
 	shippingAddressesSchema,
 	billingAddressesSchema,
 	cardsSchema,
+
+	// Checkouts/Settings/Accounts
 	checkoutsSchema,
 	settingsSchema,
 	accountsSchema,

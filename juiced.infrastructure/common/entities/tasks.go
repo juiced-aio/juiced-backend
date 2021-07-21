@@ -20,36 +20,15 @@ type Task struct {
 	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
 	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
 	CreationDate     int64            `json:"creationDate" db:"creationDate"`
-	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
-	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
 	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
 	BestbuyTaskInfo  BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
 	BoxLunchTaskInfo BoxLunchTaskInfo `json:"boxlunchTaskInfo"`
 	GamestopTaskInfo GamestopTaskInfo `json:"gamestopTaskInfo"`
 	HottopicTaskInfo HottopicTaskInfo `json:"hottopicTaskInfo"`
+	ShopifyTaskInfo  ShopifyTaskInfo  `json:"shopifyTaskInfo"`
+	TargetTaskInfo   TargetTaskInfo   `json:"targetTaskInfo"`
+	WalmartTaskInfo  WalmartTaskInfo  `json:"walmartTaskInfo"`
 	// Future sitescripts will have a field here
-}
-
-type HottopicTaskInfo struct {
-	TaskID      string   `json:"taskID" db:"taskID"`
-	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
-	Pids        []string `json:"pids"`
-	PidsJoined  string   `json:"pidsJoined" db:"pidsJoined"`
-}
-
-type TargetTaskInfo struct {
-	TaskID       string             `json:"taskID" db:"taskID"`
-	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
-	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
-	Email        string             `json:"email" db:"email"`
-	Password     string             `json:"password" db:"password"`
-	StoreID      string             `json:"storeID" db:"storeID"`
-	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
-}
-
-type WalmartTaskInfo struct {
-	TaskID      string `json:"taskID" db:"taskID"`
-	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 }
 
 type AmazonTaskInfo struct {
@@ -83,6 +62,45 @@ type GamestopTaskInfo struct {
 	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
 }
 
+type HottopicTaskInfo struct {
+	TaskID      string   `json:"taskID" db:"taskID"`
+	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
+	Pids        []string `json:"pids"`
+	PidsJoined  string   `json:"pidsJoined" db:"pidsJoined"`
+}
+
+type HotWheelsTaskInfo struct {
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	Email       string `json:"email" db:"email"`
+	Password    string `json:"password" db:"password"`
+}
+
+type ShopifyTaskInfo struct {
+	TaskID            string                `json:"taskID" db:"taskID"`
+	TaskGroupID       string                `json:"taskGroupID" db:"taskGroupID"`
+	CouponCode        string                `json:"couponCode" db:"couponCode"`
+	SiteURL           string                `json:"siteURL" db:"siteURL"`
+	SitePassword      string                `json:"sitePassword" db:"sitePassword"`
+	ShopifyRetailer   enums.ShopifyRetailer `json:"shopifyRetailer" db:"shopifyRetailer"`
+	HotWheelsTaskInfo HotWheelsTaskInfo     `json:"hotWheelsTaskInfo"`
+}
+
+type TargetTaskInfo struct {
+	TaskID       string             `json:"taskID" db:"taskID"`
+	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
+	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
+	Email        string             `json:"email" db:"email"`
+	Password     string             `json:"password" db:"password"`
+	StoreID      string             `json:"storeID" db:"storeID"`
+	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
+}
+
+type WalmartTaskInfo struct {
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+}
+
 // SetID updates the Task's ID
 func (task *Task) SetID(ID string) {
 	task.ID = ID
@@ -113,13 +131,15 @@ type TaskGroupWithTasks struct {
 	MonitorDelay        int                 `json:"delay" db:"delay"`
 	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
 	Tasks               []Task              `json:"tasks"`
-	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
-	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
 	BoxLunchMonitorInfo BoxLunchMonitorInfo `json:"boxlunchMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
+	ShopifyMonitorInfo  ShopifyMonitorInfo  `json:"shopifyMonitorInfo"`
+	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
+	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
+
 	// Future sitescripts will have a field here
 }
 
@@ -141,13 +161,15 @@ type TaskGroup struct {
 	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
 	UpdateMonitor       bool
 	CreationDate        int64               `json:"creationDate" db:"creationDate"`
-	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
-	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
 	BoxLunchMonitorInfo BoxLunchMonitorInfo `json:"boxlunchMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
+	ShopifyMonitorInfo  ShopifyMonitorInfo  `json:"shopifyMonitorInfo"`
+	TargetMonitorInfo   TargetMonitorInfo   `json:"targetMonitorInfo"`
+	WalmartMonitorInfo  WalmartMonitorInfo  `json:"walmartMonitorInfo"`
+
 	// Future sitescripts will have a field here
 }
 
@@ -249,6 +271,21 @@ type GamestopMonitorInfo struct {
 	ID          string                      `json:"ID" db:"ID"`
 	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
 	Monitors    []GamestopSingleMonitorInfo `json:"monitors"`
+}
+
+type ShopifySingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	VariantID   string `json:"variantID" db:"variantID"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
+type ShopifyMonitorInfo struct {
+	ID           string                     `json:"ID" db:"ID"`
+	TaskGroupID  string                     `json:"taskGroupID" db:"taskGroupID"`
+	SiteURL      string                     `json:"siteURL" db:"siteURL"`
+	SitePassword string                     `json:"sitePassword" db:"sitePassword"`
+	Monitors     []ShopifySingleMonitorInfo `json:"monitors"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup
