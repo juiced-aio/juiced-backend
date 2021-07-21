@@ -101,6 +101,23 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`SELECT * FROM pokemoncenterTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&task.PokemonCenterTaskInfo)
+			if err != nil {
+				return task, err
+			}
+		}
 	}
 	return task, nil
 }
@@ -285,6 +302,44 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.GamestopMonitorInfo.Monitors = append(taskGroup.GamestopMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`SELECT * FROM pokemoncenterMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.PokemonCenterMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+		statement, err = database.Preparex(`SELECT * FROM pokemoncenterSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.PokemonCenterMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tempSingleMonitor := entities.PokemonCenterSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.PokemonCenterMonitorInfo.Monitors = append(taskGroup.PokemonCenterMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	}
