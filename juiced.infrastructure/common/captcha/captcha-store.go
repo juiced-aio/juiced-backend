@@ -48,39 +48,38 @@ func GetCaptchaStore() *CaptchaStore {
 	return captchaStore
 }
 
-// TODO @silent: Instead of passing in all of these variables, create a struct called RequestCaptchaTokenInfo that has all of them (since some are not required for all Captcha types/retailers)
 // RequestCaptchaToken returns a Captcha token from the Store, or requests one if none are available
-func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer, url, action string, minScore float32, proxy entities.Proxy, sitekey ...string) (interface{}, error) {
+func RequestCaptchaToken(requestCaptchaTokenInfo RequestCaptchaTokenInfo) (interface{}, error) {
 	var err error
-	switch captchaType {
+	switch requestCaptchaTokenInfo.CaptchaType {
 	case enums.ReCaptchaV2:
-		tokens := captchaStore.ReCaptchaV2Tokens[retailer]
+		tokens := captchaStore.ReCaptchaV2Tokens[requestCaptchaTokenInfo.Retailer]
 		for index, token := range tokens {
-			if token.URL == url && token.Proxy.ID == proxy.ID {
+			if token.URL == requestCaptchaTokenInfo.Url && token.Proxy.ID == requestCaptchaTokenInfo.Proxy.ID {
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
-				captchaStore.ReCaptchaV2Tokens[retailer] = tokens[:len(tokens)-1]
+				captchaStore.ReCaptchaV2Tokens[requestCaptchaTokenInfo.Retailer] = tokens[:len(tokens)-1]
 				return *token, nil
 			}
 		}
-		tokens = captchaStore.AYCDReCaptchaV2Tokens[retailer]
+		tokens = captchaStore.AYCDReCaptchaV2Tokens[requestCaptchaTokenInfo.Retailer]
 		for index, token := range tokens {
-			if token.URL == url && token.Proxy.ID == proxy.ID {
+			if token.URL == requestCaptchaTokenInfo.Url && token.Proxy.ID == requestCaptchaTokenInfo.Proxy.ID {
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
-				captchaStore.AYCDReCaptchaV2Tokens[retailer] = tokens[:len(tokens)-1]
+				captchaStore.AYCDReCaptchaV2Tokens[requestCaptchaTokenInfo.Retailer] = tokens[:len(tokens)-1]
 				return *token, nil
 			}
 		}
 		// Otherwise, request a token
-		tempSitekey, ok := enums.ReCaptchaSitekeys[retailer]
+		tempSitekey, ok := enums.ReCaptchaSitekeys[requestCaptchaTokenInfo.Retailer]
 		retailerSitekey := ""
 		if !ok {
 			// If the sitekey cannot be extracted from our list, the sitekey parameter is required
-			if len(sitekey) == 0 {
+			if len(requestCaptchaTokenInfo.Sitekey) == 0 {
 				return nil, errors.New("sitekey is a required parameter for this retailer")
 			} else {
-				retailerSitekey = sitekey[0]
+				retailerSitekey = requestCaptchaTokenInfo.Sitekey[0]
 			}
 		} else {
 			retailerSitekey = string(tempSitekey)
@@ -88,35 +87,35 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		go RequestReCaptchaV2Token(retailerSitekey, url, proxy, retailer)
+		go RequestReCaptchaV2Token(retailerSitekey, requestCaptchaTokenInfo.Url, requestCaptchaTokenInfo.Proxy, requestCaptchaTokenInfo.Retailer)
 	case enums.ReCaptchaV3:
-		tokens := captchaStore.ReCaptchaV3Tokens[retailer]
+		tokens := captchaStore.ReCaptchaV3Tokens[requestCaptchaTokenInfo.Retailer]
 		for index, token := range tokens {
-			if token.URL == url && token.Proxy.ID == proxy.ID {
+			if token.URL == requestCaptchaTokenInfo.Url && token.Proxy.ID == requestCaptchaTokenInfo.Proxy.ID {
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
-				captchaStore.ReCaptchaV3Tokens[retailer] = tokens[:len(tokens)-1]
+				captchaStore.ReCaptchaV3Tokens[requestCaptchaTokenInfo.Retailer] = tokens[:len(tokens)-1]
 				return *token, nil
 			}
 		}
-		tokens = captchaStore.AYCDReCaptchaV3Tokens[retailer]
+		tokens = captchaStore.AYCDReCaptchaV3Tokens[requestCaptchaTokenInfo.Retailer]
 		for index, token := range tokens {
-			if token.URL == url && token.Proxy.ID == proxy.ID {
+			if token.URL == requestCaptchaTokenInfo.Url && token.Proxy.ID == requestCaptchaTokenInfo.Proxy.ID {
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
-				captchaStore.AYCDReCaptchaV3Tokens[retailer] = tokens[:len(tokens)-1]
+				captchaStore.AYCDReCaptchaV3Tokens[requestCaptchaTokenInfo.Retailer] = tokens[:len(tokens)-1]
 				return *token, nil
 			}
 		}
 		// Otherwise, request a token
-		tempSitekey, ok := enums.ReCaptchaSitekeys[retailer]
+		tempSitekey, ok := enums.ReCaptchaSitekeys[requestCaptchaTokenInfo.Retailer]
 		retailerSitekey := ""
 		if !ok {
 			// If the sitekey cannot be extracted from our list, the sitekey parameter is required
-			if len(sitekey) == 0 {
+			if len(requestCaptchaTokenInfo.Sitekey) == 0 {
 				return nil, errors.New("sitekey is a required parameter for this retailer")
 			} else {
-				retailerSitekey = sitekey[0]
+				retailerSitekey = requestCaptchaTokenInfo.Sitekey[0]
 			}
 		} else {
 			retailerSitekey = string(tempSitekey)
@@ -124,26 +123,26 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		go RequestReCaptchaV3Token(retailerSitekey, url, action, minScore, proxy, retailer)
+		go RequestReCaptchaV3Token(retailerSitekey, requestCaptchaTokenInfo.Url, requestCaptchaTokenInfo.Action, requestCaptchaTokenInfo.MinScore, requestCaptchaTokenInfo.Proxy, requestCaptchaTokenInfo.Retailer)
 	case enums.HCaptcha:
-		tokens := captchaStore.HCaptchaTokens[retailer]
+		tokens := captchaStore.HCaptchaTokens[requestCaptchaTokenInfo.Retailer]
 		for index, token := range tokens {
-			if token.URL == url && token.Proxy.ID == proxy.ID {
+			if token.URL == requestCaptchaTokenInfo.Url && token.Proxy.ID == requestCaptchaTokenInfo.Proxy.ID {
 				// If a valid token exists, remove it from the list of tokens and return it
 				tokens[len(tokens)-1], tokens[index] = tokens[index], tokens[len(tokens)-1]
-				captchaStore.HCaptchaTokens[retailer] = tokens[:len(tokens)-1]
+				captchaStore.HCaptchaTokens[requestCaptchaTokenInfo.Retailer] = tokens[:len(tokens)-1]
 				return *token, nil
 			}
 		}
 		// Otherwise, request a token
-		tempSitekey, ok := enums.HCaptchaSitekeys[retailer]
+		tempSitekey, ok := enums.HCaptchaSitekeys[requestCaptchaTokenInfo.Retailer]
 		retailerSitekey := ""
 		if !ok {
 			// If the sitekey cannot be extracted from our list, the sitekey parameter is required
-			if len(sitekey) == 0 {
+			if len(requestCaptchaTokenInfo.Sitekey) == 0 {
 				return nil, errors.New("sitekey is a required parameter for this retailer")
 			} else {
-				retailerSitekey = sitekey[0]
+				retailerSitekey = requestCaptchaTokenInfo.Sitekey[0]
 			}
 		} else {
 			retailerSitekey = string(tempSitekey)
@@ -151,7 +150,7 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		go RequestHCaptchaToken(retailerSitekey, url, proxy, retailer)
+		go RequestHCaptchaToken(retailerSitekey, requestCaptchaTokenInfo.Url, requestCaptchaTokenInfo.Proxy, requestCaptchaTokenInfo.Retailer)
 	case enums.GeeTestCaptcha:
 		// TODO @silent
 	}
