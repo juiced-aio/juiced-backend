@@ -68,6 +68,7 @@ const (
 	Walmart     Retailer = "Walmart"
 	Amazon      Retailer = "Amazon"
 	BestBuy     Retailer = "BestBuy"
+	Disney      Retailer = "Disney"
 	GameStop    Retailer = "GameStop"
 	Shopify     Retailer = "Shopify"
 	BigCartel   Retailer = "BigCartel"

@@ -13,6 +13,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
 	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
+	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
@@ -26,6 +27,7 @@ type MonitorStore struct {
 	AmazonMonitors   map[string]*amazon.Monitor
 	BestbuyMonitors  map[string]*bestbuy.Monitor
 	BoxlunchMonitors map[string]*boxlunch.Monitor
+	DisneyMonitors   map[string]*disney.Monitor
 	GamestopMonitors map[string]*gamestop.Monitor
 	HottopicMonitors map[string]*hottopic.Monitor
 	ShopifyMonitors  map[string]*shopify.Monitor
@@ -89,6 +91,26 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 
 		monitorStore.BestbuyMonitors[monitor.GroupID] = &bestbuyMonitor
+
+	case enums.Disney:
+		if _, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return true
+		}
+
+		if queryError {
+			return false
+		}
+
+		if len(monitor.DisneyMonitorInfo.Monitors) == 0 {
+			return false
+		}
+
+		disneyMonitor, err := disney.CreateDisneyMonitor(monitor, proxies, monitorStore.EventBus, monitor.DisneyMonitorInfo.Monitors)
+		if err != nil {
+			return false
+		}
+
+		monitorStore.DisneyMonitors[monitor.GroupID] = &disneyMonitor
 
 	case enums.BoxLunch:
 		if _, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
@@ -251,6 +273,13 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 			boxlunchMonitor.Monitor.StopFlag = false
 		}
 		go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
+
+	case enums.Disney:
+		if disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok {
+			disneyMonitor.Monitor.StopFlag = false
+		}
+		go monitorStore.DisneyMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.GameStop:
 		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
 			gamestopMonitor.Monitor.StopFlag = false
@@ -307,6 +336,12 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 		}
 		return true
 
+	case enums.Disney:
+		if disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok {
+			disneyMonitor.Monitor.StopFlag = true
+		}
+		return true
+
 	case enums.GameStop:
 		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
 			gamestopMonitor.Monitor.StopFlag = true
@@ -358,6 +393,12 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 	case enums.BoxLunch:
 		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
 			boxlunchMonitor.Monitor.StopFlag = true
+		}
+		return true
+
+	case enums.Disney:
+		if disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok {
+			disneyMonitor.Monitor.Proxy = proxy
 		}
 		return true
 
@@ -434,6 +475,25 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 							randomNumber := rand.Intn(len(bestbuyMonitor.InStock))
 							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[randomNumber].SKU
 							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[randomNumber].Price
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(1 * time.Second / 100)
+	}
+}
+
+func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
+	for {
+		for monitorID, disneyMonitor := range monitorStore.DisneyMonitors {
+			if len(disneyMonitor.InStock) > 0 {
+				taskGroup := disneyMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if disneyTask, ok := taskStore.DisneyTasks[taskID]; ok {
+						if ok && disneyTask.Task.Task.TaskGroupID == monitorID {
+							randomNumber := rand.Intn(len(disneyMonitor.InStock))
+							disneyTask.StockData = disneyMonitor.InStock[randomNumber]
 						}
 					}
 				}
@@ -594,6 +654,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 		AmazonMonitors:   make(map[string]*amazon.Monitor),
 		BestbuyMonitors:  make(map[string]*bestbuy.Monitor),
 		BoxlunchMonitors: make(map[string]*boxlunch.Monitor),
+		DisneyMonitors:   make(map[string]*disney.Monitor),
 		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		HottopicMonitors: make(map[string]*hottopic.Monitor),
 		TargetMonitors:   make(map[string]*target.Monitor),
@@ -605,6 +666,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckAmazonMonitorStock()
 	go monitorStore.CheckBestBuyMonitorStock()
 	go monitorStore.CheckBoxLunchMonitorStock()
+	go monitorStore.CheckDisneyMonitorStock()
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckShopifyMonitorStock()
@@ -618,6 +680,9 @@ func GetMonitorStatus(groupID string) string {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.BestbuyMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.DisneyMonitors[groupID]; ok {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.GamestopMonitors[groupID]; ok {
