@@ -302,6 +302,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										VariantID:   vid,
+										MaxPrice:    maxPrice,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
