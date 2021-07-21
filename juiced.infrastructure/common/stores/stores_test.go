@@ -12,6 +12,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 )
@@ -85,7 +86,16 @@ var walmartMonitorInfoAsset = entities.WalmartMonitorInfo{
 	MaxPrice:    -1,
 }
 
-var pokemonCenterMonitorAsset = map[string]*walmart.Monitor{"pokemoncenter_test_monitor": {Monitor: monitorAsset, MonitorType: enums.SKUMonitor, SKUs: []string{""}}}
+var pokemonCenterMonitorAsset = map[string]*pokemoncenter.Monitor{"pokemoncenter_test_monitor": {Monitor: monitorAsset, SKUs: []string{""}}}
+
+var pokemonCenterMonitorInfoAsset = entities.PokemonCenterMonitorInfo{
+	Monitors: []entities.PokemonCenterSingleMonitorInfo{
+		{
+			SKU:      "",
+			MaxPrice: -1,
+		},
+	},
+}
 
 var taskgroupAsset = entities.TaskGroup{
 	GroupID:             "",
