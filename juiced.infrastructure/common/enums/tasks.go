@@ -73,6 +73,7 @@ const (
 	BigCartel   Retailer = "BigCartel"
 	SquareSpace Retailer = "SquareSpace"
 	HotTopic    Retailer = "HotTopic"
+	BoxLunch    Retailer = "BoxLunch"
 )
 
 type ShopifyRetailer = string

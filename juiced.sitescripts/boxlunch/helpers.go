@@ -1,4 +1,4 @@
-package hottopic
+package boxlunch
 
 import (
 	"backend.juicedbot.io/juiced.client/http"
@@ -6,12 +6,12 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// AddHottopicHeaders adds Hottopic-specific headers to the request
-func AddHottopicHeaders(request *http.Request, referer ...string) {
+// AddBoxLunch adds BoxLunch-specific headers to the request
+func AddBoxLunchHeaders(request *http.Request, referer ...string) {
 	util.AddBaseHeaders(request)
 	request.Header.Set("Accept", "*/*")
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	request.Header.Set("Origin", "https://www.hottopic.com")
+	request.Header.Set("Origin", "https://www.boxlunch.com")
 	// omitcsrfjwt: true
 	// omitcorrelationid: true
 	// credentials: include

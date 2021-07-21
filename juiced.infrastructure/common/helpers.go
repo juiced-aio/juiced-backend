@@ -170,6 +170,7 @@ func GetCurrentColumns(schema string) (columnNames []string) {
 	tableName, _ := FindInString(schema, "EXISTS ", " \\(")
 	rows, _ := database.Queryx("PRAGMA table_info(" + tableName + ");")
 
+	defer rows.Close()
 	for rows.Next() {
 		column, _ := rows.SliceScan()
 		columnNames = append(columnNames, column[1].(string)+"|"+column[2].(string))

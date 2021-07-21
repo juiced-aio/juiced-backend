@@ -1,4 +1,4 @@
-package hottopic
+package boxlunch
 
 import (
 	"fmt"
@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
-
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -19,28 +18,28 @@ import (
 	browser "github.com/eddycjy/fake-useragent"
 )
 
-// CreateHottopicMonitor takes a TaskGroup entity and turns it into a Hottopic Monitor
-func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
-	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
-	hottopicMonitor := Monitor{}
+// CreateboxlunchMonitor takes a TaskGroup entity and turns it into a boxlunch Monitor
+func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BoxLunchSingleMonitorInfo) (Monitor, error) {
+	storedBoxlunchMonitors := make(map[string]entities.BoxLunchSingleMonitorInfo)
+	boxlunchMonitor := Monitor{}
 
 	pids := []string{}
 	for _, monitor := range singleMonitors {
-		storedHottopicMonitors[monitor.Pid] = monitor
+		storedBoxlunchMonitors[monitor.Pid] = monitor
 		pids = append(pids, monitor.Pid)
 	}
 
-	hottopicMonitor = Monitor{
+	boxlunchMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
 		Pids:        pids,
-		PidWithInfo: storedHottopicMonitors,
+		PidWithInfo: storedBoxlunchMonitors,
 	}
 
-	return hottopicMonitor, nil
+	return boxlunchMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
@@ -95,7 +94,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
-	stockData := HotTopicInStockData{}
+	stockData := BoxLunchInStockData{}
 
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
@@ -104,11 +103,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	switch monitor.PidWithInfo[pid].MonitorType {
 	case enums.SKUMonitor:
 		stockData = monitor.StockMonitor(pid)
-	}
-
-	needToStop = monitor.CheckForStop()
-	if needToStop {
-		return
 	}
 
 	if stockData.PID != "" {
@@ -140,10 +134,11 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 		monitor.RunSingleMonitor(pid)
 	}
+
 }
 
-func (monitor *Monitor) StockMonitor(pid string) HotTopicInStockData {
-	stockData := HotTopicInStockData{}
+func (monitor *Monitor) StockMonitor(pid string) BoxLunchInStockData {
+	stockData := BoxLunchInStockData{}
 	BuildEndpoint := MonitorEndpoint + pid
 
 	//Values have to be exact and case sensistive
@@ -183,8 +178,9 @@ func (monitor *Monitor) StockMonitor(pid string) HotTopicInStockData {
 	})
 	if err != nil {
 		fmt.Println(err)
-		return stockData
 	}
+
+	defer resp.Body.Close()
 
 	switch resp.StatusCode {
 	case 200:
@@ -199,8 +195,8 @@ func (monitor *Monitor) StockMonitor(pid string) HotTopicInStockData {
 	}
 }
 
-func (monitor *Monitor) StockInfo(body string, pid string) HotTopicInStockData {
-	stockData := HotTopicInStockData{}
+func (monitor *Monitor) StockInfo(body string, pid string) BoxLunchInStockData {
+	stockData := BoxLunchInStockData{}
 	doc := soup.HTMLParse(body)
 
 	ShipTable := doc.Find("div", "class", "method-descr__label")
@@ -218,18 +214,24 @@ func (monitor *Monitor) StockInfo(body string, pid string) HotTopicInStockData {
 	Price, _ := strconv.Atoi(PriceText)
 	InBudget := monitor.PidWithInfo[pid].MaxPrice > Price
 
+	if !InBudget {
+		//not in budget return false
+		return stockData
+	}
+
 	ProductName := doc.Find("a", "class", "name-link").Text()
 	if !InBudget {
 		//not in budget return false
 		return stockData
 	}
 
-	//we are in stock and in budget
-	return HotTopicInStockData{
+	//EventInfo updated now we return true
+	return BoxLunchInStockData{
 		PID:         pid,
 		Size:        monitor.PidWithInfo[pid].Size,
 		Color:       monitor.PidWithInfo[pid].Color,
 		ProductName: ProductName,
-		ImageURL:    "https://hottopic.scene7.com/is/image/HotTopic/" + pid + "_hi",
+		// BoxLunch and HotTopic use the same image links
+		ImageURL: "https://hottopic.scene7.com/is/image/HotTopic/" + pid + "_hi",
 	}
 }

@@ -483,6 +483,7 @@ func (task *Task) SetPaymentInfo() bool {
 		"flexPayEnableSezzle":  {""},
 		"csrf_token":           {task.CheckoutInfo.CSRF},
 		"flexpay":              {"nonFlexPayment"},
+		"dwfrm_billing_accertify_accertifyDeviceFingerprint": {""},
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -524,7 +525,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	form := url.Values{
-		"klarnaOrderId": {""},
+		"klarnaOrderId":              {""},
+		"accertifyDeviceFingerprint": {""},
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,

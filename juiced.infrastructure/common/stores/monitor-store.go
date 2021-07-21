@@ -12,6 +12,7 @@ import (
 
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
@@ -24,6 +25,7 @@ import (
 type MonitorStore struct {
 	AmazonMonitors   map[string]*amazon.Monitor
 	BestbuyMonitors  map[string]*bestbuy.Monitor
+	BoxlunchMonitors map[string]*boxlunch.Monitor
 	GamestopMonitors map[string]*gamestop.Monitor
 	HottopicMonitors map[string]*hottopic.Monitor
 	ShopifyMonitors  map[string]*shopify.Monitor
@@ -87,6 +89,26 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 
 		monitorStore.BestbuyMonitors[monitor.GroupID] = &bestbuyMonitor
+
+	case enums.BoxLunch:
+		if _, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+			return true
+		}
+
+		if queryError {
+			return false
+		}
+
+		if len(monitor.BoxLunchMonitorInfo.Monitors) == 0 {
+			return false
+		}
+
+		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxLunchMonitorInfo.Monitors)
+		if err != nil {
+			return false
+		}
+
+		monitorStore.BoxlunchMonitors[monitor.GroupID] = &boxlunchMonitor
 
 	case enums.GameStop:
 		if _, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
@@ -224,6 +246,11 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) bool
 		}
 		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 
+	case enums.BoxLunch:
+		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+			boxlunchMonitor.Monitor.StopFlag = false
+		}
+		go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
 	case enums.GameStop:
 		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
 			gamestopMonitor.Monitor.StopFlag = false
@@ -271,6 +298,12 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) bool 
 	case enums.BestBuy:
 		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
 			bestbuyMonitor.Monitor.StopFlag = true
+		}
+		return true
+
+	case enums.BoxLunch:
+		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+			boxlunchMonitor.Monitor.StopFlag = true
 		}
 		return true
 
@@ -322,6 +355,12 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 		}
 		return true
 
+	case enums.BoxLunch:
+		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+			boxlunchMonitor.Monitor.StopFlag = true
+		}
+		return true
+
 	case enums.GameStop:
 		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
 			gamestopMonitor.Monitor.Proxy = proxy
@@ -364,16 +403,17 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
 						if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
-							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ASIN
-							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].OfferID
-							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ItemName
-							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].Price
-							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].AntiCsrf
-							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].PID
-							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].RID
-							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].ImageURL
-							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].UA
-							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[rand.Intn(len(amazonMonitor.InStock))].MonitorType)
+							randomNumber := rand.Intn(len(amazonMonitor.InStock))
+							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[randomNumber].ASIN
+							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[randomNumber].OfferID
+							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[randomNumber].ItemName
+							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[randomNumber].Price
+							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[randomNumber].AntiCsrf
+							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[randomNumber].PID
+							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[randomNumber].RID
+							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[randomNumber].ImageURL
+							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[randomNumber].UA
+							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[randomNumber].MonitorType)
 						}
 					}
 				}
@@ -391,8 +431,29 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
 						if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
-							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].SKU
-							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[rand.Intn(len(bestbuyMonitor.InStock))].Price
+							randomNumber := rand.Intn(len(bestbuyMonitor.InStock))
+							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[randomNumber].SKU
+							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[randomNumber].Price
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(1 * time.Second / 100)
+	}
+}
+
+func (monitorStore *MonitorStore) CheckBoxLunchMonitorStock() {
+	for {
+		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
+			if len(boxlunchMonitor.InStock) > 0 {
+				taskGroup := boxlunchMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
+						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
+							boxlunchTask.Pid = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].PID
+							boxlunchTask.Size = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Size
+							boxlunchTask.Color = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Color
 						}
 					}
 				}
@@ -410,12 +471,13 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
 						if ok && gamestopTask.Task.Task.TaskGroupID == monitorID {
-							gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].SKU
-							gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].Price
-							gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ItemName
-							gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].PID
-							gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ImageURL
-							gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[rand.Intn(len(gamestopMonitor.InStock))].ProductURL
+							randomNumber := rand.Intn(len(gamestopMonitor.InStock))
+							gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[randomNumber].SKU
+							gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[randomNumber].Price
+							gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[randomNumber].ItemName
+							gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[randomNumber].PID
+							gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[randomNumber].ImageURL
+							gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[randomNumber].ProductURL
 						}
 					}
 				}
@@ -434,6 +496,8 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
 						if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
 							hottopicTask.Pid = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].PID
+							hottopicTask.Size = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].Size
+							hottopicTask.Color = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].Color
 						}
 					}
 				}
@@ -510,8 +574,9 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
 						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
-							walmartTask.Sku = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].Sku
-							walmartTask.OfferID = walmartMonitor.InStockForShip[rand.Intn(len(walmartMonitor.InStockForShip))].OfferID
+							randomNumber := rand.Intn(len(walmartMonitor.InStockForShip))
+							walmartTask.Sku = walmartMonitor.InStockForShip[randomNumber].Sku
+							walmartTask.OfferID = walmartMonitor.InStockForShip[randomNumber].OfferID
 						}
 					}
 				}
@@ -528,6 +593,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	monitorStore = &MonitorStore{
 		AmazonMonitors:   make(map[string]*amazon.Monitor),
 		BestbuyMonitors:  make(map[string]*bestbuy.Monitor),
+		BoxlunchMonitors: make(map[string]*boxlunch.Monitor),
 		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		HottopicMonitors: make(map[string]*hottopic.Monitor),
 		TargetMonitors:   make(map[string]*target.Monitor),
@@ -538,11 +604,36 @@ func InitMonitorStore(eventBus *events.EventBus) {
 
 	go monitorStore.CheckAmazonMonitorStock()
 	go monitorStore.CheckBestBuyMonitorStock()
+	go monitorStore.CheckBoxLunchMonitorStock()
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckShopifyMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
 	go monitorStore.CheckWalmartMonitorStock()
+}
+
+// GetMonitorStatus returns the status of the given TaskGroup's monitor
+func GetMonitorStatus(groupID string) string {
+	if monitor, ok := monitorStore.AmazonMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.BestbuyMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.GamestopMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.HottopicMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.TargetMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.WalmartMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+
+	return ""
 }
 
 // GetMonitorStore returns the singleton instance of the EventBus

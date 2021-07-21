@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
@@ -38,6 +39,17 @@ var bestbuyMonitorInfoAsset = entities.BestbuyMonitorInfo{
 	},
 }
 
+var boxlunchMonitorAsset = map[string]*boxlunch.Monitor{"boxlunch_test_monitor": {Monitor: monitorAsset, Pids: []string{""}}}
+
+var boxlunchMonitorInfoAsset = entities.BoxLunchMonitorInfo{
+	Monitors: []entities.BoxLunchSingleMonitorInfo{
+		{
+			Pid:      "",
+			MaxPrice: -1,
+		},
+	},
+}
+
 var gamestopMonitorAsset = map[string]*gamestop.Monitor{"gamestop_test_monitor": {Monitor: monitorAsset, SKUs: []string{"11105919"}}}
 
 var gamestopMonitorInfoAsset = entities.GamestopMonitorInfo{
@@ -49,7 +61,7 @@ var gamestopMonitorInfoAsset = entities.GamestopMonitorInfo{
 	},
 }
 
-var hottopicMonitorAsset = map[string]*hottopic.Monitor{"hottopic_test_monitor": {Monitor: monitorAsset, Pids: []hottopic.PidSingle{{Pid: "16078565"}}}}
+var hottopicMonitorAsset = map[string]*hottopic.Monitor{"hottopic_test_monitor": {Monitor: monitorAsset, Pids: []string{"16078565"}}}
 
 var hottopicMonitorInfoAsset = entities.HottopicMonitorInfo{
 	Monitors: []entities.HottopicSingleMonitorInfo{
@@ -150,6 +162,9 @@ func TestStartMonitor(t *testing.T) {
 			tt.args.monitor.AmazonMonitorInfo = amazonMonitorInfoAsset
 		case enums.BestBuy:
 			tt.monitorStore.BestbuyMonitors = bestbuyMonitorAsset
+			tt.args.monitor.BestbuyMonitorInfo = bestbuyMonitorInfoAsset
+		case enums.BoxLunch:
+			tt.monitorStore.BoxlunchMonitors = boxlunchMonitorAsset
 			tt.args.monitor.BestbuyMonitorInfo = bestbuyMonitorInfoAsset
 		case enums.GameStop:
 			tt.monitorStore.GamestopMonitors = gamestopMonitorAsset

@@ -288,6 +288,7 @@ func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWit
 		MonitorStatus:       taskGroup.MonitorStatus,
 		AmazonMonitorInfo:   taskGroup.AmazonMonitorInfo,
 		BestbuyMonitorInfo:  taskGroup.BestbuyMonitorInfo,
+		BoxLunchMonitorInfo: taskGroup.BoxLunchMonitorInfo,
 		GamestopMonitorInfo: taskGroup.GamestopMonitorInfo,
 		HottopicMonitorInfo: taskGroup.HottopicMonitorInfo,
 		ShopifyMonitorInfo:  taskGroup.ShopifyMonitorInfo,

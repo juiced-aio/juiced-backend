@@ -50,6 +50,13 @@ var bestbuyTaskInfosSchema = `
 		taskType TEXT
 	)
 `
+var boxlunchTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		pidsJoined TEXT
+	)
+`
 
 var gamestopTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS gamestopTaskInfos (
@@ -60,14 +67,12 @@ var gamestopTaskInfosSchema = `
 		taskType TEXT
 	)
 `
-var shopifyTaskInfosSchema = `
-	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
+
+var hottopicTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicTaskInfos (
 		taskID TEXT,
 		taskGroupID TEXT,
-		couponCode TEXT,
-		siteURL TEXT,
-		sitePassword TEXT,
-		shopifyRetailer TEXT
+		pidsJoined TEXT
 	)
 `
 
@@ -78,6 +83,17 @@ var hotwheelsTaskInfosSchema = `
 		taskGroupID TEXT,
 		email TEXT,
 		password TEXT
+	)
+`
+
+var shopifyTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		couponCode TEXT,
+		siteURL TEXT,
+		sitePassword TEXT,
+		shopifyRetailer TEXT
 	)
 `
 
@@ -147,6 +163,25 @@ var bestbuySingleMonitorInfosSchema = `
 	)
 `
 
+var boxlunchMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var boxlunchSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS boxlunchSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
+	)
+`
+
 var gamestopMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS gamestopMonitorInfos (
 		ID TEXT,
@@ -205,6 +240,25 @@ var walmartMonitorInfosSchema = `
 		monitorType TEXT,
 		skusJoined TEXT,
 		maxPrice INTEGER
+	)
+`
+
+var hottopicMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var hottopicSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
 	)
 `
 
@@ -336,6 +390,8 @@ var schemas = []string{
 	tasksSchema,
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
+	boxlunchTaskInfosSchema,
+	hottopicTaskInfosSchema,
 	gamestopTaskInfosSchema,
 	targetTaskInfosSchema,
 	walmartTaskInfosSchema,
@@ -350,8 +406,12 @@ var schemas = []string{
 	amazonSingleMonitorInfosSchema,
 	bestbuyMonitorInfosSchema,
 	bestbuySingleMonitorInfosSchema,
+	boxlunchMonitorInfosSchema,
+	boxlunchSingleMonitorInfosSchema,
 	gamestopMonitorInfosSchema,
 	gamestopSingleMonitorInfosSchema,
+	hottopicMonitorInfosSchema,
+	hottopicSingleMonitorInfosSchema,
 	shopifyMonitorInfosSchema,
 	shopifySingleMonitorInfosSchema,
 	targetMonitorInfosSchema,

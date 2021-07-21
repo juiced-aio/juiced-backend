@@ -105,8 +105,3 @@ func TestProxy(t *testing.T) {
 	fmt.Println(resp.StatusCode)
 
 }
-
-func TestGetCerts(t *testing.T) {
-	client, _ := NewClient(utls.HelloChrome_90)
-	GetCerts(client)
-}

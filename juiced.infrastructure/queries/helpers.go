@@ -50,6 +50,28 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+
+	case enums.BoxLunch:
+		statement, err := database.Preparex(`SELECT * FROM boxlunchTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&task.BoxLunchTaskInfo)
+			if err != nil {
+				return task, err
+			}
+		}
+		if task.BoxLunchTaskInfo.PidsJoined != "" {
+			task.BoxLunchTaskInfo.Pids = strings.Split(task.BoxLunchTaskInfo.PidsJoined, ",")
+		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`SELECT * FROM gamestopTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -85,6 +107,7 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+
 	case enums.Target:
 		statement, err := database.Preparex(`SELECT * FROM targetTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -102,6 +125,7 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
+
 	case enums.Walmart:
 		statement, err := database.Preparex(`SELECT * FROM walmartTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -119,8 +143,8 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 				return task, err
 			}
 		}
-
 	}
+
 	return task, nil
 }
 
@@ -207,6 +231,45 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 			taskGroup.BestbuyMonitorInfo.Monitors = append(taskGroup.BestbuyMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
+	case enums.BoxLunch:
+		statement, err := database.Preparex(`SELECT * FROM boxlunchMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.BoxLunchMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+
+		statement, err = database.Preparex(`SELECT * FROM boxlunchSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.BoxLunchMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempSingleMonitor := entities.BoxLunchSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.BoxLunchMonitorInfo.Monitors = append(taskGroup.BoxLunchMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`SELECT * FROM gamestopMonitorInfos WHERE taskGroupID = @p1`)
 		if err != nil {
@@ -243,6 +306,44 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.GamestopMonitorInfo.Monitors = append(taskGroup.GamestopMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.HotTopic:
+		statement, err := database.Preparex(`SELECT * FROM hottopicMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			err = rows.StructScan(&taskGroup.HottopicMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+		}
+		statement, err = database.Preparex(`SELECT * FROM hottopicSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.HottopicMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tempSingleMonitor := entities.HottopicSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.HottopicMonitorInfo.Monitors = append(taskGroup.HottopicMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	case enums.Shopify:
