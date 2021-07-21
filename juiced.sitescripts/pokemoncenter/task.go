@@ -205,7 +205,7 @@ func (task *Task) Login() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.CheckoutInfo.SKU)},
+			{"referer", LoginRefererEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -347,7 +347,7 @@ func (task *Task) SubmitEmailAddress(useAccountLogin bool) (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresValidateRefererEndpoint)}, //double check this endpoint
+			{"referer", fmt.Sprintf(SubmitEmailRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -536,7 +536,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"referer", fmt.Sprintf(SubmitPaymentDetailsRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -583,7 +583,7 @@ func (task *Task) Checkout(startTime time.Time) (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"referer", fmt.Sprintf(CheckoutRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -640,7 +640,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"referer", fmt.Sprintf(PublicPaymentKeyRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -677,7 +677,7 @@ func (task *Task) LoginGuest() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"referer", fmt.Sprintf(AuthKeyRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -722,7 +722,7 @@ func (task *Task) RetrieveToken() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"referer", fmt.Sprintf(CyberSourceTokenRefererEndpoint)}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
