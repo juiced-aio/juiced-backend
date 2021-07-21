@@ -362,6 +362,7 @@ func (task *Task) SubmitEmailAddress(useAccountLogin bool) (bool, string) {
 		//read response for errors etc...
 		return true, enums.SettingEmailAddressSuccess
 	}
+
 	return false, enums.SettingEmailAddressFailure
 }
 
@@ -430,6 +431,7 @@ func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 		//read response for errors etc...
 		return true, ""
 	}
+
 	return false, ""
 }
 
@@ -501,6 +503,7 @@ func (task *Task) SubmitAddressDetails(useAccountLogin bool) (bool, string) {
 	case 200:
 		return true, enums.SettingShippingInfoSuccess
 	}
+
 	return false, enums.SettingShippingInfoFailure
 }
 
@@ -547,9 +550,10 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	switch resp.StatusCode {
 	case 200:
 		task.CheckoutInfo.CheckoutUri = submitPaymentResponse.Self.Uri
-		return true, enums.CheckedOut
+		return true, enums.SettingBillingInfoSuccess
 	}
-	return false, enums.CheckingOutFailure
+
+	return false, enums.SettingBillingInfoFailure
 }
 
 // Checkout - self explanitory
@@ -593,6 +597,7 @@ func (task *Task) Checkout() (bool, string) {
 	case 200:
 		return true, enums.CheckedOut
 	}
+
 	return false, enums.CheckoutFailed
 }
 
@@ -631,6 +636,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 		task.CyberSecureInfo.PublicKey = paymentKeyResponse.KeyId
 		return true, ""
 	}
+
 	return false, ""
 }
 
@@ -670,14 +676,12 @@ func (task *Task) LoginGuest() (bool, string) {
 		accessToken := AccessToken{}
 		json.Unmarshal([]byte(match[0]), &accessToken)
 		task.AccessToken = accessToken.Access_token
-		return true, ""
+		return true, enums.LoginSuccess
 
 		//add captcha support here
-	default:
-		//if we reach here then login has failed, we can read the response if we want specifics.
-		task.PublishEvent(enums.LoginFailed, enums.TaskFail)
 	}
-	return false, ""
+	//if we reach here then login has failed, we can read the response if we want specifics.
+	return false, enums.LoginFailed
 }
 
 // Uses encrypted public key to get the JTI Token
@@ -714,5 +718,6 @@ func (task *Task) RetrieveToken() (bool, string) {
 		task.CyberSecureInfo.Privatekey = string(body)
 		return true, ""
 	}
+
 	return false, ""
 }

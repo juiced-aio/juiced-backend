@@ -42,7 +42,7 @@ const (
 	AddingToCart                TaskStatus = "Adding to cart"
 	AddingToCartFailure         TaskStatus = "Add cart failed retry"
 	AddingToCartSuccess         TaskStatus = "Add cart success"
-	AddingToCartQuantityFailure TaskStatus = "Expected quantity of 1 but found"
+	AddingToCartQuantityFailure TaskStatus = "Expected quantity of 1 but found "
 
 	SettingEmailAddress        TaskStatus = "Setting email address"
 	SettingEmailAddressFailure TaskStatus = "Setting email failed"
@@ -53,10 +53,11 @@ const (
 	SettingShippingInfoSuccess TaskStatus = "Setting shipping info success"
 
 	SettingBillingInfo        TaskStatus = "Setting billing info"
-	SettingBillingInfoFailure TaskStatus = "Setting billing info failed retry"
+	SettingBillingInfoFailure TaskStatus = "Setting billing info failed"
+	SettingBillingInfoSuccess TaskStatus = "Setting billing info Success"
 
 	CheckingOut        TaskStatus = "Checking out"
-	CheckingOutFailure TaskStatus = "Checkout failed retry"
+	CheckingOutFailure TaskStatus = "Checkout failed"
 
 	WaitingForLogin     TaskStatus = "Waiting for login cookies"
 	SettingUp           TaskStatus = "Setting up task"
