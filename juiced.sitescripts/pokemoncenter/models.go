@@ -9,7 +9,8 @@ import (
 const (
 	BaseEndpoint = "https://www.pokemoncenter.com/"
 
-	MonitorEndpoint                     = "https://www.pokemoncenter.com/product/%s"
+	MonitorEndpoint = "https://www.pokemoncenter.com/product/%s"
+
 	AddToCartEndpoint                   = "https://www.pokemoncenter.com/tpci-ecommweb-api/cart?type=product&format=zoom.nodatalinks"
 	AddToCartRefererEndpoint            = "https://www.pokemoncenter.com/product/%s"
 	SubmitAddressEndpoint               = "https://www.pokemoncenter.com/tpci-ecommweb-api/address?format=zoom.nodatalinks"
@@ -17,12 +18,19 @@ const (
 	SubmitAddressValidateEndpoint       = "https://www.pokemoncenter.com/tpci-ecommweb-api/address/validate"
 	SubmitAddresValidateRefererEndpoint = ""
 	SubmitPaymentDetailsEndpoint        = "https://www.pokemoncenter.com/tpci-ecommweb-api/payment?microform=true&format=zoom.nodatalinks"
+	SubmitPaymentDetailsRefererEndpoint = ""
 	SubmitEmailEndpoint                 = "https://www.pokemoncenter.com/tpci-ecommweb-api/email?format=zoom.nodatalinks"
+	SubmitEmailRefererEndpoint          = ""
 	CheckoutEndpoint                    = "https://www.pokemoncenter.com/tpci-ecommweb-api/order?format=zoom.nodatalinks"
+	CheckoutRefererEndpoint             = ""
 	PublicPaymentKeyEndpoint            = "https://www.pokemoncenter.com/tpci-ecommweb-api/payment/key?microform=true&locale=en-US"
+	PublicPaymentKeyRefererEndpoint     = ""
 	AuthKeyEndpoint                     = "https://www.pokemoncenter.com/tpci-ecommweb-api/cart?format=zoom.nodatalinks"
+	AuthKeyRefererEndpoint              = ""
 	CyberSourceTokenEndpoint            = "https://flex.cybersource.com/flex/v2/tokens"
+	CyberSourceTokenRefererEndpoint     = ""
 	LoginEndpoint                       = "https://www.pokemoncenter.com/tpci-ecommweb-api/auth?format=zoom.nodatalinks"
+	LoginRefererEndpoint                = ""
 )
 
 // Monitor info

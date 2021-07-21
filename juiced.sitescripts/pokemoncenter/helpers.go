@@ -12,6 +12,7 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	jose "github.com/dvsekhvalnov/jose2go"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -171,6 +172,67 @@ func retrievePaymentToken(keyId string) (jti string) {
 	return encrypt.Jti
 }
 
+// Creates a embed for the DiscordWebhook function
+func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	embeds := []sec.DiscordEmbed{
+		{
+			Fields: []sec.DiscordField{
+				{
+					Name:   "Site:",
+					Value:  "Pokemon Center",
+					Inline: true,
+				},
+				{
+					Name:   "Price:",
+					Value:  "$" + fmt.Sprintf("%f", task.CheckoutInfo.Price),
+					Inline: true,
+				},
+				{
+					Name:   "Product SKU:",
+					Value:  task.CheckoutInfo.SKU,
+					Inline: true,
+				},
+				{
+					Name:  "Product Name:",
+					Value: task.CheckoutInfo.ItemName,
+				},
+				{
+					Name:  "Proxy:",
+					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+				},
+			},
+			Footer: sec.DiscordFooter{
+				Text:    "Juiced AIO",
+				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
+			},
+			Timestamp: time.Now(),
+		},
+	}
+
+	switch status {
+	case enums.OrderStatusSuccess:
+		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
+		embeds[0].Color = 16742912
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+	case enums.OrderStatusDeclined:
+		embeds[0].Title = ":lemon: Card Declined :lemon:"
+		embeds[0].Color = 16766464
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+	case enums.OrderStatusFailed:
+		embeds[0].Title = ":apple: Failed to Place Order :apple:"
+		embeds[0].Color = 14495044
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+	}
+
+	return embeds
+}
+
 //Improves readability on RunTask
 func (task *Task) RunUntilSuccessful(runTaskResult bool, status string) (bool, bool) {
 	needToStop := task.CheckForStop()
@@ -198,5 +260,5 @@ func (task *Task) RunUntilSuccessful(runTaskResult bool, status string) (bool, b
 		task.Retry = 0
 	}
 
-	return true, false //Finally if we have reached this point then task was a success and we don't need to stop and retry has been reset.
+	return true, false //Finally if we have reached this point then task was a success.
 }

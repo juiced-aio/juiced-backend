@@ -14,6 +14,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
@@ -107,7 +108,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 5. Checkout
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout()); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout(startTime)); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
@@ -557,7 +558,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 }
 
 // Checkout - self explanitory
-func (task *Task) Checkout() (bool, string) {
+func (task *Task) Checkout(startTime time.Time) (bool, string) {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 
 	checkoutDetailsRequest := CheckoutDetailsRequest{PurchaseFrom: strings.Replace(task.CheckoutInfo.CheckoutUri, "paymentmethods", "purchases", 1) + "/form"}
@@ -595,6 +596,25 @@ func (task *Task) Checkout() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
+
+		_, user, err := queries.GetUserInfo()
+		if err != nil {
+			return false, enums.GetUserFailure
+		}
+
+		util.ProcessCheckout(util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      true,
+			Content:      "",
+			Embeds:       task.CreatePokemonCenterEmbed(enums.OrderStatusSuccess, "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=457&height=467"),
+			UserInfo:     user,
+			ItemName:     task.CheckoutInfo.ItemName,
+			Sku:          task.CheckoutInfo.SKU,
+			Retailer:     enums.PokemonCenter,
+			Price:        task.CheckoutInfo.Price,
+			Quantity:     1,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
 		return true, enums.CheckedOut
 	}
 
