@@ -720,7 +720,13 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 
 				case enums.Shopify:
 					task.ShopifyTaskInfo = createTaskRequestInfo.ShopifyTaskInfo
-
+					taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
+					if err == nil {
+						task.ShopifyTaskInfo.SitePassword = taskGroup.ShopifyMonitorInfo.SitePassword
+						task.ShopifyTaskInfo.SiteURL = taskGroup.ShopifyMonitorInfo.SiteURL
+					} else {
+						errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+					}
 				case enums.Target:
 					task.TargetTaskInfo = createTaskRequestInfo.TargetTaskInfo
 
