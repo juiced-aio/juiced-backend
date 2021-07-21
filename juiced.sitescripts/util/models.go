@@ -5,7 +5,6 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
@@ -105,14 +104,4 @@ type PXValues struct {
 	SetID     string
 	VID       string
 	UUID      string
-}
-
-type RequestCaptchaTokenInfo struct {
-	CaptchaType enums.CaptchaType
-	Retailer    enums.Retailer
-	Url         string
-	Action      string
-	MinScore    float32
-	Proxy       entities.Proxy
-	Sitekey     []string
 }
