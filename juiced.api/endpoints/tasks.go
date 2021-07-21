@@ -274,6 +274,28 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 								skus = strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
 							}
 							taskGroup.WalmartMonitorInfo.SKUs = skus
+
+						case enums.PokemonCenter:
+							maxPrice := -1
+							if len(taskGroup.PokemonCenterMonitorInfo.Monitors) > 0 {
+								maxPrice = taskGroup.PokemonCenterMonitorInfo.Monitors[0].MaxPrice
+							}
+
+							newMonitors := make([]entities.PokemonCenterSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, sku := range skus {
+									monitor := entities.PokemonCenterSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										SKU:         sku,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.PokemonCenterMonitorInfo.Monitors = newMonitors
+
 						}
 						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
@@ -582,20 +604,21 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	errorsList := make([]string, 0)
 
 	type CreateTaskRequest struct {
-		NumTasksPerProfile int                       `json:"numTasksPerProfile"`
-		ProfileIDs         []string                  `json:"profileIDs"`
-		ProfileGroupID     string                    `json:"profileGroupID"`
-		ProxyGroupID       string                    `json:"proxyGroupID"`
-		Retailer           string                    `json:"retailer"`
-		Sizes              []string                  `json:"sizes"`
-		Quantity           int                       `json:"quantity"`
-		Delay              int                       `json:"delay"`
-		TargetTaskInfo     entities.TargetTaskInfo   `json:"targetTaskInfo"`
-		WalmartTaskInfo    entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
-		AmazonTaskInfo     entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
-		BestbuyTaskInfo    entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
-		GamestopTaskInfo   entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
-		HottopicTaskInfo   entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		NumTasksPerProfile    int                            `json:"numTasksPerProfile"`
+		ProfileIDs            []string                       `json:"profileIDs"`
+		ProfileGroupID        string                         `json:"profileGroupID"`
+		ProxyGroupID          string                         `json:"proxyGroupID"`
+		Retailer              string                         `json:"retailer"`
+		Sizes                 []string                       `json:"sizes"`
+		Quantity              int                            `json:"quantity"`
+		Delay                 int                            `json:"delay"`
+		TargetTaskInfo        entities.TargetTaskInfo        `json:"targetTaskInfo"`
+		WalmartTaskInfo       entities.WalmartTaskInfo       `json:"walmartTaskInfo"`
+		AmazonTaskInfo        entities.AmazonTaskInfo        `json:"amazonTaskInfo"`
+		BestbuyTaskInfo       entities.BestbuyTaskInfo       `json:"bestbuyTaskInfo"`
+		GamestopTaskInfo      entities.GamestopTaskInfo      `json:"gamestopTaskInfo"`
+		HottopicTaskInfo      entities.HottopicTaskInfo      `json:"hottopicTaskInfo"`
+		PokemonCenterTaskInfo entities.PokemonCenterTaskInfo `json:"pokemoncenterTaskInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -636,6 +659,8 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				case enums.Walmart:
 					task.WalmartTaskInfo = createTaskRequestInfo.WalmartTaskInfo
 
+				case enums.PokemonCenter:
+					task.PokemonCenterTaskInfo = createTaskRequestInfo.PokemonCenterTaskInfo
 				}
 
 				profileIDs := createTaskRequestInfo.ProfileIDs
@@ -712,15 +737,16 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	errorsList := make([]string, 0)
 
 	type UpdateTasksRequest struct {
-		TaskIDs          []string                  `json:"taskIDs"`
-		ProfileID        string                    `json:"profileID"`
-		ProxyGroupID     string                    `json:"proxyGroupID"`
-		TargetTaskInfo   entities.TargetTaskInfo   `json:"targetTaskInfo"`
-		WalmartTaskInfo  entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
-		AmazonTaskInfo   entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
-		BestbuyTaskInfo  entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
-		GamestopTaskInfo entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
-		HottopicTaskInfo entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		TaskIDs               []string                       `json:"taskIDs"`
+		ProfileID             string                         `json:"profileID"`
+		ProxyGroupID          string                         `json:"proxyGroupID"`
+		TargetTaskInfo        entities.TargetTaskInfo        `json:"targetTaskInfo"`
+		WalmartTaskInfo       entities.WalmartTaskInfo       `json:"walmartTaskInfo"`
+		AmazonTaskInfo        entities.AmazonTaskInfo        `json:"amazonTaskInfo"`
+		BestbuyTaskInfo       entities.BestbuyTaskInfo       `json:"bestbuyTaskInfo"`
+		GamestopTaskInfo      entities.GamestopTaskInfo      `json:"gamestopTaskInfo"`
+		HottopicTaskInfo      entities.HottopicTaskInfo      `json:"hottopicTaskInfo"`
+		PokemonCenterTaskInfo entities.PokemonCenterTaskInfo `json:"pokemoncenterTaskInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -793,6 +819,16 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 
 							case enums.Walmart:
 
+							case enums.PokemonCenter:
+								if updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType != "DO_NOT_UPDATE" {
+									task.PokemonCenterTaskInfo.TaskType = updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType
+								}
+								if singleTask || updateTasksRequestInfo.PokemonCenterTaskInfo.Email != "" {
+									task.PokemonCenterTaskInfo.Email = updateTasksRequestInfo.PokemonCenterTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.PokemonCenterTaskInfo.Password != "" {
+									task.PokemonCenterTaskInfo.Password = updateTasksRequestInfo.PokemonCenterTaskInfo.Password
+								}
 							}
 							_, err = commands.UpdateTask(taskID, task)
 							if err != nil {
