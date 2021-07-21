@@ -123,6 +123,29 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`INSERT INTO pokemoncenterMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.PokemonCenterMonitorInfo.ID = monitorID
+		taskGroup.PokemonCenterMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.PokemonCenterMonitorInfo.ID, taskGroup.PokemonCenterMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.PokemonCenterMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO pokemoncenterSingleMonitorInfos (monitorID, taskGroupID, sku, maxPrice) VALUES (?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
+			if err != nil {
+				return err
+			}
+		}
 
 	}
 
@@ -147,6 +170,9 @@ func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 	case enums.GameStop:
 		monitorInfoSchema = "gamestopMonitorInfos"
 		singleMonitorInfoSchema = "gamestopSingleMonitorInfos"
+	case enums.PokemonCenter:
+		monitorInfoSchema = "pokemoncenterMonitorInfos"
+		singleMonitorInfoSchema = "pokemoncenterSingleMonitorInfos"
 	}
 	database := common.GetDatabase()
 	if database == nil {
@@ -231,6 +257,15 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`INSERT INTO pokemoncenterTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.PokemonCenterTaskInfo.Email, task.PokemonCenterTaskInfo.Password, task.PokemonCenterTaskInfo.TaskType)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -248,6 +283,8 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 		taskInfoSchema = "bestbuyTaskInfos"
 	case enums.GameStop:
 		taskInfoSchema = "gamestopTaskInfos"
+	case enums.PokemonCenter:
+		taskInfoSchema = "pokemoncenterTaskInfos"
 	}
 	if taskInfoSchema == "" {
 		return nil
