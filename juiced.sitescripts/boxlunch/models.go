@@ -41,8 +41,8 @@ type Monitor struct {
 	Monitor         base.Monitor
 	RunningMonitors []string
 	Pids            []string
-	InStock         []BoxLunchInStockData
-	PidWithInfo     map[string]entities.BoxLunchSingleMonitorInfo
+	InStock         []BoxlunchInStockData
+	PidWithInfo     map[string]entities.BoxlunchSingleMonitorInfo
 }
 
 // Task info
@@ -57,7 +57,7 @@ type Task struct {
 	SecureKey string
 }
 
-type BoxLunchInStockData struct {
+type BoxlunchInStockData struct {
 	PID         string
 	Size        string
 	Color       string

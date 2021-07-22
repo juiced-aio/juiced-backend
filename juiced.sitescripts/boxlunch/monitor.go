@@ -19,8 +19,8 @@ import (
 )
 
 // CreateboxlunchMonitor takes a TaskGroup entity and turns it into a boxlunch Monitor
-func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BoxLunchSingleMonitorInfo) (Monitor, error) {
-	storedBoxlunchMonitors := make(map[string]entities.BoxLunchSingleMonitorInfo)
+func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BoxlunchSingleMonitorInfo) (Monitor, error) {
+	storedBoxlunchMonitors := make(map[string]entities.BoxlunchSingleMonitorInfo)
 	boxlunchMonitor := Monitor{}
 
 	pids := []string{}
@@ -94,7 +94,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
-	stockData := BoxLunchInStockData{}
+	stockData := BoxlunchInStockData{}
 
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
@@ -137,8 +137,8 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 
 }
 
-func (monitor *Monitor) StockMonitor(pid string) BoxLunchInStockData {
-	stockData := BoxLunchInStockData{}
+func (monitor *Monitor) StockMonitor(pid string) BoxlunchInStockData {
+	stockData := BoxlunchInStockData{}
 	BuildEndpoint := MonitorEndpoint + pid
 
 	//Values have to be exact and case sensistive
@@ -195,8 +195,8 @@ func (monitor *Monitor) StockMonitor(pid string) BoxLunchInStockData {
 	}
 }
 
-func (monitor *Monitor) StockInfo(body string, pid string) BoxLunchInStockData {
-	stockData := BoxLunchInStockData{}
+func (monitor *Monitor) StockInfo(body string, pid string) BoxlunchInStockData {
+	stockData := BoxlunchInStockData{}
 	doc := soup.HTMLParse(body)
 
 	ShipTable := doc.Find("div", "class", "method-descr__label")
@@ -226,12 +226,12 @@ func (monitor *Monitor) StockInfo(body string, pid string) BoxLunchInStockData {
 	}
 
 	//EventInfo updated now we return true
-	return BoxLunchInStockData{
+	return BoxlunchInStockData{
 		PID:         pid,
 		Size:        monitor.PidWithInfo[pid].Size,
 		Color:       monitor.PidWithInfo[pid].Color,
 		ProductName: ProductName,
-		// BoxLunch and HotTopic use the same image links
+		// Boxlunch and HotTopic use the same image links
 		ImageURL: "https://hottopic.scene7.com/is/image/HotTopic/" + pid + "_hi",
 	}
 }

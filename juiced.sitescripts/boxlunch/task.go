@@ -14,7 +14,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// CreateBoxLunch takes a Task entity and turns it into a BoxLunch Task
+// CreateBoxlunch takes a Task entity and turns it into a Boxlunch Task
 func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
 	boxLunchTask := Task{}
 	client, err := util.CreateClient(proxy)
@@ -223,7 +223,7 @@ func (task *Task) AddToCart() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            AddToCartReferer + task.Pid + ".html",
 		Data:               []byte(data.Encode()),
 	})
@@ -240,7 +240,7 @@ func (task *Task) GetCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            GetCheckoutReferer,
 	})
 	if err != nil {
@@ -265,7 +265,7 @@ func (task *Task) ProceedToCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            ProceedToCheckoutReferer,
 		Data:               []byte(data.Encode()),
 	})
@@ -299,7 +299,7 @@ func (task *Task) GuestCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -347,7 +347,7 @@ func (task *Task) SubmitShipping() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -374,7 +374,7 @@ func (task *Task) UseOrigAddress() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -433,7 +433,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -454,7 +454,7 @@ func (task *Task) SubmitOrder() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitOrderEndpoint,
-		AddHeadersFunction: AddBoxLunchHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})

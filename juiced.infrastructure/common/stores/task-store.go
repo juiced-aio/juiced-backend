@@ -112,7 +112,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Make sure necessary fields exist
-		if len(task.BoxLunchTaskInfo.Pids) == 0 {
+		if len(task.BoxlunchTaskInfo.Pids) == 0 {
 			return false
 		}
 		// Create task

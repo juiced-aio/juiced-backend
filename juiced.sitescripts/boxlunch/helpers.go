@@ -6,8 +6,8 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// AddBoxLunch adds BoxLunch-specific headers to the request
-func AddBoxLunchHeaders(request *http.Request, referer ...string) {
+// AddBoxlunch adds Boxlunch-specific headers to the request
+func AddBoxlunchHeaders(request *http.Request, referer ...string) {
 	util.AddBaseHeaders(request)
 	request.Header.Set("Accept", "*/*")
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")

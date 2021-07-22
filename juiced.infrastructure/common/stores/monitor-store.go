@@ -121,11 +121,11 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 
-		if len(monitor.BoxLunchMonitorInfo.Monitors) == 0 {
+		if len(monitor.BoxlunchMonitorInfo.Monitors) == 0 {
 			return false
 		}
 
-		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxLunchMonitorInfo.Monitors)
+		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}
@@ -502,7 +502,7 @@ func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 	}
 }
 
-func (monitorStore *MonitorStore) CheckBoxLunchMonitorStock() {
+func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
 	for {
 		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
 			if len(boxlunchMonitor.InStock) > 0 {
@@ -663,7 +663,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 
 	go monitorStore.CheckAmazonMonitorStock()
 	go monitorStore.CheckBestBuyMonitorStock()
-	go monitorStore.CheckBoxLunchMonitorStock()
+	go monitorStore.CheckBoxlunchMonitorStock()
 	go monitorStore.CheckDisneyMonitorStock()
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
