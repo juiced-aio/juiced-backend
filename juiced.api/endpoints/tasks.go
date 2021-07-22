@@ -248,13 +248,19 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							newMonitors := make([]entities.BoxLunchSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								monitorType := enums.SKUMonitor
+								if len(taskGroup.BoxLunchMonitorInfo.Monitors) > 0 {
+									monitorType = taskGroup.BoxLunchMonitorInfo.Monitors[0].MonitorType
+								}
 								for _, pid := range pids {
 									monitor := entities.BoxLunchSingleMonitorInfo{
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										Pid:         pid,
-
-										MaxPrice: maxPrice,
+										// Size: size,
+										// Color: color,
+										MaxPrice:    maxPrice,
+										MonitorType: monitorType,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
@@ -270,7 +276,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										PID:         pid,
-										MaxPrice:    maxPrice,
+										// Size: size,
+										// Color: color,
+										MaxPrice: maxPrice,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
@@ -297,12 +305,19 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							newMonitors := make([]entities.HottopicSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								monitorType := enums.SKUMonitor
+								if len(taskGroup.HottopicMonitorInfo.Monitors) > 0 {
+									monitorType = taskGroup.HottopicMonitorInfo.Monitors[0].MonitorType
+								}
 								for _, pid := range pids {
 									monitor := entities.HottopicSingleMonitorInfo{
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										Pid:         pid,
+										// Size: size,
+										// Color: color,
 										MaxPrice:    maxPrice,
+										MonitorType: monitorType,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
@@ -329,12 +344,17 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								tcins := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								checkoutType := enums.CheckoutTypeEITHER
+								if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {
+									checkoutType = taskGroup.TargetMonitorInfo.Monitors[0].CheckoutType
+								}
 								for _, tcin := range tcins {
 									monitor := entities.TargetSingleMonitorInfo{
-										MonitorID:   uuid.New().String(),
-										TaskGroupID: taskGroup.GroupID,
-										TCIN:        tcin,
-										MaxPrice:    maxPrice,
+										MonitorID:    uuid.New().String(),
+										TaskGroupID:  taskGroup.GroupID,
+										TCIN:         tcin,
+										MaxPrice:     maxPrice,
+										CheckoutType: checkoutType,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
@@ -345,6 +365,10 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							newMonitors := make([]entities.WalmartSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								monitorType := enums.SKUMonitor
+								if len(taskGroup.WalmartMonitorInfo.Monitors) > 0 {
+									monitorType = taskGroup.WalmartMonitorInfo.Monitors[0].MonitorType
+								}
 								for _, sku := range skus {
 									monitor := entities.WalmartSingleMonitorInfo{
 										MonitorID:     uuid.New().String(),
@@ -352,6 +376,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										SKU:           sku,
 										MaxPrice:      maxPrice,
 										SoldByWalmart: updateTaskGroupRequestInfo.SoldByWalmart,
+										MonitorType:   monitorType,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
