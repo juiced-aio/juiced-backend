@@ -21,10 +21,10 @@ func AddBoxlunchHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-func getDwCont(resp string) (string, error) {
-	return common.FindInString(resp, "cart?dwcont=", "\" method")
+func getDwCont(body string) (string, error) {
+	return common.FindInString(body, "cart?dwcont=", "\"")
 }
 
-func getSecureKey(resp string) (string, error) {
-	return common.FindInString(resp, "_securekey\" value=\"", "\"/>")
+func getSecureKey(body string) (string, error) {
+	return common.FindInString(body, "_securekey\" value=\"", "\"/>")
 }

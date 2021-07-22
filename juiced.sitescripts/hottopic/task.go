@@ -46,6 +46,18 @@ func (task *Task) CheckForStop() bool {
 
 // Start task
 func (task *Task) RunTask() {
+	defer func() {
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
 	needToStop := task.WaitForMonitor()
@@ -182,7 +194,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.Pid != "" {
+		if task.PID != "" {
 			return false
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -190,49 +202,45 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart() bool {
-	colorSelected := "notRequired"
-	sizeSelected := "notRequired"
-	inseamSelected := "notRequired"
+	colorSelected := ""
+	sizeSelected := ""
+	inseamSelected := ""
 
 	if len(task.Color) > 0 {
 		colorSelected = "true"
 	}
-	if len(task.Size) > 0 {
+	if task.PID != task.SizePID {
 		sizeSelected = "true"
-	}
-	if len(task.Size) > 0 {
 		inseamSelected = "true"
 	}
 
 	data := url.Values{
-		"shippingMethod-13249991": {"shipToHome"},
-		"pid":                     {task.Pid},
-		"Quantity":                {fmt.Sprint(task.Task.Task.TaskQty)},
-		"hasColorSelected":        {colorSelected},
-		"hasSizeSelected":         {sizeSelected},
-		"hasInseamSelected":       {inseamSelected},
-		"cartAction":              {"add"},
-		"productColor":            {task.Color},
+		"shippingMethod-" + task.SizePID:  {"shipToHome"},
+		"deliveryMsgHome-" + task.SizePID: {"In Stock"},
+		"pid":                             {task.SizePID},
+		"Quantity":                        {fmt.Sprint(task.Task.Task.TaskQty)},
+		"hasColorSelected":                {colorSelected},
+		"hasSizeSelected":                 {sizeSelected},
+		"hasInseamSelected":               {inseamSelected},
+		"cgid":                            {""},
+		"cartAction":                      {"add"},
+		"productColor":                    {task.Color},
 	}
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
-		Referer:            AddToCartReferer + task.Pid + ".html",
+		Referer:            AddToCartReferer + task.PID + ".html",
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil {
-		return false
-	}
 
-	defer resp.Body.Close()
-
-	return true
+	return err == nil && strings.Contains(body, fmt.Sprintf(`"productId":"%s"`, task.SizePID)) && strings.Contains(body, fmt.Sprintf(`"quantity":%d`, task.Task.Task.TaskQty))
 }
+
 func (task *Task) GetCheckout() bool {
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint,
@@ -243,23 +251,18 @@ func (task *Task) GetCheckout() bool {
 		return false
 	}
 
-	task.Dwcont, err = getDwCont(string(body))
-	if err != nil {
-		return false
-	}
-
-	defer resp.Body.Close()
-
-	return true
+	task.Dwcont, err = getDwCont(body)
+	return err == nil
 }
+
 func (task *Task) ProceedToCheckout() bool {
 	data := url.Values{
-		"dwfrm_cart_checkoutCart": {"checkout"},
+		"dwfrm_cart_checkoutCart": {"Checkout"},
 	}
 
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            ProceedToCheckoutReferer,
@@ -269,28 +272,24 @@ func (task *Task) ProceedToCheckout() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
-	task.SecureKey, err = getSecureKey(bodyText)
-	if err != nil {
-		return false
-	}
+	task.SecureKey, err = getSecureKey(body)
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) GuestCheckout() bool {
 	data := url.Values{
 		"dwfrm_login_unregistered": {"Checkout As a Guest"},
 		"dwfrm_login_securekey":    {task.SecureKey},
 	}
 
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
@@ -302,21 +301,17 @@ func (task *Task) GuestCheckout() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
-	task.SecureKey, err = getSecureKey(bodyText)
-	if err != nil {
-		return false
-	}
+	task.SecureKey, err = getSecureKey(body)
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) SubmitShipping() bool {
 	data := url.Values{
 		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.Email},
@@ -337,7 +332,7 @@ func (task *Task) SubmitShipping() bool {
 		"dwfrm_singleshipping_shippingAddress_save":                       {"Continue to Billing"},
 		"dwfrm_singleshipping_securekey":                                  {task.SecureKey},
 	}
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
@@ -349,22 +344,18 @@ func (task *Task) SubmitShipping() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
-	if err != nil {
-		return false
-	}
+	task.Dwcont, err = getDwCont(body)
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) UseOrigAddress() bool {
 	data := url.Values{
 		"dwfrm_addForm_useOrig": {""},
 	}
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
@@ -376,21 +367,17 @@ func (task *Task) UseOrigAddress() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
-	task.SecureKey, err = getSecureKey(bodyText)
-	if err != nil {
-		return false
-	}
+	task.SecureKey, err = getSecureKey(body)
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) SubmitPaymentInfo() bool {
 	data := url.Values{
 		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
@@ -422,7 +409,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 		"dwfrm_billing_paymentMethods_bml_ssn":   {""},                                           //always seems to be empty
 		"dwfrm_billing_save":                     {"Continue to Review"},
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
@@ -430,20 +417,17 @@ func (task *Task) SubmitPaymentInfo() bool {
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil {
-		return false
-	}
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) SubmitOrder() bool {
 	data := url.Values{
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
 		"addToEmailList": {"false"},
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                SubmitOrderEndpoint,
@@ -451,11 +435,7 @@ func (task *Task) SubmitOrder() bool {
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil {
-		return false
-	}
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }

@@ -50,6 +50,18 @@ func (task *Task) CheckForStop() bool {
 
 //sSart tasks
 func (task *Task) RunTask() {
+	defer func() {
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
 	needToStop := task.WaitForMonitor()
@@ -203,8 +215,6 @@ func (task *Task) AddToCart() bool {
 	}
 	if len(task.Size) > 0 {
 		sizeSelected = "true"
-	}
-	if len(task.Size) > 0 {
 		inseamSelected = "true"
 	}
 

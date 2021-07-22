@@ -139,29 +139,10 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 
 func (monitor *Monitor) StockMonitor(pid string) BoxlunchInStockData {
 	stockData := BoxlunchInStockData{}
-	BuildEndpoint := MonitorEndpoint + pid
-
-	//Values have to be exact and case sensistive
-	//XXS
-	//SM
-	//MD
-	//LG
-	//XL
-	//2X
-	//3X
-	if len(monitor.PidWithInfo[pid].Size) > 0 {
-		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid + "_size=" + monitor.PidWithInfo[pid].Size
-	}
-
-	//Default seems to be BLACK case sensitive
-	if len(monitor.PidWithInfo[pid].Color) > 0 {
-		BuildEndpoint = BuildEndpoint + "&dwvar_" + pid + "_color=" + monitor.PidWithInfo[pid].Color
-	}
-
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
-		URL:    BuildEndpoint,
+		URL:    fmt.Sprintf(MonitorEndpoint, pid),
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
 			{"sec-ch-ua-mobile", "?0"},

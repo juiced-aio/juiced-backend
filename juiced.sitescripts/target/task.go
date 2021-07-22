@@ -95,6 +95,10 @@ func (task *Task) RunTask() {
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
 	client, err := util.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return

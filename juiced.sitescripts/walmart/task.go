@@ -20,12 +20,7 @@ import (
 
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
 func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
-	walmartTask := Task{}
-	if task.TaskDelay == 0 {
-		task.TaskDelay = 2000
-	}
-
-	walmartTask = Task{
+	walmartTask := Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
@@ -115,6 +110,10 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
 
 	client, err := util.CreateClient(task.Task.Proxy)
 	if err != nil {

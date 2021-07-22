@@ -81,6 +81,10 @@ func (task *Task) RunTask() {
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
 	task.Step = SettingUp
 
 	task.CheckForAdditionalSteps()

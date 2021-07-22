@@ -33,7 +33,7 @@ const (
 	SubmitOrderEndpoint = "https://www.boxlunch.com/orderconfirmation"
 	SubmitOrderReferer  = "https://www.boxlunch.com/cart?"
 
-	MonitorEndpoint = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid="
+	MonitorEndpoint = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
 )
 
 // Monitor info
