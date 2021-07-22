@@ -6,6 +6,8 @@ type MonitorStatus = string
 // Idle --> WaitingForProductData --> WaitingForInStock* --> SendingProductInfoToTasks --> WaitingForOutOfStock --> WaitingForInStock --> ...
 const (
 	MonitorIdle               MonitorStatus = "Idle"
+	SettingUpMonitor          MonitorStatus = "Setting up"
+	BypassingPXMonitor        MonitorStatus = "Bypassing PX"
 	WaitingForProductData     MonitorStatus = "Searching"
 	UnableToFindProduct       MonitorStatus = "Product not found"
 	WaitingForInStock         MonitorStatus = "Out of stock"
@@ -34,6 +36,7 @@ const (
 	SettingUp           TaskStatus = "Setting up task"
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
 	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
+	BypassingPX         TaskStatus = "Bypassing PX"
 	AddingToCart        TaskStatus = "Adding to cart"
 	GettingCartInfo     TaskStatus = "Getting cart info"
 	SettingCartInfo     TaskStatus = "Setting cart info"

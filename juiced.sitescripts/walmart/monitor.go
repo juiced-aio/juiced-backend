@@ -2,19 +2,19 @@ package walmart
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
-	"strconv"
 	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
-	"github.com/anaskhan96/soup"
 )
 
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
@@ -52,25 +52,13 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			log.Println(r)
 			monitor.Monitor.StopFlag = true
 			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
 		}
 		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorComplete)
 	}()
-
-	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
-		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
-	}
-	if monitor.PXValues.RefreshAt == 0 {
-		go monitor.RefreshPX3()
-		for monitor.PXValues.RefreshAt == 0 {
-		}
-	}
-	needToStop := monitor.CheckForStop()
-	if needToStop {
-		return
-	}
 
 	if monitor.Monitor.Client.Transport == nil {
 		monitorClient, err := util.CreateClient()
@@ -78,7 +66,25 @@ func (monitor *Monitor) RunMonitor() {
 			return
 		}
 		monitor.Monitor.Client = monitorClient
+	}
 
+	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
+		monitor.PublishEvent(enums.SettingUpMonitor, enums.MonitorStart)
+
+		if monitor.PXValues.RefreshAt == 0 {
+			go monitor.RefreshPX3()
+			for monitor.PXValues.RefreshAt == 0 {
+				needToStop := monitor.CheckForStop()
+				if needToStop {
+					return
+				}
+				time.Sleep(25 * time.Millisecond)
+			}
+		}
+	}
+
+	if monitor.Monitor.TaskGroup.MonitorStatus == enums.SettingUpMonitor {
+		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorUpdate)
 	}
 
 	if len(monitor.Monitor.Proxies) > 0 {
@@ -118,21 +124,86 @@ func (monitor *Monitor) RunMonitor() {
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
 func (monitor *Monitor) RefreshPX3() {
+	quit := make(chan bool)
 	defer func() {
-		recover()
-		monitor.RefreshPX3()
+		quit <- true
+		if r := recover(); r != nil {
+			monitor.RefreshPX3()
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := monitor.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
 	}()
 
 	for {
 		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			pxValues, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+			if cancelled {
+				return
+			}
 
 			if err != nil {
-				return // TODO @silent
+				log.Println("Error setting px cookie for monitor: " + err.Error())
+				panic(err)
 			}
 			monitor.PXValues = pxValues
 			monitor.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
+	}
+}
+
+func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool {
+	quit := make(chan bool)
+	defer func() {
+		quit <- true
+		if r := recover(); r != nil {
+			monitor.HandlePXCap(resp, redirectURL)
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := monitor.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+	}()
+
+	monitor.PublishEvent(enums.BypassingPXMonitor, enums.TaskUpdate)
+	captchaURL := resp.Request.URL.String()
+	if redirectURL != "" {
+		captchaURL = BaseEndpoint + redirectURL[1:]
+	}
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+	if err != nil {
+		log.Println(err.Error())
+		return false
+	} else {
+		log.Println("Cookie updated.")
+		return true
 	}
 }
 
@@ -167,67 +238,11 @@ func (monitor *Monitor) GetSkuStock(sku string) (WalmartInStockData, []string) {
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+			monitor.HandlePXCap(resp, resp.Request.URL.String())
 		} else {
 			offerID := ""
-			responseBody := soup.HTMLParse(string(body))
-			sellers := responseBody.FindAll("div", "class", "product-seller-card")
-			for _, seller := range sellers {
-				sellerNameLink := seller.Find("a", "class", "seller-shipping-msg")
-				if sellerNameLink.Error == nil {
-					// Check if sold by Walmart first
-					if sellerNameLink.Text() == "Walmart" {
-						scriptText := ""
-						script := responseBody.Find("script", "id", "items")
-						if script.Error != nil {
-							script = responseBody.Find("script", "id", "item")
-						}
-						if script.Error == nil {
-							scriptText = script.Text()
-						}
-						if scriptText != "" {
-							offerID, _ = util.FindInString(scriptText, `"carePlans":{"`, `"`)
-							break
-						}
-					}
-					// If not sold by Walmart, offerID will still be empty string, so continue
-					// If sold by Walmart, but we couldn't find Walmart's offerID, continue
-					if offerID == "" {
-						// If MaxPrice is set, check price
-						if monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1 {
-							priceDiv := seller.Find("span", "class", "price")
-							if priceDiv.Error == nil {
-								priceSpan := priceDiv.Find("span", "class", "visuallyhidden")
-								if priceSpan.Error == nil {
-									priceStr := strings.ReplaceAll(priceSpan.Text(), "$", "")
-									price, err := strconv.ParseFloat(priceStr, 64)
-									if err == nil {
-										// If price is good, set offerID
-										if price < float64(monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice) {
-											href, ok := sellerNameLink.Attrs()["href"]
-											if ok && strings.Contains(href, "offerId=") {
-												offerID = strings.Split(href, "offerId=")[1]
-												break
-											}
-										}
-									}
-								}
-							}
-							// Otherwise, just set offerID
-						} else {
-							href, ok := sellerNameLink.Attrs()["href"]
-							if ok && strings.Contains(href, "offerId=") {
-								offerID = strings.Split(href, "offerId=")[1]
-								break
-							}
-						}
-					}
-				}
-			}
+			log.Println(body) // You can remove this, I'm just putting it here so line 220 doesn't error out since body is unused otherwise
+			// TODO @Humphrey
 
 			if offerID != "" {
 				fmt.Printf("%s is in-stock.\n", sku)

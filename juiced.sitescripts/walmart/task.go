@@ -37,18 +37,41 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
 func (task *Task) RefreshPX3() {
+	quit := make(chan bool)
 	defer func() {
-		recover()
-		task.RefreshPX3()
+		quit <- true
+		if r := recover(); r != nil {
+			task.RefreshPX3()
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := task.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
 	}()
 
 	for {
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			pxValues, err := SetPXCookie(task.Task.Proxy, &task.Task.Client)
+			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, &cancellationToken)
+			if cancelled {
+				return
+			}
 
 			if err != nil {
 				log.Println("Error setting px cookie for task: " + err.Error())
-				return // TODO @silent
+				panic(err)
 			}
 			task.PXValues = pxValues
 			task.PXValues.RefreshAt = time.Now().Unix() + 240
@@ -101,7 +124,11 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()
 	for task.PXValues.RefreshAt == 0 {
-		time.Sleep(1 * time.Millisecond)
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
 
 	setup := false
@@ -285,12 +312,37 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
-	task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate)
+	quit := make(chan bool)
+	defer func() {
+		quit <- true
+		if r := recover(); r != nil {
+			task.HandlePXCap(resp, redirectURL)
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := task.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+	}()
+
+	task.PublishEvent(enums.BypassingPX, enums.TaskUpdate)
 	captchaURL := resp.Request.URL.String()
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
 		return false
@@ -325,10 +377,7 @@ func (task *Task) Setup() bool {
 	}
 	if strings.Contains(resp.Request.URL.String(), "blocked") {
 		handled := task.HandlePXCap(resp, BaseEndpoint)
-		if handled {
-			task.PublishEvent(enums.SettingUp, enums.TaskUpdate)
-		}
-		return false
+		return handled
 	}
 
 	return err == nil

@@ -40,6 +40,10 @@ type Request struct {
 	RandOpt            string
 }
 
+type CancellationToken struct {
+	Cancel bool
+}
+
 // Discord webhook details
 type DiscordWebhook struct {
 	Content interface{} `json:"content"`
