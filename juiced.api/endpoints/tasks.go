@@ -201,13 +201,22 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
+	type TargetUpdateInfo struct {
+		CheckoutType enums.CheckoutType `json:"checkoutType"`
+		StoreID      string             `json:"storeID"`
+	}
+	type WalmartUpdateInfo struct {
+		SoldByWalmart bool `json:"soldByWalmart"`
+	}
+
 	type UpdateTaskGroupRequest struct {
-		Name                string `json:"name"`
-		MonitorInput        string `json:"input"`
-		MonitorDelay        int    `json:"delay"`
-		MonitorProxyGroupID string `json:"proxyGroupId"`
-		MaxPrice            int    `json:"maxPrice"`
-		SoldByWalmart       bool   `json:"soldByWalmart"`
+		Name                string            `json:"name"`
+		MonitorInput        string            `json:"input"`
+		MonitorDelay        int               `json:"delay"`
+		MonitorProxyGroupID string            `json:"proxyGroupId"`
+		MaxPrice            int               `json:"maxPrice"`
+		TargetUpdateInfo    TargetUpdateInfo  `json:"targetUpdateInfo"`
+		WalmartUpdateInfo   WalmartUpdateInfo `json:"walmartUpdateInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -344,21 +353,18 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								tcins := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-								checkoutType := enums.CheckoutTypeEITHER
-								if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {
-									checkoutType = taskGroup.TargetMonitorInfo.Monitors[0].CheckoutType
-								}
 								for _, tcin := range tcins {
 									monitor := entities.TargetSingleMonitorInfo{
 										MonitorID:    uuid.New().String(),
 										TaskGroupID:  taskGroup.GroupID,
 										TCIN:         tcin,
 										MaxPrice:     maxPrice,
-										CheckoutType: checkoutType,
+										CheckoutType: updateTaskGroupRequestInfo.TargetUpdateInfo.CheckoutType,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
 							}
+							taskGroup.TargetMonitorInfo.StoreID = updateTaskGroupRequestInfo.TargetUpdateInfo.StoreID
 							taskGroup.TargetMonitorInfo.Monitors = newMonitors
 
 						case enums.Walmart:
@@ -375,7 +381,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										TaskGroupID:   taskGroup.GroupID,
 										SKU:           sku,
 										MaxPrice:      maxPrice,
-										SoldByWalmart: updateTaskGroupRequestInfo.SoldByWalmart,
+										SoldByWalmart: updateTaskGroupRequestInfo.WalmartUpdateInfo.SoldByWalmart,
 										MonitorType:   monitorType,
 									}
 									newMonitors = append(newMonitors, monitor)
