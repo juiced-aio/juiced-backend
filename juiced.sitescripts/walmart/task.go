@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -37,18 +38,41 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy enti
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
 func (task *Task) RefreshPX3() {
+	quit := make(chan bool)
 	defer func() {
-		recover()
-		task.RefreshPX3()
+		quit <- true
+		if r := recover(); r != nil {
+			task.RefreshPX3()
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := task.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
 	}()
 
 	for {
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			pxValues, err := SetPXCookie(task.Task.Proxy, &task.Task.Client)
+			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, &cancellationToken)
+			if cancelled {
+				return
+			}
 
 			if err != nil {
 				log.Println("Error setting px cookie for task: " + err.Error())
-				return // TODO @silent
+				panic(err)
 			}
 			task.PXValues = pxValues
 			task.PXValues.RefreshAt = time.Now().Unix() + 240
@@ -101,7 +125,11 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()
 	for task.PXValues.RefreshAt == 0 {
-		time.Sleep(1 * time.Millisecond)
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		time.Sleep(25 * time.Millisecond)
 	}
 
 	setup := false
@@ -277,7 +305,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.OfferID != "" && task.Sku != "" {
+		if task.StockData.OfferID != "" && task.StockData.SKU != "" {
 			return false
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -285,12 +313,37 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
-	task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate)
+	quit := make(chan bool)
+	defer func() {
+		quit <- true
+		if r := recover(); r != nil {
+			task.HandlePXCap(resp, redirectURL)
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := task.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+	}()
+
+	task.PublishEvent(enums.BypassingPX, enums.TaskUpdate)
 	captchaURL := resp.Request.URL.String()
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client)
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
 		return false
@@ -302,6 +355,16 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 
 // Setup sends a GET request to the BaseEndpoint
 func (task *Task) Setup() bool {
+	u, _ := url.Parse("https://www.walmart.com/")
+	task.Task.Client.Jar.SetCookies(u, []*http.Cookie{{
+		Name:     "com.wm.reflector",
+		Value:    fmt.Sprintf(`"reflectorid:0000000000000000000000@lastupd:%d000@firstcreate:%d000"`, time.Now().Add(-10*time.Minute).Unix(), time.Now().Add(-20*24*time.Hour).Unix()),
+		Path:     "/",
+		Domain:   ".walmart.com",
+		Expires:  time.Now().Add(10 * 365 * 24 * time.Hour),
+		SameSite: http.SameSiteStrictMode,
+	}})
+
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
@@ -321,14 +384,11 @@ func (task *Task) Setup() bool {
 		},
 	})
 	if err != nil {
-		log.Println("Setup error: " + err.Error())
+		log.Println("Setup request 2 error: " + err.Error())
 	}
 	if strings.Contains(resp.Request.URL.String(), "blocked") {
 		handled := task.HandlePXCap(resp, BaseEndpoint)
-		if handled {
-			task.PublishEvent(enums.SettingUp, enums.TaskUpdate)
-		}
-		return false
+		return handled
 	}
 
 	return err == nil
@@ -408,9 +468,14 @@ func (task *Task) GetPIEValues() PIEValues {
 // AddToCart sends a POST request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQty {
+		quantity = task.StockData.MaxQty
+	}
+
 	data := AddToCartRequest{
-		OfferID:               task.OfferID,
-		Quantity:              1,
+		OfferID:               task.StockData.OfferID,
+		Quantity:              quantity,
 		ShipMethodDefaultRule: "SHIP_RULE_1",
 	}
 	dataStr, err := json.Marshal(data)
@@ -436,7 +501,7 @@ func (task *Task) AddToCart() bool {
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 			{"content-length", fmt.Sprint(len(dataStr))},
-			{"referer", AddToCartReferer + "ip/" + task.Sku + "/sellers"},
+			{"referer", AddToCartReferer + "ip/" + task.StockData.SKU + "/sellers"},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &addToCartResponse,
@@ -906,17 +971,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		return false, status
 	}
 
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQty {
+		quantity = task.StockData.MaxQty
+	}
+
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
-		Embeds:       task.CreateWalmartEmbed(status, "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=457&height=467"),
+		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
 		UserInfo:     user,
-		ItemName:     "NaN", // TODO: @TeHNiC, I saw you finished the webhooks in another branch I just don't want to copy it here and take credit
-		Sku:          task.Sku,
+		ItemName:     task.StockData.ProductName,
+		Sku:          task.StockData.SKU,
 		Retailer:     enums.Walmart,
-		Price:        0, // TODO: @TeHNiC
-		Quantity:     1,
+		Price:        task.StockData.Price,
+		Quantity:     quantity,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 

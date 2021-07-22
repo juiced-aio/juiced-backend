@@ -1,25 +1,34 @@
 package walmart
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
-	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
-	"github.com/anaskhan96/soup"
 )
 
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
-func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitorType enums.MonitorType, skus []string) (Monitor, error) {
+func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.WalmartSingleMonitorInfo) (Monitor, error) {
+	storedWalmartMonitors := make(map[string]entities.WalmartSingleMonitorInfo)
 	walmartMonitor := Monitor{}
+	skus := []string{}
+
+	for _, monitor := range singleMonitors {
+		storedWalmartMonitors[monitor.SKU] = monitor
+		skus = append(skus, monitor.SKU)
+	}
 
 	walmartMonitor = Monitor{
 		Monitor: base.Monitor{
@@ -27,22 +36,23 @@ func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
-		MonitorType: monitorType,
 		SKUs:        skus,
+		SKUWithInfo: storedWalmartMonitors,
 	}
+
 	return walmartMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
-func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType) {
+func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
 	monitor.Monitor.TaskGroup.SetMonitorStatus(status)
-	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, nil, monitor.Monitor.TaskGroup.GroupID)
+	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, data, monitor.Monitor.TaskGroup.GroupID)
 }
 
 //This checks if we want to stop
 func (monitor *Monitor) CheckForStop() bool {
 	if monitor.Monitor.StopFlag {
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop)
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
 		return true
 	}
 	return false
@@ -52,25 +62,13 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			log.Println(r)
 			monitor.Monitor.StopFlag = true
-			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail)
+			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
 		}
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorComplete)
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorComplete, nil)
 	}()
-
-	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
-		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart)
-	}
-	if monitor.PXValues.RefreshAt == 0 {
-		go monitor.RefreshPX3()
-		for monitor.PXValues.RefreshAt == 0 {
-		}
-	}
-	needToStop := monitor.CheckForStop()
-	if needToStop {
-		return
-	}
 
 	if monitor.Monitor.Client.Transport == nil {
 		monitorClient, err := util.CreateClient()
@@ -78,57 +76,149 @@ func (monitor *Monitor) RunMonitor() {
 			return
 		}
 		monitor.Monitor.Client = monitorClient
+	}
 
+	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
+		monitor.PublishEvent(enums.SettingUpMonitor, enums.MonitorStart, nil)
+
+		if monitor.PXValues.RefreshAt == 0 {
+			go monitor.RefreshPX3()
+			for monitor.PXValues.RefreshAt == 0 {
+				needToStop := monitor.CheckForStop()
+				if needToStop {
+					return
+				}
+				time.Sleep(25 * time.Millisecond)
+			}
+		}
+	}
+
+	if monitor.Monitor.TaskGroup.MonitorStatus == enums.SettingUpMonitor {
+		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorUpdate, nil)
 	}
 
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	}
 
-	stockData := WalmartInStockData{}
-	outOfStockForShip := make([]string, 0)
-
-	switch monitor.MonitorType {
-	case enums.SKUMonitor:
-		stockData, outOfStockForShip = monitor.GetSkuStock(monitor.SKUs[0]) // TODO @silent
+	needToStop := monitor.CheckForStop()
+	if needToStop {
+		return
 	}
 
-	somethingInStock := false
-	if stockData.OfferID != "" {
-		somethingInStock = true
+	wg := sync.WaitGroup{}
+	wg.Add(len(monitor.SKUs))
+	for _, sku := range monitor.SKUs {
+		go func(x string) {
+			monitor.RunSingleMonitor(x)
+			wg.Done()
+		}(sku)
 	}
+	wg.Wait()
+}
 
-	if somethingInStock {
-		needToStop := monitor.CheckForStop()
-		if needToStop {
-			return
+func (monitor *Monitor) RunSingleMonitor(sku string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(r)
 		}
-		monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate)
-		monitor.InStockForShip = []WalmartInStockData{stockData}
-	} else {
-		if len(outOfStockForShip) > 0 {
-			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate)
+		// TODO @silent: Re-run this specific monitor
+	}()
+
+	needToStop := monitor.CheckForStop()
+	if needToStop {
+		return
+	}
+
+	if !common.InSlice(monitor.RunningMonitors, sku) {
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		}
+
+		stockData := WalmartInStockData{}
+
+		switch monitor.SKUWithInfo[sku].MonitorType {
+		case enums.SKUMonitor:
+			stockData = monitor.GetSkuStock(sku)
+		}
+
+		if stockData.OfferID != "" {
+			needToStop := monitor.CheckForStop()
+			if needToStop {
+				return
 			}
+
+			var inSlice bool
+			for _, monitorStock := range monitor.InStockForShip {
+				inSlice = monitorStock.SKU == stockData.SKU
+			}
+			if !inSlice {
+				monitor.InStockForShip = append(monitor.InStockForShip, stockData)
+				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
+				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		} else {
+			if len(monitor.RunningMonitors) > 0 {
+				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+					})
+				}
+			}
+			for i, monitorStock := range monitor.InStockForShip {
+				if monitorStock.SKU == stockData.SKU {
+					monitor.InStockForShip = append(monitor.InStockForShip[:i], monitor.InStockForShip[i+1:]...)
+					break
+				}
+			}
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
+			monitor.RunSingleMonitor(sku)
 		}
-		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-		monitor.RunMonitor()
 	}
 }
 
 // RefreshPX3 refreshes the px3 cookie every 4 minutes since it expires every 5 minutes
 func (monitor *Monitor) RefreshPX3() {
+	quit := make(chan bool)
 	defer func() {
-		recover()
-		monitor.RefreshPX3()
+		quit <- true
+		if r := recover(); r != nil {
+			monitor.RefreshPX3()
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := monitor.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
 	}()
 
 	for {
 		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			pxValues, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client)
+			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+			if cancelled {
+				return
+			}
 
 			if err != nil {
-				return // TODO @silent
+				log.Println("Error setting px cookie for monitor: " + err.Error())
+				panic(err)
 			}
 			monitor.PXValues = pxValues
 			monitor.PXValues.RefreshAt = time.Now().Unix() + 240
@@ -136,117 +226,157 @@ func (monitor *Monitor) RefreshPX3() {
 	}
 }
 
-//This is for checking if a list of Skus are instock. Here we also check if there is a maximum price.
-func (monitor *Monitor) GetSkuStock(sku string) (WalmartInStockData, []string) {
-	stockData := WalmartInStockData{
-		Sku: sku,
+func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool {
+	quit := make(chan bool)
+	defer func() {
+		quit <- true
+		if r := recover(); r != nil {
+			monitor.HandlePXCap(resp, redirectURL)
+		}
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := monitor.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(25 * time.Millisecond)
+		}
+	}()
+
+	monitor.PublishEvent(enums.BypassingPXMonitor, enums.TaskUpdate, nil)
+	captchaURL := resp.Request.URL.String()
+	if redirectURL != "" {
+		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	outOfStockForShip := make([]string, 0)
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+	if err != nil {
+		log.Println(err.Error())
+		return false
+	} else {
+		log.Println("Cookie updated.")
+		return true
+	}
+}
+
+//This is for checking if a sku is instock. Here we also check if there is a maximum price.
+func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
+	stockData := WalmartInStockData{
+		SKU: sku,
+	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    fmt.Sprintf(MonitorEndpoint, sku),
 		RawHeaders: [][2]string{
-			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
+			{"pragma", `no-cache`},
+			{"cache-control", `no-cache`},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "document"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-site", "none"},
-			{"sec-fetch-user", "?1"},
-			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"sec-ch-ua-mobile", `?0`},
+			{"upgrade-insecure-requests", `1`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36`},
+			{"accept", `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9`},
+			{"service-worker-navigation-preload", `true`},
+			{"sec-fetch-site", `none`},
+			{"sec-fetch-mode", `navigate`},
+			{"sec-fetch-user", `?1`},
+			{"sec-fetch-dest", `document`},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
 		},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+		return stockData
 	}
+
+	monitorResponse := MonitorResponse{}
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
-			err := SetPXCapCookie(strings.ReplaceAll(resp.Request.URL.String(), "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			fmt.Println("Cookie updated.")
+			monitor.HandlePXCap(resp, resp.Request.URL.String())
 		} else {
-			offerID := ""
-			responseBody := soup.HTMLParse(string(body))
-			sellers := responseBody.FindAll("div", "class", "product-seller-card")
-			for _, seller := range sellers {
-				sellerNameLink := seller.Find("a", "class", "seller-shipping-msg")
-				if sellerNameLink.Error == nil {
-					// Check if sold by Walmart first
-					if sellerNameLink.Text() == "Walmart" {
-						scriptText := ""
-						script := responseBody.Find("script", "id", "items")
-						if script.Error != nil {
-							script = responseBody.Find("script", "id", "item")
-						}
-						if script.Error == nil {
-							scriptText = script.Text()
-						}
-						if scriptText != "" {
-							offerID, _ = util.FindInString(scriptText, `"carePlans":{"`, `"`)
-							break
-						}
-					}
-					// If not sold by Walmart, offerID will still be empty string, so continue
-					// If sold by Walmart, but we couldn't find Walmart's offerID, continue
-					if offerID == "" {
-						// If MaxPrice is set, check price
-						if monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1 {
-							priceDiv := seller.Find("span", "class", "price")
-							if priceDiv.Error == nil {
-								priceSpan := priceDiv.Find("span", "class", "visuallyhidden")
-								if priceSpan.Error == nil {
-									priceStr := strings.ReplaceAll(priceSpan.Text(), "$", "")
-									price, err := strconv.ParseFloat(priceStr, 64)
-									if err == nil {
-										// If price is good, set offerID
-										if price < float64(monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice) {
-											href, ok := sellerNameLink.Attrs()["href"]
-											if ok && strings.Contains(href, "offerId=") {
-												offerID = strings.Split(href, "offerId=")[1]
-												break
-											}
-										}
+			var inStock bool
+
+			err = json.Unmarshal([]byte(body), &monitorResponse)
+			if err != nil {
+				return stockData
+			}
+
+			// Item exists = Add to running monitors
+			if len(monitorResponse.Payload.Offers.(map[string]interface{})) > 0 {
+				monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
+			}
+			lowestPrice := -1
+			for _, value := range monitorResponse.Payload.Offers.(map[string]interface{}) {
+				offer := Offer{}
+				tempJson, err := json.Marshal(value.(map[string]interface{}))
+				if err == nil {
+					err = json.Unmarshal(tempJson, &offer)
+					if err == nil {
+						if offer.Productavailability.Availabilitystatus == "IN_STOCK" {
+							if monitor.SKUWithInfo[sku].MaxPrice >= int(offer.Pricesinfo.Pricemap.Current.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1 {
+								if monitor.SKUWithInfo[sku].SoldByWalmart {
+									if offer.Sellerid == "F55CDC31AB754BB68FE0B39041159D63" {
+										inStock = true
 									}
+								} else {
+									inStock = true
 								}
 							}
-							// Otherwise, just set offerID
-						} else {
-							href, ok := sellerNameLink.Attrs()["href"]
-							if ok && strings.Contains(href, "offerId=") {
-								offerID = strings.Split(href, "offerId=")[1]
-								break
+							if inStock && (lowestPrice == -1 || int(offer.Pricesinfo.Pricemap.Current.Price) <= lowestPrice) {
+								stockData.OfferID = offer.OfferInfo.OfferID
+								stockData.MaxQty = offer.OfferInfo.QuantityOptions.OrderLimit
+								lowestPrice = int(offer.Pricesinfo.Pricemap.Current.Price)
 							}
 						}
 					}
 				}
 			}
 
-			if offerID != "" {
-				fmt.Printf("%s is in-stock.\n", sku)
-			} else {
-				if monitor.Monitor.TaskGroup.WalmartMonitorInfo.MaxPrice > -1 {
-					fmt.Printf("%s is in-stock, but could not find an offerID below the monitor's MaxPrice.\n", sku)
-				} else {
-					fmt.Printf("%s is in-stock, but could not find an offerID.\n", sku)
+			product := Product{}
+			tempJson, err := json.Marshal(monitorResponse.Payload.Products.(map[string]interface{})[monitorResponse.Payload.PrimaryProduct])
+			if err != nil {
+				return stockData
+			}
+			err = json.Unmarshal(tempJson, &product)
+			if err != nil {
+				return stockData
+			}
+			stockData.ProductName = product.ProductAttributes.ProductName
+
+			secondaryImageUrl := ""
+			secondaryImageRank := -1
+			for _, value := range monitorResponse.Payload.Images.(map[string]interface{}) {
+				if stockData.ImageURL != "" {
+					break
+				}
+				image := Image{}
+				tempJson, err := json.Marshal(value.(map[string]interface{}))
+				if err == nil {
+					err = json.Unmarshal(tempJson, &image)
+					if err == nil {
+						if image.Type == "PRIMARY" {
+							stockData.ImageURL = image.AssetSizeUrls.Default
+						} else if secondaryImageRank == -1 || image.Rank < secondaryImageRank {
+							secondaryImageUrl = image.AssetSizeUrls.Default
+							secondaryImageRank = image.Rank
+						}
+					}
 				}
 			}
 
-			inSlice := false
-			for _, monitorStock := range monitor.InStockForShip {
-				if monitorStock.Sku == stockData.Sku {
-					inSlice = true
-				}
-			}
-			if !inSlice {
-				stockData.OfferID = offerID
+			if stockData.ImageURL == "" && secondaryImageUrl != "" {
+				stockData.ImageURL = secondaryImageUrl
 			}
 		}
 	case 404:
@@ -255,5 +385,5 @@ func (monitor *Monitor) GetSkuStock(sku string) (WalmartInStockData, []string) {
 		fmt.Printf("Unkown Code: %v\n", resp.StatusCode)
 	}
 
-	return stockData, outOfStockForShip
+	return stockData
 }

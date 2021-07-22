@@ -202,12 +202,18 @@ type TargetMonitorInfo struct {
 }
 
 type WalmartMonitorInfo struct {
-	ID          string            `json:"ID" db:"ID"`
-	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
-	MonitorType enums.MonitorType `json:"monitorType" db:"monitorType"`
-	SKUs        []string          `json:"skus"`
-	SKUsJoined  string            `json:"skusJoined" db:"skusJoined"`
-	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
+	ID          string                     `json:"ID" db:"ID"`
+	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []WalmartSingleMonitorInfo `json:"monitors"`
+}
+
+type WalmartSingleMonitorInfo struct {
+	MonitorID     string            `json:"monitorID" db:"monitorID"`
+	TaskGroupID   string            `json:"taskGroupID" db:"taskGroupID"`
+	SKU           string            `json:"sku" db:"sku"`
+	MaxPrice      int               `json:"maxPrice" db:"maxPrice"`
+	SoldByWalmart bool              `json:"soldByWalmart" db:"soldByWalmart"`
+	MonitorType   enums.MonitorType `json:"monitorType" db:"monitorType"`
 }
 
 type AmazonSingleMonitorInfo struct {

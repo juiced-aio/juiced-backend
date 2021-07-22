@@ -222,12 +222,11 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return false
 		}
 		// Make sure necessary fields exist
-		emptyString := ""
-		if monitor.WalmartMonitorInfo.MonitorType == emptyString || len(monitor.WalmartMonitorInfo.SKUs) == 0 {
+		if len(monitor.WalmartMonitorInfo.Monitors) == 0 {
 			return false
 		}
 		// Create monitor
-		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxies, monitorStore.EventBus, monitor.WalmartMonitorInfo.MonitorType, monitor.WalmartMonitorInfo.SKUs)
+		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxies, monitorStore.EventBus, monitor.WalmartMonitorInfo.Monitors)
 		if err != nil {
 			return false
 		}
@@ -635,8 +634,7 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
 						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(walmartMonitor.InStockForShip))
-							walmartTask.Sku = walmartMonitor.InStockForShip[randomNumber].Sku
-							walmartTask.OfferID = walmartMonitor.InStockForShip[randomNumber].OfferID
+							walmartTask.StockData = walmartMonitor.InStockForShip[randomNumber]
 						}
 					}
 				}

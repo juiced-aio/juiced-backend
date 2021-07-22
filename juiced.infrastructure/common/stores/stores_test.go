@@ -112,13 +112,16 @@ var targetMonitorInfoAsset = entities.TargetMonitorInfo{
 	MonitorType: enums.SKUMonitor,
 }
 
-var walmartMonitorAsset = map[string]*walmart.Monitor{"walmart_test_monitor": {Monitor: monitorAsset, MonitorType: enums.SKUMonitor, SKUs: []string{"544900177"}}}
+var walmartMonitorAsset = map[string]*walmart.Monitor{"walmart_test_monitor": {Monitor: monitorAsset, SKUs: []string{"544900177"}}}
 
 var walmartMonitorInfoAsset = entities.WalmartMonitorInfo{
-	MonitorType: enums.SKUMonitor,
-	SKUs:        []string{"81622440"},
-	SKUsJoined:  "81622440",
-	MaxPrice:    -1,
+	Monitors: []entities.WalmartSingleMonitorInfo{
+		{
+			SKU:         "134448590",
+			MaxPrice:    -1,
+			MonitorType: enums.SKUMonitor,
+		},
+	},
 }
 
 var taskgroupAsset = entities.TaskGroup{

@@ -534,46 +534,52 @@ func SendCheckout(task base.Task, itemName string, sku string, price int, quanti
 	})
 }
 
-func GetPXCookie(site string, proxy entities.Proxy) (string, PXValues, error) {
+func GetPXCookie(site string, proxy entities.Proxy, cancellationToken *CancellationToken) (string, PXValues, bool, error) {
 	var pxValues PXValues
 
 	_, userInfo, err := queries.GetUserInfo()
 	if err != nil {
-		return "", pxValues, err
+		return "", pxValues, false, err
 	}
 
 	pxResponse, _, err := sec.PX(site, ProxyCleaner(proxy), userInfo)
 	if err != nil {
-		return "", pxValues, err
+		return "", pxValues, false, err
 	}
 
 	if pxResponse.PX3 == "" || pxResponse.SetID == "" || pxResponse.UUID == "" || pxResponse.VID == "" {
-		return GetPXCookie(site, proxy)
+		if cancellationToken.Cancel {
+			return "", pxValues, true, err
+		}
+		return GetPXCookie(site, proxy, cancellationToken)
 	}
 
 	return pxResponse.PX3, PXValues{
 		SetID: pxResponse.SetID,
 		UUID:  pxResponse.UUID,
 		VID:   pxResponse.VID,
-	}, nil
+	}, false, nil
 }
 
-func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy) (string, error) {
+func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy, cancellationToken *CancellationToken) (string, bool, error) {
 	var px3 string
 
 	_, userInfo, err := queries.GetUserInfo()
 	if err != nil {
-		return px3, err
+		return px3, false, err
 	}
 
 	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if px3 == "" {
-		return GetPXCapCookie(site, setID, vid, uuid, token, proxy)
+		if cancellationToken.Cancel {
+			return "", true, err
+		}
+		return GetPXCapCookie(site, setID, vid, uuid, token, proxy, cancellationToken)
 	}
-	return px3, nil
+	return px3, false, nil
 }
 
 // Returns the value of a cookie with the given cookieName and url

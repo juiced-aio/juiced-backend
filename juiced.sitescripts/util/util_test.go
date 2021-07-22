@@ -265,7 +265,7 @@ func TestGetPXCookie(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, _, err := GetPXCookie(tt.args.site, tt.args.proxy)
+			_, _, _, err := GetPXCookie(tt.args.site, tt.args.proxy, &CancellationToken{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetPXCookie() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -277,7 +277,7 @@ func TestGetPXCookie(t *testing.T) {
 
 func TestGetPXCapCookie(t *testing.T) {
 	walmartURL := "https://www.walmart.com"
-	_, pxValues, err := GetPXCookie(walmartURL, entities.Proxy{})
+	_, pxValues, _, err := GetPXCookie(walmartURL, entities.Proxy{}, &CancellationToken{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +313,7 @@ func TestGetPXCapCookie(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := GetPXCapCookie(tt.args.site, tt.args.setID, tt.args.vid, tt.args.uuid, tt.args.token, tt.args.proxy)
+			_, _, err := GetPXCapCookie(tt.args.site, tt.args.setID, tt.args.vid, tt.args.uuid, tt.args.token, tt.args.proxy, &CancellationToken{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetPXCapCookie() error = %v, wantErr %v", err, tt.wantErr)
 				return

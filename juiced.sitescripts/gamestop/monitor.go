@@ -197,7 +197,7 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
 		if monitorResponse.Gtmdata.Productinfo.Availability == "Available" || monitorResponse.Product.Availability.ButtonText == "Pre-Order" {
 			stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
-			inBudget := monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
+			inBudget := monitor.SKUWithInfo[sku].MaxPrice >= int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
 				for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
 					stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])

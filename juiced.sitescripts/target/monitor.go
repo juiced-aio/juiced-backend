@@ -275,5 +275,5 @@ func (monitor *Monitor) GetTCINInfo(sku string) (string, string, bool) {
 		return "", "", false
 	}
 
-	return getTCINInfoResponse.Data.Product.Item.ProductDescription.Title, getTCINInfoResponse.Data.Product.Item.Enrichment.Images.PrimaryImageURL, monitor.TCINsWithInfo[sku].MaxPrice > int(getTCINInfoResponse.Data.Product.Price.CurrentRetail) || monitor.TCINsWithInfo[sku].MaxPrice == -1
+	return getTCINInfoResponse.Data.Product.Item.ProductDescription.Title, getTCINInfoResponse.Data.Product.Item.Enrichment.Images.PrimaryImageURL, monitor.TCINsWithInfo[sku].MaxPrice >= int(getTCINInfoResponse.Data.Product.Price.CurrentRetail) || monitor.TCINsWithInfo[sku].MaxPrice == -1
 }

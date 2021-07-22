@@ -264,10 +264,18 @@ var targetSingleMonitorInfosSchema = `
 var walmartMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
 		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var walmartSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS walmartSingleMonitorInfos (
+		monitorID TEXT,
 		taskGroupID TEXT,
-		monitorType TEXT,
-		skusJoined TEXT,
-		maxPrice INTEGER
+		sku TEXT,
+		maxPrice INTEGER,
+		soldByWalmart INTEGER,
+		monitorType TEXT
 	)
 `
 
@@ -448,6 +456,7 @@ var schemas = []string{
 	targetMonitorInfosSchema,
 	targetSingleMonitorInfosSchema,
 	walmartMonitorInfosSchema,
+	walmartSingleMonitorInfosSchema,
 
 	// Proxys
 	proxyGroupsSchema,

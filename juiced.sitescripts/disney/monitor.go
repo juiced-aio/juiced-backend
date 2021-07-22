@@ -171,7 +171,7 @@ func (monitor *Monitor) StockMonitor(pid string) DisneyInStockData {
 		},
 		ResponseBodyStruct: &monitorResponse,
 	})
-	if err != nil || resp.StatusCode != 200 || !monitorResponse.Product.Available || monitor.PidWithInfo[pid].MaxPrice > int(monitorResponse.Product.Price.Sales.Value) {
+	if err != nil || resp.StatusCode != 200 || !monitorResponse.Product.Available || (monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(monitorResponse.Product.Price.Sales.Value)) {
 		return stockData
 	}
 

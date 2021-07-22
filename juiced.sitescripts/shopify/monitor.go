@@ -205,7 +205,7 @@ func (monitor *Monitor) GetVIDstock(vid string) ShopifyInStockData {
 
 	switch resp.StatusCode {
 	case 200:
-		if monitor.SKUWithInfo[vid].MaxPrice > monitorResponse.Price/100 {
+		if monitor.SKUWithInfo[vid].MaxPrice >= monitorResponse.Price/100 || monitor.SKUWithInfo[vid].MaxPrice == -1 {
 			stockData.ItemName = monitorResponse.Title
 			stockData.ItemName = monitorResponse.Title
 			stockData.Price = float64(monitorResponse.Price / 100)
