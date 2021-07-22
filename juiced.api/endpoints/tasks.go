@@ -201,6 +201,13 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
+	type AmazonUpdateInfo struct{}
+	type BestBuyUpdateInfo struct{}
+	type BoxlunchUpdateInfo struct{}
+	type DisneyUpdateInfo struct{}
+	type GamestopUpdateInfo struct{}
+	type HottopicUpdateInfo struct{}
+	type ShopifyUpdateInfo struct{}
 	type TargetUpdateInfo struct {
 		CheckoutType enums.CheckoutType `json:"checkoutType"`
 		StoreID      string             `json:"storeID"`
@@ -210,13 +217,20 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	}
 
 	type UpdateTaskGroupRequest struct {
-		Name                string            `json:"name"`
-		MonitorInput        string            `json:"input"`
-		MonitorDelay        int               `json:"delay"`
-		MonitorProxyGroupID string            `json:"proxyGroupId"`
-		MaxPrice            int               `json:"maxPrice"`
-		TargetUpdateInfo    TargetUpdateInfo  `json:"targetUpdateInfo"`
-		WalmartUpdateInfo   WalmartUpdateInfo `json:"walmartUpdateInfo"`
+		Name                string             `json:"name"`
+		MonitorInput        string             `json:"input"`
+		MonitorDelay        int                `json:"delay"`
+		MonitorProxyGroupID string             `json:"proxyGroupId"`
+		MaxPrice            int                `json:"maxPrice"`
+		AmazonUpdateInfo    AmazonUpdateInfo   `json:"amazonUpdateInfo"`
+		BestbuyUpdateInfo   BestBuyUpdateInfo  `json:"bestbuyUpdateInfo"`
+		BoxlunchUpdateInfo  BoxlunchUpdateInfo `json:"boxlunchUpdateInfo"`
+		DisneyUpdateInfo    DisneyUpdateInfo   `json:"disneyUpdateInfo"`
+		GamestopUpdateInfo  GamestopUpdateInfo `json:"gamestopUpdateInfo"`
+		HottopicUpdateInfo  HottopicUpdateInfo `json:"hottopicUpdateInfo"`
+		ShopifyUpdateInfo   ShopifyUpdateInfo  `json:"shopifyUpdateInfo"`
+		TargetUpdateInfo    TargetUpdateInfo   `json:"targetUpdateInfo"`
+		WalmartUpdateInfo   WalmartUpdateInfo  `json:"walmartUpdateInfo"`
 	}
 
 	params := mux.Vars(request)
