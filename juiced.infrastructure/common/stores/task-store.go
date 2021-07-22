@@ -238,7 +238,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Create task
-		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.StoreID, task.TargetTaskInfo.PaymentType)
+		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
 		if err != nil {
 			return false
 		}
