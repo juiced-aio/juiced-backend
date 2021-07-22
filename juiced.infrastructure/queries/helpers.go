@@ -498,8 +498,24 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 			}
 		}
 
-		if taskGroup.WalmartMonitorInfo.SKUsJoined != "" {
-			taskGroup.WalmartMonitorInfo.SKUs = strings.Split(taskGroup.WalmartMonitorInfo.SKUsJoined, ",")
+		statement, err = database.Preparex(`SELECT * FROM walmartSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.WalmartMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tempSingleMonitor := entities.GamestopSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.WalmartMonitorInfo.Monitors = append(taskGroup.WalmartMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	}

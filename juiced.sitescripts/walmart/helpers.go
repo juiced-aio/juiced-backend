@@ -119,17 +119,17 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(0), // TODO: @TeHNiC
+					Value:  "$" + fmt.Sprint(task.StockData.Price),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.walmart.com/ip/%v)", task.Sku, task.Sku),
+					Value:  fmt.Sprintf("[%v](https://www.walmart.com/ip/%v)", task.StockData.SKU, task.StockData.SKU),
 					Inline: true,
 				},
 				{
 					Name:  "Product Name:",
-					Value: "NaN", // TODO: @TeHNiC
+					Value: task.StockData.ProductName,
 				},
 				{
 					Name:  "Proxy:",

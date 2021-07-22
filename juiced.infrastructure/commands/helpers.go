@@ -207,16 +207,27 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 	case enums.Walmart:
-		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID, monitorType, skusJoined, maxPrice) VALUES (?, ?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
 			return err
 		}
 		taskGroup.WalmartMonitorInfo.ID = monitorID
 		taskGroup.WalmartMonitorInfo.TaskGroupID = taskGroup.GroupID
-		taskGroup.WalmartMonitorInfo.SKUsJoined = strings.Join(taskGroup.WalmartMonitorInfo.SKUs, ",")
-		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID, taskGroup.WalmartMonitorInfo.MonitorType, taskGroup.WalmartMonitorInfo.SKUsJoined, taskGroup.WalmartMonitorInfo.MaxPrice)
+		_, err = statement.Exec(taskGroup.WalmartMonitorInfo.ID, taskGroup.WalmartMonitorInfo.TaskGroupID)
 		if err != nil {
 			return err
+		}
+		for _, monitor := range taskGroup.WalmartMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO walmartSingleMonitorInfos (monitorID, taskGroupID, sku, maxPrice, soldByWalmart, monitorType) VALUES (?, ?, ?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice, monitor.SoldByWalmart, monitor.MonitorType)
+			if err != nil {
+				return err
+			}
 		}
 
 	}

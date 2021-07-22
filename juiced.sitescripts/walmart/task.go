@@ -304,7 +304,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.OfferID != "" && task.Sku != "" {
+		if task.StockData.OfferID != "" && task.StockData.SKU != "" {
 			return false
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -457,9 +457,14 @@ func (task *Task) GetPIEValues() PIEValues {
 // AddToCart sends a POST request to the AddToCartEndpoint with an AddToCartRequest body
 func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQty {
+		quantity = task.StockData.MaxQty
+	}
+
 	data := AddToCartRequest{
-		OfferID:               task.OfferID,
-		Quantity:              1,
+		OfferID:               task.StockData.OfferID,
+		Quantity:              quantity,
 		ShipMethodDefaultRule: "SHIP_RULE_1",
 	}
 	dataStr, err := json.Marshal(data)
@@ -485,7 +490,7 @@ func (task *Task) AddToCart() bool {
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 			{"content-length", fmt.Sprint(len(dataStr))},
-			{"referer", AddToCartReferer + "ip/" + task.Sku + "/sellers"},
+			{"referer", AddToCartReferer + "ip/" + task.StockData.SKU + "/sellers"},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &addToCartResponse,
@@ -955,17 +960,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		return false, status
 	}
 
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQty {
+		quantity = task.StockData.MaxQty
+	}
+
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
-		Embeds:       task.CreateWalmartEmbed(status, "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=457&height=467"),
+		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
 		UserInfo:     user,
-		ItemName:     "NaN", // TODO: @TeHNiC, I saw you finished the webhooks in another branch I just don't want to copy it here and take credit
-		Sku:          task.Sku,
+		ItemName:     task.StockData.ProductName,
+		Sku:          task.StockData.SKU,
 		Retailer:     enums.Walmart,
-		Price:        0, // TODO: @TeHNiC
-		Quantity:     1,
+		Price:        task.StockData.Price,
+		Quantity:     quantity,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
