@@ -206,6 +206,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		MonitorInput        string `json:"input"`
 		MonitorDelay        int    `json:"delay"`
 		MonitorProxyGroupID string `json:"proxyGroupId"`
+		MaxPrice            int    `json:"maxPrice"`
+		SoldByWalmart       bool   `json:"soldByWalmart"`
 	}
 
 	params := mux.Vars(request)
@@ -224,13 +226,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						taskGroup.Name = updateTaskGroupRequestInfo.Name
 						taskGroup.MonitorDelay = updateTaskGroupRequestInfo.MonitorDelay
 						taskGroup.MonitorProxyGroupID = updateTaskGroupRequestInfo.MonitorProxyGroupID
+						maxPrice := updateTaskGroupRequestInfo.MaxPrice
 						switch taskGroup.MonitorRetailer {
 						case enums.BestBuy:
-							maxPrice := -1
-							if len(taskGroup.BestbuyMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.BestbuyMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.BestbuySingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -247,11 +245,6 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 
 						case enums.BoxLunch:
-							maxPrice := -1
-							if len(taskGroup.BoxLunchMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.BoxLunchMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.BoxLunchSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -269,11 +262,6 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							taskGroup.BoxLunchMonitorInfo.Monitors = newMonitors
 
 						case enums.Disney:
-							maxPrice := -1
-							if len(taskGroup.DisneyMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.DisneyMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.DisneySingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -290,11 +278,6 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							taskGroup.DisneyMonitorInfo.Monitors = newMonitors
 
 						case enums.GameStop:
-							maxPrice := -1
-							if len(taskGroup.GamestopMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.GamestopMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.GamestopSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -309,32 +292,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 								}
 							}
 							taskGroup.GamestopMonitorInfo.Monitors = newMonitors
-						case enums.Shopify:
-							maxPrice := -1
-							if len(taskGroup.ShopifyMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.ShopifyMonitorInfo.Monitors[0].MaxPrice
-							}
 
-							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
-							if updateTaskGroupRequestInfo.MonitorInput != "" {
-								vids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-								for _, vid := range vids {
-									monitor := entities.ShopifySingleMonitorInfo{
-										MonitorID:   uuid.New().String(),
-										TaskGroupID: taskGroup.GroupID,
-										VariantID:   vid,
-										MaxPrice:    maxPrice,
-									}
-									newMonitors = append(newMonitors, monitor)
-								}
-							}
-							taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
 						case enums.HotTopic:
-							maxPrice := -1
-							if len(taskGroup.HottopicMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.HottopicMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.HottopicSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -350,12 +309,23 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							}
 							taskGroup.HottopicMonitorInfo.Monitors = newMonitors
 
-						case enums.Target:
-							maxPrice := -1
-							if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.TargetMonitorInfo.Monitors[0].MaxPrice
+						case enums.Shopify:
+							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								vids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, vid := range vids {
+									monitor := entities.ShopifySingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										VariantID:   vid,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
 							}
+							taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
 
+						case enums.Target:
 							newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								tcins := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -372,20 +342,16 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							taskGroup.TargetMonitorInfo.Monitors = newMonitors
 
 						case enums.Walmart:
-							maxPrice := -1
-							if len(taskGroup.WalmartMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.WalmartMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.WalmartSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
 								for _, sku := range skus {
 									monitor := entities.WalmartSingleMonitorInfo{
-										MonitorID:   uuid.New().String(),
-										TaskGroupID: taskGroup.GroupID,
-										SKU:         sku,
-										MaxPrice:    maxPrice,
+										MonitorID:     uuid.New().String(),
+										TaskGroupID:   taskGroup.GroupID,
+										SKU:           sku,
+										MaxPrice:      maxPrice,
+										SoldByWalmart: updateTaskGroupRequestInfo.SoldByWalmart,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}

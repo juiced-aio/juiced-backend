@@ -510,7 +510,7 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 		defer rows.Close()
 
 		for rows.Next() {
-			tempSingleMonitor := entities.GamestopSingleMonitorInfo{}
+			tempSingleMonitor := entities.WalmartSingleMonitorInfo{}
 			err = rows.StructScan(&tempSingleMonitor)
 			if err != nil {
 				return taskGroup, err
