@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -314,6 +313,7 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+
 	case enums.BestBuy:
 		statement, err := database.Preparex(`INSERT INTO bestbuyTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -323,6 +323,17 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+
+	case enums.BoxLunch:
+		statement, err := database.Preparex(`INSERT INTO boxlunchTaskInfos (taskID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(task.ID, task.TaskGroupID)
+		if err != nil {
+			return err
+		}
+
 	case enums.Disney:
 		statement, err := database.Preparex(`INSERT INTO disneyTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -332,6 +343,7 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`INSERT INTO gamestopTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -343,12 +355,11 @@ func CreateTaskInfos(task entities.Task) error {
 		}
 
 	case enums.HotTopic:
-		task.HottopicTaskInfo.PidsJoined = strings.Join(task.HottopicTaskInfo.Pids, ",")
-		statement, err := database.Preparex(`INSERT INTO hottopicTaskInfos (taskID, taskGroupID, pidsJoined) VALUES (?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO hottopicTaskInfos (taskID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.HottopicTaskInfo.PidsJoined)
+		_, err = statement.Exec(task.ID, task.TaskGroupID)
 		if err != nil {
 			return err
 		}
@@ -373,6 +384,7 @@ func CreateTaskInfos(task entities.Task) error {
 				return err
 			}
 		}
+
 	case enums.Target:
 		statement, err := database.Preparex(`INSERT INTO targetTaskInfos (taskID, taskGroupID, checkoutType, email, password, paymentType) VALUES (?, ?, ?, ?, ?, ?)`)
 		if err != nil {

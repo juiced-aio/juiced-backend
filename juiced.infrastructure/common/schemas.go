@@ -53,8 +53,7 @@ var bestbuyTaskInfosSchema = `
 var boxlunchTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS boxlunchTaskInfos (
 		taskID TEXT,
-		taskGroupID TEXT,
-		pidsJoined TEXT
+		taskGroupID TEXT
 	)
 `
 

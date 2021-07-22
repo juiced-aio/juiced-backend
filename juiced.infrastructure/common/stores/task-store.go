@@ -111,10 +111,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		if queryError {
 			return false
 		}
-		// Make sure necessary fields exist
-		if len(task.BoxlunchTaskInfo.Pids) == 0 {
-			return false
-		}
 		// Create task
 		boxlunchTask, err := boxlunch.CreateBoxlunchTask(task, profile, proxy, taskStore.EventBus)
 		if err != nil {
@@ -176,10 +172,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
 		if queryError {
-			return false
-		}
-		// Make sure necessary fields exist
-		if len(task.HottopicTaskInfo.Pids) == 0 {
 			return false
 		}
 		// Create task
