@@ -454,6 +454,7 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 					break
 				}
 				task.ID = uuid.New().String()
+				task.TaskGroupID = newTaskGroup.GroupID
 				err = commands.CreateTask(task)
 				if err != nil {
 					break
