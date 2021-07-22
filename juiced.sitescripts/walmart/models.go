@@ -215,6 +215,8 @@ type QuantityOptions struct {
 }
 
 type Image struct {
+	Type          string        `json:"type"`
+	Rank          int           `json:"rank"`
 	AssetSizeUrls AssetSizeUrls `json:"assetSizeUrls"`
 }
 

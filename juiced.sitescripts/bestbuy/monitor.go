@@ -183,7 +183,7 @@ func (monitor *Monitor) GetSKUStock() BestbuyInStockData {
 
 			if monitorResponse[i].Sku.Buttonstate.Buttonstate == "ADD_TO_CART" {
 				price := int(monitorResponse[i].Sku.Price.Currentprice)
-				if monitor.SKUWithInfo[sku].MaxPrice > price || monitor.SKUWithInfo[sku].MaxPrice == -1 {
+				if monitor.SKUWithInfo[sku].MaxPrice >= price || monitor.SKUWithInfo[sku].MaxPrice == -1 {
 					stockData.SKU = sku
 					stockData.ProductName = monitorResponse[i].Sku.Names.Short
 					stockData.ImageURL = fmt.Sprintf("https://pisces.bbystatic.com/image2/BestBuy_US/images/products/%v/%v_sd.jpg;canvasHeight=500;canvasWidth=500", sku[:4], sku)

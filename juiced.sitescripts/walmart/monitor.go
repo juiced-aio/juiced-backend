@@ -118,17 +118,19 @@ func (monitor *Monitor) RunMonitor() {
 }
 
 func (monitor *Monitor) RunSingleMonitor(sku string) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(r)
+		}
+		// TODO @silent: Re-run this specific monitor
+	}()
+
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
 
 	if !common.InSlice(monitor.RunningMonitors, sku) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
-
 		if len(monitor.Monitor.Proxies) > 0 {
 			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
@@ -161,7 +163,10 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+					})
 				}
 			}
 			for i, monitorStock := range monitor.InStockForShip {
@@ -171,6 +176,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 				}
 			}
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
 			monitor.RunSingleMonitor(sku)
 		}
 	}
@@ -267,8 +273,7 @@ func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 		SKU: sku,
 	}
 
-	monitorResponse := MonitorResponse{}
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    fmt.Sprintf(MonitorEndpoint, sku),
@@ -288,13 +293,13 @@ func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 			{"accept-encoding", `gzip, deflate, br`},
 			{"accept-language", `en-US,en;q=0.9`},
 		},
-
-		ResponseBodyStruct: &monitorResponse,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
 		return stockData
 	}
+
+	monitorResponse := MonitorResponse{}
 	switch resp.StatusCode {
 	case 200:
 		if strings.Contains(resp.Request.URL.String(), "blocked") {
@@ -302,72 +307,77 @@ func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 		} else {
 			var inStock bool
 
+			err = json.Unmarshal([]byte(body), &monitorResponse)
+			if err != nil {
+				return stockData
+			}
+
 			// Item exists = Add to running monitors
 			if len(monitorResponse.Payload.Offers.(map[string]interface{})) > 0 {
 				monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
 			}
+			lowestPrice := -1
 			for _, value := range monitorResponse.Payload.Offers.(map[string]interface{}) {
 				offer := Offer{}
 				tempJson, err := json.Marshal(value.(map[string]interface{}))
-				if err != nil {
-					return stockData
-				}
-
-				err = json.Unmarshal(tempJson, &offer)
-				if err != nil {
-					return stockData
-				}
-
-				if offer.Productavailability.Availabilitystatus == "IN_STOCK" {
-					if monitor.SKUWithInfo[sku].MaxPrice > int(offer.Pricesinfo.Pricemap.Current.Price) {
-						if monitor.SKUWithInfo[sku].SoldByWalmart {
-							if offer.Sellerid != "F55CDC31AB754BB68FE0B39041159D63" {
-								break
+				if err == nil {
+					err = json.Unmarshal(tempJson, &offer)
+					if err == nil {
+						if offer.Productavailability.Availabilitystatus == "IN_STOCK" {
+							if monitor.SKUWithInfo[sku].MaxPrice >= int(offer.Pricesinfo.Pricemap.Current.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1 {
+								if monitor.SKUWithInfo[sku].SoldByWalmart {
+									if offer.Sellerid == "F55CDC31AB754BB68FE0B39041159D63" {
+										inStock = true
+									}
+								} else {
+									inStock = true
+								}
 							}
-							inStock = true
-						} else {
-							inStock = true
+							if inStock && (lowestPrice == -1 || int(offer.Pricesinfo.Pricemap.Current.Price) <= lowestPrice) {
+								stockData.OfferID = offer.OfferInfo.OfferID
+								stockData.MaxQty = offer.OfferInfo.QuantityOptions.OrderLimit
+								lowestPrice = int(offer.Pricesinfo.Pricemap.Current.Price)
+							}
 						}
 					}
-					if inStock {
-						stockData.OfferID = offer.OfferInfo.OfferID
-						stockData.MaxQty = offer.OfferInfo.QuantityOptions.OrderLimit
-					}
 				}
 			}
 
-			if inStock {
-				product := Product{}
-				tempJson, err := json.Marshal(monitorResponse.Payload.Products.(map[string]interface{})[monitorResponse.Payload.PrimaryProduct])
-				if err != nil {
-					return stockData
-				}
-				err = json.Unmarshal(tempJson, &product)
-				if err != nil {
-					return stockData
-				}
-				stockData.ProductName = product.ProductAttributes.ProductName
+			product := Product{}
+			tempJson, err := json.Marshal(monitorResponse.Payload.Products.(map[string]interface{})[monitorResponse.Payload.PrimaryProduct])
+			if err != nil {
+				return stockData
+			}
+			err = json.Unmarshal(tempJson, &product)
+			if err != nil {
+				return stockData
+			}
+			stockData.ProductName = product.ProductAttributes.ProductName
 
-				for _, value := range monitorResponse.Payload.Images.(map[string]interface{}) {
-					if stockData.ImageURL != "" {
-						break
-					}
-					image := Image{}
-					tempJson, err := json.Marshal(value.(map[string]interface{}))
-					if err != nil {
-						return stockData
-					}
-
+			secondaryImageUrl := ""
+			secondaryImageRank := -1
+			for _, value := range monitorResponse.Payload.Images.(map[string]interface{}) {
+				if stockData.ImageURL != "" {
+					break
+				}
+				image := Image{}
+				tempJson, err := json.Marshal(value.(map[string]interface{}))
+				if err == nil {
 					err = json.Unmarshal(tempJson, &image)
-					if err != nil {
-						return stockData
+					if err == nil {
+						if image.Type == "PRIMARY" {
+							stockData.ImageURL = image.AssetSizeUrls.Default
+						} else if secondaryImageRank == -1 || image.Rank < secondaryImageRank {
+							secondaryImageUrl = image.AssetSizeUrls.Default
+							secondaryImageRank = image.Rank
+						}
 					}
-
-					stockData.ImageURL = image.AssetSizeUrls.Default
 				}
-
 			}
 
+			if stockData.ImageURL == "" && secondaryImageUrl != "" {
+				stockData.ImageURL = secondaryImageUrl
+			}
 		}
 	case 404:
 		fmt.Printf("We have a bad response: %v\n", resp.Status)

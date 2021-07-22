@@ -216,7 +216,7 @@ func (monitor *Monitor) StockInfo(body string, pid string) HotTopicInStockData {
 	//We are in stock for this size/color, lets check price is in budget.
 	PriceText := doc.Find("span", "class", "productdetail__info-pricing-original").Text()
 	Price, _ := strconv.Atoi(PriceText)
-	InBudget := monitor.PidWithInfo[pid].MaxPrice > Price
+	InBudget := monitor.PidWithInfo[pid].MaxPrice >= Price || monitor.PidWithInfo[pid].MaxPrice == -1
 
 	ProductName := doc.Find("a", "class", "name-link").Text()
 	if !InBudget {

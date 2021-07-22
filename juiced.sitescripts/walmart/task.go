@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -354,6 +355,16 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 
 // Setup sends a GET request to the BaseEndpoint
 func (task *Task) Setup() bool {
+	u, _ := url.Parse("https://www.walmart.com/")
+	task.Task.Client.Jar.SetCookies(u, []*http.Cookie{{
+		Name:     "com.wm.reflector",
+		Value:    fmt.Sprintf(`"reflectorid:0000000000000000000000@lastupd:%d000@firstcreate:%d000"`, time.Now().Add(-10*time.Minute).Unix(), time.Now().Add(-20*24*time.Hour).Unix()),
+		Path:     "/",
+		Domain:   ".walmart.com",
+		Expires:  time.Now().Add(10 * 365 * 24 * time.Hour),
+		SameSite: http.SameSiteStrictMode,
+	}})
+
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
@@ -373,7 +384,7 @@ func (task *Task) Setup() bool {
 		},
 	})
 	if err != nil {
-		log.Println("Setup error: " + err.Error())
+		log.Println("Setup request 2 error: " + err.Error())
 	}
 	if strings.Contains(resp.Request.URL.String(), "blocked") {
 		handled := task.HandlePXCap(resp, BaseEndpoint)
