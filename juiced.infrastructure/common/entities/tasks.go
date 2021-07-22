@@ -101,7 +101,6 @@ type TargetTaskInfo struct {
 	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
 	Email        string             `json:"email" db:"email"`
 	Password     string             `json:"password" db:"password"`
-	StoreID      string             `json:"storeID" db:"storeID"`
 	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
 }
 

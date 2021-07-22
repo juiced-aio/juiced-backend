@@ -38,7 +38,7 @@ import (
 var TargetAccountStore = cmap.New()
 
 // CreateTargetTask takes a Task entity and turns it into a Target Task
-func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, storeID string, paymentType enums.PaymentType) (Task, error) {
+func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, paymentType enums.PaymentType) (Task, error) {
 	targetTask := Task{}
 
 	targetTask = Task{
@@ -54,7 +54,6 @@ func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entit
 			Password:       password,
 			PaymentType:    paymentType,
 			DefaultCardCVV: profile.CreditCard.CVV,
-			StoreID:        storeID,
 		},
 	}
 	return targetTask, nil
