@@ -34,11 +34,12 @@ func RemoveFromSlice(s []string, x string) []string {
 	for i, r := range s {
 		if r == x {
 			position = i
+			break
 		}
-		return append(s[:position], s[position+1:]...)
-	}
 
-	return s
+	}
+	return append(s[:position], s[position+1:]...)
+
 }
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
