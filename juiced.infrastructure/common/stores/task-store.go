@@ -145,7 +145,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 
 	case enums.Disney:
 		// Check if task exists in store already
-		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
+		if _, ok := taskStore.DisneyTasks[task.ID]; ok {
 			return true
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -158,7 +158,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) bool {
 			return false
 		}
 		// Create task
-		disneyTask, err := disney.CreateDisneyTask(task, profile, proxy, taskStore.EventBus, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password)
+		disneyTask, err := disney.CreateDisneyTask(task, profile, proxy, taskStore.EventBus, task.DisneyTaskInfo.TaskType, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password)
 		if err != nil {
 			return false
 		}

@@ -720,23 +720,23 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	errorsList := make([]string, 0)
 
 	type CreateTaskRequest struct {
-		NumTasksPerProfile int                       `json:"numTasksPerProfile"`
-		ProfileIDs         []string                  `json:"profileIDs"`
-		ProfileGroupID     string                    `json:"profileGroupID"`
-		ProxyGroupID       string                    `json:"proxyGroupID"`
-		Retailer           string                    `json:"retailer"`
-		Sizes              []string                  `json:"sizes"`
-		Quantity           int                       `json:"quantity"`
-		Delay              int                       `json:"delay"`
-		AmazonTaskInfo     entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
-		BestbuyTaskInfo    entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
-		BoxlunchTaskInfo   entities.BoxlunchTaskInfo `json:"boxlunchTaskInfo"`
-		DisneyTaskInfo     entities.DisneyTaskInfo   `json:"disneyTaskInfo"`
-		GamestopTaskInfo   entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
-		HottopicTaskInfo   entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
-		ShopifyTaskInfo    entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
-		TargetTaskInfo     entities.TargetTaskInfo   `json:"targetTaskInfo"`
-		WalmartTaskInfo    entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
+		NumTasksPerProfile int                        `json:"numTasksPerProfile"`
+		ProfileIDs         []string                   `json:"profileIDs"`
+		ProfileGroupID     string                     `json:"profileGroupID"`
+		ProxyGroupID       string                     `json:"proxyGroupID"`
+		Retailer           string                     `json:"retailer"`
+		Sizes              []string                   `json:"sizes"`
+		Quantity           int                        `json:"quantity"`
+		Delay              int                        `json:"delay"`
+		AmazonTaskInfo     *entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
+		BestbuyTaskInfo    *entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
+		BoxlunchTaskInfo   *entities.BoxlunchTaskInfo `json:"boxlunchTaskInfo"`
+		DisneyTaskInfo     *entities.DisneyTaskInfo   `json:"disneyTaskInfo"`
+		GamestopTaskInfo   *entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
+		HottopicTaskInfo   *entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		ShopifyTaskInfo    *entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
+		TargetTaskInfo     *entities.TargetTaskInfo   `json:"targetTaskInfo"`
+		WalmartTaskInfo    *entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -786,6 +786,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 					} else {
 						errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 					}
+
 				case enums.Target:
 					task.TargetTaskInfo = createTaskRequestInfo.TargetTaskInfo
 

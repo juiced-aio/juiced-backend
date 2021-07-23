@@ -19,16 +19,15 @@ import (
 )
 
 // CreateDisneyTask takes a Task entity and turns it into a Disney Task
-func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, email, password string) (Task, error) {
-	disneyTask := Task{}
-
-	disneyTask = Task{
+func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+	disneyTask := Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
 		},
+		TaskType: taskType,
 		AccountInfo: AccountInfo{
 			Email:    email,
 			Password: password,
@@ -92,10 +91,15 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
-			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			if task.Task.Task.TaskStatus != enums.LoggingIn {
+				task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			}
 			sessionMade = task.Login()
+
 		case enums.TaskTypeGuest:
-			task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			if task.Task.Task.TaskStatus != enums.SettingUp {
+				task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			}
 			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
