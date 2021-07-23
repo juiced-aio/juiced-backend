@@ -210,13 +210,14 @@ func (task *Task) WaitForMonitor() bool {
 		if task.StockData.PID != "" {
 			return false
 		}
+		time.Sleep(25 * time.Millisecond)
 	}
 }
 
 func (task *Task) AddToCart() bool {
-	colorSelected := "notRequired"
-	sizeSelected := "notRequired"
-	inseamSelected := "notRequired"
+	colorSelected := ""
+	sizeSelected := ""
+	inseamSelected := ""
 
 	if len(task.StockData.Color) > 0 {
 		colorSelected = "true"
@@ -227,17 +228,19 @@ func (task *Task) AddToCart() bool {
 	}
 
 	data := url.Values{
-		"shippingMethod-13249991": {"shipToHome"},
-		"pid":                     {task.StockData.PID},
-		"Quantity":                {fmt.Sprint(task.Task.Task.TaskQty)},
-		"hasColorSelected":        {colorSelected},
-		"hasSizeSelected":         {sizeSelected},
-		"hasInseamSelected":       {inseamSelected},
-		"cartAction":              {"add"},
-		"productColor":            {task.StockData.Color},
+		"shippingMethod-" + task.StockData.SizePID:  {"shipToHome"},
+		"deliveryMsgHome-" + task.StockData.SizePID: {"In Stock"},
+		"pid":               {task.StockData.SizePID},
+		"Quantity":          {fmt.Sprint(task.Task.Task.TaskQty)},
+		"hasColorSelected":  {colorSelected},
+		"hasSizeSelected":   {sizeSelected},
+		"hasInseamSelected": {inseamSelected},
+		"cgid":              {""},
+		"cartAction":        {"add"},
+		"productColor":      {task.StockData.Color},
 	}
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
@@ -245,16 +248,12 @@ func (task *Task) AddToCart() bool {
 		Referer:            AddToCartReferer + task.StockData.PID + ".html",
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil {
-		return false
-	}
 
-	defer resp.Body.Close()
-
-	return true
+	return err == nil && strings.Contains(body, fmt.Sprintf(`"productId":"%s"`, task.StockData.SizePID)) && strings.Contains(body, fmt.Sprintf(`"quantity":%d`, task.Task.Task.TaskQty))
 }
+
 func (task *Task) GetCheckout() bool {
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint,
@@ -265,15 +264,10 @@ func (task *Task) GetCheckout() bool {
 		return false
 	}
 
-	task.Dwcont, err = getDwCont(string(body))
-	if err != nil {
-		return false
-	}
-
-	defer resp.Body.Close()
-
-	return true
+	task.Dwcont, err = getDwCont(body)
+	return err == nil
 }
+
 func (task *Task) ProceedToCheckout() bool {
 	data := url.Values{
 		"dwfrm_cart_checkoutCart": {"checkout"},
@@ -298,9 +292,9 @@ func (task *Task) ProceedToCheckout() bool {
 	}
 
 	task.SecureKey, err = getSecureKey(body)
-
 	return err == nil
 }
+
 func (task *Task) GuestCheckout() bool {
 	data := url.Values{
 		"dwfrm_login_unregistered": {"Checkout As a Guest"},
@@ -329,6 +323,7 @@ func (task *Task) GuestCheckout() bool {
 	// TODO
 	return err == nil
 }
+
 func (task *Task) SubmitShipping() bool {
 	data := url.Values{
 		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
@@ -342,10 +337,10 @@ func (task *Task) SubmitShipping() bool {
 		"dwfrm_singleshipping_shippingAddress_addressFields_address2":     {task.Task.Profile.ShippingAddress.Address2},
 		"dwfrm_singleshipping_shippingAddress_addressFields_city":         {task.Task.Profile.ShippingAddress.City},
 		"dwfrm_singleshipping_shippingAddress_addressFields_states_state": {task.Task.Profile.ShippingAddress.StateCode},
-		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"false"}, //depends if they want to or not? Not sure what to do here.
-		"dwfrm_singleshipping_shippingAddress_shippingMethodID":           {"7D"},    // multiple methods, should we default to 1?
-		"dwfrm_singleshipping_shippingAddress_isGift":                     {"false"}, //assume always false?
-		"dwfrm_singleshipping_shippingAddress_giftMessage":                {""},      //^
+		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"false"},
+		"dwfrm_singleshipping_shippingAddress_shippingMethodID":           {"7D"},
+		"dwfrm_singleshipping_shippingAddress_isGift":                     {"false"},
+		"dwfrm_singleshipping_shippingAddress_giftMessage":                {""},
 		"dwfrm_singleshipping_shippingAddress_save":                       {"Continue to Billing"},
 		"dwfrm_singleshipping_securekey":                                  {task.SecureKey},
 	}
@@ -367,6 +362,7 @@ func (task *Task) SubmitShipping() bool {
 	// TODO
 	return err == nil
 }
+
 func (task *Task) UseOrigAddress() bool {
 	data := url.Values{
 		"dwfrm_addForm_useOrig": {""},
@@ -379,7 +375,7 @@ func (task *Task) UseOrigAddress() bool {
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -388,11 +384,13 @@ func (task *Task) UseOrigAddress() bool {
 	if err != nil {
 		return false
 	}
+
 	task.SecureKey, err = getSecureKey(body)
 
 	// TODO
 	return err == nil
 }
+
 func (task *Task) SubmitPaymentInfo() bool {
 	data := url.Values{
 		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
@@ -406,25 +404,25 @@ func (task *Task) SubmitPaymentInfo() bool {
 		"dwfrm_billing_billingAddress_addressFields_states_state": {task.Task.Profile.BillingAddress.StateCode},
 		"dwfrm_billing_billingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
 		"dwfrm_billing_securekey":                                 {task.SecureKey},
-		"dwfrm_billing_couponCode":                                {""}, //coupon
-		"dwfrm_billing_giftCertCode":                              {""},
+		"dwfrm_billing_couponCode":                                {""}, // TODO @Humphrey: Coupon code support
+		"dwfrm_billing_giftCertCode":                              {""}, // TODO @Humphrey: Gift certificate support
 		"dwfrm_billing_paymentMethods_selectedPaymentMethodID":    {"CREDIT_CARD"},
 		"dwfrm_billing_paymentMethods_creditCard_owner":           {task.Task.Profile.CreditCard.CardholderName},
 		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},
-		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType},                                                  //Ex VISA
-		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},                         //should be month (no 0) Ex: 2
-		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},                                                   //should be full year Ex: 2026
-		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]}, //should be smalldate Ex: 02/26
+		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType}, // TODO @Humphrey: Make a helper function that matches up our CardTypes with the BoxLunch CardTypes
+		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},
+		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},
+		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]},
 		"dwfrm_billing_paymentMethods_creditCard_cvn":             {task.Task.Profile.CreditCard.CVV},
-		"cardToken":                              {""},                                           //is always empty
-		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
-		"dwfrm_billing_paymentMethods_bml_year":  {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_month": {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_day":   {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_ssn":   {""},                                           //always seems to be empty
+		"cardToken":                              {""},
+		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]},
+		"dwfrm_billing_paymentMethods_bml_year":  {""},
+		"dwfrm_billing_paymentMethods_bml_month": {""},
+		"dwfrm_billing_paymentMethods_bml_day":   {""},
+		"dwfrm_billing_paymentMethods_bml_ssn":   {""},
 		"dwfrm_billing_save":                     {"Continue to Review"},
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
@@ -432,14 +430,11 @@ func (task *Task) SubmitPaymentInfo() bool {
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil {
-		return false
-	}
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	data := url.Values{
@@ -454,7 +449,6 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-
 	if err != nil {
 		return false, status
 	}

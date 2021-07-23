@@ -210,7 +210,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.StockData.PID != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(25 * time.Millisecond)
 	}
 }
 
@@ -290,8 +290,8 @@ func (task *Task) ProceedToCheckout() bool {
 	if err != nil {
 		return false
 	}
-	task.SecureKey, err = getSecureKey(body)
 
+	task.SecureKey, err = getSecureKey(body)
 	return err == nil
 }
 
@@ -337,10 +337,10 @@ func (task *Task) SubmitShipping() bool {
 		"dwfrm_singleshipping_shippingAddress_addressFields_address2":     {task.Task.Profile.ShippingAddress.Address2},
 		"dwfrm_singleshipping_shippingAddress_addressFields_city":         {task.Task.Profile.ShippingAddress.City},
 		"dwfrm_singleshipping_shippingAddress_addressFields_states_state": {task.Task.Profile.ShippingAddress.StateCode},
-		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"false"}, //depends if they want to or not? Not sure what to do here.
-		"dwfrm_singleshipping_shippingAddress_shippingMethodID":           {"7D"},    // multiple methods, should we default to 1?
-		"dwfrm_singleshipping_shippingAddress_isGift":                     {"false"}, //assume always false?
-		"dwfrm_singleshipping_shippingAddress_giftMessage":                {""},      //^
+		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"false"},
+		"dwfrm_singleshipping_shippingAddress_shippingMethodID":           {"7D"},
+		"dwfrm_singleshipping_shippingAddress_isGift":                     {"false"},
+		"dwfrm_singleshipping_shippingAddress_giftMessage":                {""},
 		"dwfrm_singleshipping_shippingAddress_save":                       {"Continue to Billing"},
 		"dwfrm_singleshipping_securekey":                                  {task.SecureKey},
 	}
@@ -375,7 +375,7 @@ func (task *Task) UseOrigAddress() bool {
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
@@ -384,6 +384,7 @@ func (task *Task) UseOrigAddress() bool {
 	if err != nil {
 		return false
 	}
+
 	task.SecureKey, err = getSecureKey(body)
 
 	// TODO
@@ -403,22 +404,22 @@ func (task *Task) SubmitPaymentInfo() bool {
 		"dwfrm_billing_billingAddress_addressFields_states_state": {task.Task.Profile.BillingAddress.StateCode},
 		"dwfrm_billing_billingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
 		"dwfrm_billing_securekey":                                 {task.SecureKey},
-		"dwfrm_billing_couponCode":                                {""}, //coupon
-		"dwfrm_billing_giftCertCode":                              {""},
+		"dwfrm_billing_couponCode":                                {""}, // TODO @Humphrey: Coupon code support
+		"dwfrm_billing_giftCertCode":                              {""}, // TODO @Humphrey: Gift certificate support
 		"dwfrm_billing_paymentMethods_selectedPaymentMethodID":    {"CREDIT_CARD"},
 		"dwfrm_billing_paymentMethods_creditCard_owner":           {task.Task.Profile.CreditCard.CardholderName},
 		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},
-		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType},                                                  //Ex VISA
-		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},                         //should be month (no 0) Ex: 2
-		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},                                                   //should be full year Ex: 2026
-		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]}, //should be smalldate Ex: 02/26
+		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType}, // TODO @Humphrey: Make a helper function that matches up our CardTypes with the HotTopic CardTypes
+		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},
+		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},
+		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]},
 		"dwfrm_billing_paymentMethods_creditCard_cvn":             {task.Task.Profile.CreditCard.CVV},
-		"cardToken":                              {""},                                           //is always empty
-		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
-		"dwfrm_billing_paymentMethods_bml_year":  {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_month": {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_day":   {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_ssn":   {""},                                           //always seems to be empty
+		"cardToken":                              {""},
+		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]},
+		"dwfrm_billing_paymentMethods_bml_year":  {""},
+		"dwfrm_billing_paymentMethods_bml_month": {""},
+		"dwfrm_billing_paymentMethods_bml_day":   {""},
+		"dwfrm_billing_paymentMethods_bml_ssn":   {""},
 		"dwfrm_billing_save":                     {"Continue to Review"},
 	}
 	_, _, err := util.MakeRequest(&util.Request{
