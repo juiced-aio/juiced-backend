@@ -499,7 +499,7 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 		go taskStore.BestbuyTasks[taskID].RunTask()
 
 	case enums.BoxLunch:
-		go taskStore.BestbuyTasks[taskID].RunTask()
+		go taskStore.BoxlunchTasks[taskID].RunTask()
 
 	case enums.Disney:
 		go taskStore.DisneyTasks[taskID].RunTask()

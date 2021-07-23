@@ -352,7 +352,7 @@ func (monitor *Monitor) VariationInfo(body, pid string) ([]string, []string, Hot
 // 	}
 // }
 
-// func (monitor *Monitor) StockInfo(body string, pid string) HotTopicInStockData {
+// func (monitor *Monitor) GetStockInfo(body string, pid string) HotTopicInStockData {
 // 	stockData := HotTopicInStockData{}
 // 	doc := soup.HTMLParse(body)
 

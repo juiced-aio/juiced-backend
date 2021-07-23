@@ -27,7 +27,7 @@ func AddBoxlunchHeaders(request *http.Request, referer ...string) {
 }
 
 func getDwCont(body string) (string, error) {
-	return common.FindInString(body, "cart?dwcont=", "\"")
+	return common.FindInString2(body, "cart?dwcont=", `"`)
 }
 
 func getSecureKey(body string) (string, error) {
