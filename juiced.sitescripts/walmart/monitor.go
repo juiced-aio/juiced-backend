@@ -23,11 +23,12 @@ import (
 func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.WalmartSingleMonitorInfo) (Monitor, error) {
 	storedWalmartMonitors := make(map[string]entities.WalmartSingleMonitorInfo)
 	walmartMonitor := Monitor{}
-	skus := []string{}
+	ids := []string{}
 
 	for _, monitor := range singleMonitors {
-		storedWalmartMonitors[monitor.SKU] = monitor
-		skus = append(skus, monitor.SKU)
+		storedWalmartMonitors[monitor.ID] = monitor
+		ids = append(ids, monitor.ID)
+
 	}
 
 	walmartMonitor = Monitor{
@@ -36,8 +37,8 @@ func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
-		SKUs:        skus,
-		SKUWithInfo: storedWalmartMonitors,
+		IDs:        ids,
+		IDWithInfo: storedWalmartMonitors,
 	}
 
 	return walmartMonitor, nil
@@ -107,17 +108,17 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(monitor.SKUs))
-	for _, sku := range monitor.SKUs {
+	wg.Add(len(monitor.IDs))
+	for _, id := range monitor.IDs {
 		go func(x string) {
 			monitor.RunSingleMonitor(x)
 			wg.Done()
-		}(sku)
+		}(id)
 	}
 	wg.Wait()
 }
 
-func (monitor *Monitor) RunSingleMonitor(sku string) {
+func (monitor *Monitor) RunSingleMonitor(id string) {
 	defer func() {
 		if r := recover(); r != nil {
 			log.Println(r)
@@ -130,16 +131,18 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, sku) {
+	if !common.InSlice(monitor.RunningMonitors, id) {
 		if len(monitor.Monitor.Proxies) > 0 {
 			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
 
 		stockData := WalmartInStockData{}
 
-		switch monitor.SKUWithInfo[sku].MonitorType {
+		switch monitor.IDWithInfo[id].MonitorType {
 		case enums.SKUMonitor:
-			stockData = monitor.GetSkuStock(sku)
+			stockData = monitor.GetSkuStock(id)
+		case enums.FastSKUMonitor:
+			stockData = monitor.GetOfferIDStock(id)
 		}
 
 		if stockData.OfferID != "" {
@@ -154,7 +157,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			}
 			if !inSlice {
 				monitor.InStockForShip = append(monitor.InStockForShip, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
+				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
 				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
@@ -176,8 +179,8 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 				}
 			}
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
-			monitor.RunSingleMonitor(sku)
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
+			monitor.RunSingleMonitor(id)
 		}
 	}
 }
@@ -267,6 +270,83 @@ func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool
 	}
 }
 
+func (monitor *Monitor) GetOfferIDStock(offerID string) WalmartInStockData {
+	stockData := WalmartInStockData{}
+
+	data := AddToCartRequest{
+		OfferID:               offerID,
+		Quantity:              1,
+		ShipMethodDefaultRule: "SHIP_RULE_1",
+	}
+	dataStr, err := json.Marshal(data)
+	if err != nil {
+		log.Println("ATC Request Error: " + err.Error())
+		return stockData
+	}
+
+	addToCartResponse := AddToCartResponse{}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: monitor.Monitor.Client,
+		Method: "POST",
+		URL:    AddToCartEndpoint,
+		RawHeaders: [][2]string{
+			{"accept", "application/json"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+			{"content-type", "application/json"},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"sec-fetch-dest", "document"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-user", "?1"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
+			{"content-length", fmt.Sprint(len(dataStr))},
+		},
+		RequestBodyStruct:  data,
+		ResponseBodyStruct: &addToCartResponse,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err.Error())
+		return stockData
+	}
+
+	if strings.Contains(resp.Request.URL.String(), "blocked") {
+		monitor.HandlePXCap(resp, resp.Request.URL.String())
+		return stockData
+	}
+
+	var inStock bool
+	for _, item := range addToCartResponse.Items {
+		if item.OfferID == offerID {
+			if item.AvailableQuantity > 0 {
+				if monitor.IDWithInfo[offerID].MaxPrice >= int(item.Price) || monitor.IDWithInfo[offerID].MaxPrice == -1 {
+					if monitor.IDWithInfo[offerID].SoldByWalmart {
+						if item.Seller.ID == "F55CDC31AB754BB68FE0B39041159D63" {
+							inStock = true
+						}
+					} else {
+						inStock = true
+					}
+
+					if inStock {
+						stockData.SKU = item.USItemID
+						stockData.MaxQty = item.MaxItemCountPerOrder
+						stockData.OfferID = item.OfferID
+						stockData.ProductName = item.Name
+						stockData.Price = item.Price
+						stockData.ImageURL = strings.ReplaceAll(item.Assets.Primary[0].Num100, "FFFFFF", "FFFFF")
+					}
+				}
+			}
+
+		}
+	}
+
+	return stockData
+}
+
 //This is for checking if a sku is instock. Here we also check if there is a maximum price.
 func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 	stockData := WalmartInStockData{
@@ -324,8 +404,8 @@ func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 					err = json.Unmarshal(tempJson, &offer)
 					if err == nil {
 						if offer.Productavailability.Availabilitystatus == "IN_STOCK" {
-							if monitor.SKUWithInfo[sku].MaxPrice >= int(offer.Pricesinfo.Pricemap.Current.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1 {
-								if monitor.SKUWithInfo[sku].SoldByWalmart {
+							if monitor.IDWithInfo[sku].MaxPrice >= int(offer.Pricesinfo.Pricemap.Current.Price) || monitor.IDWithInfo[sku].MaxPrice == -1 {
+								if monitor.IDWithInfo[sku].SoldByWalmart {
 									if offer.Sellerid == "F55CDC31AB754BB68FE0B39041159D63" {
 										inStock = true
 									}
