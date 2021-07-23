@@ -10,7 +10,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
@@ -70,6 +69,10 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
 
 	client, err := util.CreateClient(task.Task.Proxy)
 	if err != nil {
@@ -575,18 +578,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return false, status
-	}
-
-	util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
 		Embeds:       task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo:     user,
 		ItemName:     task.CheckoutInfo.ItemName,
 		Sku:          task.CheckoutInfo.SKUInStock,
 		Retailer:     enums.GameStop,

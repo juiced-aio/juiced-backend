@@ -60,7 +60,28 @@ func FindInString(str string, start string, end string) (string, error) {
 	}
 
 	return parsed, nil
+}
 
+func FindInString2(str string, start string, end string) (string, error) {
+	if !strings.Contains(str, start) {
+		return "", errors.New("string not found")
+	}
+
+	after := strings.Split(str, start)
+	if len(after) < 2 || after[1] == "" {
+		return "", errors.New("string not found")
+	}
+
+	if !strings.Contains(after[1], end) {
+		return "", errors.New("string not found")
+	}
+
+	between := strings.Split(after[1], end)
+	if len(between) == 0 || between[0] == "" {
+		return "", errors.New("string not found")
+	}
+
+	return between[0], nil
 }
 
 // RandID returns a random n-digit ID of digits and uppercase letters
