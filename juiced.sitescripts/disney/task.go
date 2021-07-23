@@ -197,16 +197,17 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	// 9. PlaceOrder
 	placedOrder := false
+	doNotRetry := false
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
 		if status == enums.OrderStatusDeclined {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, doNotRetry, status = task.PlaceOrder(startTime)
 		if !placedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -639,9 +640,13 @@ func (task *Task) GetCardToken() bool {
 	return true
 }
 
-// PlaceOrde
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+// PlaceOrder
+func (task *Task) PlaceOrder(startTime time.Time) (bool, bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true, status
+	}
+
 	PlaceOrderRequest := PlaceOrderRequest{
 		Cards: []Cards{
 			{
@@ -721,7 +726,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err)
-		return false, status
+		return false, false, status
 	}
 
 	// Need to know what a successful order looks like
@@ -729,7 +734,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	switch placeOrderResponse.Suggestederrorkey {
 	case "d_credit_card":
 		status = enums.OrderStatusDeclined
-		return false, status
+		return false, false, status
 	default:
 		status = enums.OrderStatusSuccess
 		success = true
@@ -738,7 +743,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
-		return false, status
+		return false, false, status
 	}
 
 	util.ProcessCheckout(util.ProcessCheckoutInfo{
@@ -755,5 +760,5 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
-	return true, status
+	return true, false, status
 }

@@ -161,12 +161,13 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
+	doNotRetry := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
-		setPaymentInfo = task.SetPaymentInfo()
+		setPaymentInfo, doNotRetry = task.SetPaymentInfo()
 		if !setPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -770,14 +771,21 @@ func (task *Task) SetShippingInfo() bool {
 }
 
 // SetPaymentInfo sets the payment info in checkout
-func (task *Task) SetPaymentInfo() bool {
+func (task *Task) SetPaymentInfo() (bool, bool) {
+
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
+	cardType := util.GetCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer)
+
 	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
 			if validator == "-1" {
 				err := util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 				if err != nil {
-					return false
+					return false, false
 				}
 			}
 		}
@@ -819,7 +827,7 @@ func (task *Task) SetPaymentInfo() bool {
 			Cvv:             task.Task.Profile.CreditCard.CVV,
 			Orderid:         task.CheckoutInfo.OrderID,
 			Savetoprofile:   false,
-			Type:            task.Task.Profile.CreditCard.CardType,
+			Type:            cardType,
 			International:   false,
 			Virtualcard:     false,
 		},
@@ -855,7 +863,7 @@ func (task *Task) SetPaymentInfo() bool {
 
 	if resp.StatusCode != 200 {
 		util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
-		return false
+		return false, false
 	}
 
 	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
@@ -864,7 +872,7 @@ func (task *Task) SetPaymentInfo() bool {
 			if validator == "-1" {
 				err = util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
 				if err != nil {
-					return false
+					return false, false
 				}
 			}
 		}
@@ -901,7 +909,7 @@ func (task *Task) SetPaymentInfo() bool {
 
 	if resp.StatusCode != 200 {
 		util.NewAbck(&task.Task.Client, BasePaymentEndpoint, BaseEndpoint, AkamaiEndpoint)
-		return false
+		return false, false
 	}
 
 	data, _ = json.Marshal(PrelookupRequest{
@@ -960,9 +968,9 @@ func (task *Task) SetPaymentInfo() bool {
 	switch resp.StatusCode {
 	case 200:
 		task.CheckoutInfo.ThreeDsID = prelookupResonse.Threedsreferenceid
-		return true
+		return true, false
 	default:
-		return false
+		return false, false
 	}
 }
 

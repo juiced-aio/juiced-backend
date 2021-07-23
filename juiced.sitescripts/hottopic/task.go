@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -141,12 +142,13 @@ func (task *Task) RunTask() {
 	//SubmitPaymentInfo
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	SubmitPaymentInfo := false
+	doNoRetry := false
 	for !SubmitPaymentInfo {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNoRetry {
 			return
 		}
-		SubmitPaymentInfo = task.SubmitPaymentInfo()
+		SubmitPaymentInfo, doNoRetry = task.SubmitPaymentInfo()
 		if !SubmitPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -391,7 +393,12 @@ func (task *Task) UseOrigAddress() bool {
 
 	return true
 }
-func (task *Task) SubmitPaymentInfo() bool {
+func (task *Task) SubmitPaymentInfo() (bool, bool) {
+
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
 	data := url.Values{
 		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
 		"dwfrm_billing_billingAddress_addressFields_firstName":    {task.Task.Profile.BillingAddress.FirstName},
@@ -408,8 +415,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 		"dwfrm_billing_giftCertCode":                              {""},
 		"dwfrm_billing_paymentMethods_selectedPaymentMethodID":    {"CREDIT_CARD"},
 		"dwfrm_billing_paymentMethods_creditCard_owner":           {task.Task.Profile.CreditCard.CardholderName},
-		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},
-		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType},                                                  //Ex VISA
+		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},                                                //Ex VISA
 		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},                         //should be month (no 0) Ex: 2
 		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},                                                   //should be full year Ex: 2026
 		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]}, //should be smalldate Ex: 02/26
@@ -431,12 +437,12 @@ func (task *Task) SubmitPaymentInfo() bool {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false
+		return false, false
 	}
 
 	defer resp.Body.Close()
 
-	return true
+	return true, false
 }
 func (task *Task) SubmitOrder() bool {
 	data := url.Values{

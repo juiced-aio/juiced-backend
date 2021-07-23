@@ -168,12 +168,13 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
+	doNotRetry := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
-		setPaymentInfo = task.SetPaymentInfo()
+		setPaymentInfo, doNotRetry = task.SetPaymentInfo()
 		if !setPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -728,7 +729,11 @@ func (task *Task) SetShippingInfo() bool {
 }
 
 // SetPaymentInfo sets the payment info to prepare for placing an order
-func (task *Task) SetPaymentInfo() bool {
+func (task *Task) SetPaymentInfo() (bool, bool) {
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
 	var data []byte
 	var err error
 	var endpoint string
@@ -769,7 +774,7 @@ func (task *Task) SetPaymentInfo() bool {
 	}
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false
+		return false, false
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -781,16 +786,16 @@ func (task *Task) SetPaymentInfo() bool {
 		Data:               data,
 	})
 	if err != nil {
-		return false
+		return false, false
 	}
 
 	// TODO: Handle various responses
 	// Not much to handle here
 
 	if resp.StatusCode != 200 {
-		return false
+		return false, false
 	}
-	return true
+	return true, false
 }
 
 // PlaceOrder completes the checkout process
