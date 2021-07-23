@@ -207,7 +207,10 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		Sizes  string `json:"sizes"`
 		Colors string `json:"colors"`
 	}
-	type DisneyUpdateInfo struct{}
+	type DisneyUpdateInfo struct {
+		Sizes  string `json:"sizes"`
+		Colors string `json:"colors"`
+	}
 	type GamestopUpdateInfo struct{}
 	type HottopicUpdateInfo struct {
 		Sizes  string `json:"sizes"`
@@ -305,9 +308,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										PID:         pid,
-										// Size: size,
-										// Color: color,
-										MaxPrice: maxPrice,
+										Size:        updateTaskGroupRequestInfo.DisneyUpdateInfo.Sizes,
+										Color:       updateTaskGroupRequestInfo.DisneyUpdateInfo.Colors,
+										MaxPrice:    maxPrice,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
