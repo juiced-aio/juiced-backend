@@ -41,10 +41,10 @@ const (
 // Monitor info
 type Monitor struct {
 	Monitor         base.Monitor
-	SKUs            []string
+	IDs             []string
 	RunningMonitors []string
 	InStockForShip  []WalmartInStockData
-	SKUWithInfo     map[string]entities.WalmartSingleMonitorInfo
+	IDWithInfo      map[string]entities.WalmartSingleMonitorInfo
 	PXValues        util.PXValues
 }
 
@@ -93,6 +93,28 @@ type PIEValues struct {
 //Used in AddToCart function
 type Cart struct {
 	ItemCount int `json:"itemCount"`
+}
+
+type Items struct {
+	OfferID              string  `json:"offerId"`
+	Name                 string  `json:"name"`
+	Price                float64 `json:"price"`
+	AvailableQuantity    int     `json:"availableQuantity"`
+	USItemID             string  `json:"USItemId"`
+	Seller               Seller  `json:"seller"`
+	MaxItemCountPerOrder int     `json:"maxItemCountPerOrder"`
+	Assets               Assets  `json:"assets"`
+}
+
+type Seller struct {
+	ID string `json:"id"`
+}
+
+type Primary struct {
+	Num100 string `json:"100"`
+}
+type Assets struct {
+	Primary []Primary `json:"primary"`
 }
 
 //Used in PlaceOrderRequest

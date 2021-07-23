@@ -209,7 +209,7 @@ type WalmartMonitorInfo struct {
 type WalmartSingleMonitorInfo struct {
 	MonitorID     string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID   string            `json:"taskGroupID" db:"taskGroupID"`
-	SKU           string            `json:"sku" db:"sku"`
+	ID            string            `json:"id" db:"id"`
 	MaxPrice      int               `json:"maxPrice" db:"maxPrice"`
 	SoldByWalmart bool              `json:"soldByWalmart" db:"soldByWalmart"`
 	MonitorType   enums.MonitorType `json:"monitorType" db:"monitorType"`

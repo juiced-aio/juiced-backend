@@ -272,7 +272,7 @@ var walmartSingleMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartSingleMonitorInfos (
 		monitorID TEXT,
 		taskGroupID TEXT,
-		sku TEXT,
+		id TEXT,
 		maxPrice INTEGER,
 		soldByWalmart INTEGER,
 		monitorType TEXT

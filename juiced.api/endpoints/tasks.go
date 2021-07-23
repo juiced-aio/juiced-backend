@@ -370,16 +370,16 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						case enums.Walmart:
 							newMonitors := make([]entities.WalmartSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
-								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								ids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
 								monitorType := enums.SKUMonitor
 								if len(taskGroup.WalmartMonitorInfo.Monitors) > 0 {
 									monitorType = taskGroup.WalmartMonitorInfo.Monitors[0].MonitorType
 								}
-								for _, sku := range skus {
+								for _, id := range ids {
 									monitor := entities.WalmartSingleMonitorInfo{
 										MonitorID:     uuid.New().String(),
 										TaskGroupID:   taskGroup.GroupID,
-										SKU:           sku,
+										ID:            id,
 										MaxPrice:      maxPrice,
 										SoldByWalmart: updateTaskGroupRequestInfo.WalmartUpdateInfo.SoldByWalmart,
 										MonitorType:   monitorType,
