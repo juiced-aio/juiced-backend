@@ -182,7 +182,7 @@ func (task *Task) RunTask() {
 		if status == enums.OrderStatusDeclined {
 			break
 		}
-		SubmitOrder, status = task.SubmitOrder()
+		SubmitOrder, status = task.SubmitOrder(startTime)
 		if !SubmitOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -204,7 +204,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.PID != "" {
+		if task.StockData.PID != "" {
 			return false
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -216,25 +216,25 @@ func (task *Task) AddToCart() bool {
 	sizeSelected := ""
 	inseamSelected := ""
 
-	if len(task.Color) > 0 {
+	if len(task.StockData.Color) > 0 {
 		colorSelected = "true"
 	}
-	if task.PID != task.SizePID {
+	if task.StockData.PID != task.StockData.SizePID {
 		sizeSelected = "true"
 		inseamSelected = "true"
 	}
 
 	data := url.Values{
-		"shippingMethod-" + task.SizePID:  {"shipToHome"},
-		"deliveryMsgHome-" + task.SizePID: {"In Stock"},
-		"pid":                             {task.SizePID},
-		"Quantity":                        {fmt.Sprint(task.Task.Task.TaskQty)},
-		"hasColorSelected":                {colorSelected},
-		"hasSizeSelected":                 {sizeSelected},
-		"hasInseamSelected":               {inseamSelected},
-		"cgid":                            {""},
-		"cartAction":                      {"add"},
-		"productColor":                    {task.Color},
+		"shippingMethod-" + task.StockData.SizePID:  {"shipToHome"},
+		"deliveryMsgHome-" + task.StockData.SizePID: {"In Stock"},
+		"pid":               {task.StockData.SizePID},
+		"Quantity":          {fmt.Sprint(task.Task.Task.TaskQty)},
+		"hasColorSelected":  {colorSelected},
+		"hasSizeSelected":   {sizeSelected},
+		"hasInseamSelected": {inseamSelected},
+		"cgid":              {""},
+		"cartAction":        {"add"},
+		"productColor":      {task.StockData.Color},
 	}
 
 	_, body, err := util.MakeRequest(&util.Request{
@@ -242,11 +242,11 @@ func (task *Task) AddToCart() bool {
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
-		Referer:            AddToCartReferer + task.PID + ".html",
+		Referer:            AddToCartReferer + task.StockData.PID + ".html",
 		Data:               []byte(data.Encode()),
 	})
 
-	return err == nil && strings.Contains(body, fmt.Sprintf(`"productId":"%s"`, task.SizePID)) && strings.Contains(body, fmt.Sprintf(`"quantity":%d`, task.Task.Task.TaskQty))
+	return err == nil && strings.Contains(body, fmt.Sprintf(`"productId":"%s"`, task.StockData.SizePID)) && strings.Contains(body, fmt.Sprintf(`"quantity":%d`, task.Task.Task.TaskQty))
 }
 
 func (task *Task) GetCheckout() bool {
@@ -431,7 +431,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 	return err == nil
 }
 
-func (task *Task) SubmitOrder() (bool, enums.OrderStatus) {
+func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	data := url.Values{
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
@@ -457,6 +457,19 @@ func (task *Task) SubmitOrder() (bool, enums.OrderStatus) {
 		status = enums.OrderStatusDeclined
 		success = false
 	}
+
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateHottopicEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		Sku:          task.StockData.PID,
+		Retailer:     enums.HotTopic,
+		Price:        float64(task.StockData.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 	return success, status
 }

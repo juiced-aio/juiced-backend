@@ -17,7 +17,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/dgrijalva/jwt-go"
@@ -850,18 +849,12 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 			success = false
 		}
 	}
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return success, status, false
-	}
 
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
 		Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
-		UserInfo:     user,
 		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,

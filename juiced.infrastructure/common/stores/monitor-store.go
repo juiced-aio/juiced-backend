@@ -510,9 +510,7 @@ func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
 						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
-							boxlunchTask.Pid = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].PID
-							boxlunchTask.Size = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Size
-							boxlunchTask.Color = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Color
+							boxlunchTask.StockData = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))]
 						}
 					}
 				}
@@ -554,9 +552,7 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
 						if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
-							hottopicTask.PID = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].PID
-							hottopicTask.SizePID = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].SizePID
-							hottopicTask.Color = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].Color
+							hottopicTask.StockData = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))]
 						}
 					}
 				}

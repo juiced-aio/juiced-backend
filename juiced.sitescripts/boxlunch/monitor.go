@@ -191,9 +191,9 @@ func (monitor *Monitor) StockInfo(body string, pid string) BoxlunchInStockData {
 	}
 
 	//We are in stock for this size/color, lets check price is in budget.
-	PriceText := doc.Find("span", "class", "productdetail__info-pricing-original").Text()
-	Price, _ := strconv.Atoi(PriceText)
-	InBudget := monitor.PidWithInfo[pid].MaxPrice >= Price || monitor.PidWithInfo[pid].MaxPrice == -1
+	priceText := doc.Find("span", "class", "productdetail__info-pricing-original").Text()
+	price, _ := strconv.Atoi(priceText)
+	InBudget := monitor.PidWithInfo[pid].MaxPrice >= price || monitor.PidWithInfo[pid].MaxPrice == -1
 
 	if !InBudget {
 		//not in budget return false
@@ -209,6 +209,7 @@ func (monitor *Monitor) StockInfo(body string, pid string) BoxlunchInStockData {
 	//EventInfo updated now we return true
 	return BoxlunchInStockData{
 		PID:         pid,
+		Price:       price,
 		Size:        monitor.PidWithInfo[pid].Size,
 		Color:       monitor.PidWithInfo[pid].Color,
 		ProductName: ProductName,

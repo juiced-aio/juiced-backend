@@ -57,9 +57,7 @@ type HotTopicInStockData struct {
 // Task info
 type Task struct {
 	Task      base.Task
-	PID       string
-	SizePID   string
-	Color     string
+	StockData HotTopicInStockData
 	Inseam    string
 	Dwcont    string
 	OldDwcont string

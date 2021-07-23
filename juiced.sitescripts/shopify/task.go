@@ -15,7 +15,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
@@ -835,18 +834,11 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		}
 	}
 
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return success, status
-	}
-
-	util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
 		Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
-		UserInfo:     user,
 		ItemName:     task.TaskInfo.Name,
 		Sku:          task.VariantID,
 		Retailer:     enums.Shopify,

@@ -181,7 +181,7 @@ func (task *Task) RunTask() {
 		if status == enums.OrderStatusDeclined {
 			break
 		}
-		SubmitOrder, status = task.SubmitOrder()
+		SubmitOrder, status = task.SubmitOrder(startTime)
 		if !SubmitOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -203,7 +203,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.Pid != "" {
+		if task.StockData.PID != "" {
 			return false
 		}
 	}
@@ -214,23 +214,23 @@ func (task *Task) AddToCart() bool {
 	sizeSelected := "notRequired"
 	inseamSelected := "notRequired"
 
-	if len(task.Color) > 0 {
+	if len(task.StockData.Color) > 0 {
 		colorSelected = "true"
 	}
-	if len(task.Size) > 0 {
+	if len(task.StockData.Size) > 0 {
 		sizeSelected = "true"
 		inseamSelected = "true"
 	}
 
 	data := url.Values{
 		"shippingMethod-13249991": {"shipToHome"},
-		"pid":                     {task.Pid},
+		"pid":                     {task.StockData.PID},
 		"Quantity":                {fmt.Sprint(task.Task.Task.TaskQty)},
 		"hasColorSelected":        {colorSelected},
 		"hasSizeSelected":         {sizeSelected},
 		"hasInseamSelected":       {inseamSelected},
 		"cartAction":              {"add"},
-		"productColor":            {task.Color},
+		"productColor":            {task.StockData.Color},
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -238,7 +238,7 @@ func (task *Task) AddToCart() bool {
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
 		AddHeadersFunction: AddBoxlunchHeaders,
-		Referer:            AddToCartReferer + task.Pid + ".html",
+		Referer:            AddToCartReferer + task.StockData.PID + ".html",
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
@@ -436,7 +436,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 
 	return true
 }
-func (task *Task) SubmitOrder() (bool, enums.OrderStatus) {
+func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	data := url.Values{
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
@@ -463,6 +463,19 @@ func (task *Task) SubmitOrder() (bool, enums.OrderStatus) {
 		status = enums.OrderStatusDeclined
 		success = false
 	}
+
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateBoxlunchEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		Sku:          task.StockData.PID,
+		Retailer:     enums.BoxLunch,
+		Price:        float64(task.StockData.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 	return success, status
 }

@@ -48,9 +48,7 @@ type Monitor struct {
 // Task info
 type Task struct {
 	Task      base.Task
-	Pid       string
-	Size      string
-	Color     string
+	StockData BoxlunchInStockData
 	Inseam    string
 	Dwcont    string
 	OldDwcont string
@@ -59,6 +57,7 @@ type Task struct {
 
 type BoxlunchInStockData struct {
 	PID         string
+	Price       int
 	Size        string
 	Color       string
 	ProductName string
