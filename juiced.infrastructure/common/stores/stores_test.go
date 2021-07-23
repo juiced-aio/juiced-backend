@@ -112,12 +112,12 @@ var targetMonitorInfoAsset = entities.TargetMonitorInfo{
 	MonitorType: enums.SKUMonitor,
 }
 
-var walmartMonitorAsset = map[string]*walmart.Monitor{"walmart_test_monitor": {Monitor: monitorAsset, SKUs: []string{"544900177"}}}
+var walmartMonitorAsset = map[string]*walmart.Monitor{"walmart_test_monitor": {Monitor: monitorAsset, IDs: []string{"544900177"}}}
 
 var walmartMonitorInfoAsset = entities.WalmartMonitorInfo{
 	Monitors: []entities.WalmartSingleMonitorInfo{
 		{
-			SKU:         "134448590",
+			ID:          "134448590",
 			MaxPrice:    -1,
 			MonitorType: enums.SKUMonitor,
 		},
