@@ -203,10 +203,16 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 
 	type AmazonUpdateInfo struct{}
 	type BestBuyUpdateInfo struct{}
-	type BoxlunchUpdateInfo struct{}
+	type BoxlunchUpdateInfo struct {
+		Sizes  string `json:"sizes"`
+		Colors string `json:"colors"`
+	}
 	type DisneyUpdateInfo struct{}
 	type GamestopUpdateInfo struct{}
-	type HottopicUpdateInfo struct{}
+	type HottopicUpdateInfo struct {
+		Sizes  string `json:"sizes"`
+		Colors string `json:"colors"`
+	}
 	type ShopifyUpdateInfo struct{}
 	type TargetUpdateInfo struct {
 		CheckoutType enums.CheckoutType `json:"checkoutType"`
@@ -280,8 +286,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										Pid:         pid,
-										// Size: size,
-										// Color: color,
+										Size:        updateTaskGroupRequestInfo.BoxlunchUpdateInfo.Sizes,
+										Color:       updateTaskGroupRequestInfo.BoxlunchUpdateInfo.Colors,
 										MaxPrice:    maxPrice,
 										MonitorType: monitorType,
 									}
@@ -337,8 +343,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										Pid:         pid,
-										// Size: size,
-										// Color: color,
+										Size:        updateTaskGroupRequestInfo.HottopicUpdateInfo.Sizes,
+										Color:       updateTaskGroupRequestInfo.HottopicUpdateInfo.Colors,
 										MaxPrice:    maxPrice,
 										MonitorType: monitorType,
 									}
