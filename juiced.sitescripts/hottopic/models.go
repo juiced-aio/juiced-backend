@@ -48,6 +48,7 @@ type Monitor struct {
 type HotTopicInStockData struct {
 	PID         string
 	SizePID     string
+	Size        string
 	Color       string
 	ProductName string
 	ImageURL    string

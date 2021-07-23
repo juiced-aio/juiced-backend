@@ -16,9 +16,7 @@ import (
 
 // CreateHottopicTask takes a Task entity and turns it into a Hottopic Task
 func CreateHottopicTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
-	hottopicTask := Task{}
-
-	hottopicTask = Task{
+	hottopicTask := Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
@@ -71,110 +69,111 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	//AddTocart
+	// 2. AddTocart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
-	AddToCart := false
-	for !AddToCart {
+	addedToCart := false
+	for !addedToCart {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		AddToCart = task.AddToCart()
-		if !AddToCart {
+		addedToCart = task.AddToCart()
+		if !addedToCart {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
 	startTime := time.Now()
-	//GetCheckout
+
+	// 3. GetCheckout
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-	GetCheckout := false
-	for !GetCheckout {
+	gotCheckout := false
+	for !gotCheckout {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		GetCheckout = task.GetCheckout()
-		if !GetCheckout {
+		gotCheckout = task.GetCheckout()
+		if !gotCheckout {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//ProceedToCheckout
+	// 4. ProceedToCheckout
 	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
-	ProceedToCheckout := false
-	for !ProceedToCheckout {
+	proceededToCheckout := false
+	for !proceededToCheckout {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		ProceedToCheckout = task.ProceedToCheckout()
-		if !ProceedToCheckout {
+		proceededToCheckout = task.ProceedToCheckout()
+		if !proceededToCheckout {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//GuestCheckout
+	// 5. GuestCheckout
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	gotGuestCheckout := false
+	for !gotGuestCheckout {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		gotGuestCheckout = task.GuestCheckout()
+		if !gotGuestCheckout {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 6. SubmitShipping
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
-	GuestCheckout := false
-	for !GuestCheckout {
+	submittedShipping := false
+	for !submittedShipping {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		GuestCheckout = task.GuestCheckout()
-		if !GuestCheckout {
+		submittedShipping = task.SubmitShipping()
+		if !submittedShipping {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//SubmitShipping
+	// 7. UseOrigAddress
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	usedOrigAddress := false
+	for !usedOrigAddress {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		usedOrigAddress = task.UseOrigAddress()
+		if !usedOrigAddress {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 8. SubmitPaymentInfo
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
-	SubmitShipping := false
-	for !SubmitShipping {
+	submittedPayment := false
+	for !submittedPayment {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		SubmitShipping = task.SubmitShipping()
-		if !SubmitShipping {
+		submittedPayment = task.SubmitPaymentInfo()
+		if !submittedPayment {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//UseOrigAddress
+	// 9. SubmitOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	UseOrigAddress := false
-	for !UseOrigAddress {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		UseOrigAddress = task.UseOrigAddress()
-		if !UseOrigAddress {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-
-	//SubmitPaymentInfo
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	SubmitPaymentInfo := false
-	for !SubmitPaymentInfo {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		SubmitPaymentInfo = task.SubmitPaymentInfo()
-		if !SubmitPaymentInfo {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-
-	//SubmitOrder
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	SubmitOrder := false
+	submittedOrder := false
 	status := enums.OrderStatusFailed
-	for !SubmitOrder {
+	for !submittedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -182,8 +181,8 @@ func (task *Task) RunTask() {
 		if status == enums.OrderStatusDeclined {
 			break
 		}
-		SubmitOrder, status = task.SubmitOrder(startTime)
-		if !SubmitOrder {
+		submittedOrder, status = task.SubmitOrder(startTime)
+		if !submittedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -194,7 +193,11 @@ func (task *Task) RunTask() {
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	if status == enums.OrderStatusSuccess {
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	} else {
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue

@@ -64,6 +64,10 @@ func (task *Task) RunTask() {
 		// TODO @silent: Let the UI know that a task failed
 	}()
 
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
 	client, err := util.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return

@@ -38,11 +38,11 @@ func getSecureKey(body string) (string, error) {
 func (task *Task) CreateBoxlunchEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
 	size := task.StockData.Size
 	if size == "" {
-		size = "NaN"
+		size = "N/A"
 	}
 	color := task.StockData.Color
 	if color == "" {
-		color = "NaN"
+		color = "N/A"
 	}
 	embeds := []sec.DiscordEmbed{
 		{

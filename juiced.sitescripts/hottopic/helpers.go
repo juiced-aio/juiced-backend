@@ -36,9 +36,13 @@ func getSecureKey(body string) (string, error) {
 
 // Creates a embed for the DiscordWebhook function
 func (task *Task) CreateHottopicEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	size := task.StockData.Size
+	if size == "" {
+		size = "N/A"
+	}
 	color := task.StockData.Color
 	if color == "" {
-		color = "NaN"
+		color = "N/A"
 	}
 	embeds := []sec.DiscordEmbed{
 		{
@@ -61,6 +65,10 @@ func (task *Task) CreateHottopicEmbed(status enums.OrderStatus, imageURL string)
 				{
 					Name:  "Product Name:",
 					Value: task.StockData.ProductName,
+				},
+				{
+					Name:  "Size:",
+					Value: size,
 				},
 				{
 					Name:  "Color:",
