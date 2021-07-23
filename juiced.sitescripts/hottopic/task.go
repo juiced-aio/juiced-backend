@@ -58,6 +58,12 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
+
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
 	needToStop := task.WaitForMonitor()
@@ -167,12 +173,16 @@ func (task *Task) RunTask() {
 	//SubmitOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	SubmitOrder := false
+	status := enums.OrderStatusFailed
 	for !SubmitOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		SubmitOrder = task.SubmitOrder()
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		SubmitOrder, status = task.SubmitOrder()
 		if !SubmitOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -279,7 +289,6 @@ func (task *Task) ProceedToCheckout() bool {
 	}
 	task.SecureKey, err = getSecureKey(body)
 
-	// TODO
 	return err == nil
 }
 
@@ -291,7 +300,7 @@ func (task *Task) GuestCheckout() bool {
 
 	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
@@ -314,7 +323,7 @@ func (task *Task) GuestCheckout() bool {
 
 func (task *Task) SubmitShipping() bool {
 	data := url.Values{
-		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.Email},
+		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
 		"dwfrm_singleshipping_email_emailAddress":                         {task.Task.Profile.Email},
 		"dwfrm_singleshipping_addToEmailList":                             {"false"},
 		"dwfrm_singleshipping_shippingAddress_addressFields_firstName":    {task.Task.Profile.ShippingAddress.FirstName},
@@ -334,7 +343,7 @@ func (task *Task) SubmitShipping() bool {
 	}
 	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
@@ -357,7 +366,7 @@ func (task *Task) UseOrigAddress() bool {
 	}
 	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
@@ -411,7 +420,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 	}
 	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
@@ -422,20 +431,32 @@ func (task *Task) SubmitPaymentInfo() bool {
 	return err == nil
 }
 
-func (task *Task) SubmitOrder() bool {
+func (task *Task) SubmitOrder() (bool, enums.OrderStatus) {
+	status := enums.OrderStatusFailed
 	data := url.Values{
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
 		"addToEmailList": {"false"},
 	}
-	_, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitOrderEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
+	if err != nil {
+		return false, status
+	}
 
-	// TODO
-	return err == nil
+	var success bool
+	if !strings.Contains(body, "Your order could not be submitted") {
+		status = enums.OrderStatusSuccess
+		success = true
+	} else {
+		status = enums.OrderStatusDeclined
+		success = false
+	}
+
+	return success, status
 }

@@ -48,7 +48,7 @@ func (task *Task) CheckForStop() bool {
 	return false
 }
 
-//sSart tasks
+// Start task
 func (task *Task) RunTask() {
 	defer func() {
 		if recover() != nil {
@@ -172,12 +172,16 @@ func (task *Task) RunTask() {
 	//SubmitOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	SubmitOrder := false
+	status := enums.OrderStatusFailed
 	for !SubmitOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		SubmitOrder = task.SubmitOrder()
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		SubmitOrder, status = task.SubmitOrder()
 		if !SubmitOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -187,7 +191,7 @@ func (task *Task) RunTask() {
 
 	log.Println("STARTED AT: " + startTime.String())
 	log.Println("  ENDED AT: " + endTime.String())
-	log.Println("TIME TO CHECK OUT: " + endTime.Sub(startTime).String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 }
@@ -271,9 +275,9 @@ func (task *Task) ProceedToCheckout() bool {
 		"dwfrm_cart_checkoutCart": {"checkout"},
 	}
 
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            ProceedToCheckoutReferer,
@@ -283,21 +287,15 @@ func (task *Task) ProceedToCheckout() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
 
-	task.SecureKey, err = getSecureKey(bodyText)
-	if err != nil {
-		return false
-	}
+	task.SecureKey, err = getSecureKey(body)
 
-	defer resp.Body.Close()
-
-	return true
+	return err == nil
 }
 func (task *Task) GuestCheckout() bool {
 	data := url.Values{
@@ -305,9 +303,9 @@ func (task *Task) GuestCheckout() bool {
 		"dwfrm_login_securekey":    {task.SecureKey},
 	}
 
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
@@ -317,25 +315,19 @@ func (task *Task) GuestCheckout() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
+	task.SecureKey, err = getSecureKey(body)
 
-	task.SecureKey, err = getSecureKey(bodyText)
-	if err != nil {
-		return false
-	}
-
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
 func (task *Task) SubmitShipping() bool {
 	data := url.Values{
-		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.Email},
+		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
 		"dwfrm_singleshipping_email_emailAddress":                         {task.Task.Profile.Email},
 		"dwfrm_singleshipping_addToEmailList":                             {"false"},
 		"dwfrm_singleshipping_shippingAddress_addressFields_firstName":    {task.Task.Profile.ShippingAddress.FirstName},
@@ -353,9 +345,9 @@ func (task *Task) SubmitShipping() bool {
 		"dwfrm_singleshipping_shippingAddress_save":                       {"Continue to Billing"},
 		"dwfrm_singleshipping_securekey":                                  {task.SecureKey},
 	}
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
 		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
@@ -365,24 +357,19 @@ func (task *Task) SubmitShipping() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
-	if err != nil {
-		return false
-	}
+	task.Dwcont, err = getDwCont(body)
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
 func (task *Task) UseOrigAddress() bool {
 	data := url.Values{
 		"dwfrm_addForm_useOrig": {""},
 	}
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
 		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
@@ -392,21 +379,15 @@ func (task *Task) UseOrigAddress() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
+	task.SecureKey, err = getSecureKey(body)
 
-	task.SecureKey, err = getSecureKey(bodyText)
-	if err != nil {
-		return false
-	}
-
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
 func (task *Task) SubmitPaymentInfo() bool {
 	data := url.Values{
@@ -441,7 +422,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
 		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
@@ -455,24 +436,33 @@ func (task *Task) SubmitPaymentInfo() bool {
 
 	return true
 }
-func (task *Task) SubmitOrder() bool {
+func (task *Task) SubmitOrder() (bool, enums.OrderStatus) {
+	status := enums.OrderStatusFailed
 	data := url.Values{
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
 		"addToEmailList": {"false"},
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitOrderEndpoint,
 		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
+
 	if err != nil {
-		return false
+		return false, status
 	}
 
-	defer resp.Body.Close()
+	var success bool
+	if !strings.Contains(body, "Your order could not be submitted") {
+		status = enums.OrderStatusSuccess
+		success = true
+	} else {
+		status = enums.OrderStatusDeclined
+		success = false
+	}
 
-	return true
+	return success, status
 }

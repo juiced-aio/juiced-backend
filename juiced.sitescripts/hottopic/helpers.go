@@ -26,5 +26,5 @@ func getDwCont(body string) (string, error) {
 }
 
 func getSecureKey(body string) (string, error) {
-	return common.FindInString2(body, "_securekey\" value=\"", "\"/>")
+	return common.FindInString2(body, `_securekey" value="`, `"`)
 }
