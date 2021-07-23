@@ -58,6 +58,14 @@ func (monitor *Monitor) CheckForStop() bool {
 }
 
 func (monitor *Monitor) RunMonitor() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		if recover() != nil {
+			monitor.Monitor.StopFlag = true
+			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
+		}
+	}()
+
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
 	}
@@ -95,7 +103,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
-	var sizes []string
+	var sizes []BoxlunchSizeInfo
 	var colors []string
 	var stockData BoxlunchInStockData
 	var err error
@@ -156,11 +164,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	switch monitor.PidWithInfo[pid].MonitorType {
 	case enums.SKUMonitor:
 		sizes, colors, stockData, err = monitor.GetSizeAndColor(pid)
-		if err == nil && stockData.PID == "" {
-			if len(sizes) > 0 && len(colors) > 0 {
-
-			}
-		}
 	}
 
 	needToStop = monitor.CheckForStop()
@@ -168,51 +171,174 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
-	if stockData.PID != "" {
-		var inSlice bool
-		for _, monitorStock := range monitor.InStock {
-			inSlice = monitorStock.PID == stockData.PID
-		}
-		if !inSlice {
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
-			monitor.InStock = append(monitor.InStock, stockData)
-			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-				Products: []events.Product{
-					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-			})
-		}
-	} else {
-		if len(monitor.RunningMonitors) > 0 {
-			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock &&
-				monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct &&
-				monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
-				if stockData.InPriceRange {
+	productName := stockData.ProductName
+	imageURL := stockData.ImageURL
+
+	if err == nil {
+		// GetSizeAndColor will only return a populated stockData if the product has no size/color variations
+		// 		stockData.ProductName and stockData.ImageURL will always be populated
+		if stockData.PID == "" {
+			// If there's only one color, we already know that the size list only has in-stock sizes
+			oneColorBeforeFilter := len(colors) == 1
+
+			// If stockData.PID == "", then the size and color lists should be populated
+			// Filter the sizes we found with the ones the monitor has been provided
+			sizesJoined := monitor.PidWithInfo[pid].Size
+			if sizesJoined != "" {
+				filteredSizes := []BoxlunchSizeInfo{}
+				for _, size := range sizes {
+					if strings.Contains(sizesJoined, size.Size) {
+						filteredSizes = append(filteredSizes, size)
+					}
+				}
+				sizes = filteredSizes
+			}
+			// Filter the colors we found with the ones the monitor has been provided
+			colorsJoined := monitor.PidWithInfo[pid].Color
+			if colorsJoined != "" {
+				filteredColors := []string{}
+				for _, color := range colors {
+					if strings.Contains(colorsJoined, color) {
+						filteredColors = append(filteredColors, color)
+					}
+				}
+				colors = filteredColors
+			}
+
+			// If sizes and colors remain, continue
+			if len(sizes) > 0 && len(colors) > 0 {
+				needToStop = monitor.CheckForStop()
+				if needToStop {
+					return
+				}
+
+				var stockDatas []BoxlunchInStockData
+				if oneColorBeforeFilter {
+					for _, size := range sizes {
+						stockData := BoxlunchInStockData{
+							PID:             pid,
+							Price:           stockData.Price,
+							SizePID:         size.SizePID,
+							Size:            size.Size,
+							Color:           colors[0],
+							ProductName:     stockData.ProductName,
+							ImageURL:        stockData.ImageURL,
+							OutOfPriceRange: stockData.OutOfPriceRange,
+						}
+						stockDatas = append(stockDatas, stockData)
+					}
+				} else {
+					// GetInStockVariations returns a list of HottopicStockData items for each size/color combination that's in stock
+					stockDatas = monitor.GetInStockVariations(pid, sizes, colors)
+					needToStop = monitor.CheckForStop()
+					if needToStop {
+						return
+					}
+				}
+
+				if len(stockDatas) > 0 {
+					atLeastOneInPriceRange := false
+					for _, stockData := range stockDatas {
+						if !stockData.OutOfPriceRange {
+							// Since we omitted these fields in the function below, add them back here
+							stockData.ProductName = productName
+							stockData.ImageURL = imageURL
+							// Add each in stock combination to the monitor's InStock list, then update the status
+							monitor.InStock = append(monitor.InStock, stockData)
+							atLeastOneInPriceRange = true
+						}
+					}
+					if atLeastOneInPriceRange {
+						// If at least one combination is in stock and in our price range, remove this monitor from the running monitors
+						monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
+						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: productName, ProductImageURL: imageURL}},
+						})
+					} else {
+						// Otherwise, let the frontend know that none of the in stock combinations are in our price range
+						monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: productName, ProductImageURL: imageURL}},
+						})
+					}
+				} else {
+					// None of the filtered sizes/colors are in stock
+					if stockData.ProductName != "" && stockData.ImageURL != "" {
+						monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: productName, ProductImageURL: imageURL}},
+						})
+					}
+
+					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+					monitor.RunSingleMonitor(pid)
+				}
+			} else {
+				// None of the available sizes/colors match the task's size/color filters
+				if stockData.ProductName != "" && stockData.ImageURL != "" {
 					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
 						Products: []events.Product{
-							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+							{ProductName: productName, ProductImageURL: imageURL}},
 					})
-				} else {
-					monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+				}
+
+				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+				monitor.RunSingleMonitor(pid)
+			}
+		} else {
+			// This code is only run for items that have no size/color variations
+			if stockData.PID != "" && !stockData.OutOfPriceRange {
+				var inSlice bool
+				for _, monitorStock := range monitor.InStock {
+					inSlice = monitorStock.PID == stockData.PID
+				}
+				if !inSlice {
+					monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
+					monitor.InStock = append(monitor.InStock, stockData)
+					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 						Products: []events.Product{
 							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
 					})
 				}
-			}
-		}
-		for i, monitorStock := range monitor.InStock {
-			if monitorStock.PID == stockData.PID {
-				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-				break
-			}
-		}
+			} else {
+				if len(monitor.RunningMonitors) > 0 {
+					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock &&
+						monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct &&
+						monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+						if !stockData.OutOfPriceRange {
+							if stockData.ProductName != "" && stockData.ImageURL != "" {
+								monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+									Products: []events.Product{
+										{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+								})
+							}
+						} else {
+							monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+								Products: []events.Product{
+									{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+							})
+						}
+					}
+				}
+				for i, monitorStock := range monitor.InStock {
+					if monitorStock.PID == stockData.PID {
+						monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+						break
+					}
+				}
 
-		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+				monitor.RunSingleMonitor(pid)
+			}
+		}
+	} else {
 		monitor.RunSingleMonitor(pid)
 	}
 }
 
-func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, BoxlunchInStockData, error) {
-	var sizes []string
+func (monitor *Monitor) GetSizeAndColor(pid string) ([]BoxlunchSizeInfo, []string, BoxlunchInStockData, error) {
+	var sizes []BoxlunchSizeInfo
 	var colors []string
 	var stockData BoxlunchInStockData
 	endpoint := fmt.Sprintf(MonitorEndpoint, pid)
@@ -243,42 +369,55 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, Boxlunc
 	switch resp.StatusCode {
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
-		return monitor.VariationInfo(body, pid)
+		return monitor.GetVariationInfo(body, pid)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
-		return sizes, colors, stockData, nil
 	default:
 		fmt.Printf("Unknown Code:%v", resp.StatusCode)
-		return sizes, colors, stockData, nil
 	}
+
+	return sizes, colors, stockData, nil
 }
 
-func (monitor *Monitor) VariationInfo(body, pid string) ([]string, []string, BoxlunchInStockData, error) {
-	var sizes []string
+func (monitor *Monitor) GetVariationInfo(body, pid string) ([]BoxlunchSizeInfo, []string, BoxlunchInStockData, error) {
+	var sizes []BoxlunchSizeInfo
 	var colors []string
 	var stockData BoxlunchInStockData
 
 	doc := soup.HTMLParse(body)
 
+	// We need the product name and image URL no matter what
+	productNameHeader := doc.Find("h1", "class", "productdetail__info-title")
+	if productNameHeader.Error != nil {
+		return sizes, colors, stockData, productNameHeader.Error
+	}
+	productName := productNameHeader.Text()
+	productImage := doc.Find("img", "class", "productdetail__image-active-each")
+	if productImage.Error != nil {
+		return sizes, colors, stockData, productImage.Error
+	}
+	imageURL := productImage.Attrs()["src"]
+
 	hasVariations := false
-	inStock := false
-	inStockText := doc.Find("span", "class", "color-green")
-	if inStockText.Error == nil {
-		if inStockText.Text() == "In Stock" {
-			inStock = true
-		}
-	} else {
+	// This element will only exist if the product has no size/color variations and the item is in stock
+	inStockText := doc.Find("p", "class", "in-stock-msg")
+	if inStockText.Error != nil || !strings.Contains(strings.ToLower(inStockText.Text()), "in stock") {
+		// This element will only exist if the product has no size/color variations and the item is on backorder
 		backorderText := doc.Find("span", "class", "text-red")
-		if backorderText.Error == nil {
-			if backorderText.Text() == "Backorder" {
-				inStock = true
+		if backorderText.Error != nil || !strings.Contains(strings.ToLower(backorderText.Text()), "backorder") {
+			// This element will only exist if the product has no size/color variations and the item is out of stock
+			outOfStockText := doc.Find("p", "class", "not-available-msg")
+			if outOfStockText.Error == nil && strings.Contains(strings.ToLower(outOfStockText.Text()), "out of stock") {
+				return sizes, colors, stockData, nil
+			} else {
+				// If none of these exist, then the product has variations
+				hasVariations = true
 			}
-		} else {
-			hasVariations = true
 		}
 	}
 
-	if !hasVariations && inStock {
+	if !hasVariations {
+		// If the product is in stock and has no size/color variations, we have all we need to know on this page
 		priceText := doc.Find("span", "class", "productdetail__info-pricing-sale")
 		if priceText.Error != nil {
 			priceText = doc.Find("span", "class", "productdetail__info-pricing-original")
@@ -296,108 +435,191 @@ func (monitor *Monitor) VariationInfo(body, pid string) ([]string, []string, Box
 			return sizes, colors, stockData, defaultColorInput.Error
 		}
 		defaultColor := defaultColorInput.Attrs()["value"]
-		productNameHeader := doc.Find("h1", "class", "productdetail__info-title")
-		if productNameHeader.Error != nil {
-			return sizes, colors, stockData, productNameHeader.Error
-		}
-		productName := productNameHeader.Text()
-		productImage := doc.Find("img", "class", "productdetail__image-active-each")
-		if productImage.Error != nil {
-			return sizes, colors, stockData, productImage.Error
-		}
-		imageURL := productImage.Attrs()["src"]
 		stockData = BoxlunchInStockData{
-			PID:          pid,
-			SizePID:      pid,
-			Color:        defaultColor,
-			ProductName:  productName,
-			ImageURL:     imageURL,
-			Price:        int(price),
-			InPriceRange: monitor.PidWithInfo[pid].MaxPrice == -1 || monitor.PidWithInfo[pid].MaxPrice >= int(price),
+			PID:             pid,
+			SizePID:         pid,
+			Color:           defaultColor,
+			ProductName:     productName,
+			ImageURL:        imageURL,
+			Price:           int(price),
+			OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
 		}
+		return sizes, colors, stockData, nil
 	} else {
+		// Otherwise, we need to build a list of available colors and sizes and get more info
+		colorList := doc.Find("div", "class", "productdetail__info-form-color-swatch-container")
+		if colorList.Error == nil {
+			colorListItems := colorList.FindAll("a", "class", "productdetail__info-form-color-swatch-link")
+			for _, colorListItem := range colorListItems {
+				if colorListItem.Error == nil {
+					color := colorListItem.Attrs()["title"]
+					colors = append(colors, color)
+				}
+			}
+		} else {
+			defaultColorInput := doc.Find("input", "id", "productColor")
+			defaultColor := ""
+			if defaultColorInput.Error == nil {
+				defaultColor = defaultColorInput.Attrs()["value"]
+			}
+			colors = append(colors, defaultColor)
+		}
 
+		sizeList := doc.Find("div", "class", "productdetail__info-form-size-swatch-container")
+		if sizeList.Error == nil {
+			sizeListItems := sizeList.FindAll("li", "class", "productdetail__info-form-size-swatch-link-container")
+			for index, sizeListItem := range sizeListItems {
+				if sizeListItem.Error == nil {
+					intPid, err := strconv.Atoi(pid)
+					if err == nil {
+						sizeListLink := sizeListItem.Find("a")
+						if sizeListLink.Error == nil {
+							size := sizeListLink.Attrs()["title"]
+							if len(colors) > 1 || !strings.Contains(sizeListItem.Attrs()["class"], "unselectable") {
+								sizes = append(sizes, BoxlunchSizeInfo{
+									SizePID: fmt.Sprint(intPid + index + 1),
+									Size:    size,
+								})
+							}
+						}
+					}
+				}
+			}
+		} else {
+			sizes = append(sizes, BoxlunchSizeInfo{
+				SizePID: pid,
+			})
+		}
+	}
+	stockData = BoxlunchInStockData{
+		ProductName: productName,
+		ImageURL:    imageURL,
+	}
+	if len(colors) == 1 {
+		// If there is only one color, we can grab the rest of the info on this page
+		priceText := doc.Find("span", "class", "productdetail__info-pricing-sale")
+		if priceText.Error != nil {
+			priceText = doc.Find("span", "class", "productdetail__info-pricing-original")
+		}
+		if priceText.Error != nil {
+			return sizes, colors, stockData, priceText.Error
+		}
+		priceStr := strings.ReplaceAll(strings.ReplaceAll(priceText.Text(), " ", ""), "$", "")
+		price, err := strconv.ParseFloat(priceStr, 64)
+		if err != nil {
+			return sizes, colors, stockData, err
+		}
+		stockData.Color = colors[0]
+		stockData.Price = int(price)
+		stockData.OutOfPriceRange = monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price)
 	}
 	return sizes, colors, stockData, nil
 }
 
-// func (monitor *Monitor) GetStock(pid string) BoxlunchInStockData {
-// 	stockData := BoxlunchInStockData{}
-// 	resp, body, err := util.MakeRequest(&util.Request{
-// 		Client: monitor.Monitor.Client,
-// 		Method: "GET",
-// 		URL:    fmt.Sprintf(MonitorEndpoint, pid),
-// 		RawHeaders: [][2]string{
-// 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
-// 			{"sec-ch-ua-mobile", "?0"},
-// 			{"upgrade-insecure-requests", "1"},
-// 			{"user-agent", browser.Chrome()},
-// 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
-// 			{"sec-fetch-site", "none"},
-// 			{"sec-fetch-mode", "navigate"},
-// 			{"sec-fetch-user", "?1"},
-// 			{"sec-fetch-dest", "document"},
-// 			{"accept-encoding", "gzip, deflate, br"},
-// 			{"accept-language", "en-US,en;q=0.9"},
-// 		},
-// 	})
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
+func (monitor *Monitor) GetInStockVariations(pid string, sizes []BoxlunchSizeInfo, colors []string) []BoxlunchInStockData {
+	// Each color page shows us whether the individual sizes are in stock or not
+	var stockDatas []BoxlunchInStockData
+	for _, color := range colors {
+		stockDatas = append(stockDatas, monitor.GetInStockSizesForColor(pid, sizes, color)...)
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return stockDatas
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	return stockDatas
+}
 
-// 	defer resp.Body.Close()
+func (monitor *Monitor) GetInStockSizesForColor(pid string, sizes []BoxlunchSizeInfo, color string) []BoxlunchInStockData {
+	var stockDatas []BoxlunchInStockData
 
-// 	switch resp.StatusCode {
-// 	case 200:
-// 		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
-// 		return monitor.StockInfo(body, pid)
-// 	case 404:
-// 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
-// 		return stockData
-// 	default:
-// 		fmt.Printf("Unkown Code:%v", resp.StatusCode)
-// 		return stockData
-// 	}
-// }
+	endpoint := fmt.Sprintf(MonitorEndpoint2, pid, pid) + color
 
-// func (monitor *Monitor) GetStockInfo(body string, pid string) BoxlunchInStockData {
-// 	stockData := BoxlunchInStockData{}
-// 	doc := soup.HTMLParse(body)
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: monitor.Monitor.Client,
+		Method: "GET",
+		URL:    endpoint,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", browser.Chrome()},
+			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-user", "?1"},
+			{"sec-fetch-dest", "document"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		fmt.Println(err)
+		return stockDatas
+	}
 
-// 	ShipTable := doc.Find("div", "class", "method-descr__label")
-// 	InStock := ShipTable.Find("span", "class", "color-green").Text() == "In stock"
-// 	if !InStock {
-// 		InStock = ShipTable.Find("span", "class", "text-red").Text() == "Backorder"
-// 	}
-// 	if !InStock {
-// 		//not instock or backorder return false
-// 		return stockData
-// 	}
+	switch resp.StatusCode {
+	case 200:
+		return monitor.GetColorVariationInfo(body, pid, color, sizes)
+	case 404:
+		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
+	default:
+		fmt.Printf("Unknown Code:%v", resp.StatusCode)
+	}
 
-// 	//We are in stock for this size/color, lets check price is in budget.
-// 	priceText := doc.Find("span", "class", "productdetail__info-pricing-original").Text()
-// 	price, _ := strconv.Atoi(priceText)
-// 	InBudget := monitor.PidWithInfo[pid].MaxPrice >= price || monitor.PidWithInfo[pid].MaxPrice == -1
+	return stockDatas
+}
 
-// 	if !InBudget {
-// 		//not in budget return false
-// 		return stockData
-// 	}
+func (monitor *Monitor) GetColorVariationInfo(body, pid, color string, sizes []BoxlunchSizeInfo) []BoxlunchInStockData {
+	var stockDatas []BoxlunchInStockData
 
-// 	ProductName := doc.Find("a", "class", "name-link").Text()
-// 	if !InBudget {
-// 		//not in budget return false
-// 		return stockData
-// 	}
+	doc := soup.HTMLParse(body)
 
-// 	//EventInfo updated now we return true
-// 	return BoxlunchInStockData{
-// 		PID:         pid,
-// 		Price:       price,
-// 		Size:        monitor.PidWithInfo[pid].Size,
-// 		Color:       monitor.PidWithInfo[pid].Color,
-// 		ProductName: ProductName,
-// 		// Boxlunch and HotTopic use the same image links
-// 		ImageURL: "https://hottopic.scene7.com/is/image/HotTopic/" + pid + "_hi",
-// 	}
-// }
+	priceText := doc.Find("span", "class", "productdetail__info-pricing-sale")
+	if priceText.Error != nil {
+		priceText = doc.Find("span", "class", "productdetail__info-pricing-original")
+	}
+	if priceText.Error != nil {
+		return stockDatas
+	}
+	priceStr := strings.ReplaceAll(strings.ReplaceAll(priceText.Text(), " ", ""), "$", "")
+	if strings.Contains(priceStr, "-") {
+		priceStr = strings.Split(priceStr, "-")[1]
+	}
+	price, err := strconv.ParseFloat(priceStr, 64)
+	if err != nil {
+		return stockDatas
+	}
+
+	sizeList := doc.Find("ul", "class", "productdetail__info-form-size-swatch")
+	if sizeList.Error == nil {
+		sizeListLinks := sizeList.FindAll("a", "class", "productdetail__info-form-size-swatch-link")
+		for index, sizeListLink := range sizeListLinks {
+			if sizeListLink.Error == nil {
+				intPid, err := strconv.Atoi(pid)
+				if err == nil {
+					size := sizeListLink.Attrs()["title"]
+					matchedSize := false
+					for _, s := range sizes {
+						if s.Size == size {
+							matchedSize = true
+							break
+						}
+					}
+					if matchedSize {
+						stockDatas = append(stockDatas, BoxlunchInStockData{
+							PID:             pid,
+							SizePID:         fmt.Sprint(intPid + index + 1),
+							Size:            size,
+							Color:           color,
+							Price:           int(price),
+							OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return stockDatas
+}

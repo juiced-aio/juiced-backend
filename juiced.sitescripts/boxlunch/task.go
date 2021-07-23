@@ -249,7 +249,7 @@ func (task *Task) AddToCart() bool {
 		Data:               []byte(data.Encode()),
 	})
 
-	return err == nil && strings.Contains(body, fmt.Sprintf(`"productId":"%s"`, task.StockData.SizePID)) && strings.Contains(body, fmt.Sprintf(`"quantity":%d`, task.Task.Task.TaskQty))
+	return err == nil && (strings.Contains(body, "Added to Bag") || (strings.Contains(body, fmt.Sprintf(`"productId":"%s"`, task.StockData.SizePID)) && strings.Contains(body, fmt.Sprintf(`"quantity":%d`, task.Task.Task.TaskQty))))
 }
 
 func (task *Task) GetCheckout() bool {
@@ -409,7 +409,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 		"dwfrm_billing_paymentMethods_selectedPaymentMethodID":    {"CREDIT_CARD"},
 		"dwfrm_billing_paymentMethods_creditCard_owner":           {task.Task.Profile.CreditCard.CardholderName},
 		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},
-		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType}, // TODO @Humphrey: Make a helper function that matches up our CardTypes with the BoxLunch CardTypes
+		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType},
 		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},
 		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},
 		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]},
@@ -452,6 +452,8 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	if err != nil {
 		return false, status
 	}
+
+	log.Println(body)
 
 	var success bool
 	if !strings.Contains(body, "Your order could not be submitted") {

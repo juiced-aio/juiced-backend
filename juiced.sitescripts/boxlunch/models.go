@@ -33,7 +33,8 @@ const (
 	SubmitOrderEndpoint = "https://www.boxlunch.com/orderconfirmation"
 	SubmitOrderReferer  = "https://www.boxlunch.com/cart?dwcont="
 
-	MonitorEndpoint = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
+	MonitorEndpoint  = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
+	MonitorEndpoint2 = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color="
 )
 
 // Monitor info
@@ -45,6 +46,22 @@ type Monitor struct {
 	PidWithInfo     map[string]entities.BoxlunchSingleMonitorInfo
 }
 
+type BoxlunchInStockData struct {
+	PID             string
+	Price           int
+	SizePID         string
+	Size            string
+	Color           string
+	ProductName     string
+	ImageURL        string
+	OutOfPriceRange bool
+}
+
+type BoxlunchSizeInfo struct {
+	SizePID string
+	Size    string
+}
+
 // Task info
 type Task struct {
 	Task      base.Task
@@ -53,15 +70,4 @@ type Task struct {
 	Dwcont    string
 	OldDwcont string
 	SecureKey string
-}
-
-type BoxlunchInStockData struct {
-	PID          string
-	Price        int
-	SizePID      string
-	Size         string
-	Color        string
-	ProductName  string
-	ImageURL     string
-	InPriceRange bool
 }

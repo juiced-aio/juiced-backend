@@ -33,7 +33,8 @@ const (
 	SubmitOrderEndpoint = "https://www.hottopic.com/orderconfirmation"
 	SubmitOrderReferer  = "https://www.hottopic.com/cart?dwcont="
 
-	MonitorEndpoint = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
+	MonitorEndpoint  = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
+	MonitorEndpoint2 = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color="
 )
 
 // Monitor info
@@ -41,25 +42,30 @@ type Monitor struct {
 	Monitor         base.Monitor
 	RunningMonitors []string
 	Pids            []string
-	InStock         []HotTopicInStockData
+	InStock         []HottopicInStockData
 	PidWithInfo     map[string]entities.HottopicSingleMonitorInfo
 }
 
-type HotTopicInStockData struct {
-	PID          string
-	SizePID      string
-	Size         string
-	Color        string
-	ProductName  string
-	ImageURL     string
-	Price        int
-	InPriceRange bool
+type HottopicInStockData struct {
+	PID             string
+	SizePID         string
+	Size            string
+	Color           string
+	ProductName     string
+	ImageURL        string
+	Price           int
+	OutOfPriceRange bool
+}
+
+type HottopicSizeInfo struct {
+	SizePID string
+	Size    string
 }
 
 // Task info
 type Task struct {
 	Task      base.Task
-	StockData HotTopicInStockData
+	StockData HottopicInStockData
 	Inseam    string
 	Dwcont    string
 	OldDwcont string
