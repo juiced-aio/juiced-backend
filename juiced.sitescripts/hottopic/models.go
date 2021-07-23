@@ -46,13 +46,14 @@ type Monitor struct {
 }
 
 type HotTopicInStockData struct {
-	PID         string
-	SizePID     string
-	Size        string
-	Color       string
-	ProductName string
-	ImageURL    string
-	Price       int
+	PID          string
+	SizePID      string
+	Size         string
+	Color        string
+	ProductName  string
+	ImageURL     string
+	Price        int
+	InPriceRange bool
 }
 
 // Task info

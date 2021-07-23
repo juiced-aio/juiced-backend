@@ -184,8 +184,19 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	} else {
 		if len(monitor.RunningMonitors) > 0 {
 			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock &&
-				monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct {
-				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+				monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct &&
+				monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				if stockData.InPriceRange {
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+					})
+				} else {
+					monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+					})
+				}
 			}
 		}
 		for i, monitorStock := range monitor.InStock {
@@ -280,30 +291,29 @@ func (monitor *Monitor) VariationInfo(body, pid string) ([]string, []string, Box
 		if err != nil {
 			return sizes, colors, stockData, err
 		}
-		if monitor.PidWithInfo[pid].MaxPrice == -1 || monitor.PidWithInfo[pid].MaxPrice >= int(price) {
-			defaultColorInput := doc.Find("input", "id", "productColor")
-			if defaultColorInput.Error != nil {
-				return sizes, colors, stockData, defaultColorInput.Error
-			}
-			defaultColor := defaultColorInput.Attrs()["value"]
-			productNameHeader := doc.Find("h1", "class", "productdetail__info-title")
-			if productNameHeader.Error != nil {
-				return sizes, colors, stockData, productNameHeader.Error
-			}
-			productName := productNameHeader.Text()
-			productImage := doc.Find("img", "class", "productdetail__image-active-each")
-			if productImage.Error != nil {
-				return sizes, colors, stockData, productImage.Error
-			}
-			imageURL := productImage.Attrs()["src"]
-			stockData = BoxlunchInStockData{
-				PID:         pid,
-				SizePID:     pid,
-				Color:       defaultColor,
-				ProductName: productName,
-				ImageURL:    imageURL,
-				Price:       int(price),
-			}
+		defaultColorInput := doc.Find("input", "id", "productColor")
+		if defaultColorInput.Error != nil {
+			return sizes, colors, stockData, defaultColorInput.Error
+		}
+		defaultColor := defaultColorInput.Attrs()["value"]
+		productNameHeader := doc.Find("h1", "class", "productdetail__info-title")
+		if productNameHeader.Error != nil {
+			return sizes, colors, stockData, productNameHeader.Error
+		}
+		productName := productNameHeader.Text()
+		productImage := doc.Find("img", "class", "productdetail__image-active-each")
+		if productImage.Error != nil {
+			return sizes, colors, stockData, productImage.Error
+		}
+		imageURL := productImage.Attrs()["src"]
+		stockData = BoxlunchInStockData{
+			PID:          pid,
+			SizePID:      pid,
+			Color:        defaultColor,
+			ProductName:  productName,
+			ImageURL:     imageURL,
+			Price:        int(price),
+			InPriceRange: monitor.PidWithInfo[pid].MaxPrice == -1 || monitor.PidWithInfo[pid].MaxPrice >= int(price),
 		}
 	} else {
 

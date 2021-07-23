@@ -56,11 +56,12 @@ type Task struct {
 }
 
 type BoxlunchInStockData struct {
-	PID         string
-	Price       int
-	SizePID     string
-	Size        string
-	Color       string
-	ProductName string
-	ImageURL    string
+	PID          string
+	Price        int
+	SizePID      string
+	Size         string
+	Color        string
+	ProductName  string
+	ImageURL     string
+	InPriceRange bool
 }
