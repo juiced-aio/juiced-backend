@@ -204,7 +204,7 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusSuccess:
 		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
 	case enums.OrderStatusFailed:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 	}
