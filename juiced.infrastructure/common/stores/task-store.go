@@ -4,6 +4,7 @@ import (
 	e "errors"
 	"math/rand"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
@@ -261,39 +262,54 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 }
 
 // StartTaskGroup runs the given TaskGroup's RunMonitor() function and the RunTask() function for each Task in the group and returns true if successful
-func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) error {
+func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]string, error) {
 	// Start the task's TaskGroup (if it's already running, this will return true)
+	var warnings []string
 	err := monitorStore.StartMonitor(taskGroup)
 	if err != nil {
-		return err
+		return warnings, err
 	}
 
 	for _, taskID := range taskGroup.TaskIDs {
 		// Get the task
 		task, err := queries.GetTask(taskID)
-		if err != nil {
-			return err
-		}
+		if err == nil {
+			profile, err := queries.GetProfile(task.TaskProfileID)
+			if err == nil {
+				if common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
+					// Add task to store (if it already exists, this will return true)
+					err = taskStore.AddTaskToStore(&task)
+					if err == nil {
+						// Setting the stop flag to false before running the task
+						taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
 
-		// Add task to store (if it already exists, this will return true)
-		err = taskStore.AddTaskToStore(&task)
-		if err != nil {
-			return err
-		}
+						// If the Task is already running, then we're all set already
+						if task.TaskStatus == enums.TaskIdle ||
+							task.TaskStatus == enums.CheckedOut ||
+							task.TaskStatus == enums.CheckoutFailed {
+							// Otherwise, start the Task
+							taskStore.RunTask(task.TaskRetailer, task.ID)
+						}
+					} else {
+						warnings = append(warnings, err.Error())
+					}
+				} else {
+					warnings = append(warnings, errors.StartTaskInvalidCardError+task.TaskRetailer)
+				}
+			} else {
+				warnings = append(warnings, err.Error())
+			}
+		} else {
 
-		// Setting the stop flag to false before running the task
-		taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
-
-		// If the Task is already running, then we're all set already
-		if task.TaskStatus == enums.TaskIdle ||
-			task.TaskStatus == enums.CheckedOut ||
-			task.TaskStatus == enums.CheckoutFailed {
-			// Otherwise, start the Task
-			taskStore.RunTask(task.TaskRetailer, task.ID)
 		}
 	}
 
-	return nil
+	if len(taskGroup.TaskIDs) == len(warnings) {
+		err = e.New(errors.StartMonitorInvalidCardError + taskGroup.MonitorRetailer)
+		monitorStore.StopMonitor(taskGroup)
+	}
+
+	return warnings, err
 }
 
 // StopTaskGroup sets the stop field for the given TaskGroup's Monitor and each Task in the group and returns true if successful
@@ -314,6 +330,15 @@ func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) error {
 
 // StartTask runs the RunTask() function for the given Task and returns true if successful
 func (taskStore *TaskStore) StartTask(task *entities.Task) error {
+	profile, err := queries.GetProfile(task.TaskProfileID)
+	if err != nil {
+		return err
+	}
+
+	if !common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
+		return e.New(errors.StartTaskInvalidCardError + task.TaskRetailer)
+	}
+
 	taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
 	if err != nil {
 		return err

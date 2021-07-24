@@ -14,8 +14,7 @@ type TaskGroupResponse struct {
 
 // TaskResponse is the response that any /api/task request receives
 type TaskResponse struct {
-	Success  bool            `json:"success"`
-	Data     []entities.Task `json:"data"`
-	Errors   []string        `json:"errors"`
-	Warnings []string        `json:"warnings"`
+	Success bool            `json:"success"`
+	Data    []entities.Task `json:"data"`
+	Errors  []string        `json:"errors"`
 }

@@ -149,7 +149,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
 			err = monitorStore.StopMonitor(&taskGroup)
-			if err != nil {
+			if err == nil {
 				next := true
 				for _, taskID := range taskGroup.TaskIDs {
 					taskToStop, err := queries.GetTask(taskID)
@@ -514,6 +514,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 	var taskGroupToStart entities.TaskGroup
 	var err error
 	errorsList := make([]string, 0)
+	warningsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
@@ -521,9 +522,9 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		taskGroupToStart, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			err = taskStore.StartTaskGroup(&taskGroupToStart)
+			warningsList, err = taskStore.StartTaskGroup(&taskGroupToStart)
 			if err != nil {
-				errorsList = append(errorsList, errors.StartTaskError+err.Error())
+				errorsList = append(errorsList, errors.StartTaskGroupError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
@@ -537,7 +538,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStartWithTasks}, Errors: make([]string, 0)}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStartWithTasks}, Errors: make([]string, 0), Warnings: warningsList}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}

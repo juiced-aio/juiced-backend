@@ -70,6 +70,9 @@ const StartMonitorError = "Starting the Monitor encountered an error: "
 const StopMonitorError = "Stopping the Monitor encountered an error: "
 
 // TaskStore errors
+// StartTaskInvalidCardError is the error encountered when starting a Task with an invalid card type for the given retailer
+const StartTaskInvalidCardError = "the Task's Profile has a payment method that is not supported by "
+
 // MissingTaskFieldsError is returned when the Task's <Retailer>TaskInfo is missing certain required fields
 const MissingTaskFieldsError = "the Task is missing required fields"
 
@@ -80,6 +83,9 @@ const CreateBotTaskError = "creating the task failed: "
 const InvalidTaskRetailerError = "the Task's retailer is not supported"
 
 // MonitorStore errors
+// StartMonitorInvalidCardError is the error encountered when starting a Monitor with every task with an invalid card type for the given retailer
+const StartMonitorInvalidCardError = "none of the Tasks in the TaskGroup have a Profile with a payment method that is supported by "
+
 // NoMonitorsError is returned when the TaskGroup's <Retailer>MonitorInfo.Monitors is an empty slice
 const NoMonitorsError = "the TaskGroup has no monitors attached to it"
 
