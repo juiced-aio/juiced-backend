@@ -423,7 +423,7 @@ func (task *Task) WaitForMonitor() bool {
 
 func (task *Task) AddToCart() bool {
 	data := []byte(util.CreateParams(map[string]string{
-		"pid":      task.StockData.VID,
+		"pid":      task.StockData.SizePID,
 		"quantity": fmt.Sprint(task.Task.Task.TaskQty),
 	}))
 	addToCartResponse := AddToCartResponse{}
