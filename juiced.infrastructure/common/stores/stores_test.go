@@ -159,15 +159,15 @@ func TestStartMonitor(t *testing.T) {
 		retailer     enums.Retailer
 		monitorStore *MonitorStore
 		args         args
-		want         bool
+		want         error
 	}{
-		//{"amazon_test", enums.Amazon, &MonitorStore{}, args{&taskgroupAsset}, true},
-		{"bestbuy_test", enums.BestBuy, &MonitorStore{}, args{&taskgroupAsset}, true},
-		{"disney_test", enums.Disney, &MonitorStore{}, args{&taskgroupAsset}, true},
-		{"gamestop_test", enums.GameStop, &MonitorStore{}, args{&taskgroupAsset}, true},
-		{"hottopic_test", enums.HotTopic, &MonitorStore{}, args{&taskgroupAsset}, true},
-		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, true},
-		{"walmart_test", enums.Walmart, &MonitorStore{}, args{&taskgroupAsset}, true},
+		//{"amazon_test", enums.Amazon, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"bestbuy_test", enums.BestBuy, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"disney_test", enums.Disney, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"gamestop_test", enums.GameStop, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"hottopic_test", enums.HotTopic, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"walmart_test", enums.Walmart, &MonitorStore{}, args{&taskgroupAsset}, nil},
 	}
 
 	for _, tt := range tests {
