@@ -27,7 +27,7 @@ const (
 	PlaceOrderEndpoint          = "https://paymentsheet.wdprapps.disney.com/api/v3/process/%v"
 
 	MonitorEndpoint  = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
-	MonitorEndpoint2 = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color="
+	MonitorEndpoint2 = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_size=%s&dwvar_%s_color=%s"
 )
 
 var ParsedBase, _ = url.Parse(BaseEndpoint)
@@ -54,7 +54,7 @@ type Monitor struct {
 type DisneyInStockData struct {
 	PID             string
 	Price           int
-	SizePID         string
+	VID             string
 	Size            string
 	Color           string
 	ProductName     string
@@ -67,8 +67,8 @@ type DisneyInStockData struct {
 }
 
 type DisneySizeInfo struct {
-	SizePID string
-	Size    string
+	VID  string
+	Size string
 }
 
 type AccountInfo struct {
