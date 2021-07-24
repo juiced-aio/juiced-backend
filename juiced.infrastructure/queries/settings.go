@@ -6,6 +6,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // GetSettings returns the settings object from the database
@@ -53,6 +54,12 @@ func GetAccounts() ([]entities.Account, error) {
 		if err != nil {
 			return accounts, err
 		}
+
+		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		if err == nil {
+			account.Password = decryptedPassword
+		}
+
 		accounts = append(accounts, account)
 	}
 
@@ -87,6 +94,12 @@ func GetAccount(ID string) (entities.Account, error) {
 		if err != nil {
 			return account, err
 		}
+
+		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		if err == nil {
+			account.Password = decryptedPassword
+		}
+
 	}
 
 	return account, nil

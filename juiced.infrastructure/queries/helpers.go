@@ -626,6 +626,14 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 		if err != nil {
 			return profile, err
 		}
+		decryptedCardNumber, err := common.Aes256Decrypt(profile.CreditCard.CardNumber, enums.UserKey)
+		if err == nil {
+			profile.CreditCard.CardNumber = decryptedCardNumber
+		}
+		decryptedCVV, err := common.Aes256Decrypt(profile.CreditCard.CVV, enums.UserKey)
+		if err == nil {
+			profile.CreditCard.CVV = decryptedCVV
+		}
 
 	}
 

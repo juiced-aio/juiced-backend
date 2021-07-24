@@ -1,6 +1,9 @@
 package common
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -13,6 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/mergermarket/go-pkcs7"
 )
 
 // Returns true if it finds the string x in the slice s
@@ -257,4 +261,54 @@ func DetectCardType(cardNumber []byte) string {
 	}
 
 	return ""
+}
+
+func Aes256Encrypt(plaintext string, key string) (string, error) {
+	bKey := []byte(key)
+	bPlaintext, err := pkcs7.Pad([]byte(plaintext), aes.BlockSize)
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(bKey)
+	if err != nil {
+		return "", err
+	}
+	cipherText := make([]byte, aes.BlockSize+len(bPlaintext))
+	bIV := cipherText[:aes.BlockSize]
+	if _, err := rand.Read(bIV); err != nil {
+		return "", err
+	}
+
+	mode := cipher.NewCBCEncrypter(block, bIV)
+	mode.CryptBlocks(cipherText[aes.BlockSize:], bPlaintext)
+	return fmt.Sprintf("%x", cipherText), nil
+}
+
+func Aes256Decrypt(encryptedText string, key string) (string, error) {
+	bKey := []byte(key)
+	cipherText, err := hex.DecodeString(encryptedText)
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(bKey)
+	if err != nil {
+		return "", err
+	}
+
+	if len(cipherText) < aes.BlockSize {
+		return "", &CipherTextTooShortError{}
+	}
+	iv := cipherText[:aes.BlockSize]
+	cipherText = cipherText[aes.BlockSize:]
+	if len(cipherText)%aes.BlockSize != 0 {
+		return "", &CipherTextNotMultipleOfBlockSizeError{}
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	mode.CryptBlocks(cipherText, cipherText)
+
+	cipherText, err = pkcs7.Unpad(cipherText, aes.BlockSize)
+	return string(cipherText), err
 }
