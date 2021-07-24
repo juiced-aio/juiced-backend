@@ -124,7 +124,8 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 		if retailerSitekey == "" {
 			return nil, errors.New("sitekey is a required parameter for this retailer")
 		}
-		go RequestReCaptchaV3Token(retailerSitekey, url, action, minScore, proxy, retailer)
+
+		go RequestReCaptchaV3Token(retailerSitekey, action, url, minScore, proxy, retailer)
 	case enums.HCaptcha:
 		tokens := captchaStore.HCaptchaTokens[retailer]
 		for index, token := range tokens {
