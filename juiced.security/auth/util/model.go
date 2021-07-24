@@ -216,6 +216,12 @@ type EncryptedLogCheckoutResponse struct {
 	ErrorMessage string `json:"1brGHMkymR"`
 }
 
+type GetEncryptionKeyRequest struct {
+	ActivationToken string `json:"908tqy5VI2"`
+	HWID            string `json:"BN9GSbnV6z"`
+	DeviceName      string `json:"8Cgy8rh1Zp"`
+}
+
 type GetEncryptionKeyResponse struct {
 	Success       bool   `json:"Gzdgq0zpma"`
 	EncryptionKey string `json:"5shDGZqkMD"`
