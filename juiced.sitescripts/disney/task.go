@@ -144,14 +144,10 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
-	needToStop = task.CheckForStop()
-	if needToStop {
-		return
-	}
-
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
 
 	startTime := time.Now()
+
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
 	// 4. GetCheckoutInfo
 	gotCheckoutInfo := false
 	for !gotCheckoutInfo {
@@ -165,6 +161,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
 	// 5. ValidateCheckout
 	validatedCheckout := false
 	for !validatedCheckout {
@@ -178,6 +175,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
 	// 6. SubmitShippingInfo
 	submittedShippingInfo := false
 	for !submittedShippingInfo {
@@ -191,6 +189,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
+	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)
 	// 7. EstablishAppSession
 	establishedAppSession := false
 	for !establishedAppSession {
@@ -204,6 +203,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	// 8. GetPaysheetAE
 	gotPaymentAE := false
 	for !gotPaymentAE {
@@ -217,6 +217,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
+	task.PublishEvent(enums.GettingOrderInfo, enums.TaskUpdate)
 	// 9. GetCardToken
 	gotCardToken := false
 	for !gotCardToken {
