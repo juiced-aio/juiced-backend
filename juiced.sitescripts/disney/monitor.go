@@ -3,7 +3,6 @@ package disney
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -119,10 +118,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 
 	sizes, colors, stockData, err = monitor.GetSizeAndColor(pid)
 
-	log.Println(sizes)
-	log.Println(colors)
-	log.Println(stockData)
-
 	needToStop = monitor.CheckForStop()
 	if needToStop {
 		return
@@ -141,6 +136,9 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		// GetSizeAndColor will only return a populated stockData if the product has no size/color variations
 		// 		stockData.ProductName and stockData.ImageURL will always be populated
 		if stockData.PID == "" && !stockData.OutOfPriceRange {
+			noColorsBeforeFilter := len(colors) == 0
+			noSizesBeforeFilter := len(sizes) == 0
+
 			// If stockData.PID == "", then the size and color lists should be populated
 			// Filter the sizes we found with the ones the monitor has been provided
 			sizesJoined := monitor.PidWithInfo[pid].Size
@@ -166,7 +164,9 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			}
 
 			// If sizes and colors remain, continue
-			if len(sizes) > 0 && len(colors) > 0 {
+			if (len(sizes) > 0 && len(colors) > 0) ||
+				(len(sizes) > 0 && noColorsBeforeFilter) || // (Or if there are sizes but no color variants)
+				(len(colors) > 0 && noSizesBeforeFilter) { // (Or if there are colors but no size variants)
 				needToStop = monitor.CheckForStop()
 				if needToStop {
 					return
@@ -190,7 +190,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 						stockData.IsPreOrder = isPreOrder
 						stockData.IsBackOrder = isBackOrder
 						stockData.OutOfPriceRange = outOfPriceRange
-						log.Println(stockData)
 						// Add each in stock combination to the monitor's InStock list, then update the status
 						monitor.InStock = append(monitor.InStock, stockData)
 						atLeastOneInPriceRange = true
@@ -421,6 +420,13 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 }
 
 func (monitor *Monitor) GetInStockVariations(pid string, sizes, colors []string) []DisneyInStockData {
+	if len(colors) == 0 {
+		colors = append(colors, "")
+	}
+	if len(sizes) == 0 {
+		sizes = append(sizes, "")
+	}
+
 	wg := sync.WaitGroup{}
 	wg.Add(len(colors) * len(sizes))
 
