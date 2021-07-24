@@ -428,7 +428,10 @@ func (monitor *Monitor) GetInStockVariations(pid string, sizes, colors []string)
 	for _, color := range colors {
 		for _, size := range sizes {
 			go func(x, y, z string) {
-				stockDatas = append(stockDatas, monitor.GetInStockSizesForColor(x, y, z))
+				stockData := monitor.GetInStockVariant(x, y, z)
+				if stockData.PID != "" {
+					stockDatas = append(stockDatas, stockData)
+				}
 				wg.Done()
 			}(pid, size, color)
 		}
@@ -437,7 +440,7 @@ func (monitor *Monitor) GetInStockVariations(pid string, sizes, colors []string)
 	return stockDatas
 }
 
-func (monitor *Monitor) GetInStockSizesForColor(pid string, size, color string) DisneyInStockData {
+func (monitor *Monitor) GetInStockVariant(pid string, size, color string) DisneyInStockData {
 	var stockData DisneyInStockData
 
 	endpoint := fmt.Sprintf(MonitorEndpoint2, pid, pid, size, pid, color)
@@ -473,10 +476,12 @@ func (monitor *Monitor) GetInStockSizesForColor(pid string, size, color string) 
 			return stockData
 		}
 
-		stockData.PID = pid
-		stockData.VID = stockResponse.Product.ID
-		stockData.Size = size
-		stockData.Color = color
+		if stockResponse.Product.Available {
+			stockData.PID = pid
+			stockData.VID = stockResponse.Product.ID
+			stockData.Size = size
+			stockData.Color = color
+		}
 		return stockData
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
