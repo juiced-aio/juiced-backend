@@ -49,10 +49,8 @@ type BestbuyTaskInfo struct {
 }
 
 type BoxlunchTaskInfo struct {
-	TaskID      string   `json:"taskID" db:"taskID"`
-	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
-	PidsJoined  string   `json:"pidsJoined"`
-	Pids        []string `json:"pids"`
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 }
 
 type DisneyTaskInfo struct {
@@ -72,10 +70,8 @@ type GamestopTaskInfo struct {
 }
 
 type HottopicTaskInfo struct {
-	TaskID      string   `json:"taskID" db:"taskID"`
-	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
-	Pids        []string `json:"pids"`
-	PidsJoined  string   `json:"pidsJoined" db:"pidsJoined"`
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 }
 
 type HotWheelsTaskInfo struct {
