@@ -11,6 +11,7 @@ const (
 	WaitingForProductData     MonitorStatus = "Searching"
 	UnableToFindProduct       MonitorStatus = "Product not found"
 	WaitingForInStock         MonitorStatus = "Out of stock"
+	OutOfPriceRange           MonitorStatus = "Out of price range"
 	SendingProductInfoToTasks MonitorStatus = "Sending to tasks"
 	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
 )

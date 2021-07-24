@@ -113,10 +113,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		if queryError != nil {
 			return queryError
 		}
-		// Make sure necessary fields exist
-		if len(task.BoxLunchTaskInfo.Pids) == 0 {
-			return e.New(errors.MissingTaskFieldsError)
-		}
 		// Create task
 		boxlunchTask, err := boxlunch.CreateBoxlunchTask(task, profile, proxy, taskStore.EventBus)
 		if err != nil {
@@ -179,10 +175,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		// Only return false on a query error if the task doesn't exist in the store already
 		if queryError != nil {
 			return queryError
-		}
-		// Make sure necessary fields exist
-		if len(task.HottopicTaskInfo.Pids) == 0 {
-			return e.New(errors.MissingTaskFieldsError)
 		}
 		// Create task
 		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxy, taskStore.EventBus)
@@ -508,7 +500,7 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 		go taskStore.BestbuyTasks[taskID].RunTask()
 
 	case enums.BoxLunch:
-		go taskStore.BestbuyTasks[taskID].RunTask()
+		go taskStore.BoxlunchTasks[taskID].RunTask()
 
 	case enums.Disney:
 		go taskStore.DisneyTasks[taskID].RunTask()

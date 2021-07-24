@@ -17,9 +17,7 @@ import (
 
 // CreateHottopicTask takes a Task entity and turns it into a Hottopic Task
 func CreateHottopicTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
-	hottopicTask := Task{}
-
-	hottopicTask = Task{
+	hottopicTask := Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
@@ -47,6 +45,24 @@ func (task *Task) CheckForStop() bool {
 
 // Start task
 func (task *Task) RunTask() {
+	defer func() {
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
+
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
 	needToStop := task.WaitForMonitor()
@@ -54,116 +70,133 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	//AddTocart
+	// 2. AddTocart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
-	AddToCart := false
-	for !AddToCart {
+	addedToCart := false
+	for !addedToCart {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		AddToCart = task.AddToCart()
-		if !AddToCart {
+		addedToCart = task.AddToCart()
+		if !addedToCart {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
 	startTime := time.Now()
-	//GetCheckout
+
+	// 3. GetCheckout
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-	GetCheckout := false
-	for !GetCheckout {
+	gotCheckout := false
+	for !gotCheckout {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		GetCheckout = task.GetCheckout()
-		if !GetCheckout {
+		gotCheckout = task.GetCheckout()
+		if !gotCheckout {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//ProceedToCheckout
+	// 4. ProceedToCheckout
 	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
-	ProceedToCheckout := false
-	for !ProceedToCheckout {
+	proceededToCheckout := false
+	for !proceededToCheckout {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		ProceedToCheckout = task.ProceedToCheckout()
-		if !ProceedToCheckout {
+		proceededToCheckout = task.ProceedToCheckout()
+		if !proceededToCheckout {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//GuestCheckout
+	// 5. GuestCheckout
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	gotGuestCheckout := false
+	for !gotGuestCheckout {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		gotGuestCheckout = task.GuestCheckout()
+		if !gotGuestCheckout {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 6. SubmitShipping
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
-	GuestCheckout := false
-	for !GuestCheckout {
+	submittedShipping := false
+	for !submittedShipping {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		GuestCheckout = task.GuestCheckout()
-		if !GuestCheckout {
+		submittedShipping = task.SubmitShipping()
+		if !submittedShipping {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//SubmitShipping
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
-	SubmitShipping := false
-	for !SubmitShipping {
+	// 7. UseOrigAddress
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	usedOrigAddress := false
+	for !usedOrigAddress {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		SubmitShipping = task.SubmitShipping()
-		if !SubmitShipping {
+		usedOrigAddress = task.UseOrigAddress()
+		if !usedOrigAddress {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//UseOrigAddress
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	UseOrigAddress := false
-	for !UseOrigAddress {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		UseOrigAddress = task.UseOrigAddress()
-		if !UseOrigAddress {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-
+<<<<<<< HEAD
 	//SubmitPaymentInfo
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	SubmitPaymentInfo := false
 	doNoRetry := false
 	for !SubmitPaymentInfo {
+=======
+	// 8. SubmitPaymentInfo
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	submittedPayment := false
+	for !submittedPayment {
+>>>>>>> v016dev
 		needToStop := task.CheckForStop()
 		if needToStop || doNoRetry {
 			return
 		}
+<<<<<<< HEAD
 		SubmitPaymentInfo, doNoRetry = task.SubmitPaymentInfo()
 		if !SubmitPaymentInfo {
+=======
+		submittedPayment = task.SubmitPaymentInfo()
+		if !submittedPayment {
+>>>>>>> v016dev
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	//SubmitOrder
+	// 9. SubmitOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	SubmitOrder := false
-	for !SubmitOrder {
+	submittedOrder := false
+	status := enums.OrderStatusFailed
+	for !submittedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		SubmitOrder = task.SubmitOrder()
-		if !SubmitOrder {
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		submittedOrder, status = task.SubmitOrder(startTime)
+		if !submittedOrder {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -174,7 +207,11 @@ func (task *Task) RunTask() {
 	log.Println("  ENDED AT: " + endTime.String())
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
-	task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	if status == enums.OrderStatusSuccess {
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	} else {
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -184,57 +221,53 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.Pid != "" {
+		if task.StockData.PID != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(25 * time.Millisecond)
 	}
 }
 
 func (task *Task) AddToCart() bool {
-	colorSelected := "notRequired"
-	sizeSelected := "notRequired"
-	inseamSelected := "notRequired"
+	colorSelected := ""
+	sizeSelected := ""
+	inseamSelected := ""
 
-	if len(task.Color) > 0 {
+	if len(task.StockData.Color) > 0 {
 		colorSelected = "true"
 	}
-	if len(task.Size) > 0 {
+	if task.StockData.PID != task.StockData.SizePID {
 		sizeSelected = "true"
-	}
-	if len(task.Size) > 0 {
 		inseamSelected = "true"
 	}
 
 	data := url.Values{
-		"shippingMethod-13249991": {"shipToHome"},
-		"pid":                     {task.Pid},
-		"Quantity":                {fmt.Sprint(task.Task.Task.TaskQty)},
-		"hasColorSelected":        {colorSelected},
-		"hasSizeSelected":         {sizeSelected},
-		"hasInseamSelected":       {inseamSelected},
-		"cartAction":              {"add"},
-		"productColor":            {task.Color},
+		"shippingMethod-" + task.StockData.SizePID:  {"shipToHome"},
+		"deliveryMsgHome-" + task.StockData.SizePID: {"In Stock"},
+		"pid":               {task.StockData.SizePID},
+		"Quantity":          {fmt.Sprint(task.Task.Task.TaskQty)},
+		"hasColorSelected":  {colorSelected},
+		"hasSizeSelected":   {sizeSelected},
+		"hasInseamSelected": {inseamSelected},
+		"cgid":              {""},
+		"cartAction":        {"add"},
+		"productColor":      {task.StockData.Color},
 	}
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
-		Referer:            AddToCartReferer + task.Pid + ".html",
+		Referer:            AddToCartReferer + task.StockData.PID + ".html",
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil {
-		return false
-	}
 
-	defer resp.Body.Close()
-
-	return true
+	return err == nil && (strings.Contains(body, "Added to Bag") || (strings.Contains(body, fmt.Sprintf(`"productId":"%s"`, task.StockData.SizePID)) && strings.Contains(body, fmt.Sprintf(`"quantity":%d`, task.Task.Task.TaskQty))))
 }
+
 func (task *Task) GetCheckout() bool {
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint,
@@ -245,23 +278,18 @@ func (task *Task) GetCheckout() bool {
 		return false
 	}
 
-	task.Dwcont, err = getDwCont(string(body))
-	if err != nil {
-		return false
-	}
-
-	defer resp.Body.Close()
-
-	return true
+	task.Dwcont, err = getDwCont(body)
+	return err == nil
 }
+
 func (task *Task) ProceedToCheckout() bool {
 	data := url.Values{
-		"dwfrm_cart_checkoutCart": {"checkout"},
+		"dwfrm_cart_checkoutCart": {"Checkout"},
 	}
 
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            ProceedToCheckoutReferer,
@@ -271,30 +299,25 @@ func (task *Task) ProceedToCheckout() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
-	if err != nil {
-		return false
-	}
-	task.SecureKey, err = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
 
-	defer resp.Body.Close()
-
-	return true
+	task.SecureKey, err = getSecureKey(body)
+	return err == nil
 }
+
 func (task *Task) GuestCheckout() bool {
 	data := url.Values{
 		"dwfrm_login_unregistered": {"Checkout As a Guest"},
 		"dwfrm_login_securekey":    {task.SecureKey},
 	}
 
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
@@ -304,24 +327,20 @@ func (task *Task) GuestCheckout() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
-	task.SecureKey, err = getSecureKey(bodyText)
-	if err != nil {
-		return false
-	}
+	task.SecureKey, err = getSecureKey(body)
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) SubmitShipping() bool {
 	data := url.Values{
-		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.Email},
+		"dwfrm_singleshipping_shippingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
 		"dwfrm_singleshipping_email_emailAddress":                         {task.Task.Profile.Email},
 		"dwfrm_singleshipping_addToEmailList":                             {"false"},
 		"dwfrm_singleshipping_shippingAddress_addressFields_firstName":    {task.Task.Profile.ShippingAddress.FirstName},
@@ -332,16 +351,16 @@ func (task *Task) SubmitShipping() bool {
 		"dwfrm_singleshipping_shippingAddress_addressFields_address2":     {task.Task.Profile.ShippingAddress.Address2},
 		"dwfrm_singleshipping_shippingAddress_addressFields_city":         {task.Task.Profile.ShippingAddress.City},
 		"dwfrm_singleshipping_shippingAddress_addressFields_states_state": {task.Task.Profile.ShippingAddress.StateCode},
-		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"false"}, //depends if they want to or not? Not sure what to do here.
-		"dwfrm_singleshipping_shippingAddress_shippingMethodID":           {"7D"},    // multiple methods, should we default to 1?
-		"dwfrm_singleshipping_shippingAddress_isGift":                     {"false"}, //assume always false?
-		"dwfrm_singleshipping_shippingAddress_giftMessage":                {""},      //^
+		"dwfrm_singleshipping_shippingAddress_useAsBillingAddress":        {"false"},
+		"dwfrm_singleshipping_shippingAddress_shippingMethodID":           {"7D"},
+		"dwfrm_singleshipping_shippingAddress_isGift":                     {"false"},
+		"dwfrm_singleshipping_shippingAddress_giftMessage":                {""},
 		"dwfrm_singleshipping_shippingAddress_save":                       {"Continue to Billing"},
 		"dwfrm_singleshipping_securekey":                                  {task.SecureKey},
 	}
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
@@ -351,54 +370,51 @@ func (task *Task) SubmitShipping() bool {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
-	if err != nil {
-		return false
-	}
+	task.Dwcont, err = getDwCont(body)
 
-	defer resp.Body.Close()
-
-	return true
+	// TODO
+	return err == nil
 }
+
 func (task *Task) UseOrigAddress() bool {
 	data := url.Values{
 		"dwfrm_addForm_useOrig": {""},
 	}
-	resp, body, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-	if err != nil { //check the cart isnt empty somehow maybe
+	if err != nil {
 		return false
 	}
 
-	bodyText := string(body)
 	task.OldDwcont = task.Dwcont
-	task.Dwcont, err = getDwCont(bodyText)
-	if err != nil {
-		return false
-	}
-	task.SecureKey, err = getSecureKey(bodyText)
+	task.Dwcont, err = getDwCont(body)
 	if err != nil {
 		return false
 	}
 
-	defer resp.Body.Close()
+	task.SecureKey, err = getSecureKey(body)
 
-	return true
+	// TODO
+	return err == nil
 }
+<<<<<<< HEAD
 func (task *Task) SubmitPaymentInfo() (bool, bool) {
 
 	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
 		return false, true
 	}
 
+=======
+
+func (task *Task) SubmitPaymentInfo() bool {
+>>>>>>> v016dev
 	data := url.Values{
 		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
 		"dwfrm_billing_billingAddress_addressFields_firstName":    {task.Task.Profile.BillingAddress.FirstName},
@@ -411,31 +427,40 @@ func (task *Task) SubmitPaymentInfo() (bool, bool) {
 		"dwfrm_billing_billingAddress_addressFields_states_state": {task.Task.Profile.BillingAddress.StateCode},
 		"dwfrm_billing_billingAddress_addressFields_phone":        {task.Task.Profile.PhoneNumber},
 		"dwfrm_billing_securekey":                                 {task.SecureKey},
-		"dwfrm_billing_couponCode":                                {""}, //coupon
-		"dwfrm_billing_giftCertCode":                              {""},
+		"dwfrm_billing_couponCode":                                {""}, // TODO @Humphrey: Coupon code support
+		"dwfrm_billing_giftCertCode":                              {""}, // TODO @Humphrey: Gift certificate support
 		"dwfrm_billing_paymentMethods_selectedPaymentMethodID":    {"CREDIT_CARD"},
 		"dwfrm_billing_paymentMethods_creditCard_owner":           {task.Task.Profile.CreditCard.CardholderName},
+<<<<<<< HEAD
 		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},                                                //Ex VISA
 		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},                         //should be month (no 0) Ex: 2
 		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},                                                   //should be full year Ex: 2026
 		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]}, //should be smalldate Ex: 02/26
+=======
+		"dwfrm_billing_paymentMethods_creditCard_number":          {task.Task.Profile.CreditCard.CardNumber},
+		"dwfrm_billing_paymentMethods_creditCard_type":            {task.Task.Profile.CreditCard.CardType},
+		"dwfrm_billing_paymentMethods_creditCard_month":           {strings.TrimPrefix(task.Task.Profile.CreditCard.ExpMonth, "0")},
+		"dwfrm_billing_paymentMethods_creditCard_year":            {task.Task.Profile.CreditCard.ExpYear},
+		"dwfrm_billing_paymentMethods_creditCard_userexp":         {task.Task.Profile.CreditCard.ExpMonth + "/" + task.Task.Profile.CreditCard.ExpYear[2:]},
+>>>>>>> v016dev
 		"dwfrm_billing_paymentMethods_creditCard_cvn":             {task.Task.Profile.CreditCard.CVV},
-		"cardToken":                              {""},                                           //is always empty
-		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
-		"dwfrm_billing_paymentMethods_bml_year":  {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_month": {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_day":   {""},                                           //always seems to be empty
-		"dwfrm_billing_paymentMethods_bml_ssn":   {""},                                           //always seems to be empty
+		"cardToken":                              {""},
+		"cardBin":                                {task.Task.Profile.CreditCard.CardNumber[0:6]},
+		"dwfrm_billing_paymentMethods_bml_year":  {""},
+		"dwfrm_billing_paymentMethods_bml_month": {""},
+		"dwfrm_billing_paymentMethods_bml_day":   {""},
+		"dwfrm_billing_paymentMethods_bml_ssn":   {""},
 		"dwfrm_billing_save":                     {"Continue to Review"},
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, _, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
+<<<<<<< HEAD
 	if err != nil {
 		return false, false
 	}
@@ -443,25 +468,52 @@ func (task *Task) SubmitPaymentInfo() (bool, bool) {
 	defer resp.Body.Close()
 
 	return true, false
+=======
+
+	// TODO
+	return err == nil
+>>>>>>> v016dev
 }
-func (task *Task) SubmitOrder() bool {
+
+func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	status := enums.OrderStatusFailed
 	data := url.Values{
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
 		"addToEmailList": {"false"},
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
-		Method:             "GET",
+		Method:             "POST",
 		URL:                SubmitOrderEndpoint,
 		AddHeadersFunction: AddHottopicHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false
+		return false, status
 	}
 
-	defer resp.Body.Close()
+	var success bool
+	if !strings.Contains(body, "Your order could not be submitted") {
+		status = enums.OrderStatusSuccess
+		success = true
+	} else {
+		status = enums.OrderStatusDeclined
+		success = false
+	}
 
-	return true
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateHottopicEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		Sku:          task.StockData.PID,
+		Retailer:     enums.HotTopic,
+		Price:        float64(task.StockData.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
+	return success, status
 }

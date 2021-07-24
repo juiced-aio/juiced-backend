@@ -120,11 +120,11 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return queryError
 		}
 
-		if len(monitor.BoxLunchMonitorInfo.Monitors) == 0 {
+		if len(monitor.BoxlunchMonitorInfo.Monitors) == 0 {
 			return e.New(errors.NoMonitorsError)
 		}
 
-		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxLunchMonitorInfo.Monitors)
+		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -496,7 +496,7 @@ func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 	}
 }
 
-func (monitorStore *MonitorStore) CheckBoxLunchMonitorStock() {
+func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
 	for {
 		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
 			if len(boxlunchMonitor.InStock) > 0 {
@@ -504,9 +504,7 @@ func (monitorStore *MonitorStore) CheckBoxLunchMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
 						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
-							boxlunchTask.Pid = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].PID
-							boxlunchTask.Size = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Size
-							boxlunchTask.Color = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))].Color
+							boxlunchTask.StockData = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))]
 						}
 					}
 				}
@@ -548,9 +546,7 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
 						if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
-							hottopicTask.Pid = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].PID
-							hottopicTask.Size = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].Size
-							hottopicTask.Color = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))].Color
+							hottopicTask.StockData = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))]
 						}
 					}
 				}
@@ -657,7 +653,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 
 	go monitorStore.CheckAmazonMonitorStock()
 	go monitorStore.CheckBestBuyMonitorStock()
-	go monitorStore.CheckBoxLunchMonitorStock()
+	go monitorStore.CheckBoxlunchMonitorStock()
 	go monitorStore.CheckDisneyMonitorStock()
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
