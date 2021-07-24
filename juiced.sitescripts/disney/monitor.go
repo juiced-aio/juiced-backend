@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"strconv"
 	"strings"
+
+	// "strings"
 	"sync"
 	"time"
 
@@ -17,7 +19,8 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
-	"github.com/anaskhan96/soup"
+
+	// "github.com/anaskhan96/soup"
 	browser "github.com/eddycjy/fake-useragent"
 )
 
@@ -105,7 +108,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
-	var sizes []DisneySizeInfo
+	var sizes []string
 	var colors []string
 	var stockData DisneyInStockData
 	var err error
@@ -113,55 +116,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	}
-
-	// Case 1: User provides Random size, Random color
-	//		Case 1A: Product has size and color
-	// 		Case 1B: Product has size, no colors
-	// 		Case 1C: Product has color, no sizes
-	// 		Case 1D: Product has neither color nor size
-	// Case 2: User provides color, Random size
-	// 		Case 2A: Product has size and color
-	// 		Case 2B: Product has size, no colors
-	// 		Case 2C: Product has color, no sizes
-	// 		Case 2D: Product has neither color nor size
-	// Case 3: User provides size, Random color
-	// 		Case 3A: Product has size and color
-	// 		Case 3B: Product has size, no colors
-	// 		Case 3C: Product has color, no sizes
-	// 		Case 3D: Product has neither color nor size
-	// Case 4: User provides size & color
-	// 		Case 4A: Product has size and color
-	// 		Case 4B: Product has size, no colors
-	// 		Case 4C: Product has color, no sizes
-	// 		Case 4D: Product has neither color nor size
-
-	// Size and color: https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid=16304343&Quantity=1&format=ajax
-	// Size, no colors: https://www.Disney.com/on/demandware.store/Sites-Disney-Site/default/Product-Variation?pid=13941979&Quantity=1&format=ajax
-	// Color, no sizes:
-	// Neither color nor size: https://www.Disney.com/on/demandware.store/Sites-Disney-Site/default/Product-Variation?pid=15647180&Quantity=1&format=ajax
-
-	// 1. First, make a request to `endpoint` and check if In Stock
-	// 		If In Stock, takes care of Case 1D, 2D, 3D, 4D --> Success
-	// 2. If not In Stock, check if there is a list of color variations and a list of size variations
-	//		If no list of color variations, input with ID `productColor` should have the default color selected
-	//		If no list of size variations, the base PID is the correct PID
-	//		Build a list of color variations and size variations (PIDs)
-	//			Color variations are just the name of the color
-	//			Size variations are incremented PIDs from the base PID, in order from smallest to largest
-	// 3. Take care of remaining cases:
-	//		Case 1A: Pick a random size and color from the lists
-	//		Case 1B: Pick a random size from the size list and choose the default color
-	//		Case 1C: Choose the default size and pick a random color from the color list
-	//		Case 2A: Pick a random size from the size list and ensure the color matches the provided color
-	//		Case 2B: Pick a random size from the size list and choose the default color (even if it doesn't match)
-	//		Case 2C: Choose the default size and ensure the color matches the provided color
-	//		Case 3A: Ensure the size matches the provided size and pick a random color from the color list
-	//		Case 3B: Ensure the size matches the provided size and choose the default color
-	//		Case 3C: Choose the default size (even if it doesn't match) and pick a random color from the color list
-	//		Case 4A: Ensure the size matches the provided size and the color matches the provided color
-	//		Case 4B: Ensure the size matches the provided size and choose the default color (even if it doesn't match)
-	//		Case 4C: Choose the default size (even if it doesn't match) and ensure the color matches the provided color
-	// 4. Use the chosen size and color to build an endpoint that includes these values and finds out if it's In Stock
 
 	sizes, colors, stockData, err = monitor.GetSizeAndColor(pid)
 
@@ -174,23 +128,26 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
+	price := stockData.Price
 	productName := stockData.ProductName
+	itemURL := stockData.ItemURL
 	imageURL := stockData.ImageURL
+	quantityLimit := stockData.QuantityLimit
+	isPreOrder := stockData.IsPreOrder
+	isBackOrder := stockData.IsBackOrder
+	outOfPriceRange := stockData.OutOfPriceRange
 
 	if err == nil {
 		// GetSizeAndColor will only return a populated stockData if the product has no size/color variations
 		// 		stockData.ProductName and stockData.ImageURL will always be populated
-		if stockData.PID == "" {
-			// If there's only one color, we already know that the size list only has in-stock sizes
-			oneColorBeforeFilter := len(colors) == 1
-
+		if stockData.PID == "" && !stockData.OutOfPriceRange {
 			// If stockData.PID == "", then the size and color lists should be populated
 			// Filter the sizes we found with the ones the monitor has been provided
 			sizesJoined := monitor.PidWithInfo[pid].Size
 			if sizesJoined != "" {
-				filteredSizes := []DisneySizeInfo{}
+				filteredSizes := []string{}
 				for _, size := range sizes {
-					if strings.Contains(sizesJoined, size.Size) {
+					if strings.Contains(strings.ToLower(sizesJoined), strings.ToLower(size)) {
 						filteredSizes = append(filteredSizes, size)
 					}
 				}
@@ -201,7 +158,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			if colorsJoined != "" {
 				filteredColors := []string{}
 				for _, color := range colors {
-					if strings.Contains(colorsJoined, color) {
+					if strings.Contains(strings.ToLower(colorsJoined), strings.ToLower(color)) {
 						filteredColors = append(filteredColors, color)
 					}
 				}
@@ -215,41 +172,28 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					return
 				}
 
-				var stockDatas []DisneyInStockData
-				if oneColorBeforeFilter {
-					for _, size := range sizes {
-						stockData := DisneyInStockData{
-							PID:             pid,
-							Price:           stockData.Price,
-							SizePID:         size.SizePID,
-							Size:            size.Size,
-							Color:           colors[0],
-							ProductName:     stockData.ProductName,
-							ImageURL:        stockData.ImageURL,
-							OutOfPriceRange: stockData.OutOfPriceRange,
-						}
-						stockDatas = append(stockDatas, stockData)
-					}
-				} else {
-					// GetInStockVariations returns a list of HottopicStockData items for each size/color combination that's in stock
-					stockDatas = monitor.GetInStockVariations(pid, sizes, colors)
-					needToStop = monitor.CheckForStop()
-					if needToStop {
-						return
-					}
+				// GetInStockVariations returns a list of DisneyStockData items for each size/color combination that's in stock
+				stockDatas := monitor.GetInStockVariations(pid, sizes, colors)
+				needToStop = monitor.CheckForStop()
+				if needToStop {
+					return
 				}
 
 				if len(stockDatas) > 0 {
 					atLeastOneInPriceRange := false
-					for _, stockData := range stockDatas {
-						if !stockData.OutOfPriceRange {
-							// Since we omitted these fields in the function below, add them back here
-							stockData.ProductName = productName
-							stockData.ImageURL = imageURL
-							// Add each in stock combination to the monitor's InStock list, then update the status
-							monitor.InStock = append(monitor.InStock, stockData)
-							atLeastOneInPriceRange = true
-						}
+					for _, stockData := range stockDatas { // Since we omitted these fields in the function below, add them back here
+						stockData.Price = price
+						stockData.ProductName = productName
+						stockData.ItemURL = itemURL
+						stockData.ImageURL = imageURL
+						stockData.QuantityLimit = quantityLimit
+						stockData.IsPreOrder = isPreOrder
+						stockData.IsBackOrder = isBackOrder
+						stockData.OutOfPriceRange = outOfPriceRange
+						log.Println(stockData)
+						// Add each in stock combination to the monitor's InStock list, then update the status
+						monitor.InStock = append(monitor.InStock, stockData)
+						atLeastOneInPriceRange = true
 					}
 					if atLeastOneInPriceRange {
 						// If at least one combination is in stock and in our price range, remove this monitor from the running monitors
@@ -340,8 +284,8 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	}
 }
 
-func (monitor *Monitor) GetSizeAndColor(pid string) ([]DisneySizeInfo, []string, DisneyInStockData, error) {
-	var sizes []DisneySizeInfo
+func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyInStockData, error) {
+	var sizes []string
 	var colors []string
 	var stockData DisneyInStockData
 	endpoint := fmt.Sprintf(MonitorEndpoint, pid)
@@ -382,37 +326,25 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]DisneySizeInfo, []string,
 	return sizes, colors, stockData, nil
 }
 
-func (monitor *Monitor) GetVariationInfo(body, pid string) ([]DisneySizeInfo, []string, DisneyInStockData, error) {
-	var sizes []DisneySizeInfo
+func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, DisneyInStockData, error) {
+	var sizes []string
 	var colors []string
 	var stockData DisneyInStockData
 
 	stockResponse := DisneyStockResponse{}
 	err := json.Unmarshal([]byte(body), &stockResponse)
 	if err != nil {
-		log.Println(1)
-		log.Println(err.Error())
 		return sizes, colors, stockData, err
 	}
 
 	productInfo := stockResponse.Product
 	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" ||
 		!productInfo.Available || stockResponse.ATCState.IsDisabled || stockResponse.ATCState.IsSoldOut {
-		log.Println(2)
-		log.Println(productInfo.ID)
-		log.Println(productInfo.ProductName)
-		log.Println(productInfo.ProductType)
-		log.Println(productInfo.Available)
-		log.Println(stockResponse.ATCState.IsDisabled)
-		log.Println(stockResponse.ATCState.IsSoldOut)
 		return sizes, colors, stockData, nil
 	}
 
 	price, err := strconv.ParseFloat(productInfo.Price.Sales.Price, 64)
 	if err != nil {
-		log.Println(3)
-		log.Println(productInfo.Price.Sales.Price)
-		log.Println(err.Error())
 		return sizes, colors, stockData, nil
 	}
 
@@ -440,15 +372,13 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]DisneySizeInfo, []
 		}
 	}
 	if imageURL == "" {
-		log.Println(4)
-		log.Println(productInfo.Images)
 		return sizes, colors, stockData, nil
 	}
 
 	if productInfo.ProductType == "standard" {
 		stockData = DisneyInStockData{
 			PID:             productInfo.ID,
-			SizePID:         productInfo.ID,
+			VID:             productInfo.ID,
 			ProductName:     productInfo.ProductName,
 			ItemURL:         BaseEndpoint + productInfo.ProductURL,
 			ImageURL:        imageURL,
@@ -459,40 +389,58 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]DisneySizeInfo, []
 			IsBackOrder:     productInfo.Availability.IsBackOrder,
 		}
 		return sizes, colors, stockData, nil
-	} else if productInfo.ProductType == "master" {
-		// Multiple sizes, one color
 	} else {
-		// Multiple sizes and colors
+		for _, variant := range productInfo.Variants {
+			if variant.Attribute == "size" {
+				for _, size := range variant.Values {
+					if size.Selectable {
+						sizes = append(sizes, size.Value)
+					}
+				}
+			}
+			if variant.Attribute == "color" {
+				for _, color := range variant.Values {
+					if color.Selectable {
+						colors = append(colors, color.Value)
+					}
+				}
+			}
+		}
 	}
 
 	stockData = DisneyInStockData{
-		ProductName: productInfo.ProductName,
-		ImageURL:    imageURL,
-	}
-	if len(colors) == 1 {
-
+		Price:         int(price),
+		ProductName:   productInfo.ProductName,
+		ItemURL:       BaseEndpoint + productInfo.ProductURL,
+		ImageURL:      imageURL,
+		QuantityLimit: productInfo.QuantityLimit,
+		IsPreOrder:    productInfo.Availability.IsPreOrder,
+		IsBackOrder:   productInfo.Availability.IsBackOrder,
 	}
 	return sizes, colors, stockData, nil
 }
 
-func (monitor *Monitor) GetInStockVariations(pid string, sizes []DisneySizeInfo, colors []string) []DisneyInStockData {
-	// Each color page shows us whether the individual sizes are in stock or not
+func (monitor *Monitor) GetInStockVariations(pid string, sizes, colors []string) []DisneyInStockData {
+	wg := sync.WaitGroup{}
+	wg.Add(len(colors) * len(sizes))
+
 	var stockDatas []DisneyInStockData
 	for _, color := range colors {
-		stockDatas = append(stockDatas, monitor.GetInStockSizesForColor(pid, sizes, color)...)
-		needToStop := monitor.CheckForStop()
-		if needToStop {
-			return stockDatas
+		for _, size := range sizes {
+			go func(x, y, z string) {
+				stockDatas = append(stockDatas, monitor.GetInStockSizesForColor(x, y, z))
+				wg.Done()
+			}(pid, size, color)
 		}
-		time.Sleep(100 * time.Millisecond)
 	}
+	wg.Wait()
 	return stockDatas
 }
 
-func (monitor *Monitor) GetInStockSizesForColor(pid string, sizes []DisneySizeInfo, color string) []DisneyInStockData {
-	var stockDatas []DisneyInStockData
+func (monitor *Monitor) GetInStockSizesForColor(pid string, size, color string) DisneyInStockData {
+	var stockData DisneyInStockData
 
-	endpoint := fmt.Sprintf(MonitorEndpoint2, pid, pid) + color
+	endpoint := fmt.Sprintf(MonitorEndpoint2, pid, pid, size, pid, color)
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
@@ -514,71 +462,27 @@ func (monitor *Monitor) GetInStockSizesForColor(pid string, sizes []DisneySizeIn
 	})
 	if err != nil {
 		fmt.Println(err)
-		return stockDatas
+		return stockData
 	}
 
 	switch resp.StatusCode {
 	case 200:
-		return monitor.GetColorVariationInfo(body, pid, color, sizes)
+		stockResponse := DisneyStockResponse{}
+		err := json.Unmarshal([]byte(body), &stockResponse)
+		if err != nil {
+			return stockData
+		}
+
+		stockData.PID = pid
+		stockData.VID = stockResponse.Product.ID
+		stockData.Size = size
+		stockData.Color = color
+		return stockData
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 	default:
 		fmt.Printf("Unknown Code:%v", resp.StatusCode)
 	}
 
-	return stockDatas
-}
-
-func (monitor *Monitor) GetColorVariationInfo(body, pid, color string, sizes []DisneySizeInfo) []DisneyInStockData {
-	var stockDatas []DisneyInStockData
-
-	doc := soup.HTMLParse(body)
-
-	priceText := doc.Find("span", "class", "productdetail__info-pricing-sale")
-	if priceText.Error != nil {
-		priceText = doc.Find("span", "class", "productdetail__info-pricing-original")
-	}
-	if priceText.Error != nil {
-		return stockDatas
-	}
-	priceStr := strings.ReplaceAll(strings.ReplaceAll(priceText.Text(), " ", ""), "$", "")
-	if strings.Contains(priceStr, "-") {
-		priceStr = strings.Split(priceStr, "-")[1]
-	}
-	price, err := strconv.ParseFloat(priceStr, 64)
-	if err != nil {
-		return stockDatas
-	}
-
-	sizeList := doc.Find("ul", "class", "productdetail__info-form-size-swatch")
-	if sizeList.Error == nil {
-		sizeListLinks := sizeList.FindAll("a", "class", "productdetail__info-form-size-swatch-link")
-		for index, sizeListLink := range sizeListLinks {
-			if sizeListLink.Error == nil {
-				intPid, err := strconv.Atoi(pid)
-				if err == nil {
-					size := sizeListLink.Attrs()["title"]
-					matchedSize := false
-					for _, s := range sizes {
-						if s.Size == size {
-							matchedSize = true
-							break
-						}
-					}
-					if matchedSize {
-						stockDatas = append(stockDatas, DisneyInStockData{
-							PID:             pid,
-							SizePID:         fmt.Sprint(intPid + index + 1),
-							Size:            size,
-							Color:           color,
-							Price:           int(price),
-							OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
-						})
-					}
-				}
-			}
-		}
-	}
-
-	return stockDatas
+	return stockData
 }

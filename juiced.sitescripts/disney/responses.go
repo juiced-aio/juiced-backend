@@ -15,6 +15,7 @@ type ProductResponse struct {
 	Availability  AvailabilityResponse `json:"availability"`
 	Available     bool                 `json:"available"`
 	QuantityLimit int                  `json:"quantityLimit"`
+	Variants      []VariantResponse    `json:"variationAttributes"`
 }
 
 type ImagesResponse struct {
@@ -43,4 +44,14 @@ type AvailabilityResponse struct {
 type ATCStateResponse struct {
 	IsDisabled bool `json:"isDisabled"`
 	IsSoldOut  bool `json:"isSoldOut"`
+}
+
+type VariantResponse struct {
+	Attribute string                 `json:"attributeId"`
+	Values    []VariantValueResponse `json:"values"`
+}
+
+type VariantValueResponse struct {
+	Value      string `json:"value"`
+	Selectable bool   `json:"selectable"`
 }
