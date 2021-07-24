@@ -22,9 +22,8 @@ import (
 )
 
 // CreateBestbuyTask takes a Task entity and turns it into a Bestbuy Task
-func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
-	bestbuyTask := Task{}
-	bestbuyTask = Task{
+func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, locationID, email, password string) (Task, error) {
+	bestbuyTask := Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
@@ -35,7 +34,8 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy enti
 			Email:    email,
 			Password: password,
 		},
-		TaskType: taskType,
+		TaskType:   taskType,
+		LocationID: locationID,
 	}
 	return bestbuyTask, nil
 }
@@ -618,6 +618,7 @@ func (task *Task) Checkout() bool {
 
 // SetShippingInfo sets the shipping info in checkout
 func (task *Task) SetShippingInfo() bool {
+
 	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			validator, _ := util.FindInString(cookie.Value, "~", "~")
@@ -629,6 +630,77 @@ func (task *Task) SetShippingInfo() bool {
 			}
 		}
 	}
+
+	var shipOrPickupRequest ShipOrPickupRequest
+	if task.LocationID == "" {
+		shipOrPickupRequest = ShipOrPickupRequest{
+			{
+				ID: task.CheckoutInfo.ItemID,
+				Selectedfulfillment: Selectedfulfillment1{
+					Shipping: Shipping1{},
+				},
+			},
+		}
+	} else {
+		shipOrPickupRequest = ShipOrPickupRequest{
+			{
+				ID:                   task.CheckoutInfo.ItemID,
+				StoreFulfillmentType: "InStore",
+				Type:                 "DEFAULT",
+				Selectedfulfillment: Selectedfulfillment1{
+					InStorePickup: InStorePickup{
+						PickupStoreID:         task.LocationID,
+						DisplayDateType:       "IN_HAND",
+						IsAvailableAtLocation: true,
+						IsSTSAvailable:        false,
+					},
+				},
+			},
+		}
+	}
+
+	data, err := json.Marshal(shipOrPickupRequest)
+	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	if !ok {
+		log.Println(571)
+		log.Println(err.Error())
+		return false
+	}
+
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "PATCH",
+		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/items",
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(data))},
+			{"pragma", "no-cache"},
+			{"cache-control", "no-cache"},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "application/com.bestbuy.order+json"},
+			{"x-user-interface", "DotCom-Optimized"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/json"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", BaseShippingEndpoint},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data:              data,
+		RequestBodyStruct: shipOrPickupRequest,
+	})
+	log.Println(err == nil)
+	ok = util.HandleErrors(err, util.RequestDoError)
+	log.Println(ok)
+	if !ok || resp.StatusCode != 200 {
+		log.Println(604)
+		log.Println(err.Error())
+		return false
+	}
+
 	setShippingRequest := SetShippingRequest{
 		Phonenumber:     task.Task.Profile.PhoneNumber,
 		Smsnotifynumber: "",
@@ -663,8 +735,8 @@ func (task *Task) SetShippingInfo() bool {
 			},
 		},
 	}
-	data, err := json.Marshal(setShippingRequest)
-	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
+	data, err = json.Marshal(setShippingRequest)
+	ok = util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
 		log.Println(571)
 		log.Println(err.Error())
@@ -673,7 +745,7 @@ func (task *Task) SetShippingInfo() bool {
 
 	setShippingResponse := UniversalOrderResponse{}
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "PATCH",
 		URL:    fmt.Sprintf(OrderEndpoint, task.CheckoutInfo.ID) + "/",
@@ -771,6 +843,7 @@ func (task *Task) SetShippingInfo() bool {
 		}
 		return false
 	}
+
 }
 
 // SetPaymentInfo sets the payment info in checkout
@@ -823,7 +896,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 			Number:          encryptedNumber + ":3:735818052:" + task.Task.Profile.CreditCard.CardNumber,
 			// This number is specific to the card type from here: https://www.bestbuy.com/checkout/global/binRange - But it just gives a range
 			// Having it static either is fine or will only give declines, so I'll test with a working card soon and hopefully cancel it in time
-			Binnumber:       "476771",
+			Binnumber:       task.Task.Profile.CreditCard.CardNumber[0:6],
 			Ispwpregistered: false,
 			Expmonth:        task.Task.Profile.CreditCard.ExpMonth,
 			Expyear:         task.Task.Profile.CreditCard.ExpYear,

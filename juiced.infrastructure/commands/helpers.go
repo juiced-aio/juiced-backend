@@ -315,11 +315,11 @@ func CreateTaskInfos(task entities.Task) error {
 		}
 
 	case enums.BestBuy:
-		statement, err := database.Preparex(`INSERT INTO bestbuyTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO bestbuyTaskInfos (taskID, taskGroupID, email, password, locationID, taskType) VALUES (?, ?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.BestbuyTaskInfo.Email, task.BestbuyTaskInfo.Password, task.BestbuyTaskInfo.TaskType)
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.BestbuyTaskInfo.Email, task.BestbuyTaskInfo.Password, task.BestbuyTaskInfo.LocationID, task.BestbuyTaskInfo.TaskType)
 		if err != nil {
 			return err
 		}
