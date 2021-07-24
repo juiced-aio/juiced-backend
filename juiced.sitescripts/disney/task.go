@@ -743,17 +743,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool, enums.OrderStatus
 		success = true
 	}
 
-<<<<<<< HEAD
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return false, false, status
-	}
-
-	util.ProcessCheckout(util.ProcessCheckoutInfo{
-=======
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
->>>>>>> v016dev
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",

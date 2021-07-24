@@ -158,25 +158,15 @@ func (task *Task) RunTask() {
 
 	// 8. SubmitPaymentInfo
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-<<<<<<< HEAD
-	SubmitPaymentInfo := false
-	doNotRetry := false
-	for !SubmitPaymentInfo {
-=======
 	submittedPayment := false
+	doNotRetry := false
 	for !submittedPayment {
->>>>>>> v016dev
 		needToStop := task.CheckForStop()
 		if needToStop || doNotRetry {
 			return
 		}
-<<<<<<< HEAD
-		SubmitPaymentInfo, doNotRetry = task.SubmitPaymentInfo()
-		if !SubmitPaymentInfo {
-=======
-		submittedPayment = task.SubmitPaymentInfo()
+		submittedPayment, doNotRetry = task.SubmitPaymentInfo()
 		if !submittedPayment {
->>>>>>> v016dev
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -402,17 +392,12 @@ func (task *Task) UseOrigAddress() bool {
 	// TODO
 	return err == nil
 }
-<<<<<<< HEAD
-func (task *Task) SubmitPaymentInfo() (bool, bool) {
 
+func (task *Task) SubmitPaymentInfo() (bool, bool) {
 	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
 		return false, true
 	}
 
-=======
-
-func (task *Task) SubmitPaymentInfo() bool {
->>>>>>> v016dev
 	data := url.Values{
 		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
 		"dwfrm_billing_billingAddress_addressFields_firstName":    {task.Task.Profile.BillingAddress.FirstName},
@@ -451,19 +436,9 @@ func (task *Task) SubmitPaymentInfo() bool {
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
-<<<<<<< HEAD
-	if err != nil {
-		return false, false
-	}
-
-	defer resp.Body.Close()
-
-	return true, false
-=======
 
 	// TODO
-	return err == nil
->>>>>>> v016dev
+	return err == nil, false
 }
 
 func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
