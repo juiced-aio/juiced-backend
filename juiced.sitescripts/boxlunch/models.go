@@ -43,7 +43,7 @@ type Monitor struct {
 	RunningMonitors []string
 	Pids            []string
 	InStock         []BoxlunchInStockData
-	PidWithInfo     map[string]entities.BoxLunchSingleMonitorInfo
+	PidWithInfo     map[string]entities.BoxlunchSingleMonitorInfo
 }
 
 type BoxlunchInStockData struct {

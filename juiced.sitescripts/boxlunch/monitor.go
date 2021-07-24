@@ -20,8 +20,8 @@ import (
 )
 
 // CreateboxlunchMonitor takes a TaskGroup entity and turns it into a boxlunch Monitor
-func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BoxLunchSingleMonitorInfo) (Monitor, error) {
-	storedBoxlunchMonitors := make(map[string]entities.BoxLunchSingleMonitorInfo)
+func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BoxlunchSingleMonitorInfo) (Monitor, error) {
+	storedBoxlunchMonitors := make(map[string]entities.BoxlunchSingleMonitorInfo)
 	boxlunchMonitor := Monitor{}
 
 	pids := []string{}

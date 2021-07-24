@@ -80,7 +80,7 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.BoxLunchTaskInfo)
+			err = rows.StructScan(&task.BoxlunchTaskInfo)
 			if err != nil {
 				return task, err
 			}
@@ -259,7 +259,7 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.BoxLunchMonitorInfo)
+			err = rows.StructScan(&taskGroup.BoxlunchMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
@@ -270,19 +270,19 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 			return taskGroup, err
 		}
 
-		rows, err = statement.Queryx(taskGroup.BoxLunchMonitorInfo.ID)
+		rows, err = statement.Queryx(taskGroup.BoxlunchMonitorInfo.ID)
 		if err != nil {
 			return taskGroup, err
 		}
 
 		defer rows.Close()
 		for rows.Next() {
-			tempSingleMonitor := entities.BoxLunchSingleMonitorInfo{}
+			tempSingleMonitor := entities.BoxlunchSingleMonitorInfo{}
 			err = rows.StructScan(&tempSingleMonitor)
 			if err != nil {
 				return taskGroup, err
 			}
-			taskGroup.BoxLunchMonitorInfo.Monitors = append(taskGroup.BoxLunchMonitorInfo.Monitors, tempSingleMonitor)
+			taskGroup.BoxlunchMonitorInfo.Monitors = append(taskGroup.BoxlunchMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	case enums.Disney:
