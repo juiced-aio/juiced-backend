@@ -13,7 +13,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
@@ -64,6 +63,10 @@ func (task *Task) RunTask() {
 		recover()
 		// TODO @silent: Let the UI know that a task failed
 	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
 
 	client, err := util.CreateClient(task.Task.Proxy)
 	if err != nil {
@@ -166,7 +169,7 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusSuccess:
 		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
 	case enums.OrderStatusFailed:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 	}
@@ -627,18 +630,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return false, status
-	}
-
-	util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
 		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo:     user,
 		ItemName:     task.TaskInfo.ItemName,
 		Sku:          task.TaskInfo.ASIN,
 		Retailer:     enums.Amazon,

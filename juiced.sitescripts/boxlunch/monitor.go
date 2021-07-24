@@ -1,4 +1,4 @@
-package hottopic
+package boxlunch
 
 import (
 	"fmt"
@@ -19,28 +19,28 @@ import (
 	browser "github.com/eddycjy/fake-useragent"
 )
 
-// CreateHottopicMonitor takes a TaskGroup entity and turns it into a Hottopic Monitor
-func CreateHottopicMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.HottopicSingleMonitorInfo) (Monitor, error) {
-	storedHottopicMonitors := make(map[string]entities.HottopicSingleMonitorInfo)
-	hottopicMonitor := Monitor{}
+// CreateboxlunchMonitor takes a TaskGroup entity and turns it into a boxlunch Monitor
+func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BoxlunchSingleMonitorInfo) (Monitor, error) {
+	storedBoxlunchMonitors := make(map[string]entities.BoxlunchSingleMonitorInfo)
+	boxlunchMonitor := Monitor{}
 
 	pids := []string{}
 	for _, monitor := range singleMonitors {
-		storedHottopicMonitors[monitor.Pid] = monitor
+		storedBoxlunchMonitors[monitor.Pid] = monitor
 		pids = append(pids, monitor.Pid)
 	}
 
-	hottopicMonitor = Monitor{
+	boxlunchMonitor = Monitor{
 		Monitor: base.Monitor{
 			TaskGroup: taskGroup,
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
 		Pids:        pids,
-		PidWithInfo: storedHottopicMonitors,
+		PidWithInfo: storedBoxlunchMonitors,
 	}
 
-	return hottopicMonitor, nil
+	return boxlunchMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
@@ -103,9 +103,9 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
-	var sizes []HottopicSizeInfo
+	var sizes []BoxlunchSizeInfo
 	var colors []string
-	var stockData HottopicInStockData
+	var stockData BoxlunchInStockData
 	var err error
 
 	if len(monitor.Monitor.Proxies) > 0 {
@@ -185,7 +185,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			// Filter the sizes we found with the ones the monitor has been provided
 			sizesJoined := monitor.PidWithInfo[pid].Size
 			if sizesJoined != "" {
-				filteredSizes := []HottopicSizeInfo{}
+				filteredSizes := []BoxlunchSizeInfo{}
 				for _, size := range sizes {
 					if strings.Contains(strings.ToLower(sizesJoined), strings.ToLower(size.Size)) {
 						filteredSizes = append(filteredSizes, size)
@@ -212,10 +212,10 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					return
 				}
 
-				var stockDatas []HottopicInStockData
+				var stockDatas []BoxlunchInStockData
 				if oneColorBeforeFilter {
 					for _, size := range sizes {
-						stockData := HottopicInStockData{
+						stockData := BoxlunchInStockData{
 							PID:             pid,
 							Price:           stockData.Price,
 							SizePID:         size.SizePID,
@@ -228,7 +228,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 						stockDatas = append(stockDatas, stockData)
 					}
 				} else {
-					// GetInStockVariations returns a list of HottopicStockData items for each size/color combination that's in stock
+					// GetInStockVariations returns a list of BoxlunchStockData items for each size/color combination that's in stock
 					stockDatas = monitor.GetInStockVariations(pid, sizes, colors)
 					needToStop = monitor.CheckForStop()
 					if needToStop {
@@ -337,10 +337,10 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	}
 }
 
-func (monitor *Monitor) GetSizeAndColor(pid string) ([]HottopicSizeInfo, []string, HottopicInStockData, error) {
-	var sizes []HottopicSizeInfo
+func (monitor *Monitor) GetSizeAndColor(pid string) ([]BoxlunchSizeInfo, []string, BoxlunchInStockData, error) {
+	var sizes []BoxlunchSizeInfo
 	var colors []string
-	var stockData HottopicInStockData
+	var stockData BoxlunchInStockData
 	endpoint := fmt.Sprintf(MonitorEndpoint, pid)
 
 	resp, body, err := util.MakeRequest(&util.Request{
@@ -379,10 +379,10 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]HottopicSizeInfo, []strin
 	return sizes, colors, stockData, nil
 }
 
-func (monitor *Monitor) GetVariationInfo(body, pid string) ([]HottopicSizeInfo, []string, HottopicInStockData, error) {
-	var sizes []HottopicSizeInfo
+func (monitor *Monitor) GetVariationInfo(body, pid string) ([]BoxlunchSizeInfo, []string, BoxlunchInStockData, error) {
+	var sizes []BoxlunchSizeInfo
 	var colors []string
-	var stockData HottopicInStockData
+	var stockData BoxlunchInStockData
 
 	doc := soup.HTMLParse(body)
 
@@ -435,7 +435,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]HottopicSizeInfo, 
 			return sizes, colors, stockData, defaultColorInput.Error
 		}
 		defaultColor := defaultColorInput.Attrs()["value"]
-		stockData = HottopicInStockData{
+		stockData = BoxlunchInStockData{
 			PID:             pid,
 			SizePID:         pid,
 			Color:           defaultColor,
@@ -476,7 +476,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]HottopicSizeInfo, 
 						if sizeListLink.Error == nil {
 							size := sizeListLink.Attrs()["title"]
 							if len(colors) > 1 || !strings.Contains(sizeListItem.Attrs()["class"], "unselectable") {
-								sizes = append(sizes, HottopicSizeInfo{
+								sizes = append(sizes, BoxlunchSizeInfo{
 									SizePID: fmt.Sprint(intPid + index + 1),
 									Size:    size,
 								})
@@ -486,12 +486,12 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]HottopicSizeInfo, 
 				}
 			}
 		} else {
-			sizes = append(sizes, HottopicSizeInfo{
+			sizes = append(sizes, BoxlunchSizeInfo{
 				SizePID: pid,
 			})
 		}
 	}
-	stockData = HottopicInStockData{
+	stockData = BoxlunchInStockData{
 		ProductName: productName,
 		ImageURL:    imageURL,
 	}
@@ -516,14 +516,14 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]HottopicSizeInfo, 
 	return sizes, colors, stockData, nil
 }
 
-func (monitor *Monitor) GetInStockVariations(pid string, sizes []HottopicSizeInfo, colors []string) []HottopicInStockData {
+func (monitor *Monitor) GetInStockVariations(pid string, sizes []BoxlunchSizeInfo, colors []string) []BoxlunchInStockData {
 	// Each color page shows us whether the individual sizes are in stock or not
 	wg := sync.WaitGroup{}
 	wg.Add(len(colors) * len(sizes))
 
-	var stockDatas []HottopicInStockData
+	var stockDatas []BoxlunchInStockData
 	for _, color := range colors {
-		go func(x string, y []HottopicSizeInfo, z string) {
+		go func(x string, y []BoxlunchSizeInfo, z string) {
 			stockDatas = append(stockDatas, monitor.GetInStockSizesForColor(x, y, z)...)
 			wg.Done()
 		}(pid, sizes, color)
@@ -532,8 +532,8 @@ func (monitor *Monitor) GetInStockVariations(pid string, sizes []HottopicSizeInf
 	return stockDatas
 }
 
-func (monitor *Monitor) GetInStockSizesForColor(pid string, sizes []HottopicSizeInfo, color string) []HottopicInStockData {
-	var stockDatas []HottopicInStockData
+func (monitor *Monitor) GetInStockSizesForColor(pid string, sizes []BoxlunchSizeInfo, color string) []BoxlunchInStockData {
+	var stockDatas []BoxlunchInStockData
 
 	endpoint := fmt.Sprintf(MonitorEndpoint2, pid, pid) + color
 
@@ -572,8 +572,8 @@ func (monitor *Monitor) GetInStockSizesForColor(pid string, sizes []HottopicSize
 	return stockDatas
 }
 
-func (monitor *Monitor) GetColorVariationInfo(body, pid, color string, sizes []HottopicSizeInfo) []HottopicInStockData {
-	var stockDatas []HottopicInStockData
+func (monitor *Monitor) GetColorVariationInfo(body, pid, color string, sizes []BoxlunchSizeInfo) []BoxlunchInStockData {
+	var stockDatas []BoxlunchInStockData
 
 	doc := soup.HTMLParse(body)
 
@@ -609,7 +609,7 @@ func (monitor *Monitor) GetColorVariationInfo(body, pid, color string, sizes []H
 						}
 					}
 					if matchedSize {
-						stockDatas = append(stockDatas, HottopicInStockData{
+						stockDatas = append(stockDatas, BoxlunchInStockData{
 							PID:             pid,
 							SizePID:         fmt.Sprint(intPid + index + 1),
 							Size:            size,

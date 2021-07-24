@@ -1,65 +1,71 @@
-package hottopic
+package disney
 
 import (
 	"fmt"
+	"log"
+	"math/rand"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// AddHottopicHeaders adds Hottopic-specific headers to the request
-func AddHottopicHeaders(request *http.Request, referer ...string) {
-	util.AddBaseHeaders(request)
-	request.Header.Set("Accept", "*/*")
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	request.Header.Set("Origin", "https://www.hottopic.com")
-	// omitcsrfjwt: true
-	// omitcorrelationid: true
-	// credentials: include
-	// TODO: Header order
-	if len(referer) != 0 {
-		request.Header.Set("Referer", referer[0])
+func BecomeGuest(client http.Client) bool {
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: client,
+		Method: "GET",
+		URL:    BaseEndpoint,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"upgrade-insecure-requests", `1`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`},
+			{"accept", `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9`},
+			{"sec-fetch-site", `none`},
+			{"sec-fetch-mode", `navigate`},
+			{"sec-fetch-user", `?1`},
+			{"sec-fetch-dest", `document`},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+	})
+	if err != nil || resp.StatusCode != 200 {
+		if err != nil {
+			log.Println(err.Error())
+		}
+		return false
 	}
+
+	return true
 }
 
-func getDwCont(body string) (string, error) {
-	return common.FindInString2(body, "cart?dwcont=", `"`)
-}
-
-func getSecureKey(body string) (string, error) {
-	return common.FindInString2(body, `_securekey" value="`, `"`)
+func RandomString(selection string, length int) (r string) {
+	for i := 0; i < length; i++ {
+		r += string(selection[rand.Intn(len(selection))])
+	}
+	return
 }
 
 // Creates a embed for the DiscordWebhook function
-func (task *Task) CreateHottopicEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
-	size := task.StockData.Size
-	if size == "" {
-		size = "N/A"
-	}
-	color := task.StockData.Color
-	if color == "" {
-		color = "N/A"
-	}
+func (task *Task) CreateDisneyEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
 	embeds := []sec.DiscordEmbed{
 		{
 			Fields: []sec.DiscordField{
 				{
 					Name:   "Site:",
-					Value:  "Hottopic",
+					Value:  "Disney",
 					Inline: true,
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.StockData.Price),
+					Value:  "$" + fmt.Sprint(task.TaskInfo.Total),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.hottopic.com/product/%v.html)", task.StockData.PID, task.StockData.PID),
+					Value:  fmt.Sprintf("[%v](%v)", task.StockData.PID, task.StockData.ItemURL),
 					Inline: true,
 				},
 				{
@@ -67,12 +73,8 @@ func (task *Task) CreateHottopicEmbed(status enums.OrderStatus, imageURL string)
 					Value: task.StockData.ProductName,
 				},
 				{
-					Name:  "Size:",
-					Value: size,
-				},
-				{
-					Name:  "Color:",
-					Value: color,
+					Name:  "Task Type:",
+					Value: string(task.TaskType),
 				},
 				{
 					Name:  "Proxy:",

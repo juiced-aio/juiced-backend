@@ -1,7 +1,7 @@
 package walmart
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
@@ -35,30 +35,34 @@ const (
 	PlaceOrderEndpoint = "https://www.walmart.com/api/checkout/v3/contract/:PCID/order"
 	PlaceOrderReferer  = "https://www.walmart.com/checkout/"
 
-	MonitorEndpoint = "https://www.walmart.com/ip/%s/sellers"
+	MonitorEndpoint = "https://www.walmart.com/terra-firma/item/%v"
 )
 
 // Monitor info
 type Monitor struct {
-	Monitor        base.Monitor
-	MonitorType    enums.MonitorType
-	SKUs           []string
-	InStockForShip []WalmartInStockData
-	PXValues       util.PXValues
+	Monitor         base.Monitor
+	IDs             []string
+	RunningMonitors []string
+	InStockForShip  []WalmartInStockData
+	IDWithInfo      map[string]entities.WalmartSingleMonitorInfo
+	PXValues        util.PXValues
 }
 
 type WalmartInStockData struct {
-	Sku     string `json:"sku"`
-	OfferID string `json:"offerID"`
+	SKU         string
+	OfferID     string
+	ProductName string
+	ImageURL    string
+	Price       float64
+	MaxQty      int
 }
 
 // Task info
 type Task struct {
-	Task     base.Task
-	OfferID  string
-	Sku      string
-	CardInfo CardInfo
-	PXValues util.PXValues
+	Task      base.Task
+	StockData WalmartInStockData
+	CardInfo  CardInfo
+	PXValues  util.PXValues
 }
 
 //Part of the Task struct
@@ -89,6 +93,28 @@ type PIEValues struct {
 //Used in AddToCart function
 type Cart struct {
 	ItemCount int `json:"itemCount"`
+}
+
+type Items struct {
+	OfferID              string  `json:"offerId"`
+	Name                 string  `json:"name"`
+	Price                float64 `json:"price"`
+	AvailableQuantity    int     `json:"availableQuantity"`
+	USItemID             string  `json:"USItemId"`
+	Seller               Seller  `json:"seller"`
+	MaxItemCountPerOrder int     `json:"maxItemCountPerOrder"`
+	Assets               Assets  `json:"assets"`
+}
+
+type Seller struct {
+	ID string `json:"id"`
+}
+
+type Primary struct {
+	Num100 string `json:"100"`
+}
+type Assets struct {
+	Primary []Primary `json:"primary"`
 }
 
 //Used in PlaceOrderRequest
@@ -157,3 +183,67 @@ type Summary struct {
 	GrandTotal    float64 `json:"grandTotal"`
 	QuantityTotal int     `json:"quantityTotal"`
 }
+
+// Used in GetSkuStock
+type MonitorResponse struct {
+	Payload Payload `json:"payload"`
+}
+
+type Payload struct {
+	PrimaryProduct string      `json:"primaryProduct"`
+	Products       interface{} `json:"products"`
+	Offers         interface{} `json:"offers"`
+	Images         interface{} `json:"images"`
+}
+
+type Product struct {
+	ProductAttributes ProductAttributes `json:"productAttributes"`
+}
+
+type ProductAttributes struct {
+	ProductName string `json:"productName"`
+}
+
+type Offer struct {
+	Sellerid            string              `json:"sellerId"`
+	Pricesinfo          Pricesinfo          `json:"pricesInfo"`
+	Productavailability Productavailability `json:"productAvailability"`
+	OfferInfo           OfferInfo           `json:"offerInfo"`
+}
+
+type Current struct {
+	Price float64 `json:"price"`
+}
+
+type Pricemap struct {
+	Current Current `json:"CURRENT"`
+}
+
+type Pricesinfo struct {
+	Pricemap Pricemap `json:"priceMap"`
+}
+
+type Productavailability struct {
+	Availabilitystatus string `json:"availabilityStatus"`
+}
+
+type OfferInfo struct {
+	OfferID         string          `json:"offerId"`
+	QuantityOptions QuantityOptions `json:"quantityOptions"`
+}
+
+type QuantityOptions struct {
+	OrderLimit int `json:"orderLimit"`
+}
+
+type Image struct {
+	Type          string        `json:"type"`
+	Rank          int           `json:"rank"`
+	AssetSizeUrls AssetSizeUrls `json:"assetSizeUrls"`
+}
+
+type AssetSizeUrls struct {
+	Default string `json:"DEFAULT"`
+}
+
+//

@@ -1,7 +1,6 @@
 package walmart
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"net/url"
@@ -9,7 +8,6 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
@@ -32,12 +30,18 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, error) {
-	px3, pxValues, err := util.GetPXCookie("walmart", proxy)
+func SetPXCookie(proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) (util.PXValues, bool, error) {
+	px3, pxValues, cancel, err := util.GetPXCookie("walmart", proxy, cancellationToken)
+	if cancel {
+		return pxValues, true, nil
+	}
 	if err != nil {
 		fmt.Println("Error getting PX cookie: " + err.Error())
-		return pxValues, err
+		return pxValues, false, err
 	}
+
+	log.Println("Retrieved PX3 cookie: " + px3)
+
 	cookie := &http.Cookie{
 		Name:   "_px3",
 		Value:  px3,
@@ -47,45 +51,25 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client) (util.PXValues, erro
 	u, err := url.Parse("https://walmart.com/") // This should never error, but just to be safe let's handle the error
 	if err != nil {
 		fmt.Println("Error parsing https://walmart.com/ to set PX cookie: " + err.Error())
-		return pxValues, err
+		return pxValues, false, err
 	}
 	cookies := client.Jar.Cookies(u)
 	cookies = append(cookies, cookie)
 	client.Jar.SetCookies(u, cookies)
-	return pxValues, nil
+	return pxValues, false, nil
 }
 
-func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client) error {
-	log.Println("Requesting Captcha token")
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Walmart, captchaURL, "", 0, proxy)
-	if err != nil {
-		fmt.Println("Error getting ReCaptcha v2 Token: " + err.Error())
-		return err
+func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
+	px3, cancel, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, "", proxy, cancellationToken)
+	if cancel {
+		return nil
 	}
-
-	if token == nil {
-		log.Println("No tokens available, waiting until one is available")
-	}
-
-	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Walmart, captchaURL, proxy)
-		time.Sleep(1 * time.Second / 10)
-	}
-	log.Println("Received Captcha token")
-	tokenInfo, ok := token.(entities.ReCaptchaToken)
-	if !ok {
-		log.Println(token)
-		err = errors.New("token could not be parsed")
-		log.Println("Error getting ReCaptcha v2 Token: " + err.Error())
-		return err
-	}
-	px3, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, tokenInfo.Token, proxy)
 	if err != nil {
 		log.Println("Error getting PXCap cookie: " + err.Error())
 		return err
 	}
 
-	log.Println("Retrieved PX3 cookie: " + px3)
+	log.Println("Retrieved PX3 cap cookie: " + px3)
 
 	px3Cookie := &http.Cookie{
 		Name:   "_px3",
@@ -135,17 +119,17 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(0), // TODO: @TeHNiC
+					Value:  "$" + fmt.Sprint(task.StockData.Price),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.walmart.com/ip/%v)", task.Sku, task.Sku),
+					Value:  fmt.Sprintf("[%v](https://www.walmart.com/ip/%v)", task.StockData.SKU, task.StockData.SKU),
 					Inline: true,
 				},
 				{
 					Name:  "Product Name:",
-					Value: "NaN", // TODO: @TeHNiC
+					Value: task.StockData.ProductName,
 				},
 				{
 					Name:  "Proxy:",

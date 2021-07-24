@@ -97,10 +97,16 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 		return conn, nil
 	}
 
-	/* sslConn, err := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true})
+	sslConn, err := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true})
+	if err != nil {
+		return nil, err
+	}
+
+	currentCerts := []string{}
 	for _, cert := range sslConn.ConnectionState().PeerCertificates {
-		fmt.Println(cert.Issuer)
-	} */
+		certFingerprint := hpkp.Fingerprint(cert)
+		currentCerts = append(currentCerts, certFingerprint)
+	}
 
 	rawConn, err := rt.dialer.DialContext(ctx, network, addr)
 	if err != nil {
@@ -120,26 +126,12 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 		conn.Close()
 		return nil, err
 	}
-	var logCerts bool
-	var certs []string
-	if os.Getenv("JUICED_MODE") == "CERTS" {
-		logCerts = true
-	}
-	site := strings.Split(addr, ":")[0]
+
 	for _, cert := range conn.ConnectionState().PeerCertificates {
-		_, ok := siteCerts[site]
-		if ok {
-			certFingerprint := hpkp.Fingerprint(cert)
-			if os.Getenv("JUICED_MODE") != "DEV" && os.Getenv("JUICED_MODE") != "CERTS" && !common.InSlice(siteCerts[site], certFingerprint) {
-				conn.Close()
-				return nil, errors.New("bad proxy")
-			}
-			if logCerts {
-				if !common.InSlice(siteCerts[site], certFingerprint) {
-					certs = append(certs, certFingerprint)
-					fmt.Println(site + " has new certificates")
-				}
-			}
+		certFingerprint := hpkp.Fingerprint(cert)
+		if os.Getenv("JUICED_MODE") != "DEV" && os.Getenv("JUICED_MODE") != "CERTS" && !common.InSlice(currentCerts, certFingerprint) {
+			conn.Close()
+			return nil, errors.New("bad proxy")
 		}
 
 		stringedCert := strings.ToLower(fmt.Sprint(cert.Issuer))
@@ -148,11 +140,6 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 			return nil, errors.New("bad proxy")
 		}
 
-	}
-	if logCerts {
-		fmt.Println(site + ":")
-		fmt.Println(`"` + strings.Join(certs, `","`) + `"`)
-		fmt.Println()
 	}
 
 	if rt.cachedTransports[addr] != nil {
