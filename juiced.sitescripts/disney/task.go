@@ -56,12 +56,13 @@ func (task *Task) CheckForStop() bool {
 // 		1. Login / Become a guest
 // 		2. WaitForMonitor
 // 		3. AddtoCart
-// 		4. ValidateCheckout
-//		5. SubmitShippingInfo
-// 		6. EstablishAppSession
-// 		7. GetPaysheetAE
-// 		8. GetCardToken
-// 		9. PlaceOrder
+// 		4. GetCheckoutInfo
+// 		5. ValidateCheckout
+//		6. SubmitShippingInfo
+// 		7. EstablishAppSession
+// 		8. GetPaysheetAE
+// 		9. GetCardToken
+// 		10. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -115,6 +116,21 @@ func (task *Task) RunTask() {
 		return
 	}
 
+	newAbck := false
+	for !newAbck {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		err := util.NewAbck(&task.Task.Client, BaseEndpoint, BaseEndpoint, AkamaiEndpoint)
+		if err == nil {
+			newAbck = true
+		}
+		if !newAbck {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	// 3. AddtoCart
 	addedToCart := false
@@ -136,7 +152,20 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
 
 	startTime := time.Now()
-	// 4. ValidateCheckout
+	// 4. GetCheckoutInfo
+	gotCheckoutInfo := false
+	for !gotCheckoutInfo {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		gotCheckoutInfo = task.GetCheckoutInfo()
+		if !gotCheckoutInfo {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 5. ValidateCheckout
 	validatedCheckout := false
 	for !validatedCheckout {
 		needToStop := task.CheckForStop()
@@ -149,9 +178,9 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 5. SubmitShippingInfo
+	// 6. SubmitShippingInfo
 	submittedShippingInfo := false
-	for !validatedCheckout {
+	for !submittedShippingInfo {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -162,9 +191,9 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 6. EstablishAppSession
+	// 7. EstablishAppSession
 	establishedAppSession := false
-	for !validatedCheckout {
+	for !establishedAppSession {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -175,9 +204,9 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 7. GetPaysheetAE
+	// 8. GetPaysheetAE
 	gotPaymentAE := false
-	for !validatedCheckout {
+	for !gotPaymentAE {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -188,9 +217,9 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 8. GetCardToken
+	// 9. GetCardToken
 	gotCardToken := false
-	for !validatedCheckout {
+	for !gotCardToken {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -202,7 +231,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	// 9. PlaceOrder
+	// 10. PlaceOrder
 	placedOrder := false
 	doNotRetry := false
 	status := enums.OrderStatusFailed
@@ -267,6 +296,18 @@ func (task *Task) Login() bool {
 	oidClientID, err := common.FindInString(body, `"oidClientID": "`, `"`)
 	if err != nil {
 		return false
+	}
+
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				err := util.NewAbck(&task.Task.Client, task.StockData.ItemURL, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
+			}
+		}
 	}
 
 	resp, err = task.Task.Client.Post("https://registerdisney.go.com/jgc/v6/client/DCP-DISNEYSTORE.WEB-PROD/api-key?langPref=en-US", "", nil)
@@ -422,6 +463,18 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart() bool {
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				err := util.NewAbck(&task.Task.Client, task.StockData.ItemURL, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
+			}
+		}
+	}
+
 	data := []byte(util.CreateParams(map[string]string{
 		"pid":      task.StockData.VID,
 		"quantity": fmt.Sprint(task.Task.Task.TaskQty),
@@ -456,6 +509,38 @@ func (task *Task) AddToCart() bool {
 	}
 
 	return addToCartResponse.Message == "Product added to bag"
+}
+
+func (task *Task) GetCheckoutInfo() bool {
+	getCheckoutInfoResponse := GetCheckoutInfoResponse{}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    GetCheckoutInfoEndpoint,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"accept", "application/json, text/javascript, */*; q=0.01"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-site", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", CartEndpoint},
+			{"accept-encoding", "gzip, deflate"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		ResponseBodyStruct: &getCheckoutInfoResponse,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err)
+		return false
+	}
+
+	task.TaskInfo.ShipmentUUID = getCheckoutInfoResponse.Items[0].ShipmentUUID
+	task.TaskInfo.ShippingMethod = getCheckoutInfoResponse.Shipments[0].SelectedShippingMethod
+	task.TaskInfo.CsrfToken = getCheckoutInfoResponse.Csrf.Token
+	return true
 }
 
 func (task *Task) ValidateCheckout() bool {
