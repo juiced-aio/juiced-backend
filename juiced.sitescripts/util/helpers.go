@@ -21,6 +21,7 @@ import (
 	utls "backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
@@ -600,4 +601,95 @@ func GetCookie(client http.Client, uri string, cookieName string) (string, error
 		}
 	}
 	return "", errors.New("no cookie with name: " + cookieName)
+}
+
+func GetCardType(cardNumber []byte, retailer enums.Retailer) string {
+	matched, _ := regexp.Match(`^4`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.Walmart:
+			return "VISA"
+		default:
+			return "Visa"
+		}
+	}
+
+	matched, _ = regexp.Match(`^(5[1-5][0-9]{14}|2(22[1-9][0-9]{12}|2[3-9][0-9]{13}|[3-6][0-9]{14}|7[0-1][0-9]{13}|720[0-9]{12}))$`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.GameStop:
+			return "MasterCard"
+		case enums.Walmart:
+			return "MASTERCARD"
+		default:
+			return "Mastercard"
+		}
+	}
+
+	matched, _ = regexp.Match(`^3[47]`, cardNumber)
+	if matched {
+		switch retailer {
+
+		default:
+			return "AMEX"
+		}
+	}
+
+	matched, _ = regexp.Match(`^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.Walmart:
+			return "DISCOVER"
+		default:
+			return "Discover"
+		}
+	}
+
+	matched, _ = regexp.Match(`^36`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.GameStop:
+		case enums.Walmart:
+		default:
+			return "Diners"
+		}
+	}
+
+	matched, _ = regexp.Match(`^30[0-5]`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.BestBuy:
+		case enums.BoxLunch:
+		case enums.GameStop:
+			return "MasterCard"
+		case enums.HotTopic:
+		case enums.Walmart:
+		default:
+			return "Diners - Carte Blanche"
+		}
+	}
+
+	matched, _ = regexp.Match(`^35(2[89]|[3-8][0-9])`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.BoxLunch:
+		case enums.GameStop:
+			return "Unknown"
+		case enums.HotTopic:
+		case enums.Target:
+		case enums.Walmart:
+		default:
+			return "JCB"
+		}
+	}
+
+	matched, _ = regexp.Match(`^(4026|417500|4508|4844|491(3|7))`, cardNumber)
+	if matched {
+		switch retailer {
+		default:
+			return "Visa Electron"
+		}
+	}
+
+	return ""
 }
