@@ -94,13 +94,13 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 		if err != nil {
 			return err
 		}
-		taskGroup.BoxlunchMonitorInfo.ID = monitorID
-		taskGroup.BoxlunchMonitorInfo.TaskGroupID = taskGroup.GroupID
-		_, err = statement.Exec(taskGroup.BoxlunchMonitorInfo.ID, taskGroup.BoxlunchMonitorInfo.TaskGroupID)
+		taskGroup.BoxLunchMonitorInfo.ID = monitorID
+		taskGroup.BoxLunchMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.BoxLunchMonitorInfo.ID, taskGroup.BoxLunchMonitorInfo.TaskGroupID)
 		if err != nil {
 			return err
 		}
-		for _, monitor := range taskGroup.BoxlunchMonitorInfo.Monitors {
+		for _, monitor := range taskGroup.BoxLunchMonitorInfo.Monitors {
 			statement, err := database.Preparex(`INSERT INTO boxlunchSingleMonitorInfos (monitorID, taskGroupID, pid, size, color, maxPrice, monitorType) VALUES (?, ?, ?, ?, ?, ?, ?)`)
 			if err != nil {
 				return err

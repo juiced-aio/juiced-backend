@@ -22,7 +22,7 @@ type Task struct {
 	CreationDate     int64            `json:"creationDate" db:"creationDate"`
 	AmazonTaskInfo   AmazonTaskInfo   `json:"amazonTaskInfo"`
 	BestbuyTaskInfo  BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
-	BoxlunchTaskInfo BoxlunchTaskInfo `json:"boxlunchTaskInfo"`
+	BoxLunchTaskInfo BoxLunchTaskInfo `json:"boxlunchTaskInfo"`
 	DisneyTaskInfo   DisneyTaskInfo   `json:"disneyTaskInfo"`
 	GamestopTaskInfo GamestopTaskInfo `json:"gamestopTaskInfo"`
 	HottopicTaskInfo HottopicTaskInfo `json:"hottopicTaskInfo"`
@@ -48,9 +48,11 @@ type BestbuyTaskInfo struct {
 	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
 }
 
-type BoxlunchTaskInfo struct {
-	TaskID      string `json:"taskID" db:"taskID"`
-	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+type BoxLunchTaskInfo struct {
+	TaskID      string   `json:"taskID" db:"taskID"`
+	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
+	PidsJoined  string   `json:"pidsJoined"`
+	Pids        []string `json:"pids"`
 }
 
 type DisneyTaskInfo struct {
@@ -70,8 +72,10 @@ type GamestopTaskInfo struct {
 }
 
 type HottopicTaskInfo struct {
-	TaskID      string `json:"taskID" db:"taskID"`
-	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	TaskID      string   `json:"taskID" db:"taskID"`
+	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
+	Pids        []string `json:"pids"`
+	PidsJoined  string   `json:"pidsJoined" db:"pidsJoined"`
 }
 
 type HotWheelsTaskInfo struct {
@@ -137,7 +141,7 @@ type TaskGroupWithTasks struct {
 	Tasks               []Task              `json:"tasks"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
-	BoxlunchMonitorInfo BoxlunchMonitorInfo `json:"boxlunchMonitorInfo"`
+	BoxLunchMonitorInfo BoxLunchMonitorInfo `json:"boxlunchMonitorInfo"`
 	DisneyMonitorInfo   DisneyMonitorInfo   `json:"disneyMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
@@ -168,7 +172,7 @@ type TaskGroup struct {
 	CreationDate        int64               `json:"creationDate" db:"creationDate"`
 	AmazonMonitorInfo   AmazonMonitorInfo   `json:"amazonMonitorInfo"`
 	BestbuyMonitorInfo  BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
-	BoxlunchMonitorInfo BoxlunchMonitorInfo `json:"boxlunchMonitorInfo"`
+	BoxLunchMonitorInfo BoxLunchMonitorInfo `json:"boxlunchMonitorInfo"`
 	DisneyMonitorInfo   DisneyMonitorInfo   `json:"disneyMonitorInfo"`
 	GamestopMonitorInfo GamestopMonitorInfo `json:"gamestopMonitorInfo"`
 	HottopicMonitorInfo HottopicMonitorInfo `json:"hottopicMonitorInfo"`
@@ -240,7 +244,7 @@ type BestbuyMonitorInfo struct {
 	Monitors    []BestbuySingleMonitorInfo `json:"monitors"`
 }
 
-type BoxlunchSingleMonitorInfo struct {
+type BoxLunchSingleMonitorInfo struct {
 	MonitorID   string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
 	Pid         string            `json:"pid" db:"pid"`
@@ -250,10 +254,10 @@ type BoxlunchSingleMonitorInfo struct {
 	MonitorType enums.MonitorType `json:"monitorType" db:"monitorType"`
 }
 
-type BoxlunchMonitorInfo struct {
+type BoxLunchMonitorInfo struct {
 	ID          string                      `json:"ID" db:"ID"`
 	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
-	Monitors    []BoxlunchSingleMonitorInfo `json:"monitors"`
+	Monitors    []BoxLunchSingleMonitorInfo `json:"monitors"`
 }
 
 type DisneySingleMonitorInfo struct {

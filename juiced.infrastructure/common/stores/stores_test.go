@@ -42,8 +42,8 @@ var bestbuyMonitorInfoAsset = entities.BestbuyMonitorInfo{
 
 var boxlunchMonitorAsset = map[string]*boxlunch.Monitor{"boxlunch_test_monitor": {Monitor: monitorAsset, Pids: []string{""}}}
 
-var boxlunchMonitorInfoAsset = entities.BoxlunchMonitorInfo{
-	Monitors: []entities.BoxlunchSingleMonitorInfo{
+var boxlunchMonitorInfoAsset = entities.BoxLunchMonitorInfo{
+	Monitors: []entities.BoxLunchSingleMonitorInfo{
 		{
 			Pid:      "",
 			MaxPrice: -1,
@@ -181,7 +181,7 @@ func TestStartMonitor(t *testing.T) {
 			tt.args.monitor.BestbuyMonitorInfo = bestbuyMonitorInfoAsset
 		case enums.BoxLunch:
 			tt.monitorStore.BoxlunchMonitors = boxlunchMonitorAsset
-			tt.args.monitor.BoxlunchMonitorInfo = boxlunchMonitorInfoAsset
+			tt.args.monitor.BoxLunchMonitorInfo = boxlunchMonitorInfoAsset
 		case enums.Disney:
 			tt.monitorStore.DisneyMonitors = disneyMonitorAsset
 			tt.args.monitor.DisneyMonitorInfo = disneyMonitorInfoAsset

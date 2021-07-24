@@ -120,11 +120,11 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return queryError
 		}
 
-		if len(monitor.BoxlunchMonitorInfo.Monitors) == 0 {
+		if len(monitor.BoxLunchMonitorInfo.Monitors) == 0 {
 			return e.New(errors.NoMonitorsError)
 		}
 
-		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
+		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxLunchMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -204,7 +204,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 		}
 		// Create monitor
-		targetMonitor, err := target.CreateTargetMonitor(monitor, proxies, monitorStore.EventBus, monitor.TargetMonitorInfo)
+		targetMonitor, err := target.CreateTargetMonitor(monitor, proxies, monitorStore.EventBus, &monitor.TargetMonitorInfo)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
