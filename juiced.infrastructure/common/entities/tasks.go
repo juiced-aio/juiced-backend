@@ -166,15 +166,15 @@ type TaskGroup struct {
 	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
 	UpdateMonitor       bool
 	CreationDate        int64                `json:"creationDate" db:"creationDate"`
-	AmazonMonitorInfo   *AmazonMonitorInfo   `json:"amazonMonitorInfo"`
-	BestbuyMonitorInfo  *BestbuyMonitorInfo  `json:"bestbuyMonitorInfo"`
-	BoxlunchMonitorInfo *BoxlunchMonitorInfo `json:"boxlunchMonitorInfo"`
-	DisneyMonitorInfo   *DisneyMonitorInfo   `json:"disneyMonitorInfo"`
-	GamestopMonitorInfo *GamestopMonitorInfo `json:"gamestopMonitorInfo"`
-	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo"`
-	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo"`
-	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo"`
-	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo"`
+	AmazonMonitorInfo   *AmazonMonitorInfo   `json:"amazonMonitorInfo,omitempty"`
+	BestbuyMonitorInfo  *BestbuyMonitorInfo  `json:"bestbuyMonitorInfo,omitempty"`
+	BoxlunchMonitorInfo *BoxlunchMonitorInfo `json:"boxlunchMonitorInfo,omitempty"`
+	DisneyMonitorInfo   *DisneyMonitorInfo   `json:"disneyMonitorInfo,omitempty"`
+	GamestopMonitorInfo *GamestopMonitorInfo `json:"gamestopMonitorInfo,omitempty"`
+	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo,omitempty"`
+	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo,omitempty"`
+	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo,omitempty"`
+	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo,omitempty"`
 
 	// Future sitescripts will have a field here
 }
