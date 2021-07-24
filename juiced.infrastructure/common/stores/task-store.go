@@ -161,7 +161,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return e.New(errors.MissingTaskFieldsError)
 		}
 		// Create task
-		disneyTask, err := disney.CreateDisneyTask(task, profile, proxy, taskStore.EventBus, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password)
+		disneyTask, err := disney.CreateDisneyTask(task, profile, proxy, taskStore.EventBus, task.DisneyTaskInfo.TaskType, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}

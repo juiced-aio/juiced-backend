@@ -204,7 +204,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 		}
 		// Create monitor
-		targetMonitor, err := target.CreateTargetMonitor(monitor, proxies, monitorStore.EventBus, &monitor.TargetMonitorInfo)
+		targetMonitor, err := target.CreateTargetMonitor(monitor, proxies, monitorStore.EventBus, monitor.TargetMonitorInfo)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}

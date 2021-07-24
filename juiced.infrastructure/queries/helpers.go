@@ -28,11 +28,14 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.AmazonTaskInfo)
+			tempTaskInfo := entities.AmazonTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
 			if err != nil {
 				return task, err
 			}
+			task.AmazonTaskInfo = &tempTaskInfo
 		}
+
 	case enums.BestBuy:
 		statement, err := database.Preparex(`SELECT * FROM bestbuyTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -45,27 +48,12 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.BestbuyTaskInfo)
+			tempTaskInfo := entities.BestbuyTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
 			if err != nil {
 				return task, err
 			}
-		}
-	case enums.Disney:
-		statement, err := database.Preparex(`SELECT * FROM disneyTaskInfos WHERE taskID = @p1`)
-		if err != nil {
-			return task, err
-		}
-		rows, err := statement.Queryx(task.ID)
-		if err != nil {
-			return task, err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			err = rows.StructScan(&task.DisneyTaskInfo)
-			if err != nil {
-				return task, err
-			}
+			task.BestbuyTaskInfo = &tempTaskInfo
 		}
 
 	case enums.BoxLunch:
@@ -80,10 +68,32 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.BoxlunchTaskInfo)
+			tempTaskInfo := entities.BoxlunchTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
 			if err != nil {
 				return task, err
 			}
+			task.BoxlunchTaskInfo = &tempTaskInfo
+		}
+
+	case enums.Disney:
+		statement, err := database.Preparex(`SELECT * FROM disneyTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempTaskInfo := entities.DisneyTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
+			if err != nil {
+				return task, err
+			}
+			task.DisneyTaskInfo = &tempTaskInfo
 		}
 
 	case enums.GameStop:
@@ -98,10 +108,32 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.GamestopTaskInfo)
+			tempTaskInfo := entities.GamestopTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
 			if err != nil {
 				return task, err
 			}
+			task.GamestopTaskInfo = &tempTaskInfo
+		}
+
+	case enums.HotTopic:
+		statement, err := database.Preparex(`SELECT * FROM hottopicTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempTaskInfo := entities.HottopicTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
+			if err != nil {
+				return task, err
+			}
+			task.HottopicTaskInfo = &tempTaskInfo
 		}
 
 	case enums.Shopify:
@@ -116,10 +148,12 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.ShopifyTaskInfo)
+			tempTaskInfo := entities.ShopifyTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
 			if err != nil {
 				return task, err
 			}
+			task.ShopifyTaskInfo = &tempTaskInfo
 		}
 
 	case enums.Target:
@@ -134,10 +168,12 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.TargetTaskInfo)
+			tempTaskInfo := entities.TargetTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
 			if err != nil {
 				return task, err
 			}
+			task.TargetTaskInfo = &tempTaskInfo
 		}
 
 	case enums.Walmart:
@@ -152,10 +188,12 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&task.WalmartTaskInfo)
+			tempTaskInfo := entities.WalmartTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
 			if err != nil {
 				return task, err
 			}
+			task.WalmartTaskInfo = &tempTaskInfo
 		}
 
 	}
@@ -181,10 +219,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.AmazonMonitorInfo)
+			tempMonitorInfo := entities.AmazonMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.AmazonMonitorInfo = &tempMonitorInfo
 		}
 
 		statement, err = database.Preparex(`SELECT * FROM amazonSingleMonitorInfos WHERE monitorID = @p1`)
@@ -220,10 +260,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.BestbuyMonitorInfo)
+			tempMonitorInfo := entities.BestbuyMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.BestbuyMonitorInfo = &tempMonitorInfo
 		}
 
 		statement, err = database.Preparex(`SELECT * FROM bestbuySingleMonitorInfos WHERE monitorID = @p1`)
@@ -259,10 +301,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.BoxlunchMonitorInfo)
+			tempMonitorInfo := entities.BoxlunchMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.BoxlunchMonitorInfo = &tempMonitorInfo
 		}
 
 		statement, err = database.Preparex(`SELECT * FROM boxlunchSingleMonitorInfos WHERE monitorID = @p1`)
@@ -298,10 +342,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.DisneyMonitorInfo)
+			tempMonitorInfo := entities.DisneyMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.DisneyMonitorInfo = &tempMonitorInfo
 		}
 
 		statement, err = database.Preparex(`SELECT * FROM disneySingleMonitorInfos WHERE monitorID = @p1`)
@@ -337,10 +383,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.GamestopMonitorInfo)
+			tempMonitorInfo := entities.GamestopMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.GamestopMonitorInfo = &tempMonitorInfo
 		}
 		statement, err = database.Preparex(`SELECT * FROM gamestopSingleMonitorInfos WHERE monitorID = @p1`)
 		if err != nil {
@@ -375,10 +423,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 		defer rows.Close()
 
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.HottopicMonitorInfo)
+			tempMonitorInfo := entities.HottopicMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.HottopicMonitorInfo = &tempMonitorInfo
 		}
 		statement, err = database.Preparex(`SELECT * FROM hottopicSingleMonitorInfos WHERE monitorID = @p1`)
 		if err != nil {
@@ -412,10 +462,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.ShopifyMonitorInfo)
+			tempMonitorInfo := entities.ShopifyMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.ShopifyMonitorInfo = &tempMonitorInfo
 		}
 
 		statement, err = database.Preparex(`SELECT * FROM shopifySingleMonitorInfos WHERE monitorID = @p1`)
@@ -450,10 +502,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.TargetMonitorInfo)
+			tempMonitorInfo := entities.TargetMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.TargetMonitorInfo = &tempMonitorInfo
 		}
 
 		statement, err = database.Preparex(`SELECT * FROM targetSingleMonitorInfos WHERE monitorID = @p1`)
@@ -489,10 +543,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			err = rows.StructScan(&taskGroup.WalmartMonitorInfo)
+			tempMonitorInfo := entities.WalmartMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
+			taskGroup.WalmartMonitorInfo = &tempMonitorInfo
 		}
 
 		statement, err = database.Preparex(`SELECT * FROM walmartSingleMonitorInfos WHERE monitorID = @p1`)

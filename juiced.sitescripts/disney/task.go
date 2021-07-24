@@ -10,6 +10,7 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -19,16 +20,15 @@ import (
 )
 
 // CreateDisneyTask takes a Task entity and turns it into a Disney Task
-func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, email, password string) (Task, error) {
-	disneyTask := Task{}
-
-	disneyTask = Task{
+func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+	disneyTask := Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
 			Proxy:    proxy,
 			EventBus: eventBus,
 		},
+		TaskType: taskType,
 		AccountInfo: AccountInfo{
 			Email:    email,
 			Password: password,
@@ -57,12 +57,13 @@ func (task *Task) CheckForStop() bool {
 // 		1. Login / Become a guest
 // 		2. WaitForMonitor
 // 		3. AddtoCart
-// 		4. ValidateCheckout
-//		5. SubmitShippingInfo
-// 		6. EstablishAppSession
-// 		7. GetPaysheetAE
-// 		8. GetCardToken
-// 		9. PlaceOrder
+// 		4. GetCheckoutInfo
+// 		5. ValidateCheckout
+//		6. SubmitShippingInfo
+// 		7. EstablishAppSession
+// 		8. GetPaysheetAE
+// 		9. GetCardToken
+// 		10. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -92,14 +93,34 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
-			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			if task.Task.Task.TaskStatus != enums.LoggingIn {
+				task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			}
 			sessionMade = task.Login()
+
 		case enums.TaskTypeGuest:
-			task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			if task.Task.Task.TaskStatus != enums.SettingUp {
+				task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			}
 			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
 		if !sessionMade {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	newAbck := false
+	for !newAbck {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		err := util.NewAbck(&task.Task.Client, BaseEndpoint, BaseEndpoint, AkamaiEndpoint)
+		if err == nil {
+			newAbck = true
+		}
+		if !newAbck {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -124,15 +145,25 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
-	needToStop = task.CheckForStop()
-	if needToStop {
-		return
-	}
-
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
 
 	startTime := time.Now()
-	// 4. ValidateCheckout
+
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	// 4. GetCheckoutInfo
+	gotCheckoutInfo := false
+	for !gotCheckoutInfo {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		gotCheckoutInfo = task.GetCheckoutInfo()
+		if !gotCheckoutInfo {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	// 5. ValidateCheckout
 	validatedCheckout := false
 	for !validatedCheckout {
 		needToStop := task.CheckForStop()
@@ -145,9 +176,10 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 5. SubmitShippingInfo
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	// 6. SubmitShippingInfo
 	submittedShippingInfo := false
-	for !validatedCheckout {
+	for !submittedShippingInfo {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -158,9 +190,10 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 6. EstablishAppSession
+	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)
+	// 7. EstablishAppSession
 	establishedAppSession := false
-	for !validatedCheckout {
+	for !establishedAppSession {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -171,9 +204,10 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 7. GetPaysheetAE
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	// 8. GetPaysheetAE
 	gotPaymentAE := false
-	for !validatedCheckout {
+	for !gotPaymentAE {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -184,9 +218,10 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 8. GetCardToken
+	task.PublishEvent(enums.GettingOrderInfo, enums.TaskUpdate)
+	// 9. GetCardToken
 	gotCardToken := false
-	for !validatedCheckout {
+	for !gotCardToken {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
@@ -198,7 +233,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	// 9. PlaceOrder
+	// 10. PlaceOrder
 	placedOrder := false
 	doNotRetry := false
 	status := enums.OrderStatusFailed
@@ -265,12 +300,102 @@ func (task *Task) Login() bool {
 		return false
 	}
 
-	resp, err = task.Task.Client.Post("https://registerdisney.go.com/jgc/v6/client/DCP-DISNEYSTORE.WEB-PROD/api-key?langPref=en-US", "", nil)
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				err := util.NewAbck(&task.Task.Client, task.StockData.ItemURL, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
+			}
+		}
+	}
+
+	correlationID := uuid.New().String()
+	conversationId := uuid.New().String()
+	currentTime := time.Now().UTC()
+
+	resp, _, err = util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    "https://registerdisney.go.com/jgc/v6/client/DCP-DISNEYSTORE.WEB-PROD/api-key?langPref=en-US",
+		RawHeaders: http.RawHeader{
+			{"content-length", `4`},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"pragma", `no-cache`},
+			{"correlation-id", correlationID},
+			{"sec-ch-ua-mobile", `?0`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36`},
+			{"content-type", `application/json`},
+			{"cache-control", `no-cache`},
+			{"conversation-id", conversationId},
+			{"expires", `-1`},
+			{"accept", `*/*`},
+			{"origin", `https://cdn.registerdisney.go.com`},
+			{"sec-fetch-site", `same-site`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", `https://cdn.registerdisney.go.com/`},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+		Data: []byte("null"),
+	})
 	if err != nil || resp.StatusCode != 200 {
 		return false
 	}
-	apiKey1 := resp.Header.Get("Api-Key")
+	apiKey1 := resp.Header.Get("api-key")
 	if apiKey1 == "" {
+		return false
+	}
+
+	unid := uuid.New().String()
+	params := util.CreateParams(map[string]string{
+		"action_name":     `api:launch:login`,
+		"anon":            `true`,
+		"appid":           `DTSS-DISNEYID-UI`,
+		"client_id":       `DCP-DISNEYSTORE.WEB-PROD`,
+		"conversation_id": conversationId,
+		"correlation_id":  correlationID,
+		"dapple":          `6a5ddcca`,
+		"info":            `tabId(` + uuid.New().String() + `)`,
+		"os":              `Windows 10`,
+		"process_time":    `10`,
+		"sdk_version":     `Web 2.66.93-ROLLBACK`,
+		"success":         `true`,
+		"swid":            uuid.New().String(),
+		"timestamp":       time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
+		"unid":            unid,
+	})
+
+	parsedURL, _ := url.Parse("https://log.go.com/log")
+
+	task.Task.Client.Jar.SetCookies(parsedURL, []*http.Cookie{
+		{
+			Name:  "UNID",
+			Value: unid,
+		},
+	})
+	resp, _, err = util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    "https://log.go.com/log?" + params,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36`},
+			{"accept", `*/*`},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", `cross-site`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", BaseEndpoint + "/"},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+	})
+	if err != nil || resp.StatusCode != 200 {
 		return false
 	}
 
@@ -279,37 +404,52 @@ func (task *Task) Login() bool {
 		Password:   task.AccountInfo.Password,
 	}
 
-	correlationID := uuid.New().String()
-	conversationId := uuid.New().String()
-	currentTime := time.Now().UTC()
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, task.Task.Proxy)
+	if err != nil {
+		return false
+	}
+	for token == nil {
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, task.Task.Proxy)
+		time.Sleep(1 * time.Second / 10)
+	}
+	tokenInfo, ok := token.(entities.ReCaptchaToken)
+	if !ok {
+		return false
+	}
 
+	data, err := json.Marshal(loginRequest)
+	if err != nil {
+		return false
+	}
 	loginResponse := LoginResponse{}
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    FirstLoginEndpoint,
 		RawHeaders: http.RawHeader{
-			{"correlation-id", correlationID},
+			{"content-length", fmt.Sprint(len(data))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"authorization", "APIKEY " + apiKey1},
-			{"content-type", "application/json"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
+			{"pragma", `no-cache`},
+			{"correlation-id", correlationID},
+			{"sec-ch-ua-mobile", `?0`},
+			{"authorization", `APIKEY ` + apiKey1},
+			{"content-type", `application/json`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36`},
+			{"cache-control", `no-cache`},
 			{"conversation-id", conversationId},
-			{"device-id", "null"},
-			{"g-recaptcha-token", ""},
-			{"expires", "-1"},
-			{"accept", "*/*"},
-			{"origin", "https://cdn.registerdisney.go.com"},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-site", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", "https://cdn.registerdisney.go.com/"},
-			{"accept-encoding", "gzip, deflate"},
-			{"accept-language", "en-US,en;q=0.9"},
+			{"device-id", `null`},
+			{"g-recaptcha-token", tokenInfo.Token},
+			{"expires", `-1`},
+			{"accept", `*/*`},
+			{"origin", `https://cdn.registerdisney.go.com`},
+			{"sec-fetch-site", `same-site`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", `https://cdn.registerdisney.go.com/`},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
 		},
-		RequestBodyStruct:  loginRequest,
+		Data:               data,
 		ResponseBodyStruct: &loginResponse,
 	})
 	if err != nil {
@@ -334,7 +474,7 @@ func (task *Task) Login() bool {
 	jsonBytes, _ := json.Marshal(loginResponse.Data.Token)
 	encryptedJson := base64.StdEncoding.EncodeToString(jsonBytes)
 
-	parsedURL, _ := url.Parse(SecondLoginEndpoint)
+	parsedURL, _ = url.Parse(SecondLoginEndpoint)
 	task.Task.Client.Jar.SetCookies(parsedURL, []*http.Cookie{
 		{
 			Name:  "DCP-DISNEYSTORE.WEB-PROD.api",
@@ -418,6 +558,18 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart() bool {
+	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+		if cookie.Name == "_abck" {
+			validator, _ := util.FindInString(cookie.Value, "~", "~")
+			if validator == "-1" {
+				err := util.NewAbck(&task.Task.Client, task.StockData.ItemURL, BaseEndpoint, AkamaiEndpoint)
+				if err != nil {
+					return false
+				}
+			}
+		}
+	}
+
 	data := []byte(util.CreateParams(map[string]string{
 		"pid":      task.StockData.VID,
 		"quantity": fmt.Sprint(task.Task.Task.TaskQty),
@@ -452,6 +604,38 @@ func (task *Task) AddToCart() bool {
 	}
 
 	return addToCartResponse.Message == "Product added to bag"
+}
+
+func (task *Task) GetCheckoutInfo() bool {
+	getCheckoutInfoResponse := GetCheckoutInfoResponse{}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    GetCheckoutInfoEndpoint,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"accept", "application/json, text/javascript, */*; q=0.01"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-site", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", CartEndpoint},
+			{"accept-encoding", "gzip, deflate"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		ResponseBodyStruct: &getCheckoutInfoResponse,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err)
+		return false
+	}
+
+	task.TaskInfo.ShipmentUUID = getCheckoutInfoResponse.Items[0].ShipmentUUID
+	task.TaskInfo.ShippingMethod = getCheckoutInfoResponse.Shipments[0].SelectedShippingMethod
+	task.TaskInfo.CsrfToken = getCheckoutInfoResponse.Csrf.Token
+	return true
 }
 
 func (task *Task) ValidateCheckout() bool {
