@@ -47,6 +47,7 @@ var bestbuyTaskInfosSchema = `
 		taskGroupID TEXT,
 		email TEXT,
 		password TEXT,
+		locationID TEXT,
 		taskType TEXT
 	)
 `
