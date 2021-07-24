@@ -11,7 +11,6 @@ import (
 const (
 	BaseEndpoint                = "https://www.shopdisney.com"
 	AkamaiEndpoint              = "https://www.shopdisney.com/-8EtYaOo6sO7SoYZJZMI/DEp3h2VJ9JLi/PztFCls8Ag/QT5yR/ktqCA4"
-	MonitorEndpoint             = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation"
 	FirstLoginEndpoint          = "https://registerdisney.go.com/jgc/v6/client/DCP-DISNEYSTORE.WEB-PROD/guest/login?langPref=en-US"
 	SecondLoginEndpoint         = "https://www.shopdisney.com/ocapi/cc/login"
 	AddToCartEndpoint           = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Cart-AddProduct"
@@ -26,6 +25,9 @@ const (
 	GetCardTokenEndpoint        = "https://paymentsheet.wdprapps.disney.com/api/v1/card/token"
 	ValidateBasketEndpoint      = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Checkout-ValidateBasket"
 	PlaceOrderEndpoint          = "https://paymentsheet.wdprapps.disney.com/api/v3/process/%v"
+
+	MonitorEndpoint  = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
+	MonitorEndpoint2 = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_size=%s&dwvar_%s_color=%s"
 )
 
 var ParsedBase, _ = url.Parse(BaseEndpoint)
@@ -50,13 +52,23 @@ type Monitor struct {
 }
 
 type DisneyInStockData struct {
-	PID         string
-	VID         string
-	Size        string
-	Color       string
-	ProductName string
-	ItemURL     string
-	ImageURL    string
+	PID             string
+	Price           int
+	VID             string
+	Size            string
+	Color           string
+	ProductName     string
+	ItemURL         string
+	ImageURL        string
+	QuantityLimit   int  // TODO @Humphrey: Use this in task
+	IsPreOrder      bool // TODO @Humphrey: Use this in task
+	IsBackOrder     bool // TODO @Humphrey: Use this in task
+	OutOfPriceRange bool
+}
+
+type DisneySizeInfo struct {
+	VID  string
+	Size string
 }
 
 type AccountInfo struct {

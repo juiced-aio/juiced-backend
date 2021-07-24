@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -158,12 +159,13 @@ func (task *Task) RunTask() {
 	// 8. SubmitPaymentInfo
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	submittedPayment := false
+	doNotRetry := false
 	for !submittedPayment {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
-		submittedPayment = task.SubmitPaymentInfo()
+		submittedPayment, doNotRetry = task.SubmitPaymentInfo()
 		if !submittedPayment {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -391,7 +393,11 @@ func (task *Task) UseOrigAddress() bool {
 	return err == nil
 }
 
-func (task *Task) SubmitPaymentInfo() bool {
+func (task *Task) SubmitPaymentInfo() (bool, bool) {
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
 	data := url.Values{
 		"dwfrm_billing_addressChoice_addressChoices":              {"shipping"},
 		"dwfrm_billing_billingAddress_addressFields_firstName":    {task.Task.Profile.BillingAddress.FirstName},
@@ -432,7 +438,7 @@ func (task *Task) SubmitPaymentInfo() bool {
 	})
 
 	// TODO
-	return err == nil
+	return err == nil, false
 }
 
 func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {

@@ -187,7 +187,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			if sizesJoined != "" {
 				filteredSizes := []BoxlunchSizeInfo{}
 				for _, size := range sizes {
-					if strings.Contains(sizesJoined, size.Size) {
+					if strings.Contains(strings.ToLower(sizesJoined), strings.ToLower(size.Size)) {
 						filteredSizes = append(filteredSizes, size)
 					}
 				}
@@ -198,7 +198,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			if colorsJoined != "" {
 				filteredColors := []string{}
 				for _, color := range colors {
-					if strings.Contains(colorsJoined, color) {
+					if strings.Contains(strings.ToLower(colorsJoined), strings.ToLower(color)) {
 						filteredColors = append(filteredColors, color)
 					}
 				}
@@ -228,7 +228,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 						stockDatas = append(stockDatas, stockData)
 					}
 				} else {
-					// GetInStockVariations returns a list of HottopicStockData items for each size/color combination that's in stock
+					// GetInStockVariations returns a list of BoxlunchStockData items for each size/color combination that's in stock
 					stockDatas = monitor.GetInStockVariations(pid, sizes, colors)
 					needToStop = monitor.CheckForStop()
 					if needToStop {
@@ -518,15 +518,17 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]BoxlunchSizeInfo, 
 
 func (monitor *Monitor) GetInStockVariations(pid string, sizes []BoxlunchSizeInfo, colors []string) []BoxlunchInStockData {
 	// Each color page shows us whether the individual sizes are in stock or not
+	wg := sync.WaitGroup{}
+	wg.Add(len(colors) * len(sizes))
+
 	var stockDatas []BoxlunchInStockData
 	for _, color := range colors {
-		stockDatas = append(stockDatas, monitor.GetInStockSizesForColor(pid, sizes, color)...)
-		needToStop := monitor.CheckForStop()
-		if needToStop {
-			return stockDatas
-		}
-		time.Sleep(100 * time.Millisecond)
+		go func(x string, y []BoxlunchSizeInfo, z string) {
+			stockDatas = append(stockDatas, monitor.GetInStockSizesForColor(x, y, z)...)
+			wg.Done()
+		}(pid, sizes, color)
 	}
+	wg.Wait()
 	return stockDatas
 }
 

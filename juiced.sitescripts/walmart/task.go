@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -251,12 +252,13 @@ func (task *Task) RunTask() {
 
 	// 8. SetPaymentInfo
 	setPaymentInfo := false
+	doNotRetry := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
-		setPaymentInfo = task.SetPaymentInfo()
+		setPaymentInfo, doNotRetry = task.SetPaymentInfo()
 		if !setPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -290,7 +292,7 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusSuccess:
 		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
 	case enums.OrderStatusFailed:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 	}
@@ -727,7 +729,14 @@ func (task *Task) WaitForEncryptedPaymentInfo() bool {
 }
 
 // SetCreditCard sets the CreditCard and also returns the PiHash needed for SetPaymentInfo
-func (task *Task) SetCreditCard() bool {
+func (task *Task) SetCreditCard() (bool, bool) {
+
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
+	cardType := util.GetCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer)
+
 	setCreditCardResponse := SetCreditCardResponse{}
 	data := Payment{
 		EncryptedPan:   task.CardInfo.EncryptedPan,
@@ -746,13 +755,13 @@ func (task *Task) SetCreditCard() bool {
 		ExpiryMonth:    task.Task.Profile.CreditCard.ExpMonth,
 		ExpiryYear:     task.Task.Profile.CreditCard.ExpYear,
 		Phone:          task.Task.Profile.PhoneNumber,
-		CardType:       strings.ToUpper(task.Task.Profile.CreditCard.CardType),
+		CardType:       cardType,
 		IsGuest:        true, // No login yet
 	}
 	dataStr, err := json.Marshal(data)
 	if err != nil {
 		log.Println("SetCreditCard Request Error: " + err.Error())
-		return false
+		return false, false
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -787,7 +796,7 @@ func (task *Task) SetCreditCard() bool {
 	}
 	if err != nil {
 		log.Println("SetCreditCard Request Error: " + err.Error())
-		return false
+		return false, false
 	}
 
 	switch resp.StatusCode {
@@ -800,19 +809,26 @@ func (task *Task) SetCreditCard() bool {
 		log.Printf("Unknown Code: %v\n", resp.StatusCode)
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return true
+		return true, false
 	}
-	return false
+	return false, false
 }
 
 // SetPaymentInfo sets the payment info to prepare for placing an order
-func (task *Task) SetPaymentInfo() bool {
+func (task *Task) SetPaymentInfo() (bool, bool) {
+
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
+	cardType := util.GetCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer)
+
 	task.CardInfo.PaymentType = "CREDITCARD"
 	setPaymentInfoResponse := SetPaymentInfoResponse{}
 	data := SubmitPaymentRequest{
 		[]SubmitPayment{{
 			PaymentType:    task.CardInfo.PaymentType,
-			CardType:       strings.ToUpper(task.Task.Profile.CreditCard.CardType),
+			CardType:       cardType,
 			FirstName:      task.Task.Profile.BillingAddress.FirstName,
 			LastName:       task.Task.Profile.BillingAddress.LastName,
 			AddressLineOne: task.Task.Profile.BillingAddress.Address1,
@@ -836,7 +852,7 @@ func (task *Task) SetPaymentInfo() bool {
 	dataStr, err := json.Marshal(data)
 	if err != nil {
 		log.Println("SetPaymentInfo Request Error: " + err.Error())
-		return false
+		return false, false
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -875,7 +891,7 @@ func (task *Task) SetPaymentInfo() bool {
 	}
 	if err != nil {
 		log.Println("SetPaymentInfo Request Error: " + err.Error())
-		return false
+		return false, false
 	}
 
 	switch resp.StatusCode {
@@ -885,9 +901,9 @@ func (task *Task) SetPaymentInfo() bool {
 		log.Printf("Unknown Code: %v\n", resp.StatusCode)
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return true
+		return true, false
 	}
-	return false
+	return false, false
 }
 
 // PlaceOrder completes the checkout process
