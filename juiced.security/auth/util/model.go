@@ -215,3 +215,15 @@ type EncryptedLogCheckoutResponse struct {
 	Success      string `json:"K6bgiizRNv"`
 	ErrorMessage string `json:"1brGHMkymR"`
 }
+
+type GetEncryptionKeyResponse struct {
+	Success       bool   `json:"Gzdgq0zpma"`
+	EncryptionKey string `json:"5shDGZqkMD"`
+	ErrorMessage  string `json:"KARYl4Xg6o"`
+}
+
+type EncryptedGetEncryptionKeyResponse struct {
+	Success       string `json:"Gzdgq0zpma"`
+	EncryptionKey string `json:"5shDGZqkMD"`
+	ErrorMessage  string `json:"KARYl4Xg6o"`
+}
