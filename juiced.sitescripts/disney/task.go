@@ -109,13 +109,6 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
-	// 2. WaitForMonitor
-	needToStop := task.WaitForMonitor()
-	if needToStop {
-		return
-	}
-
 	newAbck := false
 	for !newAbck {
 		needToStop := task.CheckForStop()
@@ -129,6 +122,13 @@ func (task *Task) RunTask() {
 		if !newAbck {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
+	}
+
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	// 2. WaitForMonitor
+	needToStop := task.WaitForMonitor()
+	if needToStop {
+		return
 	}
 
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
