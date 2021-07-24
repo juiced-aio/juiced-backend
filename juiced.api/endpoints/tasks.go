@@ -148,17 +148,17 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		taskGroup, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
-			stopped := monitorStore.StopMonitor(&taskGroup)
-			if stopped {
+			err = monitorStore.StopMonitor(&taskGroup)
+			if err != nil {
 				next := true
 				for _, taskID := range taskGroup.TaskIDs {
 					taskToStop, err := queries.GetTask(taskID)
 					if err == nil {
 						taskStore := stores.GetTaskStore()
-						stopped := taskStore.StopTask(&taskToStop)
-						if !stopped {
+						err = taskStore.StopTask(&taskToStop)
+						if err != nil {
 							next = false
-							errorsList = append(errorsList, errors.StopTaskError)
+							errorsList = append(errorsList, errors.StopTaskError+err.Error())
 							break
 						}
 					} else {
@@ -173,7 +173,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 					}
 				}
 			} else {
-				errorsList = append(errorsList, errors.StopMonitorError)
+				errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
@@ -223,9 +223,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	groupID, ok := params["GroupID"]
 	if ok {
 		taskGroup, err := queries.GetTaskGroup(groupID)
-		monitorStore := stores.GetMonitorStore()
-		stopped := monitorStore.StopMonitor(&taskGroup)
-		if stopped {
+		if err == nil {
+			monitorStore := stores.GetMonitorStore()
+			err = monitorStore.StopMonitor(&taskGroup)
 			if err == nil {
 				body, err := ioutil.ReadAll(request.Body)
 				if err == nil {
@@ -392,9 +392,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
 							newTaskGroup.UpdateMonitor = true
-							added := monitorStore.AddMonitorToStore(&newTaskGroup)
-							if !added {
-								errorsList = append(errorsList, errors.UpdateTaskGroupError+"could not update monitor")
+							err = monitorStore.AddMonitorToStore(&newTaskGroup)
+							if err != nil {
+								errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
 							}
 						} else {
 							errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
@@ -405,14 +405,12 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 				} else {
 					errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 				}
-
 			} else {
-				errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+				errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 			}
 		} else {
-			errorsList = append(errorsList, errors.StopMonitorError)
+			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
-
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
@@ -503,9 +501,9 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		taskGroupToStart, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			started := taskStore.StartTaskGroup(&taskGroupToStart)
-			if !started {
-				errorsList = append(errorsList, errors.StartTaskError)
+			err = taskStore.StartTaskGroup(&taskGroupToStart)
+			if err != nil {
+				errorsList = append(errorsList, errors.StartTaskError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
@@ -541,9 +539,9 @@ func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 		taskGroupToStop, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			stopped := taskStore.StopTaskGroup(&taskGroupToStop)
-			if !stopped {
-				errorsList = append(errorsList, errors.StopTaskError)
+			err = taskStore.StopTaskGroup(&taskGroupToStop)
+			if err != nil {
+				errorsList = append(errorsList, errors.StopTaskError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
@@ -612,9 +610,9 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 						}
 						if !taskStore.TasksRunning(&newTaskGroup) {
 							monitorStore := stores.GetMonitorStore()
-							stopped := monitorStore.StopMonitor(&newTaskGroup)
-							if !stopped {
-								errorsList = append(errorsList, errors.StopMonitorError)
+							err = monitorStore.StopMonitor(&newTaskGroup)
+							if err != nil {
+								errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 							}
 						}
 					} else {
@@ -1047,9 +1045,9 @@ func StartTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		taskToStart, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			started := taskStore.StartTask(&taskToStart)
-			if !started {
-				errorsList = append(errorsList, errors.StartTaskError)
+			err = taskStore.StartTask(&taskToStart)
+			if err != nil {
+				errorsList = append(errorsList, errors.StartTaskError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
@@ -1080,22 +1078,22 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		taskToStop, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			stopped := taskStore.StopTask(&taskToStop)
-			if stopped {
+			err = taskStore.StopTask(&taskToStop)
+			if err == nil {
 				taskGroup, err = queries.GetTaskGroup(taskToStop.TaskGroupID)
 				if err == nil {
 					if !taskStore.TasksRunning(&taskGroup) {
 						monitorStore := stores.GetMonitorStore()
-						stopped = monitorStore.StopMonitor(&taskGroup)
-						if !stopped {
-							errorsList = append(errorsList, errors.StopMonitorError)
+						err = monitorStore.StopMonitor(&taskGroup)
+						if err != nil {
+							errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 						}
 					}
 				} else {
 					errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 				}
 			} else {
-				errorsList = append(errorsList, errors.StopTaskError)
+				errorsList = append(errorsList, errors.StopTaskError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
