@@ -50,6 +50,7 @@ const (
 	SettingOrderInfo    TaskStatus = "Setting order info"
 	CheckingOut         TaskStatus = "Checking out"
 	CheckedOut          TaskStatus = "Checked out!"
+	CardDeclined        TaskStatus = "Card declined"
 	CheckoutFailed      TaskStatus = "Checkout failed"
 )
 
