@@ -19,16 +19,17 @@ const (
 	//https://www.bestbuy.com/api/3.0/priceBlocks?skus=6439402%2c6439000
 	MonitorEndpoint = "https://www.bestbuy.com/api/3.0/priceBlocks?skus=%v"
 	//{"zipCode":null,"destinationZipCode":null,"showInStore":false,"showOnShelf":false,"additionalStores":null,"items":[{"sku": "6439299"}],"lookupInStoreQuantity":false,"consolidated":false,"locationId":null,"xboxAllAccess":false,"showOnlyOnShelf":false,"onlyBestBuyLocations":false}
-	AddToCartEndpoint      = "https://www.bestbuy.com/cart/api/v1/addToCart"
-	CartInfoEndpoint       = "https://www.bestbuy.com/cart/api/v1/fulfillment/ispu"
-	CheckoutEndpoint       = "https://www.bestbuy.com/checkout/r/fast-track"
-	BaseShippingEndpoint   = "https://www.bestbuy.com/checkout/r/fulfillment"
-	OrderEndpoint          = "https://www.bestbuy.com/checkout/orders/%s"
-	BasePaymentEndpoint    = "https://www.bestbuy.com/checkout/r/payment"
-	PaymentEndpoint        = "https://www.bestbuy.com/payment/api/v1/payment/%s/creditCard"
-	RefreshPaymentEndpoint = "https://www.bestbuy.com/checkout/orders/%s/paymentMethods/refreshPayment"
-	PrelookupEndpoint      = "https://www.bestbuy.com/payment/api/v1/payment/%s/threeDSecure/preLookup"
-	PlaceOrderEndpoint     = "https://www.bestbuy.com/checkout/api/1.0/paysecure/submitCardAuthentication"
+	AddToCartEndpoint            = "https://www.bestbuy.com/cart/api/v1/addToCart"
+	CartInfoEndpoint             = "https://www.bestbuy.com/cart/api/v1/fulfillment/ispu"
+	CheckoutEndpoint             = "https://www.bestbuy.com/checkout/r/fast-track"
+	GetStoreAvailabilityEndpoint = "https://www.bestbuy.com/productfulfillment/com/api/2.0/storeAvailability"
+	BaseShippingEndpoint         = "https://www.bestbuy.com/checkout/r/fulfillment"
+	OrderEndpoint                = "https://www.bestbuy.com/checkout/orders/%s"
+	BasePaymentEndpoint          = "https://www.bestbuy.com/checkout/r/payment"
+	PaymentEndpoint              = "https://www.bestbuy.com/payment/api/v1/payment/%s/creditCard"
+	RefreshPaymentEndpoint       = "https://www.bestbuy.com/checkout/orders/%s/paymentMethods/refreshPayment"
+	PrelookupEndpoint            = "https://www.bestbuy.com/payment/api/v1/payment/%s/threeDSecure/preLookup"
+	PlaceOrderEndpoint           = "https://www.bestbuy.com/checkout/api/1.0/paysecure/submitCardAuthentication"
 )
 
 var ParsedBase, _ = url.Parse(BaseEndpoint)
@@ -90,6 +91,7 @@ type Task struct {
 	TaskType     enums.TaskType
 	CheckoutInfo CheckoutInfo
 	AccountInfo  AccountInfo
+	LocationID   string
 }
 
 type CheckoutInfo struct {
@@ -692,11 +694,91 @@ type ItemsRequest []struct {
 	ID                  string                   `json:"id"`
 	Selectedfulfillment ItemsSelectedfulfillment `json:"selectedFulfillment"`
 }
+
+type GetStoreAvailabilityRequest struct {
+	Locationid            int      `json:"locationId"`
+	Zipcode               string   `json:"zipCode"`
+	Showonshelf           bool     `json:"showOnShelf"`
+	Lookupinstorequantity bool     `json:"lookupInStoreQuantity"`
+	Xboxallaccess         bool     `json:"xboxAllAccess"`
+	Consolidated          bool     `json:"consolidated"`
+	Showonlyonshelf       bool     `json:"showOnlyOnShelf"`
+	Showinstore           bool     `json:"showInStore"`
+	Pickuptypes           []string `json:"pickupTypes"`
+	Onlybestbuylocations  bool     `json:"onlyBestBuyLocations"`
+	Items                 []Items1 `json:"items"`
+}
+type Items1 struct {
+	Sku                 string        `json:"sku"`
+	Condition           interface{}   `json:"condition"`
+	Reservationtoken    interface{}   `json:"reservationToken"`
+	Selectedservices    []interface{} `json:"selectedServices"`
+	Requiredaccessories []interface{} `json:"requiredAccessories"`
+	Istradein           bool          `json:"isTradeIn"`
+	Isleased            bool          `json:"isLeased"`
+}
+
+type GetStoreAvailabilityResponse struct {
+	Ispu Ispu `json:"ispu"`
+}
+
+type Ispu struct {
+	Items []Items2 `json:"items"`
+}
+
+type Items2 struct {
+	Sku              string      `json:"sku"`
+	ShippingEligible bool        `json:"shippingEligible"`
+	Locations        []Locations `json:"locations"`
+}
+
+type Locations struct {
+	LocationID   string       `json:"locationId"`
+	PickupType   string       `json:"pickupType"`
+	Shippable    bool         `json:"shippable"`
+	Availability Availability `json:"availability"`
+}
+
+type Availability struct {
+	MinDate               string   `json:"minDate"`
+	MaxDate               string   `json:"maxDate"`
+	ProcureFromLocationID string   `json:"procureFromLocationId"`
+	DisplayDateType       string   `json:"displayDateType"`
+	FulfillmentType       string   `json:"fulfillmentType"`
+	ServiceLevel          string   `json:"serviceLevel"`
+	CarrierServiceGroup   string   `json:"carrierServiceGroup"`
+	AvailabilityToken     string   `json:"availabilityToken"`
+	PickupTypes           []string `json:"pickupTypes"`
+}
+
 type ItemsShipping struct {
 }
 type ItemsSelectedfulfillment struct {
 	Shipping ItemsShipping `json:"shipping"`
 }
+
+type ShipOrPickupRequest []struct {
+	ID                   string               `json:"id"`
+	StoreFulfillmentType string               `json:"storeFulfillmentType,omitempty"`
+	Type                 string               `json:"type,omitempty"`
+	Selectedfulfillment  Selectedfulfillment1 `json:"selectedFulfillment"`
+}
+
+type Shipping1 struct {
+}
+
+type Selectedfulfillment1 struct {
+	Shipping      Shipping1     `json:"shipping,omitempty"`
+	InStorePickup InStorePickup `json:"inStorePickup,omitempty"`
+}
+
+type InStorePickup struct {
+	PickupStoreID         string `json:"pickupStoreId,omitempty"`
+	DisplayDateType       string `json:"displayDateType,omitempty"`
+	IsAvailableAtLocation bool   `json:"isAvailableAtLocation,omitempty"`
+	IsSTSAvailable        bool   `json:"isSTSAvailable,omitempty"`
+}
+
 type SetShippingRequest struct {
 	Phonenumber     string      `json:"phoneNumber"`
 	Smsnotifynumber string      `json:"smsNotifyNumber"`

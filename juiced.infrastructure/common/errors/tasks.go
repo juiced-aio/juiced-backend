@@ -58,13 +58,39 @@ const AddTaskToGroupError = "Adding the Task to the TaskGroup with the given Gro
 const RemoveTasksFromGroupError = "Removing the Tasks from the TaskGroup with the given GroupID returned an error: "
 
 // StartTaskError is the error encountered when starting a Task returns an error
-const StartTaskError = "Starting the Task encountered an error."
+const StartTaskError = "Starting the Task encountered an error: "
 
 // StartTaskError is the error encountered when stopping a Task returns an error
-const StopTaskError = "Stopping the Task encountered an error."
+const StopTaskError = "Stopping the Task encountered an error: "
 
 // StartMonitorError is the error encountered when starting a Monitor returns an error
-const StartMonitorError = "Starting the Monitor encountered an error."
+const StartMonitorError = "Starting the Monitor encountered an error: "
 
 // StopMonitorError is the error encountered when stopping a Monitor returns an error
-const StopMonitorError = "Stopping the Monitor encountered an error."
+const StopMonitorError = "Stopping the Monitor encountered an error: "
+
+// TaskStore errors
+// StartTaskInvalidCardError is the error encountered when starting a Task with an invalid card type for the given retailer
+const StartTaskInvalidCardError = "the Task's Profile has a payment method that is not supported by "
+
+// MissingTaskFieldsError is returned when the Task's <Retailer>TaskInfo is missing certain required fields
+const MissingTaskFieldsError = "the Task is missing required fields"
+
+// CreateBotTaskError is returned when calling the sitescript's Create<Retailer>Task function returns an error
+const CreateBotTaskError = "creating the task failed: "
+
+// InvalidTaskRetailerError is returned when the Task's TaskRetailer value is not one of our supported retailers
+const InvalidTaskRetailerError = "the Task's retailer is not supported"
+
+// MonitorStore errors
+// StartMonitorInvalidCardError is the error encountered when starting a Monitor with every task with an invalid card type for the given retailer
+const StartMonitorInvalidCardError = "none of the Tasks in the TaskGroup have a Profile with a payment method that is supported by "
+
+// NoMonitorsError is returned when the TaskGroup's <Retailer>MonitorInfo.Monitors is an empty slice
+const NoMonitorsError = "the TaskGroup has no monitors attached to it"
+
+// CreateMonitorError is returned when calling the sitescript's Create<Retailer>Monitor function returns an error
+const CreateMonitorError = "creating the monitor failed: "
+
+// InvalidMonitorRetailerError is returned when the TaskGroup's MonitorRetailer value is not one of our supported retailers
+const InvalidMonitorRetailerError = "the TaskGroup's retailer is not supported"

@@ -1,4 +1,4 @@
-package hottopic
+package boxlunch
 
 import (
 	"fmt"
@@ -11,12 +11,12 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// AddHottopicHeaders adds Hottopic-specific headers to the request
-func AddHottopicHeaders(request *http.Request, referer ...string) {
+// AddBoxlunch adds Boxlunch-specific headers to the request
+func AddBoxlunchHeaders(request *http.Request, referer ...string) {
 	util.AddBaseHeaders(request)
 	request.Header.Set("Accept", "*/*")
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-	request.Header.Set("Origin", "https://www.hottopic.com")
+	request.Header.Set("Origin", "https://www.boxlunch.com")
 	// omitcsrfjwt: true
 	// omitcorrelationid: true
 	// credentials: include
@@ -35,7 +35,7 @@ func getSecureKey(body string) (string, error) {
 }
 
 // Creates a embed for the DiscordWebhook function
-func (task *Task) CreateHottopicEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+func (task *Task) CreateBoxlunchEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
 	size := task.StockData.Size
 	if size == "" {
 		size = "N/A"
@@ -49,7 +49,7 @@ func (task *Task) CreateHottopicEmbed(status enums.OrderStatus, imageURL string)
 			Fields: []sec.DiscordField{
 				{
 					Name:   "Site:",
-					Value:  "Hottopic",
+					Value:  "Boxlunch",
 					Inline: true,
 				},
 				{
@@ -59,7 +59,7 @@ func (task *Task) CreateHottopicEmbed(status enums.OrderStatus, imageURL string)
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.hottopic.com/product/%v.html)", task.StockData.PID, task.StockData.PID),
+					Value:  fmt.Sprintf("[%v](https://www.boxlunch.com/product/%v.html)", task.StockData.PID, task.StockData.PID),
 					Inline: true,
 				},
 				{

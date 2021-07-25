@@ -21,6 +21,27 @@ import (
 	"github.com/gorilla/mux"
 )
 
+// UpdateTaskStatuses updates the TaskGroupWithTask's Tasks with the correct statuses from the task store
+func UpdateStatuses(taskGroupWithTasks entities.TaskGroupWithTasks) entities.TaskGroupWithTasks {
+	taskStatuses := stores.GetTaskStatuses()
+	newTasks := []entities.Task{}
+	for _, task := range taskGroupWithTasks.Tasks {
+		status := taskStatuses[task.ID]
+		if status != "" {
+			task.SetTaskStatus(status)
+		}
+		newTasks = append(newTasks, task)
+	}
+	taskGroupWithTasks.SetTasks(newTasks)
+
+	monitorStatus := stores.GetMonitorStatus(taskGroupWithTasks.GroupID)
+	if monitorStatus != "" {
+		taskGroupWithTasks.MonitorStatus = monitorStatus
+	}
+
+	return taskGroupWithTasks
+}
+
 // GetTaskGroupEndpoint handles the GET request at /api/task/group/{groupID}
 func GetTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
@@ -43,7 +64,7 @@ func GetTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -67,7 +88,7 @@ func GetAllTaskGroupsEndpoint(response http.ResponseWriter, request *http.Reques
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
-		data = append(data, newTaskGroupWithTasks)
+		data = append(data, UpdateStatuses(newTaskGroupWithTasks))
 	}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -127,17 +148,17 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		taskGroup, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
-			stopped := monitorStore.StopMonitor(&taskGroup)
-			if stopped {
+			err = monitorStore.StopMonitor(&taskGroup)
+			if err == nil {
 				next := true
 				for _, taskID := range taskGroup.TaskIDs {
 					taskToStop, err := queries.GetTask(taskID)
 					if err == nil {
 						taskStore := stores.GetTaskStore()
-						stopped := taskStore.StopTask(&taskToStop)
-						if !stopped {
+						err = taskStore.StopTask(&taskToStop)
+						if err != nil {
 							next = false
-							errorsList = append(errorsList, errors.StopTaskError)
+							errorsList = append(errorsList, errors.StopTaskError+err.Error())
 							break
 						}
 					} else {
@@ -152,7 +173,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 					}
 				}
 			} else {
-				errorsList = append(errorsList, errors.StopMonitorError)
+				errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
@@ -180,20 +201,54 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
+	type AmazonUpdateInfo struct{}
+	type BestBuyUpdateInfo struct{}
+	type BoxlunchUpdateInfo struct {
+		Sizes  string `json:"sizes"`
+		Colors string `json:"colors"`
+	}
+	type DisneyUpdateInfo struct {
+		Sizes  string `json:"sizes"`
+		Colors string `json:"colors"`
+	}
+	type GamestopUpdateInfo struct{}
+	type HottopicUpdateInfo struct {
+		Sizes  string `json:"sizes"`
+		Colors string `json:"colors"`
+	}
+	type ShopifyUpdateInfo struct{}
+	type TargetUpdateInfo struct {
+		CheckoutType enums.CheckoutType `json:"checkoutType"`
+		StoreID      string             `json:"storeID"`
+	}
+	type WalmartUpdateInfo struct {
+		SoldByWalmart bool `json:"soldByWalmart"`
+	}
+
 	type UpdateTaskGroupRequest struct {
-		Name                string `json:"name"`
-		MonitorInput        string `json:"input"`
-		MonitorDelay        int    `json:"delay"`
-		MonitorProxyGroupID string `json:"proxyGroupId"`
+		Name                string             `json:"name"`
+		MonitorInput        string             `json:"input"`
+		MonitorDelay        int                `json:"delay"`
+		MonitorProxyGroupID string             `json:"proxyGroupId"`
+		MaxPrice            int                `json:"maxPrice"`
+		AmazonUpdateInfo    AmazonUpdateInfo   `json:"amazonUpdateInfo"`
+		BestbuyUpdateInfo   BestBuyUpdateInfo  `json:"bestbuyUpdateInfo"`
+		BoxlunchUpdateInfo  BoxlunchUpdateInfo `json:"boxlunchUpdateInfo"`
+		DisneyUpdateInfo    DisneyUpdateInfo   `json:"disneyUpdateInfo"`
+		GamestopUpdateInfo  GamestopUpdateInfo `json:"gamestopUpdateInfo"`
+		HottopicUpdateInfo  HottopicUpdateInfo `json:"hottopicUpdateInfo"`
+		ShopifyUpdateInfo   ShopifyUpdateInfo  `json:"shopifyUpdateInfo"`
+		TargetUpdateInfo    TargetUpdateInfo   `json:"targetUpdateInfo"`
+		WalmartUpdateInfo   WalmartUpdateInfo  `json:"walmartUpdateInfo"`
 	}
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
 		taskGroup, err := queries.GetTaskGroup(groupID)
-		monitorStore := stores.GetMonitorStore()
-		stopped := monitorStore.StopMonitor(&taskGroup)
-		if stopped {
+		if err == nil {
+			monitorStore := stores.GetMonitorStore()
+			err = monitorStore.StopMonitor(&taskGroup)
 			if err == nil {
 				body, err := ioutil.ReadAll(request.Body)
 				if err == nil {
@@ -203,13 +258,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						taskGroup.Name = updateTaskGroupRequestInfo.Name
 						taskGroup.MonitorDelay = updateTaskGroupRequestInfo.MonitorDelay
 						taskGroup.MonitorProxyGroupID = updateTaskGroupRequestInfo.MonitorProxyGroupID
+						maxPrice := updateTaskGroupRequestInfo.MaxPrice
 						switch taskGroup.MonitorRetailer {
 						case enums.BestBuy:
-							maxPrice := -1
-							if len(taskGroup.BestbuyMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.BestbuyMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.BestbuySingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -225,12 +276,48 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							}
 							taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 
-						case enums.GameStop:
-							maxPrice := -1
-							if len(taskGroup.GamestopMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.GamestopMonitorInfo.Monitors[0].MaxPrice
+						case enums.BoxLunch:
+							newMonitors := make([]entities.BoxlunchSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								monitorType := enums.SKUMonitor
+								if len(taskGroup.BoxlunchMonitorInfo.Monitors) > 0 {
+									monitorType = taskGroup.BoxlunchMonitorInfo.Monitors[0].MonitorType
+								}
+								for _, pid := range pids {
+									monitor := entities.BoxlunchSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										Pid:         pid,
+										Size:        updateTaskGroupRequestInfo.BoxlunchUpdateInfo.Sizes,
+										Color:       updateTaskGroupRequestInfo.BoxlunchUpdateInfo.Colors,
+										MaxPrice:    maxPrice,
+										MonitorType: monitorType,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
 							}
+							taskGroup.BoxlunchMonitorInfo.Monitors = newMonitors
 
+						case enums.Disney:
+							newMonitors := make([]entities.DisneySingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, pid := range pids {
+									monitor := entities.DisneySingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										PID:         pid,
+										Size:        updateTaskGroupRequestInfo.DisneyUpdateInfo.Sizes,
+										Color:       updateTaskGroupRequestInfo.DisneyUpdateInfo.Colors,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.DisneyMonitorInfo.Monitors = newMonitors
+
+						case enums.GameStop:
 							newMonitors := make([]entities.GamestopSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -246,34 +333,84 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							}
 							taskGroup.GamestopMonitorInfo.Monitors = newMonitors
 
-						case enums.Target:
-							maxPrice := -1
-							if len(taskGroup.TargetMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.TargetMonitorInfo.Monitors[0].MaxPrice
-							}
-
-							newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
+						case enums.HotTopic:
+							newMonitors := make([]entities.HottopicSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
-								tcins := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-								for _, tcin := range tcins {
-									monitor := entities.TargetSingleMonitorInfo{
+								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								monitorType := enums.SKUMonitor
+								if len(taskGroup.HottopicMonitorInfo.Monitors) > 0 {
+									monitorType = taskGroup.HottopicMonitorInfo.Monitors[0].MonitorType
+								}
+								for _, pid := range pids {
+									monitor := entities.HottopicSingleMonitorInfo{
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
-										TCIN:        tcin,
+										Pid:         pid,
+										Size:        updateTaskGroupRequestInfo.HottopicUpdateInfo.Sizes,
+										Color:       updateTaskGroupRequestInfo.HottopicUpdateInfo.Colors,
+										MaxPrice:    maxPrice,
+										MonitorType: monitorType,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.HottopicMonitorInfo.Monitors = newMonitors
+
+						case enums.Shopify:
+							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								vids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, vid := range vids {
+									monitor := entities.ShopifySingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										VariantID:   vid,
 										MaxPrice:    maxPrice,
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
 							}
+							taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
+
+						case enums.Target:
+							newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								tcins := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, tcin := range tcins {
+									monitor := entities.TargetSingleMonitorInfo{
+										MonitorID:    uuid.New().String(),
+										TaskGroupID:  taskGroup.GroupID,
+										TCIN:         tcin,
+										MaxPrice:     maxPrice,
+										CheckoutType: updateTaskGroupRequestInfo.TargetUpdateInfo.CheckoutType,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+							}
+							taskGroup.TargetMonitorInfo.StoreID = updateTaskGroupRequestInfo.TargetUpdateInfo.StoreID
 							taskGroup.TargetMonitorInfo.Monitors = newMonitors
 
 						case enums.Walmart:
-							taskGroup.WalmartMonitorInfo.SKUsJoined = updateTaskGroupRequestInfo.MonitorInput
-							skus := make([]string, 0)
+							newMonitors := make([]entities.WalmartSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
-								skus = strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								ids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								monitorType := enums.SKUMonitor
+								if len(taskGroup.WalmartMonitorInfo.Monitors) > 0 {
+									monitorType = taskGroup.WalmartMonitorInfo.Monitors[0].MonitorType
+								}
+								for _, id := range ids {
+									monitor := entities.WalmartSingleMonitorInfo{
+										MonitorID:     uuid.New().String(),
+										TaskGroupID:   taskGroup.GroupID,
+										ID:            id,
+										MaxPrice:      maxPrice,
+										SoldByWalmart: updateTaskGroupRequestInfo.WalmartUpdateInfo.SoldByWalmart,
+										MonitorType:   monitorType,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
 							}
-							taskGroup.WalmartMonitorInfo.SKUs = skus
+							taskGroup.WalmartMonitorInfo.Monitors = newMonitors
 
 						case enums.PokemonCenter:
 							maxPrice := -1
@@ -295,14 +432,13 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 								}
 							}
 							taskGroup.PokemonCenterMonitorInfo.Monitors = newMonitors
-
 						}
 						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
 							newTaskGroup.UpdateMonitor = true
-							added := monitorStore.AddMonitorToStore(&newTaskGroup)
-							if !added {
-								errorsList = append(errorsList, errors.UpdateTaskGroupError+"could not update monitor")
+							err = monitorStore.AddMonitorToStore(&newTaskGroup)
+							if err != nil {
+								errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
 							}
 						} else {
 							errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
@@ -313,14 +449,12 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 				} else {
 					errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 				}
-
 			} else {
-				errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+				errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 			}
 		} else {
-			errorsList = append(errorsList, errors.StopMonitorError)
+			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
-
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
@@ -362,6 +496,7 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 					break
 				}
 				task.ID = uuid.New().String()
+				task.TaskGroupID = newTaskGroup.GroupID
 				err = commands.CreateTask(task)
 				if err != nil {
 					break
@@ -403,6 +538,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 	var taskGroupToStart entities.TaskGroup
 	var err error
 	errorsList := make([]string, 0)
+	warningsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
@@ -410,9 +546,9 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		taskGroupToStart, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			started := taskStore.StartTaskGroup(&taskGroupToStart)
-			if !started {
-				errorsList = append(errorsList, errors.StartTaskError)
+			warningsList, err = taskStore.StartTaskGroup(&taskGroupToStart)
+			if err != nil {
+				errorsList = append(errorsList, errors.StartTaskGroupError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
@@ -426,7 +562,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStartWithTasks}, Errors: make([]string, 0)}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStartWithTasks}, Errors: make([]string, 0), Warnings: warningsList}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
@@ -448,9 +584,9 @@ func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 		taskGroupToStop, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			stopped := taskStore.StopTaskGroup(&taskGroupToStop)
-			if !stopped {
-				errorsList = append(errorsList, errors.StopTaskError)
+			err = taskStore.StopTaskGroup(&taskGroupToStop)
+			if err != nil {
+				errorsList = append(errorsList, errors.StopTaskError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
@@ -519,9 +655,9 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 						}
 						if !taskStore.TasksRunning(&newTaskGroup) {
 							monitorStore := stores.GetMonitorStore()
-							stopped := monitorStore.StopMonitor(&newTaskGroup)
-							if !stopped {
-								errorsList = append(errorsList, errors.StopMonitorError)
+							err = monitorStore.StopMonitor(&newTaskGroup)
+							if err != nil {
+								errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 							}
 						}
 					} else {
@@ -604,21 +740,24 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	errorsList := make([]string, 0)
 
 	type CreateTaskRequest struct {
-		NumTasksPerProfile    int                            `json:"numTasksPerProfile"`
-		ProfileIDs            []string                       `json:"profileIDs"`
-		ProfileGroupID        string                         `json:"profileGroupID"`
-		ProxyGroupID          string                         `json:"proxyGroupID"`
-		Retailer              string                         `json:"retailer"`
-		Sizes                 []string                       `json:"sizes"`
-		Quantity              int                            `json:"quantity"`
-		Delay                 int                            `json:"delay"`
-		TargetTaskInfo        entities.TargetTaskInfo        `json:"targetTaskInfo"`
-		WalmartTaskInfo       entities.WalmartTaskInfo       `json:"walmartTaskInfo"`
-		AmazonTaskInfo        entities.AmazonTaskInfo        `json:"amazonTaskInfo"`
-		BestbuyTaskInfo       entities.BestbuyTaskInfo       `json:"bestbuyTaskInfo"`
-		GamestopTaskInfo      entities.GamestopTaskInfo      `json:"gamestopTaskInfo"`
-		HottopicTaskInfo      entities.HottopicTaskInfo      `json:"hottopicTaskInfo"`
-		PokemonCenterTaskInfo entities.PokemonCenterTaskInfo `json:"pokemoncenterTaskInfo"`
+		NumTasksPerProfile    int                             `json:"numTasksPerProfile"`
+		ProfileIDs            []string                        `json:"profileIDs"`
+		ProfileGroupID        string                          `json:"profileGroupID"`
+		ProxyGroupID          string                          `json:"proxyGroupID"`
+		Retailer              string                          `json:"retailer"`
+		Sizes                 []string                        `json:"sizes"`
+		Quantity              int                             `json:"quantity"`
+		Delay                 int                             `json:"delay"`
+		AmazonTaskInfo        *entities.AmazonTaskInfo        `json:"amazonTaskInfo"`
+		BestbuyTaskInfo       *entities.BestbuyTaskInfo       `json:"bestbuyTaskInfo"`
+		BoxlunchTaskInfo      *entities.BoxlunchTaskInfo      `json:"boxlunchTaskInfo"`
+		DisneyTaskInfo        *entities.DisneyTaskInfo        `json:"disneyTaskInfo"`
+		GamestopTaskInfo      *entities.GamestopTaskInfo      `json:"gamestopTaskInfo"`
+		HottopicTaskInfo      *entities.HottopicTaskInfo      `json:"hottopicTaskInfo"`
+		ShopifyTaskInfo       *entities.ShopifyTaskInfo       `json:"shopifyTaskInfo"`
+		TargetTaskInfo        *entities.TargetTaskInfo        `json:"targetTaskInfo"`
+		WalmartTaskInfo       *entities.WalmartTaskInfo       `json:"walmartTaskInfo"`
+		PokemonCenterTaskInfo *entities.PokemonCenterTaskInfo `json:"pokemoncenterTaskInfo"`
 	}
 
 	params := mux.Vars(request)
@@ -647,11 +786,27 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				case enums.BestBuy:
 					task.BestbuyTaskInfo = createTaskRequestInfo.BestbuyTaskInfo
 
+				case enums.BoxLunch:
+					task.BoxlunchTaskInfo = createTaskRequestInfo.BoxlunchTaskInfo
+
+				case enums.Disney:
+					task.DisneyTaskInfo = createTaskRequestInfo.DisneyTaskInfo
+
 				case enums.GameStop:
 					task.GamestopTaskInfo = createTaskRequestInfo.GamestopTaskInfo
 
 				case enums.HotTopic:
 					task.HottopicTaskInfo = createTaskRequestInfo.HottopicTaskInfo
+
+				case enums.Shopify:
+					task.ShopifyTaskInfo = createTaskRequestInfo.ShopifyTaskInfo
+					taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
+					if err == nil {
+						task.ShopifyTaskInfo.SitePassword = taskGroup.ShopifyMonitorInfo.SitePassword
+						task.ShopifyTaskInfo.SiteURL = taskGroup.ShopifyMonitorInfo.SiteURL
+					} else {
+						errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
+					}
 
 				case enums.Target:
 					task.TargetTaskInfo = createTaskRequestInfo.TargetTaskInfo
@@ -740,12 +895,15 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		TaskIDs               []string                       `json:"taskIDs"`
 		ProfileID             string                         `json:"profileID"`
 		ProxyGroupID          string                         `json:"proxyGroupID"`
-		TargetTaskInfo        entities.TargetTaskInfo        `json:"targetTaskInfo"`
-		WalmartTaskInfo       entities.WalmartTaskInfo       `json:"walmartTaskInfo"`
 		AmazonTaskInfo        entities.AmazonTaskInfo        `json:"amazonTaskInfo"`
 		BestbuyTaskInfo       entities.BestbuyTaskInfo       `json:"bestbuyTaskInfo"`
+		BoxlunchTaskInfo      entities.BoxlunchTaskInfo      `json:"boxlunchTaskInfo"`
+		DisneyTaskInfo        entities.DisneyTaskInfo        `json:"disneyTaskInfo"`
 		GamestopTaskInfo      entities.GamestopTaskInfo      `json:"gamestopTaskInfo"`
 		HottopicTaskInfo      entities.HottopicTaskInfo      `json:"hottopicTaskInfo"`
+		ShopifyTaskInfo       entities.ShopifyTaskInfo       `json:"shopifyTaskInfo"`
+		TargetTaskInfo        entities.TargetTaskInfo        `json:"targetTaskInfo"`
+		WalmartTaskInfo       entities.WalmartTaskInfo       `json:"walmartTaskInfo"`
 		PokemonCenterTaskInfo entities.PokemonCenterTaskInfo `json:"pokemoncenterTaskInfo"`
 	}
 
@@ -788,6 +946,18 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
 									task.BestbuyTaskInfo.Password = updateTasksRequestInfo.BestbuyTaskInfo.Password
 								}
+							case enums.BoxLunch:
+
+							case enums.Disney:
+								if updateTasksRequestInfo.DisneyTaskInfo.TaskType != "DO_NOT_UPDATE" {
+									task.DisneyTaskInfo.TaskType = updateTasksRequestInfo.DisneyTaskInfo.TaskType
+								}
+								if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Email != "" {
+									task.DisneyTaskInfo.Email = updateTasksRequestInfo.DisneyTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
+									task.DisneyTaskInfo.Password = updateTasksRequestInfo.DisneyTaskInfo.Password
+								}
 
 							case enums.GameStop:
 								if updateTasksRequestInfo.GamestopTaskInfo.TaskType != "DO_NOT_UPDATE" {
@@ -802,6 +972,17 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 
 							case enums.HotTopic:
 								// TODO @silent
+
+							case enums.Shopify:
+								if updateTasksRequestInfo.ShopifyTaskInfo.CouponCode != "DO_NOT_UPDATE" {
+									task.ShopifyTaskInfo.CouponCode = updateTasksRequestInfo.ShopifyTaskInfo.CouponCode
+								}
+								if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" {
+									task.ShopifyTaskInfo.HotWheelsTaskInfo.Email = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email
+								}
+								if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password != "" {
+									task.ShopifyTaskInfo.HotWheelsTaskInfo.Password = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password
+								}
 
 							case enums.Target:
 								if updateTasksRequestInfo.TargetTaskInfo.CheckoutType != "DO_NOT_UPDATE" {
@@ -924,9 +1105,9 @@ func StartTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		taskToStart, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			started := taskStore.StartTask(&taskToStart)
-			if !started {
-				errorsList = append(errorsList, errors.StartTaskError)
+			err = taskStore.StartTask(&taskToStart)
+			if err != nil {
+				errorsList = append(errorsList, errors.StartTaskError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
@@ -957,22 +1138,22 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		taskToStop, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			stopped := taskStore.StopTask(&taskToStop)
-			if stopped {
+			err = taskStore.StopTask(&taskToStop)
+			if err == nil {
 				taskGroup, err = queries.GetTaskGroup(taskToStop.TaskGroupID)
 				if err == nil {
 					if !taskStore.TasksRunning(&taskGroup) {
 						monitorStore := stores.GetMonitorStore()
-						stopped = monitorStore.StopMonitor(&taskGroup)
-						if !stopped {
-							errorsList = append(errorsList, errors.StopMonitorError)
+						err = monitorStore.StopMonitor(&taskGroup)
+						if err != nil {
+							errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 						}
 					}
 				} else {
 					errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 				}
 			} else {
-				errorsList = append(errorsList, errors.StopTaskError)
+				errorsList = append(errorsList, errors.StopTaskError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())

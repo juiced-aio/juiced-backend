@@ -1,4 +1,4 @@
-package hottopic
+package boxlunch
 
 import (
 	"fmt"
@@ -15,9 +15,9 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// CreateHottopicTask takes a Task entity and turns it into a Hottopic Task
-func CreateHottopicTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
-	hottopicTask := Task{
+// CreateBoxlunch takes a Task entity and turns it into a Boxlunch Task
+func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+	boxLunchTask := Task{
 		Task: base.Task{
 			Task:     task,
 			Profile:  profile,
@@ -25,7 +25,7 @@ func CreateHottopicTask(task *entities.Task, profile entities.Profile, proxy ent
 			EventBus: eventBus,
 		},
 	}
-	return hottopicTask, nil
+	return boxLunchTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -70,7 +70,7 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	// 2. AddTocart
+	// 2. AddToCart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 	addedToCart := false
 	for !addedToCart {
@@ -157,7 +157,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 8. SubmitPaymentInfo
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
 	submittedPayment := false
 	doNotRetry := false
 	for !submittedPayment {
@@ -224,7 +224,7 @@ func (task *Task) AddToCart() bool {
 	if len(task.StockData.Color) > 0 {
 		colorSelected = "true"
 	}
-	if task.StockData.PID != task.StockData.SizePID {
+	if len(task.StockData.Size) > 0 {
 		sizeSelected = "true"
 		inseamSelected = "true"
 	}
@@ -246,7 +246,7 @@ func (task *Task) AddToCart() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                AddToCartEndpoint,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            AddToCartReferer + task.StockData.PID + ".html",
 		Data:               []byte(data.Encode()),
 	})
@@ -259,7 +259,7 @@ func (task *Task) GetCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "GET",
 		URL:                GetCheckoutEndpoint,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            GetCheckoutReferer,
 	})
 	if err != nil {
@@ -272,14 +272,14 @@ func (task *Task) GetCheckout() bool {
 
 func (task *Task) ProceedToCheckout() bool {
 	data := url.Values{
-		"dwfrm_cart_checkoutCart": {"Checkout"},
+		"dwfrm_cart_checkoutCart": {"checkout"},
 	}
 
 	_, body, err := util.MakeRequest(&util.Request{
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                ProceedToCheckoutEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            ProceedToCheckoutReferer,
 		Data:               []byte(data.Encode()),
 	})
@@ -307,7 +307,7 @@ func (task *Task) GuestCheckout() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                GuestCheckoutEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            GuestCheckoutReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -350,7 +350,7 @@ func (task *Task) SubmitShipping() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SubmitShippingEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitShippingReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -373,7 +373,7 @@ func (task *Task) UseOrigAddress() bool {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                UseOrigAddressEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            UseOrigAddressReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -432,7 +432,7 @@ func (task *Task) SubmitPaymentInfo() (bool, bool) {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SubmitPaymentInfoEndpoint + task.Dwcont,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitPaymentInfoReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
@@ -451,13 +451,15 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Client:             task.Task.Client,
 		Method:             "POST",
 		URL:                SubmitOrderEndpoint,
-		AddHeadersFunction: AddHottopicHeaders,
+		AddHeadersFunction: AddBoxlunchHeaders,
 		Referer:            SubmitOrderReferer + task.OldDwcont,
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
 		return false, status
 	}
+
+	log.Println(body)
 
 	var success bool
 	if !strings.Contains(body, "Your order could not be submitted") {
@@ -472,10 +474,10 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
-		Embeds:       task.CreateHottopicEmbed(status, task.StockData.ImageURL),
+		Embeds:       task.CreateBoxlunchEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,
 		Sku:          task.StockData.PID,
-		Retailer:     enums.HotTopic,
+		Retailer:     enums.BoxLunch,
 		Price:        float64(task.StockData.Price),
 		Quantity:     task.Task.Task.TaskQty,
 		MsToCheckout: time.Since(startTime).Milliseconds(),

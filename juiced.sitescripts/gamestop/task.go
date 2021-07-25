@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
@@ -70,6 +70,10 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
 
 	client, err := util.CreateClient(task.Task.Proxy)
 	if err != nil {
@@ -153,12 +157,13 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
+	doNotRetry := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
-		setPaymentInfo = task.SetPaymentInfo()
+		setPaymentInfo, doNotRetry = task.SetPaymentInfo()
 		if !setPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -193,7 +198,7 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusSuccess:
 		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
 	case enums.OrderStatusFailed:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 	}
@@ -445,7 +450,13 @@ func (task *Task) SetShippingInfo() bool {
 }
 
 // Setting the payment for the order
-func (task *Task) SetPaymentInfo() bool {
+func (task *Task) SetPaymentInfo() (bool, bool) {
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
+	cardType := util.GetCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer)
+
 	// Not sure how this will work for gamestop compared to bestbuy, it will be a small change after testing if it's a problem
 	util.NewAbck(&task.Task.Client, PaymentEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
 
@@ -458,7 +469,7 @@ func (task *Task) SetPaymentInfo() bool {
 		"dwfrm_giftCard_balance_pinNumber":                   {""},
 		"g-recaptcha-response":                               {""},
 		"dwfrm_billing_paymentMethod":                        {"CREDIT_CARD"},
-		"dwfrm_billing_creditCardFields_cardType":            {task.Task.Profile.CreditCard.CardType},
+		"dwfrm_billing_creditCardFields_cardType":            {cardType},
 		"dwfrm_billing_creditCardFields_cardNumber":          {task.Task.Profile.CreditCard.CardNumber},
 		"dwfrm_billing_creditCardFields_expirationMonth":     {task.Task.Profile.CreditCard.ExpMonth},
 		"dwfrm_billing_creditCardFields_expirationYear":      {task.Task.Profile.CreditCard.ExpYear},
@@ -483,6 +494,7 @@ func (task *Task) SetPaymentInfo() bool {
 		"flexPayEnableSezzle":  {""},
 		"csrf_token":           {task.CheckoutInfo.CSRF},
 		"flexpay":              {"nonFlexPayment"},
+		"dwfrm_billing_accertify_accertifyDeviceFingerprint": {""},
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -513,9 +525,9 @@ func (task *Task) SetPaymentInfo() bool {
 
 	switch resp.StatusCode {
 	case 200:
-		return true
+		return true, false
 	default:
-		return false
+		return false, false
 	}
 }
 
@@ -524,7 +536,8 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	form := url.Values{
-		"klarnaOrderId": {""},
+		"klarnaOrderId":              {""},
+		"accertifyDeviceFingerprint": {""},
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -573,18 +586,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return false, status
-	}
-
-	util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
 		Embeds:       task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
-		UserInfo:     user,
 		ItemName:     task.CheckoutInfo.ItemName,
 		Sku:          task.CheckoutInfo.SKUInStock,
 		Retailer:     enums.GameStop,
