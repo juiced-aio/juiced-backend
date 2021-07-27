@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"strings"
 	"time"
+
+	"backend.juicedbot.io/juiced.client/http"
 
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
