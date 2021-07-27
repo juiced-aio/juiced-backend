@@ -34,9 +34,8 @@ type Task struct {
 }
 
 type HottopicTaskInfo struct {
-	TaskID      string   `json:"taskID" db:"taskID"`
-	TaskGroupID string   `json:"taskGroupID" db:"taskGroupID"`
-	Pids        []string `json:"pids" db:"pids"`
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 }
 
 type PokemonCenterTaskInfo struct {
