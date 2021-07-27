@@ -1168,6 +1168,143 @@ func DecryptLogCheckoutResponse(response EncryptedLogCheckoutResponse, timestamp
 	return logCheckoutResponse, nil
 }
 
+func GetEncryptionKey(userInfo entities.UserInfo) (GetEncryptionKeyResult, error) {
+	getEncryptionKeyResponse := GetEncryptionKeyResponse{}
+	encryptedgetEncryptionKeyResponse := EncryptedGetEncryptionKeyResponse{}
+
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/e"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/e"
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_HWID, err
+	}
+
+	bIV := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(bIV); err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_CREATE_IV, err
+	}
+
+	key := GET_ENCRYPTION_KEY_ENCRYPTION_KEY
+
+	timestamp := time.Now().Unix()
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_TIMESTAMP, err
+	}
+
+	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
+
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_ACTIVATION_TOKEN, err
+	}
+	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HWID, err
+	}
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_DEVICE_NAME, err
+	}
+
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[:4], key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_B, err
+	}
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[4:10], key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_C, err
+	}
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[10:15], key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_A, err
+	}
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[15:19], key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_E, err
+	}
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[19:], key)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_D, err
+	}
+
+	getEncryptionKeyRequest := GetEncryptionKeyRequest{
+		HWID:            encryptedHWID,
+		DeviceName:      encryptedDeviceName,
+		ActivationToken: encryptedActivationToken,
+	}
+
+	data, _ := json.Marshal(getEncryptionKeyRequest)
+	payload := bytes.NewBuffer(data)
+	request, _ := http.NewRequest("POST", endpoint, payload)
+	request.Header.Add("x-j-w", encryptedTimestamp)
+	request.Header.Add("x-j-a", encryptedHeaderA)
+	request.Header.Add("x-j-b", encryptedHeaderB)
+	request.Header.Add("x-j-c", encryptedHeaderC)
+	request.Header.Add("x-j-d", encryptedHeaderD)
+	request.Header.Add("x-j-e", encryptedHeaderE)
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_REQUEST, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_READ_BODY, err
+	}
+
+	err = json.Unmarshal(body, &encryptedgetEncryptionKeyResponse)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_UNMARSHAL_BODY, err
+	}
+
+	getEncryptionKeyResponse, err = DecryptGetEncryptionKeyResponse(encryptedgetEncryptionKeyResponse, timestamp)
+	if err != nil {
+		return ERROR_GET_ENCRYPTION_KEY_DECRYPT_RESPONSE, err
+	}
+
+	if !getEncryptionKeyResponse.Success {
+		if getEncryptionKeyResponse.ErrorMessage == "Token expired" {
+			return ERROR_GET_ENCRYPTION_KEY_TOKEN_EXPIRED, errors.New("token expired")
+		}
+		return ERROR_GET_ENCRYPTION_KEY_FAILED, errors.New(getEncryptionKeyResponse.ErrorMessage)
+	}
+
+	return SUCCESS_GET_ENCRYPTION_KEY, nil
+}
+
+func DecryptGetEncryptionKeyResponse(response EncryptedGetEncryptionKeyResponse, timestamp int64) (GetEncryptionKeyResponse, error) {
+	getEncryptionKeyResponse := GetEncryptionKeyResponse{}
+
+	key := GET_ENCRYPTION_KEY_DECRYPTION_KEY
+
+	success, err := common.Aes256Decrypt(response.Success, key)
+	if err != nil {
+		return getEncryptionKeyResponse, err
+	}
+
+	encryptionKey, err := common.Aes256Decrypt(response.EncryptionKey, key)
+	if err != nil {
+		return getEncryptionKeyResponse, err
+	}
+
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
+	if err != nil {
+		return getEncryptionKeyResponse, err
+	}
+
+	getEncryptionKeyResponse = GetEncryptionKeyResponse{
+		Success:       success == "true",
+		EncryptionKey: encryptionKey,
+		ErrorMessage:  errorMessage,
+	}
+
+	return getEncryptionKeyResponse, nil
+}
+
 func Heartbeat(userInfo entities.UserInfo, retries int) (entities.UserInfo, error) {
 	errCode, err := Authenticate(userInfo)
 	if err == nil {
