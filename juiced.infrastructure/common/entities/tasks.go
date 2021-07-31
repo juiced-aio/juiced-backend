@@ -315,6 +315,13 @@ type ShopifyMonitorInfo struct {
 	Monitors     []ShopifySingleMonitorInfo `json:"monitors"`
 }
 
+type BigCartelSingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	Sku         string `json:"sku" db:"sku"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
 // AddTasksToGroup adds the given Tasks to the TaskGroup
 func (taskGroup *TaskGroup) AddTasksToGroup(tasksToAdd []string) {
 	tasks := taskGroup.TaskIDs
