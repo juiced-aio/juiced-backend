@@ -212,7 +212,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.StockData.PID != "" {
 			return false
 		}
-		time.Sleep(25 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -473,6 +473,7 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateBoxlunchEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,

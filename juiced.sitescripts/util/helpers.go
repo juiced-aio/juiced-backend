@@ -519,7 +519,9 @@ func ProcessCheckout(pci ProcessCheckoutInfo) {
 		return
 	}
 	pci.UserInfo = user
-	go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
+	if pci.Status != enums.OrderStatusFailed {
+		go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
+	}
 	if pci.Success {
 		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, int(pci.Price), pci.Quantity, pci.UserInfo)
 		go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
