@@ -1169,12 +1169,15 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			case "CC_AUTH_FAILURE":
 				fmt.Println("Card declined")
 				status = enums.OrderStatusDeclined
+			case "ITEM_EXCEEDED_ORDER_LIMIT":
+				fmt.Println("Order limit exceeded")
+				status = enums.OrderStatusDeclined
 			default:
-				fmt.Println("Failed to Checkout")
+				fmt.Println("Failed to Checkout", placeOrderResponse)
 				status = enums.OrderStatusFailed
 			}
 		} else {
-			fmt.Println("Failed to Checkout")
+			fmt.Println("Failed to Checkout", placeOrderResponse)
 			status = enums.OrderStatusFailed
 		}
 		success = false
