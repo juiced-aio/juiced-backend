@@ -332,7 +332,7 @@ func (monitor *Monitor) GetOfferIDStock(offerID string) WalmartInStockData {
 
 					if inStock {
 						stockData.SKU = item.USItemID
-						stockData.MaxQty = item.MaxItemCountPerOrder
+						stockData.MaxQty = int(item.MaxItemCountPerOrder)
 						stockData.OfferID = item.OfferID
 						stockData.ProductName = item.Name
 						stockData.Price = item.Price

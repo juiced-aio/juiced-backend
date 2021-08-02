@@ -1,7 +1,6 @@
 package target
 
 import (
-	"fmt"
 	"math/rand"
 
 	"strings"
@@ -156,7 +155,6 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 
 	getTCINStockRequest := map[string]string{}
 	if monitor.StoreID != "" {
-		fmt.Println(monitor.StoreID)
 		getTCINStockRequest = GetTCINStockRequestToMap(GetTCINStockRequest{
 			Key:                      "ff457966e64d5e877fdbad070f276d18ecec4a01",
 			TCINs:                    strings.Join(monitor.TCINs, ","),
