@@ -592,26 +592,20 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 								inStockForPickup = append(inStockForPickup, value.(target.SingleStockData))
 							}
 
-							if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(inStockForPickup) > 0 {
+							if len(inStockForPickup) > 0 {
 								targetTask.InStockData = inStockForPickup[rand.Intn(len(inStockForPickup))]
 								targetTask.AccountInfo.StoreID = targetMonitor.StoreID
-							} else if targetTask.CheckoutType == enums.CheckoutTypeSHIP && len(inStockForShip) > 0 {
+								targetTask.CheckoutType = enums.CheckoutTypePICKUP
+							} else if len(inStockForShip) > 0 {
 								targetTask.InStockData = inStockForShip[rand.Intn(len(inStockForShip))]
-							} else {
-								if len(inStockForShip) > 0 {
-									targetTask.InStockData = inStockForShip[rand.Intn(len(inStockForShip))]
-								} else if len(inStockForPickup) > 0 {
-									targetTask.InStockData = inStockForPickup[rand.Intn(len(inStockForPickup))]
-									targetTask.AccountInfo.StoreID = targetMonitor.StoreID
-								}
+								targetTask.CheckoutType = enums.CheckoutTypeSHIP
 							}
-
 						}
 					}
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(1 * time.Second)
 	}
 }
 
