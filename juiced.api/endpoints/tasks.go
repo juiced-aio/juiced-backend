@@ -273,8 +273,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 
 						case enums.BoxLunch:
 							newMonitors := make([]entities.BoxlunchSingleMonitorInfo, 0)
@@ -296,8 +296,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.BoxlunchMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.BoxlunchMonitorInfo.Monitors = newMonitors
 
 						case enums.Disney:
 							newMonitors := make([]entities.DisneySingleMonitorInfo, 0)
@@ -314,8 +314,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.DisneyMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.DisneyMonitorInfo.Monitors = newMonitors
 
 						case enums.GameStop:
 							newMonitors := make([]entities.GamestopSingleMonitorInfo, 0)
@@ -330,8 +330,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.GamestopMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.GamestopMonitorInfo.Monitors = newMonitors
 
 						case enums.HotTopic:
 							newMonitors := make([]entities.HottopicSingleMonitorInfo, 0)
@@ -353,8 +353,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.HottopicMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.HottopicMonitorInfo.Monitors = newMonitors
 
 						case enums.Shopify:
 							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
@@ -369,8 +369,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
 
 						case enums.Target:
 							newMonitors := make([]entities.TargetSingleMonitorInfo, 0)
@@ -386,9 +386,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.TargetMonitorInfo.StoreID = updateTaskGroupRequestInfo.TargetUpdateInfo.StoreID
+								taskGroup.TargetMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.TargetMonitorInfo.StoreID = updateTaskGroupRequestInfo.TargetUpdateInfo.StoreID
-							taskGroup.TargetMonitorInfo.Monitors = newMonitors
 
 						case enums.Walmart:
 							newMonitors := make([]entities.WalmartSingleMonitorInfo, 0)
@@ -409,9 +409,10 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.WalmartMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.WalmartMonitorInfo.Monitors = newMonitors
 						}
+
 						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
 							newTaskGroup.UpdateMonitor = true
