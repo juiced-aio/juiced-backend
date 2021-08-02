@@ -442,7 +442,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -542,7 +542,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStartWithTasks}, Errors: make([]string, 0), Warnings: warningsList}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupToStartWithTasks)}, Errors: make([]string, 0), Warnings: warningsList}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
@@ -580,7 +580,7 @@ func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStopWithTasks}, Errors: make([]string, 0)}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupToStopWithTasks)}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
@@ -659,7 +659,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -851,7 +851,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -1002,7 +1002,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{taskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupWithTasks)}
 
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
