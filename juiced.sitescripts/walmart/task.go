@@ -54,7 +54,7 @@ func (task *Task) RefreshPX3() {
 					return
 				}
 			}
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 	}()
 
@@ -128,7 +128,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		time.Sleep(25 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 
 	setup := false
@@ -308,7 +308,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.StockData.OfferID != "" && task.StockData.SKU != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -334,7 +334,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 					return
 				}
 			}
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 	}()
 
@@ -987,6 +987,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,

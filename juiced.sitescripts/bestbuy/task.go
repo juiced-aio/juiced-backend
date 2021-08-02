@@ -398,7 +398,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.CheckoutInfo.SKUInStock != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -497,7 +497,7 @@ func (task *Task) AddToCart() bool {
 				go func() {
 					for {
 						queueChan <- false
-						time.Sleep(1 * time.Millisecond)
+						time.Sleep(common.MS_TO_WAIT)
 					}
 				}()
 				for {
@@ -1169,12 +1169,15 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			case "CC_AUTH_FAILURE":
 				fmt.Println("Card declined")
 				status = enums.OrderStatusDeclined
+			case "ITEM_EXCEEDED_ORDER_LIMIT":
+				fmt.Println("Order limit exceeded")
+				status = enums.OrderStatusDeclined
 			default:
-				fmt.Println("Failed to Checkout")
+				fmt.Println("Failed to Checkout", placeOrderResponse)
 				status = enums.OrderStatusFailed
 			}
 		} else {
-			fmt.Println("Failed to Checkout")
+			fmt.Println("Failed to Checkout", placeOrderResponse)
 			status = enums.OrderStatusFailed
 		}
 		success = false
@@ -1184,6 +1187,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
 		ItemName:     task.CheckoutInfo.ItemName,
