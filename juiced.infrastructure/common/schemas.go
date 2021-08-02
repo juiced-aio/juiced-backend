@@ -47,6 +47,7 @@ var bestbuyTaskInfosSchema = `
 		taskGroupID TEXT,
 		email TEXT,
 		password TEXT,
+		locationID TEXT,
 		taskType TEXT
 	)
 `
@@ -80,8 +81,7 @@ var gamestopTaskInfosSchema = `
 var hottopicTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS hottopicTaskInfos (
 		taskID TEXT,
-		taskGroupID TEXT,
-		pidsJoined TEXT
+		taskGroupID TEXT
 	)
 `
 

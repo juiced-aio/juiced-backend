@@ -11,6 +11,7 @@ const (
 	WaitingForProductData     MonitorStatus = "Searching"
 	UnableToFindProduct       MonitorStatus = "Product not found"
 	WaitingForInStock         MonitorStatus = "Out of stock"
+	OutOfPriceRange           MonitorStatus = "Out of price range"
 	SendingProductInfoToTasks MonitorStatus = "Sending to tasks"
 	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
 )
@@ -49,6 +50,7 @@ const (
 	SettingOrderInfo    TaskStatus = "Setting order info"
 	CheckingOut         TaskStatus = "Checking out"
 	CheckedOut          TaskStatus = "Checked out!"
+	CardDeclined        TaskStatus = "Card declined"
 	CheckoutFailed      TaskStatus = "Checkout failed"
 )
 

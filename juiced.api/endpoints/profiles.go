@@ -423,8 +423,8 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 			next := true
 			taskStore := stores.GetTaskStore()
 			for _, task := range tasks {
-				stopped := taskStore.StopTask(&task)
-				if !stopped {
+				err = taskStore.StopTask(&task)
+				if err != nil {
 					next = false
 					break
 				}
@@ -440,10 +440,10 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 					errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
 				}
 			} else {
-				errorsList = append(errorsList, errors.StopTaskError)
+				errorsList = append(errorsList, errors.StopTaskError+err.Error())
 			}
 		} else {
-			errorsList = append(errorsList, errors.GetTaskError)
+			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)

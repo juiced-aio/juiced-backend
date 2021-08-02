@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
 	_ "github.com/mattn/go-sqlite3"
@@ -64,7 +65,28 @@ func FindInString(str string, start string, end string) (string, error) {
 	}
 
 	return parsed, nil
+}
 
+func FindInString2(str string, start string, end string) (string, error) {
+	if !strings.Contains(str, start) {
+		return "", errors.New("string not found")
+	}
+
+	after := strings.Split(str, start)
+	if len(after) < 2 || after[1] == "" {
+		return "", errors.New("string not found")
+	}
+
+	if !strings.Contains(after[1], end) {
+		return "", errors.New("string not found")
+	}
+
+	between := strings.Split(after[1], end)
+	if len(between) == 0 || between[0] == "" {
+		return "", errors.New("string not found")
+	}
+
+	return between[0], nil
 }
 
 // RandID returns a random n-digit ID of digits and uppercase letters
@@ -311,4 +333,94 @@ func Aes256Decrypt(encryptedText string, key string) (string, error) {
 
 	cipherText, err = pkcs7.Unpad(cipherText, aes.BlockSize)
 	return string(cipherText), err
+}
+
+func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
+	// Visa
+	matched, _ := regexp.Match(`^4`, cardNumber)
+	if matched {
+		switch retailer {
+
+		default:
+			return true
+		}
+	}
+
+	// Mastercard
+	matched, _ = regexp.Match(`^(5[1-5][0-9]{14}|2(22[1-9][0-9]{12}|2[3-9][0-9]{13}|[3-6][0-9]{14}|7[0-1][0-9]{13}|720[0-9]{12}))$`, cardNumber)
+	if matched {
+		switch retailer {
+
+		default:
+			return true
+		}
+	}
+
+	// AMEX
+	matched, _ = regexp.Match(`^3[47]`, cardNumber)
+	if matched {
+		switch retailer {
+
+		default:
+			return true
+		}
+	}
+
+	// Discover
+	matched, _ = regexp.Match(`^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)`, cardNumber)
+	if matched {
+		switch retailer {
+
+		default:
+			return true
+		}
+	}
+
+	// Diners
+	matched, _ = regexp.Match(`^36`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.GameStop:
+		case enums.Walmart:
+		default:
+			return true
+		}
+	}
+
+	// Diners - Carte Blanche
+	matched, _ = regexp.Match(`^30[0-5]`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.BestBuy:
+		case enums.BoxLunch:
+		case enums.HotTopic:
+		case enums.Walmart:
+		default:
+			return true
+		}
+	}
+
+	// JCB
+	matched, _ = regexp.Match(`^35(2[89]|[3-8][0-9])`, cardNumber)
+	if matched {
+		switch retailer {
+		case enums.BoxLunch:
+		case enums.HotTopic:
+		case enums.Target:
+		case enums.Walmart:
+		default:
+			return true
+		}
+	}
+
+	// Visa Electron
+	matched, _ = regexp.Match(`^(4026|417500|4508|4844|491(3|7))`, cardNumber)
+	if matched {
+		switch retailer {
+		default:
+			return true
+		}
+	}
+
+	return false
 }

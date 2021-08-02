@@ -1,7 +1,6 @@
 package target
 
 import (
-	"fmt"
 	"math/rand"
 
 	"strings"
@@ -18,7 +17,7 @@ import (
 )
 
 // CreateTargetMonitor takes a TaskGroup entity and turns it into a Target Monitor
-func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitor entities.TargetMonitorInfo) (Monitor, error) {
+func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitor *entities.TargetMonitorInfo) (Monitor, error) {
 	storedTargetMonitors := make(map[string]entities.TargetSingleMonitorInfo)
 	targetMonitor := Monitor{}
 	tcins := []string{}
@@ -156,7 +155,6 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 
 	getTCINStockRequest := map[string]string{}
 	if monitor.StoreID != "" {
-		fmt.Println(monitor.StoreID)
 		getTCINStockRequest = GetTCINStockRequestToMap(GetTCINStockRequest{
 			Key:                      "ff457966e64d5e877fdbad070f276d18ecec4a01",
 			TCINs:                    strings.Join(monitor.TCINs, ","),

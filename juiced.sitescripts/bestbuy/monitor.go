@@ -181,7 +181,7 @@ func (monitor *Monitor) GetSKUStock() BestbuyInStockData {
 			sku := monitorResponse[i].Sku.Skuid
 			monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
 
-			if monitorResponse[i].Sku.Buttonstate.Buttonstate == "ADD_TO_CART" {
+			if monitorResponse[i].Sku.Buttonstate.Buttonstate == "ADD_TO_CART" || monitorResponse[i].Sku.Buttonstate.Buttonstate == "PRE_ORDER" {
 				price := int(monitorResponse[i].Sku.Price.Currentprice)
 				if monitor.SKUWithInfo[sku].MaxPrice >= price || monitor.SKUWithInfo[sku].MaxPrice == -1 {
 					stockData.SKU = sku
