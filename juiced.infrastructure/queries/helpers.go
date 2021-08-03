@@ -2,6 +2,7 @@ package queries
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -682,10 +683,28 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 		decryptedCardNumber, err := common.Aes256Decrypt(profile.CreditCard.CardNumber, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.CardNumber = decryptedCardNumber
+		} else {
+			encryptedCardNumber, err := common.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
+			if err != nil {
+				return profile, err
+			}
+			_, err = database.Queryx(fmt.Sprintf(`UPDATE cards SET cardNumber = %v WHERE ID = %v`, encryptedCardNumber, profile.CreditCard.ID))
+			if err != nil {
+				return profile, err
+			}
 		}
 		decryptedCVV, err := common.Aes256Decrypt(profile.CreditCard.CVV, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.CVV = decryptedCVV
+		} else {
+			encryptedCVV, err := common.Aes256Encrypt(profile.CreditCard.CVV, enums.UserKey)
+			if err != nil {
+				return profile, err
+			}
+			_, err = database.Queryx(fmt.Sprintf(`UPDATE cards SET cvv = %v WHERE ID = %v`, encryptedCVV, profile.CreditCard.ID))
+			if err != nil {
+				return profile, err
+			}
 		}
 
 	}

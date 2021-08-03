@@ -2,6 +2,7 @@ package queries
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -58,6 +59,15 @@ func GetAccounts() ([]entities.Account, error) {
 		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
 		if err == nil {
 			account.Password = decryptedPassword
+		} else {
+			encryptedPassword, err := common.Aes256Encrypt(account.Password, enums.UserKey)
+			if err != nil {
+				return accounts, err
+			}
+			_, err = database.Queryx(fmt.Sprintf(`UPDATE accounts SET password = %v WHERE ID = %v`, encryptedPassword, account.ID))
+			if err != nil {
+				return accounts, err
+			}
 		}
 
 		accounts = append(accounts, account)
@@ -98,6 +108,15 @@ func GetAccount(ID string) (entities.Account, error) {
 		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
 		if err == nil {
 			account.Password = decryptedPassword
+		} else {
+			encryptedPassword, err := common.Aes256Encrypt(account.Password, enums.UserKey)
+			if err != nil {
+				return account, err
+			}
+			_, err = database.Queryx(fmt.Sprintf(`UPDATE accounts SET password = %v WHERE ID = %v`, encryptedPassword, account.ID))
+			if err != nil {
+				return account, err
+			}
 		}
 
 	}
