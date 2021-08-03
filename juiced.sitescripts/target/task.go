@@ -859,6 +859,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 		Content:      "",
 		Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
 		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		ImageURL:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath,
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,
 		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,

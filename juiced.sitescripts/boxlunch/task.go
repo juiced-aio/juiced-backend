@@ -477,6 +477,7 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Content:      "",
 		Embeds:       task.CreateBoxlunchEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
 		Sku:          task.StockData.PID,
 		Retailer:     enums.BoxLunch,
 		Price:        float64(task.StockData.Price),
