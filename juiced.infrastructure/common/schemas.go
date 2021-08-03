@@ -403,7 +403,8 @@ var settingsSchema = `
 		capMonsterAPIKey TEXT,
 		aycdAccessToken TEXT,
 		aycdAPIKey TEXT,
-		darkMode INTEGER
+		darkMode INTEGER,
+		useAnimations INTEGER
 	)
 `
 
