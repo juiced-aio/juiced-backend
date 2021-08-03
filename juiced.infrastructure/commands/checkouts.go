@@ -16,12 +16,12 @@ func CreateCheckout(checkout entities.Checkout) error {
 		return errors.New("database not initialized")
 	}
 
-	statement, err := database.Preparex(`INSERT INTO checkouts (itemName, sku, price, quantity, retailer, profileName, msToCheckout, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO checkouts (itemName, imageURL, sku, price, quantity, retailer, profileName, msToCheckout, time) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(checkout.ItemName, checkout.SKU, checkout.Price, checkout.Quantity, checkout.Retailer, checkout.ProfileName, checkout.MsToCheckout, checkout.Time)
+	_, err = statement.Exec(checkout.ItemName, checkout.ImageURL, checkout.SKU, checkout.Price, checkout.Quantity, checkout.Retailer, checkout.ProfileName, checkout.MsToCheckout, checkout.Time)
 	if err != nil {
 		return err
 	}

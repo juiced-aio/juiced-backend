@@ -593,6 +593,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Content:      "",
 		Embeds:       task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
 		ItemName:     task.CheckoutInfo.ItemName,
+		ImageURL:     task.CheckoutInfo.ImageURL,
 		Sku:          task.CheckoutInfo.SKUInStock,
 		Retailer:     enums.GameStop,
 		Price:        task.CheckoutInfo.Price,

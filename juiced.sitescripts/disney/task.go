@@ -934,6 +934,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool, enums.OrderStatus
 		Content:      "",
 		Embeds:       task.CreateDisneyEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
 		Sku:          task.StockData.PID,
 		Retailer:     enums.Disney,
 		Price:        task.TaskInfo.Total,

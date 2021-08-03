@@ -841,6 +841,7 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Content:      "",
 		Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
 		ItemName:     task.TaskInfo.Name,
+		ImageURL:     task.TaskInfo.Image,
 		Sku:          task.VariantID,
 		Retailer:     enums.Shopify,
 		Price:        float64(task.TaskInfo.Price),

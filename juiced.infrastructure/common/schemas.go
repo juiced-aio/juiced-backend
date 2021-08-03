@@ -382,6 +382,7 @@ var cardsSchema = `
 var checkoutsSchema = `
 	CREATE TABLE IF NOT EXISTS checkouts (
 		itemName TEXT,
+		imageURL TEXT,
 		sku TEXT,
 		price INTEGER,
 		quantity INTEGER,

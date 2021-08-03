@@ -637,6 +637,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Content:      "",
 		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
 		ItemName:     task.TaskInfo.ItemName,
+		ImageURL:     task.CheckoutInfo.ImageURL,
 		Sku:          task.TaskInfo.ASIN,
 		Retailer:     enums.Amazon,
 		Price:        float64(task.CheckoutInfo.Price),
