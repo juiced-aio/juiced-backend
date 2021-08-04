@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -674,6 +675,8 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 		return profile, err
 	}
 
+	var encryptedCardNumber string
+	var encryptedCVV string
 	defer rows.Close()
 	for rows.Next() {
 		err = rows.StructScan(&profile.CreditCard)
@@ -684,11 +687,7 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 		if err == nil {
 			profile.CreditCard.CardNumber = decryptedCardNumber
 		} else {
-			encryptedCardNumber, err := common.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
-			if err != nil {
-				return profile, err
-			}
-			_, err = database.Queryx(fmt.Sprintf(`UPDATE cards SET cardNumber = %v WHERE ID = %v`, encryptedCardNumber, profile.CreditCard.ID))
+			encryptedCardNumber, err = common.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
@@ -697,16 +696,38 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 		if err == nil {
 			profile.CreditCard.CVV = decryptedCVV
 		} else {
-			encryptedCVV, err := common.Aes256Encrypt(profile.CreditCard.CVV, enums.UserKey)
-			if err != nil {
-				return profile, err
-			}
-			_, err = database.Queryx(fmt.Sprintf(`UPDATE cards SET cvv = %v WHERE ID = %v`, encryptedCVV, profile.CreditCard.ID))
+			encryptedCVV, err = common.Aes256Encrypt(profile.CreditCard.CVV, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
+	}
+	if encryptedCardNumber != "" {
+		go func() {
+			for {
+				_, err = database.Exec(fmt.Sprintf(`UPDATE cards SET cardNumber = "%v" WHERE ID = "%v"`, encryptedCardNumber, profile.CreditCard.ID))
+				if err != nil {
+					continue
+				} else {
+					time.Sleep(1 * time.Second)
+				}
+			}
 
+		}()
+	}
+
+	if encryptedCVV != "" {
+		go func() {
+			for {
+				_, err = database.Exec(fmt.Sprintf(`UPDATE cards SET cvv = "%v" WHERE ID = "%v"`, encryptedCVV, profile.CreditCard.ID))
+				if err != nil {
+					continue
+				} else {
+					time.Sleep(1 * time.Second)
+				}
+			}
+
+		}()
 	}
 
 	return profile, err
@@ -716,6 +737,7 @@ func GetProfileInfo(profile entities.Profile) (entities.Profile, error) {
 	if profile.ProfileGroupIDsJoined != "" {
 		profile.ProfileGroupIDs = strings.Split(profile.ProfileGroupIDsJoined, ",")
 	}
+
 	profile, err := GetShippingAddress(profile)
 	if err != nil {
 		return profile, err

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -64,9 +65,19 @@ func GetAccounts() ([]entities.Account, error) {
 			if err != nil {
 				return accounts, err
 			}
-			_, err = database.Queryx(fmt.Sprintf(`UPDATE accounts SET password = %v WHERE ID = %v`, encryptedPassword, account.ID))
-			if err != nil {
-				return accounts, err
+
+			if encryptedPassword != "" {
+				go func() {
+					for {
+						_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET password = "%v" WHERE ID = "%v"`, encryptedPassword, account.ID))
+						if err != nil {
+							continue
+						} else {
+							time.Sleep(1 * time.Second)
+						}
+					}
+
+				}()
 			}
 		}
 
@@ -113,9 +124,18 @@ func GetAccount(ID string) (entities.Account, error) {
 			if err != nil {
 				return account, err
 			}
-			_, err = database.Queryx(fmt.Sprintf(`UPDATE accounts SET password = %v WHERE ID = %v`, encryptedPassword, account.ID))
-			if err != nil {
-				return account, err
+
+			if encryptedPassword != "" {
+				go func() {
+					for {
+						_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET password = "%v" WHERE ID = "%v"`, encryptedPassword, account.ID))
+						if err != nil {
+							continue
+						} else {
+							time.Sleep(1 * time.Second)
+						}
+					}
+				}()
 			}
 		}
 
