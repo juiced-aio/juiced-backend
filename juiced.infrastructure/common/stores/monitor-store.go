@@ -438,16 +438,7 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
 						if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(amazonMonitor.InStock))
-							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[randomNumber].ASIN
-							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[randomNumber].OfferID
-							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[randomNumber].ItemName
-							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[randomNumber].Price
-							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[randomNumber].AntiCsrf
-							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[randomNumber].PID
-							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[randomNumber].RID
-							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[randomNumber].ImageURL
-							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[randomNumber].UA
-							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[randomNumber].MonitorType)
+							amazonTask.StockData = amazonMonitor.InStock[randomNumber]
 						}
 					}
 				}
