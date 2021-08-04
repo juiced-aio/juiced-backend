@@ -223,8 +223,9 @@ func TestFindInString(t *testing.T) {
 }
 
 func TestNewAbck(t *testing.T) {
+	//entities.Proxy{Host: "localhost", Port: "8888"}
 	client, _ := CreateClient()
-	bestbuyURL := "https://www.bestbuy.com"
+	bestbuyURL := "https://www.bestbuy.com/"
 	akamaiURL := "https://www.bestbuy.com/Z43Qo-szvQDrezPFUWbI-oosQsM/9YOhShXz9OX1/D3ZjQkgC/EWdSfC5P/DlY"
 	type args struct {
 		abckClient     *http.Client

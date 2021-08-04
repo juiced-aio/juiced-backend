@@ -1013,6 +1013,201 @@ func DecryptAkamaiResponse(response EncryptedAkamaiResponse, timestamp int64) (A
 	return akamaiResponse, nil
 }
 
+func ExperimentalAkamai(baseURL string, userAgent string, cookie string, postIndx int64, savedD3 int64, savedStartTS int64, deviceNum int64, userInfo entities.UserInfo) (ExperimentalAkamaiAPIResponse, AkamaiResult, error) {
+	akamaiAPIResponse := ExperimentalAkamaiAPIResponse{}
+	akamaiResponse := ExperimentalAkamaiResponse{}
+	encryptedAkamaiResponse := EncryptedExperimentalAkamaiResponse{}
+
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/ake"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/ake"
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_HWID, err
+	}
+
+	bIV := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(bIV); err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_CREATE_IV, err
+	}
+
+	key := AKAMAI_ENCRYPTION_KEY
+
+	timestamp := time.Now().Unix()
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_TIMESTAMP, err
+	}
+
+	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
+
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ACTIVATION_TOKEN, err
+	}
+	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HWID, err
+	}
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_DEVICE_NAME, err
+	}
+
+	encryptedBaseURL, err := common.Aes256Encrypt(baseURL, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_BASE_URL, err
+	}
+	encryptedUserAgent, err := common.Aes256Encrypt(userAgent, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_USER_AGENT, err
+	}
+	encryptedCookie, err := common.Aes256Encrypt(cookie, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_COOKIE, err
+	}
+	encryptedPostIndx, err := common.Aes256Encrypt(fmt.Sprint(postIndx), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_POST_INDX, err
+	}
+	encryptedSavedD3, err := common.Aes256Encrypt(fmt.Sprint(savedD3), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_SAVED_D3, err
+	}
+	encryptedSavedStartTS, err := common.Aes256Encrypt(fmt.Sprint(savedStartTS), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_SAVED_START_TS, err
+	}
+	encryptedDeviceNum, err := common.Aes256Encrypt(fmt.Sprint(deviceNum), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_DEVICE_NUM, err
+	}
+
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_B, err
+	}
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[3:7], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_C, err
+	}
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[7:14], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_E, err
+	}
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[14:18], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_D, err
+	}
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[18:], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_A, err
+	}
+
+	akamaiRequest := ExerimentalAkamaiRequest{
+		HWID:            encryptedHWID,
+		DeviceName:      encryptedDeviceName,
+		ActivationToken: encryptedActivationToken,
+		BaseURL:         encryptedBaseURL,
+		UserAgent:       encryptedUserAgent,
+		Cookie:          encryptedCookie,
+		PostIndx:        encryptedPostIndx,
+		SavedD3:         encryptedSavedD3,
+		SavedStartTS:    encryptedSavedStartTS,
+		DeviceNum:       encryptedDeviceNum,
+	}
+
+	data, _ := json.Marshal(akamaiRequest)
+	payload := bytes.NewBuffer(data)
+	request, _ := http.NewRequest("POST", endpoint, payload)
+	request.Header.Add("x-j-w", encryptedTimestamp)
+	request.Header.Add("x-j-a", encryptedHeaderA)
+	request.Header.Add("x-j-b", encryptedHeaderB)
+	request.Header.Add("x-j-c", encryptedHeaderC)
+	request.Header.Add("x-j-d", encryptedHeaderD)
+	request.Header.Add("x-j-e", encryptedHeaderE)
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_REQUEST, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_READ_BODY, err
+	}
+
+	json.Unmarshal(body, &encryptedAkamaiResponse)
+
+	akamaiResponse, err = DecryptExperimentalAkamaiResponse(encryptedAkamaiResponse, timestamp)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_DECRYPT_RESPONSE, err
+	}
+
+	if !akamaiResponse.Success {
+		return akamaiAPIResponse, ERROR_AKAMAI_FAILED, errors.New(akamaiResponse.ErrorMessage)
+	}
+
+	return akamaiResponse.AkamaiAPIResponse, SUCCESS_AKAMAI, nil
+}
+
+func DecryptExperimentalAkamaiResponse(response EncryptedExperimentalAkamaiResponse, timestamp int64) (ExperimentalAkamaiResponse, error) {
+	akamaiResponse := ExperimentalAkamaiResponse{}
+
+	key := AKAMAI_DECRYPTION_KEY
+
+	success, err := common.Aes256Decrypt(response.Success, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	sensorData, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SensorData, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedD3Str, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SavedD3, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedD3, err := strconv.ParseInt(savedD3Str, 10, 64)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedStartTSStr, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SavedStartTS, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedStartTS, err := strconv.ParseInt(savedStartTSStr, 10, 64)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	deviceNumStr, err := common.Aes256Decrypt(response.AkamaiAPIResponse.DeviceNum, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	deviceNum, err := strconv.ParseInt(deviceNumStr, 10, 64)
+	if err != nil {
+		return akamaiResponse, err
+	}
+
+	akamaiResponse = ExperimentalAkamaiResponse{
+		Success:      success == "true",
+		ErrorMessage: errorMessage,
+		AkamaiAPIResponse: ExperimentalAkamaiAPIResponse{
+			SensorData:   sensorData,
+			SavedD3:      savedD3,
+			SavedStartTS: savedStartTS,
+			DeviceNum:    deviceNum,
+		},
+	}
+
+	return akamaiResponse, nil
+}
+
 func LogCheckout(itemName, sku, retailer string, price, quantity int, userInfo entities.UserInfo) (LogCheckoutResult, error) {
 	logCheckoutResponse := LogCheckoutResponse{}
 	encryptedLogCheckoutResponse := EncryptedLogCheckoutResponse{}

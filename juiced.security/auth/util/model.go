@@ -194,6 +194,45 @@ type AkamaiAPIResponse struct {
 	Pixel      string `json:"iqB8qihe20"`
 }
 
+type ExerimentalAkamaiRequest struct {
+	ActivationToken string `json:"d4FmMviLeH"`
+	HWID            string `json:"UIzN2pmSS4"`
+	DeviceName      string `json:"QSyf9TPhgl"`
+	BaseURL         string `json:"BU6AK4vBSN"`
+	UserAgent       string `json:"wqUSQ1OIb7"`
+	Cookie          string `json:"FCrYYORzgf"`
+	PostIndx        string `json:"FIwDYyYcMF"`
+	SavedD3         string `json:"xuvNcrzBpb"`
+	SavedStartTS    string `json:"VihhvZ1c3w"`
+	DeviceNum       string `json:"kSJHn8HCYF"`
+}
+
+type ExperimentalAkamaiResponse struct {
+	Success           bool                          `json:"krZupQuo9w"`
+	AkamaiAPIResponse ExperimentalAkamaiAPIResponse `json:"xaESu1lcdG"`
+	ErrorMessage      string                        `json:"p1Lq0L1U7f"`
+}
+
+type ExperimentalAkamaiAPIResponse struct {
+	SensorData   string `json:"9QuV8IpkJQ"`
+	SavedD3      int64  `json:"iqB8qihe20"`
+	SavedStartTS int64  `json:"9kqx6QUA79"`
+	DeviceNum    int64  `json:"30lDTNCxcm"`
+}
+
+type EncryptedExperimentalAkamaiResponse struct {
+	Success           string                                 `json:"krZupQuo9w"`
+	AkamaiAPIResponse EncryptedExperimentalAkamaiAPIResponse `json:"xaESu1lcdG"`
+	ErrorMessage      string                                 `json:"p1Lq0L1U7f"`
+}
+
+type EncryptedExperimentalAkamaiAPIResponse struct {
+	SensorData   string `json:"9QuV8IpkJQ"`
+	SavedD3      string `json:"iqB8qihe20"`
+	SavedStartTS string `json:"9kqx6QUA79"`
+	DeviceNum    string `json:"30lDTNCxcm"`
+}
+
 type LogCheckoutRequest struct {
 	ActivationToken string `json:"ptZ53SiiQW"`
 	HWID            string `json:"x5NiPKFWkP"`
