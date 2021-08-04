@@ -16,10 +16,6 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-var taskStore *stores.TaskStore
-
-var monitorStore *stores.MonitorStore
-
 func TestMain(m *testing.M) {
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
@@ -51,9 +47,13 @@ func TestMain(m *testing.M) {
 		log.Println("Error initializing AYCD: " + err.Error())
 		// TODO @silent: Handle
 	}
+	taskStore = stores.GetTaskStore()
+	monitorStore = stores.GetMonitorStore()
 	go util.DiscordWebhookQueue()
 	go api.StartServer()
 	os.Exit(m.Run())
 }
 
-func TestBestbuy(t *testing.T)
+func TestBestbuy(t *testing.T) {
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+}
