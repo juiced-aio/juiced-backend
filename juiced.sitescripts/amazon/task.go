@@ -468,7 +468,7 @@ func (task *Task) WaitForMonitor() bool {
 			return false
 		}
 		// I see why now
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -633,9 +633,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
 		ItemName:     task.TaskInfo.ItemName,
+		ImageURL:     task.CheckoutInfo.ImageURL,
 		Sku:          task.TaskInfo.ASIN,
 		Retailer:     enums.Amazon,
 		Price:        float64(task.CheckoutInfo.Price),

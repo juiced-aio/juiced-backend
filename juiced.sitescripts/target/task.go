@@ -242,7 +242,7 @@ func (task *Task) Setup() bool {
 					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
 						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
 					}
-					time.Sleep(1 * time.Millisecond)
+					time.Sleep(common.MS_TO_WAIT)
 				}
 			} else {
 				inMap = false
@@ -352,7 +352,7 @@ func (task *Task) Login() bool {
 	go func() {
 		// Wait until either the StopFlag is set to true or the BrowserComplete flag is set to true
 		for !task.Task.StopFlag && !task.BrowserComplete {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
 		if task.Task.StopFlag {
@@ -554,7 +554,7 @@ func (task *Task) WaitForMonitor() bool {
 			task.TCIN = task.InStockData.TCIN
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -855,9 +855,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
 		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		ImageURL:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath,
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,
 		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,

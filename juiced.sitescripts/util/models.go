@@ -5,6 +5,7 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
@@ -92,10 +93,12 @@ type SensorResponse struct {
 type ProcessCheckoutInfo struct {
 	BaseTask     base.Task
 	Success      bool
+	Status       enums.OrderStatus
 	Content      string
 	Embeds       []sec.DiscordEmbed
 	UserInfo     entities.UserInfo
 	ItemName     string
+	ImageURL     string
 	Sku          string
 	Retailer     string
 	Price        float64

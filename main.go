@@ -134,5 +134,6 @@ func Heartbeat(eventBus *events.EventBus, userInfo entities.UserInfo) {
 			}
 			lastChecked = time.Now()
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
