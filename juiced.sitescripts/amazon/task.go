@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	cclient "backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -88,7 +89,7 @@ func (task *Task) RunTask() {
 		}
 	}
 	// Sending the account info to the monitor
-	Accounts <- AccChan{task.Task.Task.TaskGroupID, task.Task.Client, task.AccountInfo}
+	AccountPool = append(AccountPool, Acc{task.Task.Task.TaskGroupID, task.Task.Client, task.AccountInfo})
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
 	// 2. WaitForMonitor
@@ -96,9 +97,14 @@ func (task *Task) RunTask() {
 	if needToStop {
 		return
 	}
+
+	err = cclient.UpdateProxy(&task.Task.Client, common.ProxyCleaner(task.Task.Proxy))
+	if err != nil {
+		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		return
+	}
 	status := enums.OrderStatusFailed
-	switch task.CheckoutInfo.MonitorType {
-	case enums.SlowSKUMonitor:
+	if task.CheckoutInfo.MonitorType == enums.SlowSKUMonitor {
 		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 		// 3. AddToCart
 		addedToCart := false
@@ -116,55 +122,34 @@ func (task *Task) RunTask() {
 				return
 			}
 		}
-		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-
-		startTime := time.Now()
-		// 4. PlaceOrder
-		placedOrder := false
-
-		for !placedOrder {
-			var retries int
-			needToStop := task.CheckForStop()
-			if needToStop {
-				return
-			}
-			if status == enums.OrderStatusDeclined {
-				break
-			}
-			placedOrder, status = task.PlaceOrder(startTime)
-			if !placedOrder && retries < 5 {
-				retries++
-				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-			} else {
-				status = enums.OrderStatusFailed
-				break
-			}
-
-		}
-	case enums.FastSKUMonitor:
-		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-
-		startTime := time.Now()
-		// 3. PlaceOrder
-		placedOrder := false
-		for !placedOrder {
-			var retries int
-			needToStop := task.CheckForStop()
-			if needToStop {
-				return
-			}
-			if status == enums.OrderStatusDeclined {
-				break
-			}
-			placedOrder, status = task.PlaceOrder(startTime)
-			if !placedOrder && retries < 5 {
-				retries++
-				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-			} else {
-				return
-			}
-		}
 	}
+
+	startTime := time.Now()
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+
+	// 4. PlaceOrder
+	placedOrder := false
+
+	for !placedOrder {
+		var retries int
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		placedOrder, status = task.PlaceOrder(startTime)
+		if !placedOrder && retries < 5 {
+			retries++
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		} else {
+			status = enums.OrderStatusFailed
+			break
+		}
+
+	}
+
 	switch status {
 	case enums.OrderStatusSuccess:
 		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
@@ -478,8 +463,8 @@ func (task *Task) AddToCart() bool {
 	form := url.Values{
 		"isAsync":         {"1"},
 		"addressID":       {task.AccountInfo.SavedAddressID},
-		"asin.1":          {task.TaskInfo.ASIN},
-		"offerListing.1":  {task.TaskInfo.OfferID},
+		"asin.1":          {task.StockData.ASIN},
+		"offerListing.1":  {task.StockData.OfferID},
 		"quantity.1":      {"1"},
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
@@ -491,8 +476,8 @@ func (task *Task) AddToCart() bool {
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
-			{"x-amz-checkout-entry-referer-url", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.TaskInfo.ASIN) + util.Randomizer("&pldnSite=1")},
-			{"x-amz-turbo-checkout-dp-url", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.TaskInfo.ASIN) + util.Randomizer("&pldnSite=1")},
+			{"x-amz-checkout-entry-referer-url", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.StockData.ASIN) + util.Randomizer("&pldnSite=1")},
+			{"x-amz-turbo-checkout-dp-url", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.StockData.ASIN) + util.Randomizer("&pldnSite=1")},
 			{"rtt", "100"},
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", task.CheckoutInfo.UA},
@@ -507,7 +492,7 @@ func (task *Task) AddToCart() bool {
 			{"sec-fetch-site", "none"},
 			{"sec-fetch-mode", "navigate"},
 			{"sec-fetch-dest", "document"},
-			{"referer", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.TaskInfo.ASIN) + util.Randomizer("&pldnSite=1")},
+			{"referer", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.StockData.ASIN) + util.Randomizer("&pldnSite=1")},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -583,7 +568,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
-			{"x-amz-checkout-entry-referer-url", currentEndpoint + "/gp/product/" + task.TaskInfo.ASIN + "/ref=crt_ewc_title_oth_4?ie=UTF8&psc=1&smid=ATVPDKIKX0DER"},
+			{"x-amz-checkout-entry-referer-url", currentEndpoint + "/gp/product/" + task.StockData.ASIN + "/ref=crt_ewc_title_oth_4?ie=UTF8&psc=1&smid=ATVPDKIKX0DER"},
 			{"anti-csrftoken-a2z", task.CheckoutInfo.AntiCsrf},
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", task.CheckoutInfo.UA},
@@ -636,9 +621,9 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.TaskInfo.ItemName,
+		ItemName:     task.StockData.ItemName,
 		ImageURL:     task.CheckoutInfo.ImageURL,
-		Sku:          task.TaskInfo.ASIN,
+		Sku:          task.StockData.ASIN,
 		Retailer:     enums.Amazon,
 		Price:        float64(task.CheckoutInfo.Price),
 		Quantity:     1,

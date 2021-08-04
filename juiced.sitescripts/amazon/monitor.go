@@ -23,8 +23,8 @@ import (
 	browser "github.com/eddycjy/fake-useragent"
 )
 
-// Creating a channel to recieve the Amazon account because half of the monitoring is done with the account
-var Accounts = make(chan AccChan)
+// Creating a pool to store amazon accounts that will be used to monitor
+var AccountPool []Acc
 
 // CreateAmazonMonitor takes a TaskGroup entity and turns it into a Amazon Monitor
 func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.AmazonSingleMonitorInfo) (Monitor, error) {
@@ -32,12 +32,13 @@ func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 	amazonMonitor := Monitor{}
 	asins := []string{}
 
+	for _, monitor := range singleMonitors {
+		storedAmazonMonitors[monitor.ASIN] = monitor
+		asins = append(asins, monitor.ASIN)
+	}
+
 	for created := false; !created; {
-		account := <-Accounts
 		// Making sure the accounts group id matches the monitors
-		if account.GroupID != taskGroup.GroupID {
-			continue
-		}
 
 		amazonMonitor = Monitor{
 			Monitor: base.Monitor{
@@ -46,11 +47,8 @@ func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 				EventBus:  eventBus,
 			},
 
-			ASINs:         asins,
-			ASINWithInfo:  storedAmazonMonitors,
-			AccountClient: account.Client,
-			AddressID:     account.AccountInfo.SavedAddressID,
-			SessionID:     account.AccountInfo.SessionID,
+			ASINs:        asins,
+			ASINWithInfo: storedAmazonMonitors,
 		}
 		created = true
 	}
@@ -96,7 +94,7 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 
-	var emptyClients int
+	/* var emptyClients int
 	for _, value := range monitor.ASINWithInfo {
 		if value.Client.Transport == nil {
 			emptyClients++
@@ -135,9 +133,9 @@ func (monitor *Monitor) RunMonitor() {
 		}
 
 	}
-	wg.Wait()
+	wg.Wait() */
 
-	wg = sync.WaitGroup{}
+	wg := sync.WaitGroup{}
 	wg.Add(len(monitor.ASINs))
 	for _, asin := range monitor.ASINs {
 		go func(x string) {
@@ -150,9 +148,21 @@ func (monitor *Monitor) RunMonitor() {
 }
 
 func (monitor *Monitor) RunSingleMonitor(asin string) {
+
+again:
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
+	}
+
+	for _, acc := range AccountPool {
+		if acc.GroupID == monitor.Monitor.TaskGroup.GroupID {
+			break
+		} else {
+			// Not sure if this will spin the cpu but incase it does I added the sleep
+			time.Sleep(common.MS_TO_WAIT)
+			goto again
+		}
 	}
 
 	if !common.InSlice(monitor.RunningMonitors, asin) {
@@ -210,11 +220,8 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 	var currentClient http.Client
 	stockData := AmazonInStockData{}
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
-	if currentEndpoint == "https://smile.amazon.com" {
-		currentClient = monitor.AccountClient
-	} else {
-		currentClient = monitor.ASINWithInfo[asin].Client
-	}
+	account := AccountPool[rand.Intn(len(AccountPool))-1]
+	currentClient = account.Client
 
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&currentClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
@@ -345,10 +352,11 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) Amazon
 // this is also known as OfferID mode.
 func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 	stockData := AmazonInStockData{}
+	account := AccountPool[rand.Intn(len(AccountPool))-1]
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"isAsync":         {"1"},
-		"addressID":       {monitor.AddressID},
+		"addressID":       {account.AccountInfo.SavedAddressID},
 		"asin.1":          {asin},
 		"offerListing.1":  {monitor.ASINWithInfo[asin].OFID},
 		"quantity.1":      {"1"},
@@ -356,12 +364,14 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 	}
 
 	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.AccountClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		client.UpdateProxy(&account.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	}
+
+	currentClient := account.Client
 
 	ua := browser.Chrome()
 	resp, body, err := util.MakeRequest(&util.Request{
-		Client: monitor.AccountClient,
+		Client: currentClient,
 		Method: "POST",
 		URL:    currentEndpoint + "/checkout/turbo-initiate?ref_=dp_start-bbf_1_glance_buyNow_2-1&referrer=detail&pipelineType=turbo&clientId=retailwebsite&weblab=RCX_CHECKOUT_TURBO_DESKTOP_PRIME_87783&temporaryAddToCart=1",
 		RawHeaders: [][2]string{
@@ -376,7 +386,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			{"x-amz-support-custom-signin", "1"},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
-			{"x-amz-checkout-csrf-token", monitor.SessionID},
+			{"x-amz-checkout-csrf-token", account.AccountInfo.SessionID},
 			{"downlink", "10"},
 			{"ect", "4g"},
 			{"origin", BaseEndpoint},
