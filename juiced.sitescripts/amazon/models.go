@@ -56,6 +56,7 @@ type AmazonInStockData struct {
 	RID         string
 	ImageURL    string
 	UA          string
+	Client      http.Client
 	MonitorType enums.MonitorType
 }
 

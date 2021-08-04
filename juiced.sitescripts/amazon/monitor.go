@@ -442,6 +442,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			RID:         rid,
 			ImageURL:    imageURL,
 			UA:          ua,
+			Client:      currentClient,
 			MonitorType: enums.FastSKUMonitor,
 		}
 

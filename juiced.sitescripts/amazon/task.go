@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"strings"
 	"time"
@@ -21,6 +22,7 @@ import (
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
 	"github.com/go-rod/stealth"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -37,6 +39,8 @@ func (task *Task) CheckForStop() bool {
 	}
 	return false
 }
+
+var AmazonAccountStore = cmap.New()
 
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
 func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
@@ -75,19 +79,13 @@ func (task *Task) RunTask() {
 	}
 	task.Task.Client = client
 
-	task.PublishEvent(enums.LoggingIn, enums.TaskStart)
-	// 1. Login
-	loggedIn := false
-	for !loggedIn {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		loggedIn = task.Login()
-		if !loggedIn {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
+	// 1. Setup task
+	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	setup := task.Setup()
+	if setup {
+		return
 	}
+
 	// Adding the account to the pool
 	var accounts = []Acc{{task.Task.Task.TaskGroupID, task.Task.Client, task.AccountInfo}}
 	oldAccounts, _ := AccountPool.Get(task.Task.Task.TaskGroupID)
@@ -127,6 +125,8 @@ func (task *Task) RunTask() {
 				return
 			}
 		}
+	} else {
+		task.Task.Client = task.StockData.Client
 	}
 
 	startTime := time.Now()
@@ -165,8 +165,60 @@ func (task *Task) RunTask() {
 	}
 }
 
+// Sets the client up by either logging in or waiting for another task to login that is using the same account
+func (task *Task) Setup() bool {
+	// Bad but quick solution to the multiple logins
+	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+	if AmazonAccountStore.Has(task.AccountInfo.Email) {
+		inMap := true
+		for inMap {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return true
+			}
+			// Error will be nil unless the item isn't in the map which we are already checking above
+			value, ok := AmazonAccountStore.Get(task.AccountInfo.Email)
+			if ok {
+				client, isClient := value.(http.Client)
+				if isClient {
+					if len(task.Task.Client.Jar.Cookies(baseURL)) == 0 {
+						task.Task.Client.Jar = client.Jar
+					}
+					break
+				} else {
+					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
+						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+					}
+					time.Sleep(common.MS_TO_WAIT)
+				}
+			} else {
+				inMap = false
+				return task.Setup()
+			}
+		}
+	} else {
+		// Login
+		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+		loggedIn := false
+		for !loggedIn {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return true
+			}
+			loggedIn = task.Login()
+			if !loggedIn {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			}
+		}
+
+	}
+
+	return false
+}
+
 // Logs in based on what LoginType the user chooses
 func (task *Task) Login() bool {
+	AmazonAccountStore.Set(task.AccountInfo.Email, false)
 	switch task.AccountInfo.LoginType {
 	case enums.LoginTypeBROWSER:
 		return task.browserLogin()
@@ -239,17 +291,19 @@ func (task *Task) browserLogin() bool {
 	go func() {
 		// Wait until either the StopFlag is set to true or the BrowserComplete flag is set to true
 		for !task.Task.StopFlag && !task.BrowserComplete {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
 		if task.Task.StopFlag {
+			AmazonAccountStore.Remove(task.AccountInfo.Email)
+			browserWithCancel.MustClose()
 			cancel()
 		}
 	}()
 
 	browserWithCancel.MustIgnoreCertErrors(true)
 
-	defer func() { browserWithCancel.MustClose(); task.BrowserComplete = true }()
+	defer func() { browserWithCancel.MustClose() }()
 
 	if userPassProxy {
 		go browserWithCancel.MustHandleAuth(username, password)()
@@ -273,22 +327,26 @@ func (task *Task) browserLogin() bool {
 	page.MustWaitLoad()
 	body, err := page.HTML()
 	if err != nil {
+		AmazonAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 
 	doc := soup.HTMLParse(body)
 	task.AccountInfo.SavedAddressID = doc.Find("input", "name", "dropdown-selection").Attrs()["value"]
-
-	fmt.Println(task.AccountInfo.SavedAddressID)
+	if task.AccountInfo.SavedAddressID == "" {
+		AmazonAccountStore.Remove(task.AccountInfo.Email)
+		return false
+	}
 
 	task.AccountInfo.SessionID, err = util.FindInString(body, `ue_sid = '`, `'`)
 	if err != nil {
+		AmazonAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
-	fmt.Println(task.AccountInfo.SessionID)
 
 	amzCookies, err := page.Cookies([]string{BaseEndpoint})
 	if err != nil {
+		AmazonAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 	for _, amzCookie := range amzCookies {
@@ -305,6 +363,7 @@ func (task *Task) browserLogin() bool {
 		}
 	}
 	task.Task.Client.Jar.SetCookies(baseURL, cookies)
+	AmazonAccountStore.Set(task.AccountInfo.Email, task.Task.Client)
 	return true
 }
 
