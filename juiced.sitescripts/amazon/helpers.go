@@ -14,7 +14,7 @@ func (task *Task) CreateAmazonEmbed(status enums.OrderStatus, imageURL string) [
 	// When monitoring in Fast mode there is no way to find the name so this field will be empty and the
 	// webhook would fail to send. This makes it NaN if this is the case.
 	if task.StockData.ItemName == "" {
-		task.StockData.ItemName = "*NaN*"
+		task.StockData.ItemName = "*N/A*"
 	}
 	embeds := []sec.DiscordEmbed{
 		{
