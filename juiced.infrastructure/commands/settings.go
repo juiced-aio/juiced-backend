@@ -5,6 +5,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 	_ "github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -41,12 +42,17 @@ func AddAccount(account entities.Account) error {
 		return errors.New("database not initialized")
 	}
 
+	encryptedPassword, err := common.Aes256Encrypt(account.Password, enums.UserKey)
+	if err != nil {
+		return err
+	}
+
 	statement, err := database.Preparex(`INSERT INTO accounts (ID, retailer, email, password, creationDate) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(account.ID, account.Retailer, account.Email, account.Password, account.CreationDate)
+	_, err = statement.Exec(account.ID, account.Retailer, account.Email, encryptedPassword, account.CreationDate)
 
 	return err
 }

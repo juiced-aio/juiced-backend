@@ -216,14 +216,20 @@ type EncryptedLogCheckoutResponse struct {
 	ErrorMessage string `json:"1brGHMkymR"`
 }
 
-type CipherTextTooShortError struct{}
-
-func (e *CipherTextTooShortError) Error() string {
-	return "cipher text is too short"
+type GetEncryptionKeyRequest struct {
+	ActivationToken string `json:"908tqy5VI2"`
+	HWID            string `json:"BN9GSbnV6z"`
+	DeviceName      string `json:"8Cgy8rh1Zp"`
 }
 
-type CipherTextNotMultipleOfBlockSizeError struct{}
+type GetEncryptionKeyResponse struct {
+	Success       bool   `json:"Gzdgq0zpma"`
+	EncryptionKey string `json:"5shDGZqkMD"`
+	ErrorMessage  string `json:"KARYl4Xg6o"`
+}
 
-func (e *CipherTextNotMultipleOfBlockSizeError) Error() string {
-	return "cipher text not a multiple of the block size"
+type EncryptedGetEncryptionKeyResponse struct {
+	Success       string `json:"Gzdgq0zpma"`
+	EncryptionKey string `json:"5shDGZqkMD"`
+	ErrorMessage  string `json:"KARYl4Xg6o"`
 }
