@@ -88,8 +88,13 @@ func (task *Task) RunTask() {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
-	// Sending the account info to the monitor
-	AccountPool = append(AccountPool, Acc{task.Task.Task.TaskGroupID, task.Task.Client, task.AccountInfo})
+	// Adding the account to the pool
+	var accounts = []Acc{{task.Task.Task.TaskGroupID, task.Task.Client, task.AccountInfo}}
+	oldAccounts, _ := AccountPool.Get(task.Task.Task.TaskGroupID)
+	if oldAccounts != nil {
+		accounts = append(accounts, oldAccounts.([]Acc)...)
+	}
+	AccountPool.Set(task.Task.Task.TaskGroupID, accounts)
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
 	// 2. WaitForMonitor

@@ -18,13 +18,13 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
-
 	"github.com/anaskhan96/soup"
 	browser "github.com/eddycjy/fake-useragent"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 // Creating a pool to store amazon accounts that will be used to monitor
-var AccountPool []Acc
+var AccountPool = cmap.New()
 
 // CreateAmazonMonitor takes a TaskGroup entity and turns it into a Amazon Monitor
 func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.AmazonSingleMonitorInfo) (Monitor, error) {
@@ -154,15 +154,15 @@ again:
 	if needToStop {
 		return
 	}
-
-	for _, acc := range AccountPool {
-		if acc.GroupID == monitor.Monitor.TaskGroup.GroupID {
-			break
-		} else {
-			// Not sure if this will spin the cpu but incase it does I added the sleep
+	accounts, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	if accounts != nil {
+		if !(len(accounts.([]Acc)) > 0) {
 			time.Sleep(common.MS_TO_WAIT)
 			goto again
 		}
+	} else {
+		time.Sleep(common.MS_TO_WAIT)
+		goto again
 	}
 
 	if !common.InSlice(monitor.RunningMonitors, asin) {
@@ -217,11 +217,11 @@ again:
 // A lot of the stuff that I'm doing either seems useless or dumb but Cloudfront is Ai based and the more entropy/randomness you add to every request
 // the better.
 func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
-	var currentClient http.Client
 	stockData := AmazonInStockData{}
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
-	account := AccountPool[rand.Intn(len(AccountPool))-1]
-	currentClient = account.Client
+	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
+	currentClient := account.Client
 
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&currentClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
@@ -352,7 +352,8 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) Amazon
 // this is also known as OfferID mode.
 func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 	stockData := AmazonInStockData{}
-	account := AccountPool[rand.Intn(len(AccountPool))-1]
+	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"isAsync":         {"1"},
