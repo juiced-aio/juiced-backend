@@ -18,6 +18,8 @@ type Settings struct {
 	AYCDAPIKey            string    `json:"aycdAPIKey" db:"aycdAPIKey"`
 	DarkModeUpdate        bool      `json:"darkModeUpdate"`
 	DarkMode              bool      `json:"darkMode" db:"darkMode"`
+	UseAnimationsUpdate   bool      `json:"useAnimationsUpdate"`
+	UseAnimations         bool      `json:"useAnimations" db:"useAnimations"`
 	Accounts              []Account `json:"accounts"`
 }
 

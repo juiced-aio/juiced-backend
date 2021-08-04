@@ -8,6 +8,9 @@ import (
 )
 
 func UpdateProxy(client *http.Client, proxyurl string) error {
+	if proxyurl == "" {
+		return nil
+	}
 	dialer, err := newConnectDialer(proxyurl)
 	if err != nil {
 		return err

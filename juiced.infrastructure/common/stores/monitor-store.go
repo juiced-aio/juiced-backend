@@ -438,16 +438,7 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
 						if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(amazonMonitor.InStock))
-							amazonTask.TaskInfo.ASIN = amazonMonitor.InStock[randomNumber].ASIN
-							amazonTask.TaskInfo.OfferID = amazonMonitor.InStock[randomNumber].OfferID
-							amazonTask.TaskInfo.ItemName = amazonMonitor.InStock[randomNumber].ItemName
-							amazonTask.CheckoutInfo.Price = amazonMonitor.InStock[randomNumber].Price
-							amazonTask.CheckoutInfo.AntiCsrf = amazonMonitor.InStock[randomNumber].AntiCsrf
-							amazonTask.CheckoutInfo.PID = amazonMonitor.InStock[randomNumber].PID
-							amazonTask.CheckoutInfo.RID = amazonMonitor.InStock[randomNumber].RID
-							amazonTask.CheckoutInfo.ImageURL = amazonMonitor.InStock[randomNumber].ImageURL
-							amazonTask.CheckoutInfo.UA = amazonMonitor.InStock[randomNumber].UA
-							amazonTask.CheckoutInfo.MonitorType = enums.MonitorType(amazonMonitor.InStock[randomNumber].MonitorType)
+							amazonTask.StockData = amazonMonitor.InStock[randomNumber]
 						}
 					}
 				}
@@ -592,26 +583,20 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 								inStockForPickup = append(inStockForPickup, value.(target.SingleStockData))
 							}
 
-							if targetTask.CheckoutType == enums.CheckoutTypePICKUP && len(inStockForPickup) > 0 {
+							if len(inStockForPickup) > 0 {
 								targetTask.InStockData = inStockForPickup[rand.Intn(len(inStockForPickup))]
 								targetTask.AccountInfo.StoreID = targetMonitor.StoreID
-							} else if targetTask.CheckoutType == enums.CheckoutTypeSHIP && len(inStockForShip) > 0 {
+								targetTask.CheckoutType = enums.CheckoutTypePICKUP
+							} else if len(inStockForShip) > 0 {
 								targetTask.InStockData = inStockForShip[rand.Intn(len(inStockForShip))]
-							} else {
-								if len(inStockForShip) > 0 {
-									targetTask.InStockData = inStockForShip[rand.Intn(len(inStockForShip))]
-								} else if len(inStockForPickup) > 0 {
-									targetTask.InStockData = inStockForPickup[rand.Intn(len(inStockForPickup))]
-									targetTask.AccountInfo.StoreID = targetMonitor.StoreID
-								}
+								targetTask.CheckoutType = enums.CheckoutTypeSHIP
 							}
-
 						}
 					}
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(1 * time.Second)
 	}
 }
 
