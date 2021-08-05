@@ -60,11 +60,14 @@ func (task *Task) RefreshPX3() {
 
 	for {
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, &cancellationToken)
+			proxy := task.Task.Proxy
+			if proxy.Host == "localhost" {
+				proxy = entities.Proxy{}
+			}
+			pxValues, cancelled, err := SetPXCookie(proxy, &task.Task.Client, &cancellationToken)
 			if cancelled {
 				return
 			}
-
 			if err != nil {
 				log.Println("Error setting px cookie for task: " + err.Error())
 				panic(err)
@@ -238,21 +241,22 @@ func (task *Task) RunTask() {
 
 	// 7. SetCreditCard
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
-	/* setCreditCard := false
+	setCreditCard := false
+	doNotRetry := false
 	for !setCreditCard {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
-		setCreditCard = task.SetCreditCard()
+		setCreditCard, doNotRetry = task.SetCreditCard()
 		if !setCreditCard {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
-	} */
+	}
 
 	// 8. SetPaymentInfo
 	setPaymentInfo := false
-	doNotRetry := false
+	doNotRetry = false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
 		if needToStop || doNotRetry {
@@ -343,7 +347,11 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client, &cancellationToken)
+	proxy := task.Task.Proxy
+	if proxy.Host == "localhost" {
+		proxy = entities.Proxy{}
+	}
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, proxy, &task.Task.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
 		return false
@@ -351,6 +359,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 		log.Println("Cookie updated.")
 		return true
 	}
+
 }
 
 // Setup sends a GET request to the BaseEndpoint
@@ -554,20 +563,19 @@ func (task *Task) GetCartInfo() bool {
 		Method: "POST",
 		URL:    GetCartInfoEndpoint,
 		RawHeaders: [][2]string{
-			{"accept", "application/json"},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-			{"content-type", "application/json"},
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"sec-ch-ua-mobile", "?0"},
-			{"sec-fetch-dest", "document"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-site", "none"},
-			{"sec-fetch-user", "?1"},
-			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 			{"content-length", fmt.Sprint(len(dataStr))},
+			{"accept", `application/json, text/javascript, */*; q=0.01`},
+			{"wm_cvv_in_session", `true`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36`},
+			{"wm_vertical_id", `0`},
+			{"content-type", `application/json`},
+			{"origin", `https://www.walmart.com`},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
 			{"referer", GetCartInfoReferer},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &getCartInfoResponse,
@@ -918,10 +926,10 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			EncryptedPan:   task.CardInfo.EncryptedPan,
 			IntegrityCheck: task.CardInfo.IntegrityCheck,
 			KeyId:          task.CardInfo.KeyId,
-			Phase:          task.CardInfo.Phase,
+			Phase:          fmt.Sprint(task.CardInfo.Phase),
 		}},
 	}
-	dataStr, err := json.Marshal(data)
+	dataBytes, err := json.Marshal(data)
 	if err != nil {
 		log.Println("PlaceOrder Request Error: " + err.Error())
 		return false, status
@@ -931,24 +939,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Method: "PUT",
 		URL:    PlaceOrderEndpoint,
 		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(dataStr))},
-			{"pragma", "no-cache"},
-			{"cache-control", "no-cache"},
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"accept", "application/json, text/javascript, */*; q=0.01"},
-			{"inkiru_precedence", "false"},
-			{"wm_cvv_in_session", "true"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
-			{"wm_vertical_id", "0"},
-			{"content-type", "application/json"},
-			{"origin", "https://www.walmart.com"},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
+			{"content-length", fmt.Sprint(len(dataBytes))},
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
+			{"inkiru_precedence", `false`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36`},
+			{"content-type", `application/json`},
+			{"accept", `application/json, text/javascript, */*; q=0.01`},
+			{"wm_cvv_in_session", `true`},
+			{"wm_vertical_id", `0`},
+			{"origin", `https://www.walmart.com`},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
 			{"referer", PlaceOrderReferer},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-			{"sec-ch-ua-mobile", "?0"},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
 		},
 		RequestBodyStruct:  data,
 		ResponseBodyStruct: &placeOrderResponse,

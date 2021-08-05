@@ -124,7 +124,7 @@ type VoltagePayment struct {
 	EncryptedPan   string `json:"encryptedPan"`
 	IntegrityCheck string `json:"integrityCheck"`
 	KeyId          string `json:"keyId"`
-	Phase          int    `json:"phase"`
+	Phase          string `json:"phase"`
 }
 
 // used in SetCreditCard
