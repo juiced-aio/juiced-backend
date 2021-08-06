@@ -94,7 +94,7 @@ func init() {
 // The package initialization registers it as /debug/pprof/cmdline.
 func Cmdline(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "application/octet-stream; charset=utf-8")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprint(w, strings.Join(os.Args, "\x00"))
 }
 
@@ -111,7 +111,7 @@ func durationExceedsWriteTimeout(r *http.Request, seconds float64) bool {
 }
 
 func serveError(w http.ResponseWriter, status int, txt string) {
-	w.Header().Set("Content-Type", "application/octet-stream; charset=utf-8")
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("X-Go-Pprof", "1")
 	w.Header().Del("Content-Disposition")
 	w.WriteHeader(status)
@@ -384,7 +384,8 @@ func (name handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gc, _ := strconv.Atoi(r.FormValue("gc"))
-	if name == "heap" && gc > 0 {
+	heap := handler("heap")
+	if name == heap && gc > 0 {
 		runtime.GC()
 	}
 	debug, _ := strconv.Atoi(r.FormValue("debug"))
