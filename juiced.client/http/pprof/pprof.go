@@ -83,6 +83,8 @@ func init() {
 	http.HandleFunc("/debug/pprof/", Index)
 	http.HandleFunc("/debug/pprof/cmdline", Cmdline)
 	http.HandleFunc("/debug/pprof/profile", Profile)
+	http.HandleFunc("/debug/pprof/visualprofile", VisualProfile)
+	http.HandleFunc("/debug/pprof/visualheap", VisualHeap)
 	http.HandleFunc("/debug/pprof/symbol", Symbol)
 	http.HandleFunc("/debug/pprof/trace", Trace)
 }
@@ -117,8 +119,8 @@ func serveError(w http.ResponseWriter, status int, txt string) {
 }
 
 type Sample struct {
-	CpuPercent  float64
-	CpuUsage    int64
+	Percent     float64
+	Usage       int64
 	Functions   []profile.Function
 	FunctionIDs []uint64
 	Line        int64
@@ -133,10 +135,10 @@ func IsInside(x uint64, ySlice []uint64) bool {
 	return false
 }
 
-// Profile responds with the pprof-formatted cpu profile.
+// VisualProfile responds with the pprof-formatted cpu profile.
 // Profiling lasts for duration specified in seconds GET parameter, or for 30 seconds if not specified.
-// The package initialization registers it as /debug/pprof/profile.
-func Profile(w http.ResponseWriter, r *http.Request) {
+// The package initialization registers it as /debug/pprof/visualprofile.
+func VisualProfile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	sec, err := strconv.ParseInt(r.FormValue("seconds"), 10, 64)
 	if sec <= 0 || err != nil {
@@ -169,7 +171,7 @@ func Profile(w http.ResponseWriter, r *http.Request) {
 	var cpuTotal int64
 	var samples []*Sample
 	for _, sample := range parsed.Sample {
-		tempSample := Sample{CpuUsage: sample.Value[1]}
+		tempSample := Sample{Usage: sample.Value[1]}
 		cpuTotal += sample.Value[1]
 		for _, location := range sample.Location {
 			tempSample.FunctionIDs = append(tempSample.FunctionIDs, location.ID)
@@ -188,18 +190,101 @@ func Profile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sort.SliceStable(samples, func(i, j int) bool {
-		return samples[i].CpuUsage > samples[j].CpuUsage
+		return samples[i].Usage > samples[j].Usage
 	})
 
 	w.Write([]byte("<h1>Cpu Usage:</h1>"))
 	for _, sample := range samples {
-		sample.CpuPercent = float64(sample.CpuUsage) / float64(cpuTotal)
+		sample.Percent = float64(sample.Usage) / float64(cpuTotal)
 		if len(sample.Functions) > 0 {
-			w.Write([]byte(fmt.Sprintf("<div>%%%v&nbsp;&nbsp;|&nbsp;%v&nbsp;%v:%v</div>", sample.CpuPercent*100, sample.Functions[0].Name, sample.Functions[0].Filename, sample.Line)))
+			w.Write([]byte(fmt.Sprintf("<div>%%%v&nbsp;&nbsp;|&nbsp;%v&nbsp;%v:%v</div>", sample.Percent*100, sample.Functions[0].Name, sample.Functions[0].Filename, sample.Line)))
 			w.Write([]byte("<div>&nbsp;</div>"))
 		}
 	}
 
+}
+
+// VisualHeap responds with the pprof-formatted heap profile.
+// The package initialization registers it as /debug/pprof/visualheap.
+func VisualHeap(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	p := pprof.Lookup("heap")
+	if p == nil {
+		serveError(w, http.StatusNotFound, "Unknown profile")
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html")
+	var buf bytes.Buffer
+
+	p.WriteTo(&buf, 0)
+	parsed, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		serveError(w, http.StatusInternalServerError, "Could not parse heap profile")
+	}
+	var memoryTotal int64
+	var samples []*Sample
+	for _, sample := range parsed.Sample {
+		tempSample := Sample{Usage: sample.Value[1]}
+		memoryTotal += sample.Value[1]
+		for _, location := range sample.Location {
+			tempSample.FunctionIDs = append(tempSample.FunctionIDs, location.ID)
+
+		}
+
+		samples = append(samples, &tempSample)
+	}
+
+	for _, function := range parsed.Function {
+		for _, sample := range samples {
+			if IsInside(function.ID, sample.FunctionIDs) {
+				sample.Functions = append(sample.Functions, *function)
+			}
+		}
+	}
+
+	sort.SliceStable(samples, func(i, j int) bool {
+		return samples[i].Usage > samples[j].Usage
+	})
+
+	w.Write([]byte("<h1>Memory Usage:</h1>"))
+	for _, sample := range samples {
+		sample.Percent = float64(sample.Usage) / float64(memoryTotal)
+		if len(sample.Functions) > 0 {
+			w.Write([]byte(fmt.Sprintf("<div>%%%v&nbsp;&nbsp;|&nbsp;%v&nbsp;%v</div>", sample.Percent*100, sample.Functions[0].Name, sample.Functions[0].Filename)))
+			w.Write([]byte("<div>&nbsp;</div>"))
+		}
+	}
+
+}
+
+// Profile responds with the pprof-formatted cpu profile.
+// Profiling lasts for duration specified in seconds GET parameter, or for 30 seconds if not specified.
+// The package initialization registers it as /debug/pprof/profile.
+func Profile(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	sec, err := strconv.ParseInt(r.FormValue("seconds"), 10, 64)
+	if sec <= 0 || err != nil {
+		sec = 30
+	}
+
+	if durationExceedsWriteTimeout(r, float64(sec)) {
+		serveError(w, http.StatusBadRequest, "profile duration exceeds server's WriteTimeout")
+		return
+	}
+
+	// Set Content Type assuming StartCPUProfile will work,
+	// because if it does it starts writing.
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", `attachment; filename="profile"`)
+	if err := pprof.StartCPUProfile(w); err != nil {
+		// StartCPUProfile failed, so no writes yet.
+		serveError(w, http.StatusInternalServerError,
+			fmt.Sprintf("Could not enable CPU profiling: %s", err))
+		return
+	}
+	sleep(r, time.Duration(sec)*time.Second)
+	pprof.StopCPUProfile()
 }
 
 // Trace responds with the execution trace in binary form.
@@ -299,8 +384,7 @@ func (name handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	gc, _ := strconv.Atoi(r.FormValue("gc"))
-	heap := handler("heap")
-	if name == heap && gc > 0 {
+	if name == "heap" && gc > 0 {
 		runtime.GC()
 	}
 	debug, _ := strconv.Atoi(r.FormValue("debug"))
