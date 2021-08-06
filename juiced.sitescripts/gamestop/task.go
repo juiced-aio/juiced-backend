@@ -217,6 +217,11 @@ func (task *Task) Login() bool {
 		fmt.Println(err.Error())
 	}
 
+	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
+	}
+
 	loginResponse := LoginResponse{}
 	form := url.Values{
 		"loginEmail":         {task.AccountInfo.Email},
