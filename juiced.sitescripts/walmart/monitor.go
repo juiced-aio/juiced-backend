@@ -99,7 +99,8 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		monitor.Monitor.Proxy = monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]
+		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxy))
 	}
 
 	needToStop := monitor.CheckForStop()
@@ -133,7 +134,8 @@ func (monitor *Monitor) RunSingleMonitor(id string) {
 
 	if !common.InSlice(monitor.RunningMonitors, id) {
 		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+			monitor.Monitor.Proxy = monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxy))
 		}
 
 		stockData := WalmartInStockData{}
@@ -260,6 +262,7 @@ func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
+	fmt.Println(monitor.Monitor.Proxy, "prox")
 	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
@@ -417,6 +420,7 @@ func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 								stockData.OfferID = offer.OfferInfo.OfferID
 								stockData.MaxQty = offer.OfferInfo.QuantityOptions.OrderLimit
 								lowestPrice = int(offer.Pricesinfo.Pricemap.Current.Price)
+								stockData.Price = offer.Pricesinfo.Pricemap.Current.Price
 							}
 						}
 					}
