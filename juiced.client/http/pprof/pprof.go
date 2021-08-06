@@ -75,6 +75,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+
 	"github.com/google/pprof/profile"
 )
 
@@ -91,7 +92,7 @@ func init() {
 // The package initialization registers it as /debug/pprof/cmdline.
 func Cmdline(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "application/octet-stream; charset=utf-8")
 	fmt.Fprint(w, strings.Join(os.Args, "\x00"))
 }
 
@@ -108,18 +109,35 @@ func durationExceedsWriteTimeout(r *http.Request, seconds float64) bool {
 }
 
 func serveError(w http.ResponseWriter, status int, txt string) {
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Header().Set("Content-Type", "application/octet-stream; charset=utf-8")
 	w.Header().Set("X-Go-Pprof", "1")
 	w.Header().Del("Content-Disposition")
 	w.WriteHeader(status)
 	fmt.Fprintln(w, txt)
 }
 
+type Sample struct {
+	CpuPercent  float64
+	CpuUsage    int64
+	Functions   []profile.Function
+	FunctionIDs []uint64
+	Line        int64
+}
+
+func IsInside(x uint64, ySlice []uint64) bool {
+	for _, y := range ySlice {
+		if y == x {
+			return true
+		}
+	}
+	return false
+}
+
 // Profile responds with the pprof-formatted cpu profile.
 // Profiling lasts for duration specified in seconds GET parameter, or for 30 seconds if not specified.
 // The package initialization registers it as /debug/pprof/profile.
 func Profile(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	sec, err := strconv.ParseInt(r.FormValue("seconds"), 10, 64)
 	if sec <= 0 || err != nil {
 		sec = 30
@@ -132,16 +150,56 @@ func Profile(w http.ResponseWriter, r *http.Request) {
 
 	// Set Content Type assuming StartCPUProfile will work,
 	// because if it does it starts writing.
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", `attachment; filename="profile"`)
-	if err := pprof.StartCPUProfile(w); err != nil {
+	buf := new(bytes.Buffer)
+	if err := pprof.StartCPUProfile(buf); err != nil {
 		// StartCPUProfile failed, so no writes yet.
 		serveError(w, http.StatusInternalServerError,
 			fmt.Sprintf("Could not enable CPU profiling: %s", err))
 		return
 	}
+
 	sleep(r, time.Duration(sec)*time.Second)
 	pprof.StopCPUProfile()
+
+	parsed, err := profile.ParseData(buf.Bytes())
+	if err != nil {
+		serveError(w, http.StatusInternalServerError, "Could not parse cpu profile")
+	}
+
+	var cpuTotal int64
+	var samples []*Sample
+	for _, sample := range parsed.Sample {
+		tempSample := Sample{CpuUsage: sample.Value[1]}
+		cpuTotal += sample.Value[1]
+		for _, location := range sample.Location {
+			tempSample.FunctionIDs = append(tempSample.FunctionIDs, location.ID)
+			tempSample.Line = location.Line[0].Line
+		}
+
+		samples = append(samples, &tempSample)
+	}
+
+	for _, function := range parsed.Function {
+		for _, sample := range samples {
+			if IsInside(function.ID, sample.FunctionIDs) {
+				sample.Functions = append(sample.Functions, *function)
+			}
+		}
+	}
+
+	sort.SliceStable(samples, func(i, j int) bool {
+		return samples[i].CpuUsage > samples[j].CpuUsage
+	})
+
+	w.Write([]byte("<h1>Cpu Usage:</h1>"))
+	for _, sample := range samples {
+		sample.CpuPercent = float64(sample.CpuUsage) / float64(cpuTotal)
+		if len(sample.Functions) > 0 {
+			w.Write([]byte(fmt.Sprintf("<div>%%%v&nbsp;&nbsp;|&nbsp;%v&nbsp;%v:%v</div>", sample.CpuPercent*100, sample.Functions[0].Name, sample.Functions[0].Filename, sample.Line)))
+			w.Write([]byte("<div>&nbsp;</div>"))
+		}
+	}
+
 }
 
 // Trace responds with the execution trace in binary form.
