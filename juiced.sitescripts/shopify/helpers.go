@@ -50,7 +50,7 @@ func (task *Task) CreateShopifyEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+					Value: "||" + " " + util.ProxyCleaner(*task.Task.Proxy) + " " + "||",
 				},
 			},
 			Footer: sec.DiscordFooter{

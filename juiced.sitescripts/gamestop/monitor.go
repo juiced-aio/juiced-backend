@@ -2,13 +2,11 @@ package gamestop
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -18,7 +16,7 @@ import (
 )
 
 // CreateGamestopMonitor takes a TaskGroup entity and turns it into a Gamestop Monitor
-func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.GamestopSingleMonitorInfo) (Monitor, error) {
+func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.GamestopSingleMonitorInfo) (Monitor, error) {
 	storedGamestopMonitors := make(map[string]entities.GamestopSingleMonitorInfo)
 	gamestopMonitor := Monitor{}
 	skus := []string{}
@@ -30,9 +28,9 @@ func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 
 	gamestopMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 
 		SKUs:        skus,
@@ -72,14 +70,17 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		var proxy *entities.Proxy
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		becameGuest := false
@@ -91,6 +92,9 @@ func (monitor *Monitor) RunMonitor() {
 			becameGuest = BecomeGuest(&monitor.Monitor.Client)
 			if !becameGuest {
 				time.Sleep(1000 * time.Millisecond)
+			}
+			if proxy != nil {
+				proxy.Count--
 			}
 		}
 	}
@@ -124,14 +128,21 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			// TODO @silent: Re-run this specific monitor
 		}()
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		var proxy *entities.Proxy
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		stockData := monitor.GetSKUStock(sku)
 		if stockData.SKU != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
+				if proxy != nil {
+					proxy.Count--
+				}
 				return
 			}
 
@@ -158,6 +169,9 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
 					break
 				}
+			}
+			if proxy != nil {
+				proxy.Count--
 			}
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(sku)

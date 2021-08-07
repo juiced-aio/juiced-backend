@@ -1,13 +1,9 @@
 package target
 
 import (
-	"math/rand"
-
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -17,7 +13,7 @@ import (
 )
 
 // CreateTargetMonitor takes a TaskGroup entity and turns it into a Target Monitor
-func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitor *entities.TargetMonitorInfo) (Monitor, error) {
+func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, monitor *entities.TargetMonitorInfo) (Monitor, error) {
 	storedTargetMonitors := make(map[string]entities.TargetSingleMonitorInfo)
 	targetMonitor := Monitor{}
 	tcins := []string{}
@@ -28,9 +24,9 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 
 	targetMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		TCINs:            tcins,
 		StoreID:          monitor.StoreID,
@@ -80,15 +76,19 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
 
 	}
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
 	}
 
 	stockData := TargetStockData{}
@@ -114,6 +114,9 @@ func (monitor *Monitor) RunMonitor() {
 	if somethingInStock {
 		needToStop := monitor.CheckForStop()
 		if needToStop {
+			if proxy != nil {
+				proxy.Count--
+			}
 			return
 		}
 
@@ -144,6 +147,9 @@ func (monitor *Monitor) RunMonitor() {
 			}
 		}
 
+		if proxy != nil {
+			proxy.Count--
+		}
 		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 		monitor.RunMonitor()
 	}

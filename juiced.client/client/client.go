@@ -2,16 +2,19 @@ package client
 
 import (
 	utls "backend.juicedbot.io/juiced.client/utls"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"golang.org/x/net/proxy"
 
 	"backend.juicedbot.io/juiced.client/http"
 )
 
-func UpdateProxy(client *http.Client, proxyurl string) error {
-	if proxyurl == "" {
+func UpdateProxy(client *http.Client, proxy *entities.Proxy) error {
+	if proxy.Host == "" {
 		return nil
 	}
-	dialer, err := newConnectDialer(proxyurl)
+	proxy.Count++
+	dialer, err := newConnectDialer(common.ProxyCleaner(*proxy))
 	if err != nil {
 		return err
 	}

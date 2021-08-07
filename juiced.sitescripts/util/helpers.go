@@ -12,43 +12,23 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
-	cclient "backend.juicedbot.io/juiced.client/client"
-	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
-	utls "backend.juicedbot.io/juiced.client/utls"
+
+	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
-
-// CreateClient creates an HTTP client
-func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
-	var client http.Client
-	var err error
-	if len(proxy) > 0 {
-		client, err = cclient.NewClient(utls.HelloChrome_90, ProxyCleaner(proxy[0]))
-		if err != nil {
-			return client, err
-		}
-	} else {
-		client, err = cclient.NewClient(utls.HelloChrome_90)
-		if err != nil {
-			return client, err
-		}
-	}
-	cookieJar, err := cookiejar.New(nil)
-	if err != nil {
-		return client, err
-	}
-	client.Jar = cookieJar
-	return client, err
-}
 
 // Adds base headers to the request
 func AddBaseHeaders(request *http.Request) {
@@ -661,4 +641,48 @@ func GetCardType(cardNumber []byte, retailer enums.Retailer) string {
 	}
 
 	return ""
+}
+
+// Takes a slice of proxies and returns a random proxy from the proxies being used least
+func RandomLeastUsedProxy(proxies []*entities.Proxy) *entities.Proxy {
+	if len(proxies) == 0 {
+		return &entities.Proxy{}
+	}
+	countMap := make(map[int][]*entities.Proxy)
+	for _, proxy := range proxies {
+		countMap[proxy.Count] = append(countMap[proxy.Count], proxy)
+	}
+
+	var proxyCounts []int
+	for key := range countMap {
+		proxyCounts = append(proxyCounts, key)
+	}
+	sort.Ints(proxyCounts)
+
+	return countMap[proxyCounts[0]][rand.Intn(len(countMap[proxyCounts[0]]))]
+}
+
+// CreateClient creates an HTTP client
+func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
+	var cClient http.Client
+	var err error
+	if len(proxy) > 0 {
+		if proxy[0] != nil {
+			proxy[0].Count++
+			cClient, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
+			if err != nil {
+				return cClient, err
+			}
+		} else {
+			cClient, _ = client.NewClient(utls.HelloChrome_90)
+		}
+	} else {
+		cClient, _ = client.NewClient(utls.HelloChrome_90)
+	}
+	cookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return cClient, err
+	}
+	cClient.Jar = cookieJar
+	return cClient, err
 }

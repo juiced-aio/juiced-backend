@@ -9,7 +9,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
@@ -40,14 +39,14 @@ type MonitorStore struct {
 // AddMonitorToStore adds the Monitor to the Store and returns true if successful
 func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup) error {
 	var queryError error
-	// Get Proxy for monitor
-	proxies := []entities.Proxy{}
+	// Get ProxyGroup for monitor
+	var proxyGroup *entities.ProxyGroup
 	if monitor.MonitorProxyGroupID != "" {
-		proxyGroup, err := queries.GetProxyGroup(monitor.MonitorProxyGroupID)
-		if err != nil {
-			queryError = err
+		var ok bool
+		proxyGroup, ok = GetProxyStore().GetProxyGroup(monitor.MonitorProxyGroupID)
+		if !ok {
+			queryError = e.New("proxy group failure")
 		}
-		proxies = proxyGroup.Proxies
 	}
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
@@ -64,7 +63,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxies, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
+		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -84,7 +83,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		bestbuyMonitor, err := bestbuy.CreateBestbuyMonitor(monitor, proxies, monitorStore.EventBus, monitor.BestbuyMonitorInfo.Monitors)
+		bestbuyMonitor, err := bestbuy.CreateBestbuyMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.BestbuyMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -104,7 +103,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		disneyMonitor, err := disney.CreateDisneyMonitor(monitor, proxies, monitorStore.EventBus, monitor.DisneyMonitorInfo.Monitors)
+		disneyMonitor, err := disney.CreateDisneyMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.DisneyMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -124,7 +123,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
+		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -144,7 +143,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		gamestopMonitor, err := gamestop.CreateGamestopMonitor(monitor, proxies, monitorStore.EventBus, monitor.GamestopMonitorInfo.Monitors)
+		gamestopMonitor, err := gamestop.CreateGamestopMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.GamestopMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -163,7 +162,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxies, monitorStore.EventBus, monitor.HottopicMonitorInfo.Monitors)
+		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.HottopicMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -183,7 +182,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		shopifyMonitor, err := shopify.CreateShopifyMonitor(monitor, proxies, monitorStore.EventBus, monitor.ShopifyMonitorInfo.SiteURL, monitor.ShopifyMonitorInfo.SitePassword, monitor.ShopifyMonitorInfo.Monitors)
+		shopifyMonitor, err := shopify.CreateShopifyMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.ShopifyMonitorInfo.SiteURL, monitor.ShopifyMonitorInfo.SitePassword, monitor.ShopifyMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -204,7 +203,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 		}
 		// Create monitor
-		targetMonitor, err := target.CreateTargetMonitor(monitor, proxies, monitorStore.EventBus, monitor.TargetMonitorInfo)
+		targetMonitor, err := target.CreateTargetMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.TargetMonitorInfo)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -225,7 +224,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 		// Create monitor
-		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxies, monitorStore.EventBus, monitor.WalmartMonitorInfo.Monitors)
+		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.WalmartMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -368,7 +367,7 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 }
 
 // UpdateMonitorProxy will update the given monitor with the given proxy and return true if successful
-func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup, proxy entities.Proxy) bool {
+func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup, proxy *entities.Proxy) bool {
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:

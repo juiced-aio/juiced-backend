@@ -16,14 +16,17 @@ import (
 )
 
 // CreateBoxlunch takes a Task entity and turns it into a Boxlunch Task
-func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus) (Task, error) {
 	boxLunchTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
+	}
+	if proxyGroup != nil {
+		boxLunchTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return boxLunchTask, nil
 }
@@ -46,6 +49,7 @@ func (task *Task) CheckForStop() bool {
 // Start task
 func (task *Task) RunTask() {
 	defer func() {
+		task.Task.Proxy.Count--
 		if recover() != nil {
 			task.Task.StopFlag = true
 			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
@@ -57,11 +61,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor

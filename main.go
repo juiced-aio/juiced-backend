@@ -71,6 +71,7 @@ func main() {
 				go Heartbeat(eventBus, userInfo)
 				go stores.InitTaskStore(eventBus)
 				stores.InitMonitorStore(eventBus)
+				stores.InitProxyStore()
 				captcha.InitCaptchaStore(eventBus)
 				err := captcha.InitAycd()
 				if err == nil {

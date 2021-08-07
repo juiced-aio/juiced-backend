@@ -20,19 +20,22 @@ import (
 )
 
 // CreateDisneyTask takes a Task entity and turns it into a Disney Task
-func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	disneyTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		TaskType: taskType,
 		AccountInfo: AccountInfo{
 			Email:    email,
 			Password: password,
 		},
+	}
+	if proxyGroup != nil {
+		disneyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return disneyTask, nil
 }
@@ -67,6 +70,7 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
+		task.Task.Proxy.Count--
 		if recover() != nil {
 			task.Task.StopFlag = true
 			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
@@ -78,11 +82,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -404,12 +407,12 @@ func (task *Task) Login() bool {
 		Password:   task.AccountInfo.Password,
 	}
 
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, task.Task.Proxy)
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, *task.Task.Proxy)
 	if err != nil {
 		return false
 	}
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, task.Task.Proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, *task.Task.Proxy)
 		time.Sleep(1 * time.Second / 10)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)

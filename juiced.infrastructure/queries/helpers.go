@@ -600,7 +600,7 @@ func GetProxies(proxyGroup entities.ProxyGroup) (entities.ProxyGroup, error) {
 		if err != nil {
 			return proxyGroup, err
 		}
-		proxyGroup.Proxies = append(proxyGroup.Proxies, tempProxy)
+		proxyGroup.Proxies = append(proxyGroup.Proxies, &tempProxy)
 	}
 
 	return proxyGroup, err
