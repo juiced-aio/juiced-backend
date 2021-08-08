@@ -3,6 +3,7 @@ package bigcartel
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
 	"time"
 
@@ -67,21 +68,6 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
-func (task *Task) loop() {
-	check := false
-	for !check {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		check = task.NameAndEmail()
-		if !becameGuest {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
-	}
-
-	task.Step = Preloading
-}
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -98,80 +84,72 @@ func (task *Task) RunTask() {
 
 	task.Step = SettingUp //not srue what this is for, just adding anyway for now.
 
+	task.MaxRetry = 5
 	task.CheckForAdditionalSteps()
 
-	//First check if we need to login
+	task.Step = WaitingForMonitor
 
-	//Wait for monitor
+	// WaitForMonitor
+	needToStop := task.WaitForMonitor()
+	if needToStop {
+		return
+	}
 
-	//Add to cart
+	task.Step = AddingToCart
 
-	//Submit address and email
+	startTime := time.Now()
 
-	//Submit payment details
+	task.PublishEvent(enums.SettingEmailAddress, enums.TaskUpdate)
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.NameAndEmail()); !isSuccess || needtostop; {
+		if needtostop {
+			return
+		}
+	}
 
-	//Checkout
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.Address()); !isSuccess || needtostop; {
+		if needtostop {
+			return
+		}
+	}
+
+	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.PaymentMethod()); !isSuccess || needtostop; {
+		if needtostop {
+			return
+		}
+	}
+
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.PaymentInfo()); !isSuccess || needtostop; {
+		if needtostop {
+			return
+		}
+	}
+
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout()); !isSuccess || needtostop; {
+		if needtostop {
+			return
+		}
+	}
+
+	endTime := time.Now()
+
+	log.Println("STARTED AT: " + startTime.String())
+	log.Println("  ENDED AT: " + endTime.String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 }
 
-func (task *Task) AddToCart(vid string) bool {
-	payload := url.Values{
-		"cart[add][id]": {"268318059"},
-		"submit":        {""},
-	}
-
-	addToCartResponse := AddToCartResponse{}
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "POST",
-		URL:    task.SiteInfo.BaseUrl + AddToCartEndpoint,
-		RawHeaders: http.RawHeader{
-			{"content-length", fmt.Sprint(len(payload.Encode()))},
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"accept", "application/json, text/javascript, */*; q=0.01"},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
-			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", task.SiteInfo.BaseUrl},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-site", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", task.SiteInfo.BaseUrl + "/"},
-			{"accept-encoding", "gzip, deflate"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data:               []byte(payload.Encode()),
-		ResponseBodyStruct: &addToCartResponse,
-	})
-	if err != nil {
-		return false
-	}
-
-	switch resp.StatusCode {
-	case 200:
-
-		return true
-	case 422:
-		//Out Of Stock
-		return false
-	case 404:
-		//Item does not exist
-		return false
-	default:
-		return false
-	}
-}
-
-func (task *Task) NameAndEmail() bool {
+func (task *Task) NameAndEmail() (bool, string) {
 	payloadBytes, _ := json.Marshal(BigCartelRequestSubmitNameAndEmail{
-		Buyer_email:                 "@gmail.com",
-		Buyer_first_name:            "Anthony",
-		Buyer_last_name:             "Reeder",
+		Buyer_email:                 task.Task.Profile.Email,
+		Buyer_first_name:            task.Task.Profile.ShippingAddress.FirstName,
+		Buyer_last_name:             task.Task.Profile.ShippingAddress.LastName,
 		Buyer_opted_in_to_marketing: false,
-		Buyer_phone_number:          "+1 (231) 231-2312", //Number must be correct format example: +1 (231) 231-2312
+		Buyer_phone_number:          task.Task.Profile.PhoneNumber, //Number must be correct format example: +1 (231) 231-2312
 	})
 
-	addToCartResponse := AddToCartResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -184,45 +162,39 @@ func (task *Task) NameAndEmail() bool {
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", task.SiteInfo.BaseUrl},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-site", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.SiteInfo.BaseUrl + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		RequestBodyStruct:  &payloadBytes,
-		ResponseBodyStruct: &addToCartResponse,
+		RequestBodyStruct: &payloadBytes,
 	})
 	if err != nil {
-		return false
+		return false, enums.SettingEmailAddressFailure
 	}
 
 	switch resp.StatusCode {
 	case 200:
-
-		return true
+		return true, enums.SettingEmailAddressSuccess
 	case 422:
-		//Out Of Stock
-		return false
+		return false, enums.SettingEmailAddressFailure
 	case 404:
-		//Item does not exist
-		return false
+		return false, enums.SettingEmailAddressFailure
 	default:
-		return false
+		return false, enums.SettingEmailAddressFailure
 	}
 }
 
-func (task *Task) Address(vid string) bool {
+func (task *Task) Address() (bool, string) {
 	payloadBytes, _ := json.Marshal(BigCartelRequestSubmitAddress{
-		Shipping_address_1:             "49 Thackeray Close",
-		Shipping_address_2:             "",
-		Shipping_city:                  "Royston",
+		Shipping_address_1:             task.Task.Profile.ShippingAddress.Address1,
+		Shipping_address_2:             task.Task.Profile.ShippingAddress.Address2,
+		Shipping_city:                  task.Task.Profile.ShippingAddress.City,
 		Shipping_country_autofill_name: "",
-		Shipping_country_id:            "43",
-		Shipping_state:                 "Hawaii",
-		Shipping_zip:                   "4353453453",
+		Shipping_country_id:            "43", //43 = USA i assume we arnt supporting anywhere else anyway? If so we'll need to set them up specificaly.
+		Shipping_state:                 task.Task.Profile.ShippingAddress.StateCode,
+		Shipping_zip:                   task.Task.Profile.ShippingAddress.ZipCode,
 	})
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -248,26 +220,24 @@ func (task *Task) Address(vid string) bool {
 		RequestBodyStruct: &payloadBytes,
 	})
 	if err != nil {
-		return false
+		return false, ""
 	}
 
 	switch resp.StatusCode {
 	case 200:
 
-		return true
+		return true, ""
 	case 422:
-		//Out Of Stock
-		return false
+		return false, ""
 	case 404:
-		//Item does not exist
-		return false
+		return false, ""
 	default:
-		return false
+		return false, ""
 	}
 }
 
-func (task *Task) PaymentMethod(cartToken, paymentId string) bool {
-	payload := "{\"cart_token\":\"" + cartToken + "\",\"stripe_payment_method_id\":\"" + paymentId + "\",\"stripe_payment_intent_id\":null}"
+func (task *Task) PaymentMethod() (bool, string) {
+	payload := "{\"cart_token\":\"" + task.InStockData.CartToken + "\",\"stripe_payment_method_id\":\"" + task.InStockData.StoreId + "\",\"stripe_payment_intent_id\":null}"
 
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -281,57 +251,48 @@ func (task *Task) PaymentMethod(cartToken, paymentId string) bool {
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", task.SiteInfo.BaseUrl},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-site", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.SiteInfo.BaseUrl + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
 		Data: []byte(payload),
 	})
 	if err != nil {
-		return false
+		return false, ""
 	}
 
 	switch resp.StatusCode {
 	case 200:
-
-		return true
+		return true, ""
 	case 422:
-		//Out Of Stock
-		return false
+		return false, ""
 	case 404:
-		//Item does not exist
-		return false
+		return false, ""
 	default:
-		return false
+		return false, ""
 	}
 }
 
-func (task *Task) PaymentInfo(cartToken, paymentId string) bool {
+func (task *Task) PaymentInfo() (bool, string) {
 	payload := url.Values{
 		"type":                                  {"card"},
-		"billing_details[name]":                 {"Anthony Reeder"},
-		"billing_details[address][line1]":       {"49 Thackeray Close"},
-		"billing_details[address][line2]":       {""},
-		"billing_details[address][city]":        {"Royston"},
-		"billing_details[address][state]":       {"Hawaii"},
-		"billing_details[address][postal_code]": {"4353453453"},
+		"billing_details[name]":                 {task.Task.Profile.BillingAddress.FirstName + task.Task.Profile.BillingAddress.LastName},
+		"billing_details[address][line1]":       {task.Task.Profile.BillingAddress.Address1},
+		"billing_details[address][line2]":       {task.Task.Profile.BillingAddress.Address2},
+		"billing_details[address][city]":        {task.Task.Profile.BillingAddress.City},
+		"billing_details[address][state]":       {task.Task.Profile.BillingAddress.StateCode},
+		"billing_details[address][postal_code]": {task.Task.Profile.BillingAddress.ZipCode},
 		"billing_details[address][country]":     {"US"},
-		"card[number]":                          {"4767718212263745"},
-		"card[cvc]":                             {"260"},
-		"card[exp_month]":                       {"02"},
-		"card[exp_year]":                        {"26"},
-		"guid":                                  {"13bedf9f-0e16-4243-9024-2eecbc91113ee4bb60"},
-		"muid":                                  {"f5023d3c-907a-42db-8dc4-d4ef7f2413436b0869"},
-		"sid":                                   {"39c026e7-5d19-4c2f-93f5-058749b4de5fa54e58"},
+		"card[number]":                          {task.Task.Profile.CreditCard.CardNumber},
+		"card[cvc]":                             {task.Task.Profile.CreditCard.CVV},
+		"card[exp_month]":                       {task.Task.Profile.CreditCard.ExpMonth},
+		"card[exp_year]":                        {task.Task.Profile.CreditCard.ExpYear},
 		"pasted_fields":                         {"number"},
-		"payment_user_agent":                    {"stripe.js/76aee18e6; stripe-js-v3/76aee18e6"},
-		"time_on_page":                          {"13709"},
+		"time_on_page":                          {"13709"}, ///this time seems fine? Maybe we could randomise it slightly?
 		"referrer":                              {"https://checkout.bigcartel.com/"},
-		"key":                                   {"pk_live_HAopYDMYyyhaXP505VRbXQtT"}, //i think this is speicfic to each site.
+		"key":                                   {"pk_live_HAopYDMYyyhaXP505VRbXQtT"}, //forgot about this, must get from the checkout page (currently done on monitor)
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -345,36 +306,33 @@ func (task *Task) PaymentInfo(cartToken, paymentId string) bool {
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", task.SiteInfo.BaseUrl},
+			{"origin", "https://js.stripe.com"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-site", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.SiteInfo.BaseUrl + "/"},
+			{"referer", "https://js.stripe.com"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
 		Data: []byte(payload.Encode()),
 	})
 	if err != nil {
-		return false
+		return false, ""
 	}
 
 	switch resp.StatusCode {
 	case 200:
-
-		return true
+		return true, ""
 	case 422:
-		//Out Of Stock
-		return false
+		return false, ""
 	case 404:
-		//Item does not exist
-		return false
+		return false, ""
 	default:
-		return false
+		return false, ""
 	}
 }
 
-func (task *Task) Checkout(vid string) bool {
+func (task *Task) Checkout() (bool, string) {
 	payloadBytes, _ := json.Marshal(Payment{
 		Stripe_payment_method_id: "",
 	})
@@ -391,31 +349,27 @@ func (task *Task) Checkout(vid string) bool {
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", task.SiteInfo.BaseUrl},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-site", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.SiteInfo.BaseUrl + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
 		RequestBodyStruct: payloadBytes,
 	})
 	if err != nil {
-		return false
+		return false, ""
 	}
 
 	switch resp.StatusCode {
 	case 200:
 
-		return true
+		return true, ""
 	case 422:
-		//Out Of Stock
-		return false
+		return false, ""
 	case 404:
-		//Item does not exist
-		return false
+		return false, ""
 	default:
-		return false
+		return false, ""
 	}
 }

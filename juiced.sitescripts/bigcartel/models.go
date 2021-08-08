@@ -42,6 +42,8 @@ type Task struct {
 	SiteInfo          SiteInfo
 	BigCartelRetailer enums.BigCartelRetailer
 	Step              Step
+	Retry             int
+	MaxRetry          int
 }
 
 type BigCartelInStockData struct {
