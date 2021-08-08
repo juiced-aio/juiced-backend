@@ -6,10 +6,12 @@ import (
 )
 
 const (
-	AddToCart          = "/cart"
-	SubmitAddressEmail = "/store/%s/carts/%s"
-	SubmitPayment      = "/store/%s/carts/%s"
-	Checkout           = "/store/%s/carts/%s"
+	AddToCartEndpoint     = "/cart"
+	AddressEmailEndpoint  = "/store/%s/carts/%s"
+	PaymentMethodEndpoint = "https://api.bigcartel.com/store/%s/checkouts"
+	PaymentInfoEndpoint   = "/store/%s/carts/%s"
+	CheckoutEndpoint      = "/store/%s/carts/%s"
+	GetStockEndpoint      = "https://redsky.target.com/redsky_aggregations/v1/web/plp_fulfillment_v1?"
 )
 
 type Monitor struct {
@@ -20,15 +22,22 @@ type Monitor struct {
 	PidWithInfo     map[string]entities.BoxlunchSingleMonitorInfo
 	SiteInfo        SiteInfo
 	Skus            []string
+	SKUWithInfo     map[string]entities.BigCartelSingleMonitorInfo
 }
 
 type Task struct {
-	Task      base.Task
-	StockData BigCartelInStockData
-	SiteInfo  SiteInfo
+	Task        base.Task
+	InStockData BigCartelInStockData
+	SiteInfo    SiteInfo
 }
 
 type BigCartelInStockData struct {
+	Sku       string
+	ItemName  string
+	ImageURL  string
+	ItemPrice float64
+	StoreId   string
+	CartToken string
 }
 
 type SiteInfo struct {
@@ -36,4 +45,29 @@ type SiteInfo struct {
 	Email    string
 	Password string
 	Sku      string
+}
+
+type AddToCartResponse struct {
+}
+
+type BigCartelRequestSubmitNameAndEmail struct {
+	Buyer_email                 string `json:"buyer_email"`
+	Buyer_first_name            string `json:"buyer_first_name"`
+	Buyer_last_name             string `json:"buyer_last_name"`
+	Buyer_opted_in_to_marketing bool   `json:"buyer_opted_in_to_marketing"`
+	Buyer_phone_number          string `json:"buyer_phone_number"`
+}
+
+type BigCartelRequestSubmitAddress struct {
+	Shipping_address_1             string `json:"shipping_address_1"`
+	Shipping_address_2             string `json:"shipping_address_2"`
+	Shipping_city                  string `json:"shipping_city"`
+	Shipping_country_autofill_name string `json:"shipping_country_autofill_name"`
+	Shipping_country_id            string `json:"shipping_country_id"`
+	Shipping_state                 string `json:"shipping_state"`
+	Shipping_zip                   string `json:"shipping_zip"`
+}
+
+type Payment struct {
+	Stripe_payment_method_id string `json:"stripe_payment_method_id"`
 }

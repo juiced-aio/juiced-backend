@@ -2,6 +2,9 @@ package bigcartel
 
 import (
 	"math/rand"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +15,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
+	"github.com/anaskhan96/soup"
 )
 
 func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteInfo SiteInfo, singleMonitors []entities.BigCartelSingleMonitorInfo) (Monitor, error) {
@@ -30,8 +34,9 @@ func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pr
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
-		SiteInfo: siteInfo,
-		Skus:     _skus, //set the list of skus in monitor struct
+		SiteInfo:    siteInfo,
+		Skus:        _skus, //set the list of skus in monitor struct
+		SKUWithInfo: storedBigCartelMonitors,
 	}
 
 	return bigcartelMonitor, nil
@@ -78,22 +83,22 @@ func (monitor *Monitor) RunMonitor() {
 
 	wg := sync.WaitGroup{}
 	wg.Add(len(monitor.Skus))
-	for _, vid := range monitor.Skus { //iterate over the skus frrom monitor, run a single monitor for each
+	for _, sku := range monitor.Skus { //iterate over the skus frrom monitor, run a single monitor for each
 		go func(x string) {
 			monitor.RunSingleMonitor(x)
 			wg.Done()
-		}(vid)
+		}(sku)
 	}
 	wg.Wait()
 }
 
-func (monitor *Monitor) RunSingleMonitor(vid string) {
+func (monitor *Monitor) RunSingleMonitor(sku string) {
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, vid) {
+	if !common.InSlice(monitor.RunningMonitors, sku) {
 		defer func() {
 			recover()
 			// TODO @silent: Re-run this specific monitor
@@ -103,8 +108,8 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
 
-		stockData := monitor.GetVIDstock(vid) //return instockData struct
-		if stockData.VariantID != "" {
+		stockData := monitor.GetStockWithSku(sku) //return instockData struct
+		if stockData.Sku != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
 				return
@@ -112,12 +117,14 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 
 			var inSlice bool
 			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.VariantID == stockData.VariantID
+				if inSlice = monitorStock.Sku == stockData.Sku; inSlice {
+					break
+				}
 			}
 			if !inSlice {
 				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, vid)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
+				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{ //Were not  getting this product info yet as its easier to grab it from a resposne later when setting up the payment info.
 					Products: []events.Product{
 						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
 				})
@@ -129,13 +136,122 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
-				if monitorStock.VariantID == stockData.VariantID {
+				if monitorStock.Sku == stockData.Sku {
 					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
 					break
 				}
 			}
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunSingleMonitor(vid)
+			monitor.RunSingleMonitor(sku)
 		}
 	}
+}
+
+func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
+	bigCartelInStockData := BigCartelInStockData{}
+
+	payload := url.Values{
+		"cart[add][id]": {sku},
+		"submit":        {""},
+	}
+
+	addToCartResponse := AddToCartResponse{}
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client:             monitor.Monitor.Client,
+		Method:             "POST",
+		URL:                GetStockEndpoint,
+		Data:               []byte(payload.Encode()),
+		ResponseBodyStruct: &addToCartResponse,
+	})
+	if err != nil {
+		//theres some error so just return this empty
+		return bigCartelInStockData
+	}
+
+	switch resp.StatusCode {
+	case 200:
+
+		responseBody := soup.HTMLParse(string(body))
+		price := ""
+		skuData := responseBody.Find("div", "class", "remove")
+		price = responseBody.Find("div", "class", "price").Text()
+		if skuData.Pointer != nil && price != "" {
+			link := skuData.Find("a")
+			bigCartelInStockData.Sku = link.Pointer.Attr[1].Val
+		}
+
+		if bigCartelInStockData.Sku == sku {
+			//product and price found
+			responsePrice, err := strconv.Atoi(price)
+			if err != nil {
+				//Error converting price string -> int
+				//unable to confirm price
+				//publish event
+				//reset
+				bigCartelInStockData = BigCartelInStockData{}
+			} else {
+				if responsePrice > monitor.SKUWithInfo[sku].MaxPrice {
+					//too expensive reset
+					//publish event
+					bigCartelInStockData = BigCartelInStockData{}
+				} else {
+					//We have found the product and we have added to cart and its in budget
+					//Now we do a GET request on the checkout to get the cart ID for passover
+					storeId, cartToken := monitor.StoreAndCartid()
+					if storeId != "" && cartToken != "" {
+						bigCartelInStockData.StoreId = storeId
+						bigCartelInStockData.CartToken = cartToken
+					} else {
+						//Unable to locate storeId and cartToken this is required
+						//publish event maybe
+						//reset
+						bigCartelInStockData = BigCartelInStockData{}
+					}
+				}
+			}
+
+		} else {
+			//out of stock/not in cart
+			//publish event
+			//reset
+			bigCartelInStockData = BigCartelInStockData{}
+		}
+
+	case 422:
+		//Out Of Stock
+		//publish event
+		//reset
+		bigCartelInStockData = BigCartelInStockData{}
+	case 404:
+		//Item does not exist
+		//publish event
+		//reset
+		bigCartelInStockData = BigCartelInStockData{}
+	default:
+	}
+
+	//we are always going to return the stockdata
+	return bigCartelInStockData
+}
+
+func (monitor *Monitor) StoreAndCartid() (string, string) {
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: monitor.Monitor.Client,
+		Method: "GET",
+		URL:    GetStockEndpoint,
+	})
+	if err != nil {
+		//error getting page
+		return "", ""
+	} else {
+		s := []string{}
+		if strings.Contains(resp.Request.URL.String(), "checkout.bigcartel.com/") {
+			s = strings.Split(string(resp.Request.URL.String()), "/")
+			return s[3], s[4]
+		} else {
+			//unable to get values from URL
+			return "", ""
+		}
+	}
+
 }
