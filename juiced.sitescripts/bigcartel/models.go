@@ -2,6 +2,7 @@ package bigcartel
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -12,6 +13,16 @@ const (
 	PaymentInfoEndpoint   = "/store/%s/carts/%s"
 	CheckoutEndpoint      = "/store/%s/carts/%s"
 	GetStockEndpoint      = "https://redsky.target.com/redsky_aggregations/v1/web/plp_fulfillment_v1?"
+)
+
+type Step = int
+
+const (
+	SettingUp           Step = 0
+	Preloading          Step = 1
+	WaitingForMonitor   Step = 2
+	AddingToCart        Step = 3
+	SettingShippingInfo Step = 4
 )
 
 type Monitor struct {
@@ -26,9 +37,11 @@ type Monitor struct {
 }
 
 type Task struct {
-	Task        base.Task
-	InStockData BigCartelInStockData
-	SiteInfo    SiteInfo
+	Task              base.Task
+	InStockData       BigCartelInStockData
+	SiteInfo          SiteInfo
+	BigCartelRetailer enums.BigCartelRetailer
+	Step              Step
 }
 
 type BigCartelInStockData struct {

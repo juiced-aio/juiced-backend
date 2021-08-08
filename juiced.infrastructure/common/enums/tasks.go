@@ -93,6 +93,14 @@ var ShopifySiteURLs = map[ShopifyRetailer]string{
 	HotWheels: "https://creations.mattel.com",
 }
 
+type BigCartelRetailer = string
+
+const (
+	GenericBigCartel BigCartelRetailer = "GenericBigCartel"
+)
+
+var BigCartelSiteURLs = map[BigCartelRetailer]string{}
+
 // MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)
 type MonitorType = string
 

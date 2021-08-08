@@ -47,6 +47,12 @@ func (task *Task) CheckForStop() bool {
 	return false
 }
 
+func (task *Task) CheckForAdditionalSteps() {
+	switch task.BigCartelRetailer {
+	// Future Shopify site-specific functions will be added here
+	}
+}
+
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
 	for {
@@ -61,6 +67,21 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
+func (task *Task) loop() {
+	check := false
+	for !check {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		check = task.NameAndEmail()
+		if !becameGuest {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	task.Step = Preloading
+}
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -74,6 +95,10 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+
+	task.Step = SettingUp //not srue what this is for, just adding anyway for now.
+
+	task.CheckForAdditionalSteps()
 
 	//First check if we need to login
 
@@ -137,7 +162,7 @@ func (task *Task) AddToCart(vid string) bool {
 	}
 }
 
-func (task *Task) NameAndEmail(vid string) bool {
+func (task *Task) NameAndEmail() bool {
 	payloadBytes, _ := json.Marshal(BigCartelRequestSubmitNameAndEmail{
 		Buyer_email:                 "@gmail.com",
 		Buyer_first_name:            "Anthony",
