@@ -14,7 +14,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL, siteInfo SiteInfo) (Task, error) {
+func CreateBigCartelTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL, siteInfo SiteInfo) (Task, error) {
 	bigcartelTask := Task{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
