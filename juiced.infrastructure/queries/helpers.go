@@ -156,6 +156,26 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 			task.ShopifyTaskInfo = &tempTaskInfo
 		}
 
+	case enums.BigCartel:
+		statement, err := database.Preparex(`SELECT * FROM bigcartelTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempTaskInfo := entities.BigCartelTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
+			if err != nil {
+				return task, err
+			}
+			task.BigCartelTaskInfo = &tempTaskInfo
+		}
+
 	case enums.Target:
 		statement, err := database.Preparex(`SELECT * FROM targetTaskInfos WHERE taskID = @p1`)
 		if err != nil {

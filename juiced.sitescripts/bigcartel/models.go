@@ -31,19 +31,19 @@ type Monitor struct {
 	Pids            []string
 	InStock         []BigCartelInStockData
 	PidWithInfo     map[string]entities.BoxlunchSingleMonitorInfo
-	SiteInfo        SiteInfo
 	Skus            []string
 	SKUWithInfo     map[string]entities.BigCartelSingleMonitorInfo
+	SiteURL         string
 }
 
 type Task struct {
 	Task              base.Task
 	InStockData       BigCartelInStockData
-	SiteInfo          SiteInfo
 	BigCartelRetailer enums.BigCartelRetailer
 	Step              Step
 	Retry             int
 	MaxRetry          int
+	SiteURL           string
 }
 
 type BigCartelInStockData struct {
@@ -53,13 +53,6 @@ type BigCartelInStockData struct {
 	ItemPrice float64
 	StoreId   string
 	CartToken string
-}
-
-type SiteInfo struct {
-	BaseUrl  string
-	Email    string
-	Password string
-	Sku      string
 }
 
 type AddToCartResponse struct {

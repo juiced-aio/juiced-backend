@@ -13,6 +13,7 @@ import (
 
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/bigcartel"
 	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
@@ -25,16 +26,17 @@ import (
 
 // MonitorStore stores information about running Monitors
 type MonitorStore struct {
-	AmazonMonitors   map[string]*amazon.Monitor
-	BestbuyMonitors  map[string]*bestbuy.Monitor
-	BoxlunchMonitors map[string]*boxlunch.Monitor
-	DisneyMonitors   map[string]*disney.Monitor
-	GamestopMonitors map[string]*gamestop.Monitor
-	HottopicMonitors map[string]*hottopic.Monitor
-	ShopifyMonitors  map[string]*shopify.Monitor
-	TargetMonitors   map[string]*target.Monitor
-	WalmartMonitors  map[string]*walmart.Monitor
-	EventBus         *events.EventBus
+	AmazonMonitors    map[string]*amazon.Monitor
+	BestbuyMonitors   map[string]*bestbuy.Monitor
+	BoxlunchMonitors  map[string]*boxlunch.Monitor
+	DisneyMonitors    map[string]*disney.Monitor
+	GamestopMonitors  map[string]*gamestop.Monitor
+	HottopicMonitors  map[string]*hottopic.Monitor
+	ShopifyMonitors   map[string]*shopify.Monitor
+	BigCartelMonitors map[string]*bigcartel.Monitor
+	TargetMonitors    map[string]*target.Monitor
+	WalmartMonitors   map[string]*walmart.Monitor
+	EventBus          *events.EventBus
 }
 
 // AddMonitorToStore adds the Monitor to the Store and returns true if successful
@@ -189,6 +191,25 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 		monitorStore.ShopifyMonitors[monitor.GroupID] = &shopifyMonitor
 
+	case enums.BigCartel:
+		if _, ok := monitorStore.BigCartelMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return nil
+		}
+
+		if queryError != nil {
+			return queryError
+		}
+
+		if len(monitor.BigCartelMonitorInfo.Monitors) == 0 {
+			return e.New(errors.NoMonitorsError)
+		}
+
+		bigCatelMonitors, err := bigcartel.CreateBigCartelMonitor(monitor, proxies, monitorStore.EventBus, monitor.BigCartelMonitorInfo.SiteURL, monitor.BigCartelMonitorInfo.Monitors)
+		if err != nil {
+			return e.New(errors.CreateMonitorError + err.Error())
+		}
+		monitorStore.BigCartelMonitors[monitor.GroupID] = &bigCatelMonitors
+
 	case enums.Target:
 		// Check if monitor exists in store already
 		if _, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
@@ -295,6 +316,12 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 		}
 		go monitorStore.ShopifyMonitors[monitor.GroupID].RunMonitor()
 
+	case enums.BigCartel:
+		if bigcartelMonitor, ok := monitorStore.BigCartelMonitors[monitor.GroupID]; ok {
+			bigcartelMonitor.Monitor.StopFlag = false
+		}
+		go monitorStore.BigCartelMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.Target:
 		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
 			targetMonitor.Monitor.StopFlag = false
@@ -348,6 +375,11 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.StopFlag = true
+		}
+
+	case enums.BigCartel:
+		if bigCartelMonitor, ok := monitorStore.BigCartelMonitors[monitor.GroupID]; ok {
+			bigCartelMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Target:
@@ -409,6 +441,11 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.Proxy = proxy
+		}
+		return true
+	case enums.BigCartel:
+		if bigCartelMonitor, ok := monitorStore.BigCartelMonitors[monitor.GroupID]; ok {
+			bigCartelMonitor.Monitor.Proxy = proxy
 		}
 		return true
 	case enums.Target:
@@ -574,6 +611,24 @@ func (monitorStore *MonitorStore) CheckShopifyMonitorStock() {
 	}
 }
 
+func (monitorStore *MonitorStore) CheckBigCartelMonitorStock() {
+	for {
+		for monitorID, bigCartelMonitor := range monitorStore.BigCartelMonitors {
+			if len(bigCartelMonitor.InStock) > 0 {
+				taskGroup := bigCartelMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if bigCartelTask, ok := taskStore.BigCartelTasks[taskID]; ok {
+						if ok && bigCartelTask.Task.Task.TaskGroupID == monitorID {
+							bigCartelTask.InStockData = bigCartelMonitor.InStock[rand.Intn(len(bigCartelMonitor.InStock))]
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(1 * time.Second / 100)
+	}
+}
+
 func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 	for {
 		for monitorID, targetMonitor := range monitorStore.TargetMonitors {
@@ -658,6 +713,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckShopifyMonitorStock()
+	go monitorStore.CheckBigCartelMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
 	go monitorStore.CheckWalmartMonitorStock()
 }

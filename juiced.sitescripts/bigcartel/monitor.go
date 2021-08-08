@@ -18,7 +18,7 @@ import (
 	"github.com/anaskhan96/soup"
 )
 
-func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteInfo SiteInfo, singleMonitors []entities.BigCartelSingleMonitorInfo) (Monitor, error) {
+func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteURL string, singleMonitors []entities.BigCartelSingleMonitorInfo) (Monitor, error) {
 	storedBigCartelMonitors := make(map[string]entities.BigCartelSingleMonitorInfo) //not sure what this is for atm, juust foam in for now.
 	bigcartelMonitor := Monitor{}
 	_skus := []string{}
@@ -34,9 +34,9 @@ func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pr
 			Proxies:   proxies,
 			EventBus:  eventBus,
 		},
-		SiteInfo:    siteInfo,
 		Skus:        _skus, //set the list of skus in monitor struct
 		SKUWithInfo: storedBigCartelMonitors,
+		SiteURL:     siteURL,
 	}
 
 	return bigcartelMonitor, nil
@@ -159,7 +159,7 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client:             monitor.Monitor.Client,
 		Method:             "POST",
-		URL:                GetStockEndpoint,
+		URL:                monitor.SiteURL + "/cart",
 		Data:               []byte(payload.Encode()),
 		ResponseBodyStruct: &addToCartResponse,
 	})

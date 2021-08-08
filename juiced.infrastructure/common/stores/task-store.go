@@ -13,6 +13,7 @@ import (
 
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/bigcartel"
 	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
@@ -29,15 +30,16 @@ import (
 
 // TaskStore stores information about running Tasks
 type TaskStore struct {
-	AmazonTasks   map[string]*amazon.Task
-	BestbuyTasks  map[string]*bestbuy.Task
-	BoxlunchTasks map[string]*boxlunch.Task
-	DisneyTasks   map[string]*disney.Task
-	GamestopTasks map[string]*gamestop.Task
-	HottopicTasks map[string]*hottopic.Task
-	ShopifyTasks  map[string]*shopify.Task
-	TargetTasks   map[string]*target.Task
-	WalmartTasks  map[string]*walmart.Task
+	AmazonTasks    map[string]*amazon.Task
+	BestbuyTasks   map[string]*bestbuy.Task
+	BoxlunchTasks  map[string]*boxlunch.Task
+	DisneyTasks    map[string]*disney.Task
+	GamestopTasks  map[string]*gamestop.Task
+	HottopicTasks  map[string]*hottopic.Task
+	ShopifyTasks   map[string]*shopify.Task
+	BigCartelTasks map[string]*bigcartel.Task
+	TargetTasks    map[string]*target.Task
+	WalmartTasks   map[string]*walmart.Task
 
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
@@ -217,6 +219,36 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 		// Add task to store
 		taskStore.ShopifyTasks[task.ID] = &shopifyTask
+
+	case enums.BigCartel:
+		// Check if task exists in store already
+		if _, ok := taskStore.BigCartelTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.BigCartelTaskInfo.SiteURL == emptyString || task.BigCartelTaskInfo.BigCartelRetailer == emptyString {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+
+		// BigCartel Site specifics
+		site := task.BigCartelTaskInfo.BigCartelRetailer
+		switch site {
+		//Future bespoke sites go here
+		}
+
+		// Create task
+		bigCartelTask, err := bigcartel.CreateBigCartelTask(task, profile, proxy, taskStore.EventBus, task.BigCartelTaskInfo.SiteURL)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.BigCartelTasks[task.ID] = &bigCartelTask
 
 	case enums.Target:
 		// Check if task exists in store already
@@ -429,6 +461,14 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 			}
 			return true
 
+		case enums.BigCartel:
+			if bigCartelTask, ok := taskStore.BigCartelTasks[taskID]; ok {
+				if !bigCartelTask.Task.StopFlag {
+					return true
+				}
+			}
+			return true
+
 		case enums.Target:
 			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
 				if !targetTask.Task.StopFlag {
@@ -493,6 +533,12 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.
 		}
 		return true
 
+	case enums.BigCartel:
+		if bigCartelTask, ok := taskStore.BigCartelTasks[task.ID]; ok {
+			bigCartelTask.Task.Proxy = proxy
+		}
+		return true
+
 	case enums.Target:
 		if targetTask, ok := taskStore.TargetTasks[task.ID]; ok {
 			targetTask.Task.Proxy = proxy
@@ -539,6 +585,9 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 	case enums.Shopify:
 		go taskStore.ShopifyTasks[taskID].RunTask()
 
+	case enums.BigCartel:
+		go taskStore.BigCartelTasks[taskID].RunTask()
+
 	case enums.Target:
 		go taskStore.TargetTasks[taskID].RunTask()
 
@@ -553,15 +602,16 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		AmazonTasks:   make(map[string]*amazon.Task),
-		BestbuyTasks:  make(map[string]*bestbuy.Task),
-		BoxlunchTasks: make(map[string]*boxlunch.Task),
-		DisneyTasks:   make(map[string]*disney.Task),
-		GamestopTasks: make(map[string]*gamestop.Task),
-		HottopicTasks: make(map[string]*hottopic.Task),
-		ShopifyTasks:  make(map[string]*shopify.Task),
-		TargetTasks:   make(map[string]*target.Task),
-		WalmartTasks:  make(map[string]*walmart.Task),
+		AmazonTasks:    make(map[string]*amazon.Task),
+		BestbuyTasks:   make(map[string]*bestbuy.Task),
+		BoxlunchTasks:  make(map[string]*boxlunch.Task),
+		DisneyTasks:    make(map[string]*disney.Task),
+		GamestopTasks:  make(map[string]*gamestop.Task),
+		HottopicTasks:  make(map[string]*hottopic.Task),
+		ShopifyTasks:   make(map[string]*shopify.Task),
+		BigCartelTasks: make(map[string]*bigcartel.Task),
+		TargetTasks:    make(map[string]*target.Task),
+		WalmartTasks:   make(map[string]*walmart.Task),
 
 		EventBus: eventBus,
 	}

@@ -10,6 +10,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/amazon"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/bestbuy"
+	"backend.juicedbot.io/juiced.sitescripts/bigcartel"
 	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
@@ -94,6 +95,17 @@ var shopifyMonitorInfoAsset = &entities.ShopifyMonitorInfo{
 		{
 			VariantID: "",
 			MaxPrice:  -1,
+		},
+	},
+}
+
+var bigCartelMonitorAsset = map[string]*bigcartel.Monitor{"bigcartel_test_monitor": {Monitor: monitorAsset, Skus: []string{""}}}
+
+var bigCartelMonitorInfoAsset = &entities.BigCartelMonitorInfo{
+	Monitors: []entities.BigCartelSingleMonitorInfo{
+		{
+			Sku:      "",
+			MaxPrice: -1,
 		},
 	},
 }
@@ -194,6 +206,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.Shopify:
 			tt.monitorStore.ShopifyMonitors = shopifyMonitorAsset
 			tt.args.monitor.ShopifyMonitorInfo = shopifyMonitorInfoAsset
+		case enums.BigCartel:
+			tt.monitorStore.BigCartelMonitors = bigCartelMonitorAsset
+			tt.args.monitor.BigCartelMonitorInfo = bigCartelMonitorInfoAsset
 		case enums.Target:
 			tt.monitorStore.TargetMonitors = targetMonitorsAsset
 			tt.args.monitor.TargetMonitorInfo = targetMonitorInfoAsset

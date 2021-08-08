@@ -106,6 +106,17 @@ var shopifyTaskInfosSchema = `
 	)
 `
 
+var bigCartelTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS bigcartelTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		couponCode TEXT,
+		siteURL TEXT,
+		sitePassword TEXT,
+		bigcartelRetailer TEXT
+	)
+`
+
 var targetTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS targetTaskInfos (
 		taskID TEXT,
@@ -233,6 +244,15 @@ var shopifyMonitorInfosSchema = `
 	)
 `
 
+var bigCartelMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS bigcartelMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT,
+		siteURL TEXT,
+		sitePassword TEXT
+	)
+`
+
 var shopifySingleMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS shopifySingleMonitorInfos (
 		monitorID TEXT,
@@ -241,6 +261,16 @@ var shopifySingleMonitorInfosSchema = `
 		maxPrice INTEGER
 	)
 `
+
+var bigCartelSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS bigcartelSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		variantID TEXT,
+		maxPrice INTEGER
+	)
+`
+
 var targetMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS targetMonitorInfos (
 		ID TEXT,
@@ -435,6 +465,7 @@ var schemas = []string{
 	// Shopify
 	shopifyTaskInfosSchema,
 	hotwheelsTaskInfosSchema,
+	bigCartelTaskInfosSchema,
 
 	// Task Groups/Monitors
 	taskGroupsSchema,
@@ -452,6 +483,8 @@ var schemas = []string{
 	hottopicSingleMonitorInfosSchema,
 	shopifyMonitorInfosSchema,
 	shopifySingleMonitorInfosSchema,
+	bigCartelMonitorInfosSchema,
+	bigCartelSingleMonitorInfosSchema,
 	targetMonitorInfosSchema,
 	targetSingleMonitorInfosSchema,
 	walmartMonitorInfosSchema,

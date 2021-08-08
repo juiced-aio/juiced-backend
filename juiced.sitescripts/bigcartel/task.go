@@ -15,7 +15,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateBigCartelTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL, siteInfo SiteInfo) (Task, error) {
+func CreateBigCartelTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, siteUrl string) (Task, error) {
 	bigcartelTask := Task{}
 	client, err := util.CreateClient(proxy)
 	if err != nil {
@@ -29,7 +29,7 @@ func CreateBigCartelTask(task *entities.Task, profile entities.Profile, proxy en
 			EventBus: eventBus,
 			Client:   client,
 		},
-		SiteInfo: siteInfo,
+		SiteURL: siteUrl,
 	}
 
 	return bigcartelTask, err
@@ -82,7 +82,7 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	task.Step = SettingUp //not srue what this is for, just adding anyway for now.
+	task.Step = SettingUp //not sure what this is for, just adding anyway for now.
 
 	task.MaxRetry = 5
 	task.CheckForAdditionalSteps()
@@ -153,7 +153,7 @@ func (task *Task) NameAndEmail() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    task.SiteInfo.BaseUrl + AddressEmailEndpoint,
+		URL:    task.SiteURL + AddressEmailEndpoint,
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payloadBytes))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -200,7 +200,7 @@ func (task *Task) Address() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    task.SiteInfo.BaseUrl + AddressEmailEndpoint,
+		URL:    task.SiteURL + AddressEmailEndpoint,
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payloadBytes))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -209,11 +209,11 @@ func (task *Task) Address() (bool, string) {
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
 			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
-			{"origin", task.SiteInfo.BaseUrl},
+			{"origin", task.SiteURL},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-site", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.SiteInfo.BaseUrl + "/"},
+			{"referer", task.SiteURL + "/"},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -297,7 +297,7 @@ func (task *Task) PaymentInfo() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    PaymentInfoEndpoint,
+		URL:    task.SiteURL + PaymentInfoEndpoint,
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payload.Encode()))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -340,7 +340,7 @@ func (task *Task) Checkout() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    PaymentInfoEndpoint,
+		URL:    task.SiteURL + PaymentInfoEndpoint,
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payloadBytes))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
