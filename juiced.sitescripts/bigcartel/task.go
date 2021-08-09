@@ -128,7 +128,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout()); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout(startTime)); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
@@ -350,7 +350,7 @@ func (task *Task) PaymentInfo() (bool, string) {
 	}
 }
 
-func (task *Task) Checkout() (bool, string) {
+func (task *Task) Checkout(startTime time.Time) (bool, string) {
 	payloadBytes, _ := json.Marshal(Payment{
 		Stripe_payment_method_id: "",
 	})
@@ -378,11 +378,29 @@ func (task *Task) Checkout() (bool, string) {
 	if err != nil {
 		return false, ""
 	}
-
+	var success bool
+	status := ""
 	switch resp.StatusCode {
 	case 200:
+		if 1 == 1 {
+			success = true
+			status = enums.OrderStatusSuccess
+		}
+		//successfull checkout
+		go util.ProcessCheckout(util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Content:      "",
+			Embeds:       task.CreateBigCartelEmbed(status, task.InStockData.ImageURL),
+			ItemName:     task.InStockData.ItemName,
+			Sku:          task.InStockData.Sku,
+			Retailer:     enums.BigCartel,
+			Price:        float64(task.InStockData.ItemPrice),
+			Quantity:     task.Task.Task.TaskQty,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
 
-		return true, ""
+		return true, enums.CheckedOut
 	case 422:
 		return false, ""
 	case 404:
