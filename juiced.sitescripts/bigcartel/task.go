@@ -3,6 +3,7 @@ package bigcartel
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/url"
 	"time"
@@ -171,6 +172,24 @@ func (task *Task) NameAndEmail() (bool, string) {
 	})
 	if err != nil {
 		return false, enums.SettingEmailAddressFailure
+	}
+
+	//WE want to set some data from resposne for checkout webhook.
+	//We are getting here as its the first time the data is shown during the process. Faster than making seperate requests for this earlier on.
+	body, _ := ioutil.ReadAll(resp.Body)
+	var objmap map[string]json.RawMessage
+	er := json.Unmarshal(body, &objmap)
+	if er != nil {
+		return false, enums.SettingEmailAddressFailure
+	} else {
+		var item []Item
+		er = json.Unmarshal(objmap["items"], &item)
+		if er != nil {
+			return false, enums.SettingEmailAddressFailure
+		} else {
+			task.InStockData.ImageURL = item[0].Primary_image.Url
+			task.InStockData.ItemName = item[0].Product_name
+		}
 	}
 
 	switch resp.StatusCode {

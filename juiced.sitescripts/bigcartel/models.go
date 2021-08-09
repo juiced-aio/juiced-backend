@@ -79,3 +79,19 @@ type BigCartelRequestSubmitAddress struct {
 type Payment struct {
 	Stripe_payment_method_id string `json:"stripe_payment_method_id"`
 }
+
+type Item struct {
+	Product_id        string `json:"product_id"`
+	Product_option_id string `json:"product_option_id"`
+	Product_name      string `json:"product_name"`
+	Option_name       string `json:"option_name"`
+	Full_name         string `json:"full_name"`
+	Quantity          string `json:"quantity"`
+	Price             string `json:"price"`
+	Total             string `json:"total"`
+	Total_cents       string `json:"total_cents"`
+	Primary_image     struct {
+		Url        string `json:"url"`
+		Secure_url string `json:"secure_url"`
+	} `json:"primary_image"`
+}
