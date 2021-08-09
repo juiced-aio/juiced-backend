@@ -36,6 +36,20 @@ func (proxy *Proxy) SetID(ID string) {
 	proxy.ID = ID
 }
 
+// RemoveCount subtracts one from count
+func (proxy *Proxy) RemoveCount() {
+	if proxy != nil {
+		proxy.Count--
+	}
+}
+
+// AddCount adds one to count
+func (proxy *Proxy) AddCount() {
+	if proxy != nil {
+		proxy.AddCount()
+	}
+}
+
 // ProxyGroup is a class that holds a list of proxies
 type ProxyGroup struct {
 	GroupID      string   `json:"groupID" db:"groupID"`

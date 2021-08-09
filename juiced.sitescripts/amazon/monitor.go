@@ -127,9 +127,7 @@ func (monitor *Monitor) RunMonitor() {
 				for !becameGuest {
 					needToStop := monitor.CheckForStop()
 					if needToStop {
-						if proxy != nil {
-							proxy.Count--
-						}
+						proxy.RemoveCount()
 						return
 					}
 					becameGuest = monitor.BecomeGuest(monitorClient)
@@ -137,9 +135,7 @@ func (monitor *Monitor) RunMonitor() {
 						time.Sleep(1000 * time.Millisecond)
 					}
 				}
-				if proxy != nil {
-					proxy.Count--
-				}
+				proxy.RemoveCount()
 				wg.Done()
 			}(value.Client)
 		}
@@ -247,7 +243,7 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
 			client.UpdateProxy(&currentClient, proxy)
 		}
-		defer func() { proxy.Count-- }()
+		defer func() { proxy.RemoveCount() }()
 	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
@@ -395,7 +391,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
 			client.UpdateProxy(&currentClient, proxy)
 		}
-		defer func() { proxy.Count-- }()
+		defer func() { proxy.RemoveCount() }()
 	}
 
 	ua := browser.Chrome()

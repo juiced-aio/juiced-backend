@@ -166,9 +166,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 
 	needToStop = monitor.CheckForStop()
 	if needToStop {
-		if proxy != nil {
-			proxy.Count--
-		}
+		proxy.RemoveCount()
 		return
 	}
 
@@ -210,9 +208,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			if len(sizes) > 0 && len(colors) > 0 {
 				needToStop = monitor.CheckForStop()
 				if needToStop {
-					if proxy != nil {
-						proxy.Count--
-					}
+					proxy.RemoveCount()
 					return
 				}
 
@@ -236,9 +232,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					stockDatas = monitor.GetInStockVariations(pid, sizes, colors)
 					needToStop = monitor.CheckForStop()
 					if needToStop {
-						if proxy != nil {
-							proxy.Count--
-						}
+						proxy.RemoveCount()
 						return
 					}
 				}
@@ -278,9 +272,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 						})
 					}
 
-					if proxy != nil {
-						proxy.Count--
-					}
+					proxy.RemoveCount()
 					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 					monitor.RunSingleMonitor(pid)
 				}
@@ -293,9 +285,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					})
 				}
 
-				if proxy != nil {
-					proxy.Count--
-				}
+				proxy.RemoveCount()
 				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 				monitor.RunSingleMonitor(pid)
 			}
@@ -341,17 +331,13 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					}
 				}
 
-				if proxy != nil {
-					proxy.Count--
-				}
+				proxy.RemoveCount()
 				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 				monitor.RunSingleMonitor(pid)
 			}
 		}
 	} else {
-		if proxy != nil {
-			proxy.Count--
-		}
+		proxy.RemoveCount()
 		monitor.RunSingleMonitor(pid)
 	}
 }

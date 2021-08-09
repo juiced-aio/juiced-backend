@@ -92,9 +92,7 @@ func (monitor *Monitor) RunMonitor() {
 			if !becameGuest {
 				time.Sleep(1000 * time.Millisecond)
 			}
-			if proxy != nil {
-				proxy.Count--
-			}
+			proxy.RemoveCount()
 		}
 
 	}
@@ -125,9 +123,7 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 	if !common.InSlice(monitor.RunningMonitors, vid) {
 		var proxy *entities.Proxy
 		defer func() {
-			if proxy != nil {
-				proxy.Count--
-			}
+			proxy.RemoveCount()
 			recover()
 			// TODO @silent: Re-run this specific monitor
 		}()
@@ -143,9 +139,7 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 		if stockData.VariantID != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
-				if proxy != nil {
-					proxy.Count--
-				}
+				proxy.RemoveCount()
 				return
 			}
 
@@ -173,9 +167,7 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 					break
 				}
 			}
-			if proxy != nil {
-				proxy.Count--
-			}
+			proxy.RemoveCount()
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(vid)
 		}

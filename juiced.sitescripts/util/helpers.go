@@ -668,7 +668,7 @@ func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
 	var err error
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
-			proxy[0].Count++
+			proxy[0].AddCount()
 			cClient, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return cClient, err

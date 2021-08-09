@@ -11,9 +11,7 @@ import (
 )
 
 func (task *Task) UpdateProxy(proxy *entities.Proxy) error {
-	if task.Proxy != nil {
-		task.Proxy.Count--
-	}
+	task.Proxy.RemoveCount()
 	if proxy != nil {
 		err := client.UpdateProxy(&task.Client, proxy)
 		if err != nil {
@@ -26,9 +24,7 @@ func (task *Task) UpdateProxy(proxy *entities.Proxy) error {
 }
 
 func (monitor *Monitor) UpdateProxy(proxy *entities.Proxy) error {
-	if monitor.Proxy != nil {
-		monitor.Proxy.Count--
-	}
+	monitor.Proxy.RemoveCount()
 	if proxy != nil {
 		err := client.UpdateProxy(&monitor.Client, proxy)
 		if err != nil {
@@ -45,7 +41,7 @@ func (task *Task) CreateClient(proxy ...*entities.Proxy) error {
 	var err error
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
-			proxy[0].Count++
+			proxy[0].AddCount()
 			task.Client, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return err
@@ -68,7 +64,7 @@ func (monitor *Monitor) CreateClient(proxy ...*entities.Proxy) error {
 	var err error
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
-			proxy[0].Count++
+			proxy[0].AddCount()
 			monitor.Client, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return err

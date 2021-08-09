@@ -10,15 +10,15 @@ import (
 )
 
 func UpdateProxy(client *http.Client, proxy *entities.Proxy) error {
-	if proxy.Host == "" {
+	if proxy == nil || proxy.Host == "" {
 		return nil
 	}
-	proxy.Count++
+	proxy.AddCount()
 	dialer, err := newConnectDialer(common.ProxyCleaner(*proxy))
 	if err != nil {
 		return err
 	}
-	client.Transport = newRoundTripper(utls.HelloChrome_83, dialer)
+	client.Transport = newRoundTripper(utls.HelloChrome_90, dialer)
 	return nil
 
 }
