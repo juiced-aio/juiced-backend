@@ -46,7 +46,7 @@ func (proxy *Proxy) RemoveCount() {
 // AddCount adds one to count
 func (proxy *Proxy) AddCount() {
 	if proxy != nil {
-		proxy.AddCount()
+		proxy.Count--
 	}
 }
 
