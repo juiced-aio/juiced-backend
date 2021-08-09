@@ -50,7 +50,7 @@ func (task *Task) CheckForStop() bool {
 
 func (task *Task) CheckForAdditionalSteps() {
 	switch task.BigCartelRetailer {
-	// Future Shopify site-specific functions will be added here
+	// Future BigCartel site-specific functions will be added here
 	}
 }
 
@@ -69,7 +69,6 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) RunTask() {
-	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		if recover() != nil {
 			task.Task.StopFlag = true
@@ -82,7 +81,7 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	task.Step = SettingUp //not sure what this is for, just adding anyway for now.
+	task.Step = SettingUp
 
 	task.MaxRetry = 5
 	task.CheckForAdditionalSteps()
@@ -290,9 +289,9 @@ func (task *Task) PaymentInfo() (bool, string) {
 		"card[exp_month]":                       {task.Task.Profile.CreditCard.ExpMonth},
 		"card[exp_year]":                        {task.Task.Profile.CreditCard.ExpYear},
 		"pasted_fields":                         {"number"},
-		"time_on_page":                          {"13709"}, ///this time seems fine? Maybe we could randomise it slightly?
+		"time_on_page":                          {"13709"}, ///this time seems fine? Maybe we could randomise it slightly? doesnt seem important.
 		"referrer":                              {"https://checkout.bigcartel.com/"},
-		"key":                                   {"pk_live_HAopYDMYyyhaXP505VRbXQtT"}, //forgot about this, must get from the checkout page (currently done on monitor)
+		"key":                                   {"pk_live_HAopYDMYyyhaXP505VRbXQtT"}, //Must get from the checkout page (currently done on monitor)
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,

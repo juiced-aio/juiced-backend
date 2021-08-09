@@ -510,6 +510,46 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 			taskGroup.ShopifyMonitorInfo.Monitors = append(taskGroup.ShopifyMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
+	case enums.BigCartel:
+		statement, err := database.Preparex(`SELECT * FROM bigcartelMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempMonitorInfo := entities.BigCartelMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.BigCartelMonitorInfo = &tempMonitorInfo
+		}
+
+		statement, err = database.Preparex(`SELECT * FROM bigcartelSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.BigCartelMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempSingleMonitor := entities.BigCartelSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.BigCartelMonitorInfo.Monitors = append(taskGroup.BigCartelMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
 	case enums.Target:
 		statement, err := database.Preparex(`SELECT * FROM targetMonitorInfos WHERE taskGroupID = @p1`)
 		if err != nil {
