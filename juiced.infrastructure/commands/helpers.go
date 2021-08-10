@@ -309,7 +309,18 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password, task.AmazonTaskInfo.LoginType)
+
+		encryptedEmail, err := common.Aes256Encrypt(task.AmazonTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.AmazonTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.AmazonTaskInfo.LoginType)
 		if err != nil {
 			return err
 		}
@@ -319,7 +330,18 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.BestbuyTaskInfo.Email, task.BestbuyTaskInfo.Password, task.BestbuyTaskInfo.LocationID, task.BestbuyTaskInfo.TaskType)
+
+		encryptedEmail, err := common.Aes256Encrypt(task.BestbuyTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.BestbuyTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.BestbuyTaskInfo.LocationID, task.BestbuyTaskInfo.TaskType)
 		if err != nil {
 			return err
 		}
@@ -339,7 +361,18 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password, task.DisneyTaskInfo.TaskType)
+
+		encryptedEmail, err := common.Aes256Encrypt(task.DisneyTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.DisneyTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.DisneyTaskInfo.TaskType)
 		if err != nil {
 			return err
 		}
@@ -349,7 +382,18 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password, task.GamestopTaskInfo.TaskType)
+
+		encryptedEmail, err := common.Aes256Encrypt(task.GamestopTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.GamestopTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.GamestopTaskInfo.TaskType)
 		if err != nil {
 			return err
 		}
@@ -379,7 +423,18 @@ func CreateTaskInfos(task entities.Task) error {
 			if err != nil {
 				return err
 			}
-			_, err = statement.Exec(task.ID, task.TaskGroupID, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
+
+			encryptedEmail, err := common.Aes256Encrypt(task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, enums.UserKey)
+			if err != nil {
+				return err
+			}
+
+			encryptedPassword, err := common.Aes256Encrypt(task.ShopifyTaskInfo.HotWheelsTaskInfo.Password, enums.UserKey)
+			if err != nil {
+				return err
+			}
+
+			_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword)
 			if err != nil {
 				return err
 			}
@@ -390,7 +445,18 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.TargetTaskInfo.CheckoutType, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
+
+		encryptedEmail, err := common.Aes256Encrypt(task.TargetTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.TargetTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, task.TargetTaskInfo.CheckoutType, encryptedEmail, encryptedPassword, task.TargetTaskInfo.PaymentType)
 		if err != nil {
 			return err
 		}
@@ -470,12 +536,17 @@ func CreateShippingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
+	encryptedValues, err := common.EncryptValues(enums.UserKey, profile.ShippingAddress.FirstName, profile.ShippingAddress.LastName, profile.ShippingAddress.Address1, profile.ShippingAddress.Address2, profile.ShippingAddress.City, profile.ShippingAddress.ZipCode, profile.ShippingAddress.StateCode, profile.ShippingAddress.CountryCode)
+	if err != nil {
+		return err
+	}
+
 	statement, err := database.Preparex(`INSERT INTO shippingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.ShippingAddress.ID, profile.ID, profile.ShippingAddress.FirstName, profile.ShippingAddress.LastName, profile.ShippingAddress.Address1, profile.ShippingAddress.Address2, profile.ShippingAddress.City, profile.ShippingAddress.ZipCode, profile.ShippingAddress.StateCode, profile.ShippingAddress.CountryCode)
+	_, err = statement.Exec(profile.ShippingAddress.ID, profile.ID, encryptedValues[0], encryptedValues[1], encryptedValues[2], encryptedValues[3], encryptedValues[4], encryptedValues[5], encryptedValues[6], encryptedValues[7])
 	if err != nil {
 		return err
 	}
@@ -488,12 +559,17 @@ func CreateBillingAddresses(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
+	encryptedValues, err := common.EncryptValues(enums.UserKey, profile.BillingAddress.FirstName, profile.BillingAddress.LastName, profile.BillingAddress.Address1, profile.BillingAddress.Address2, profile.BillingAddress.City, profile.BillingAddress.ZipCode, profile.BillingAddress.StateCode, profile.BillingAddress.CountryCode)
+	if err != nil {
+		return err
+	}
+
 	statement, err := database.Preparex(`INSERT INTO billingAddresses (ID, profileID, firstName, lastName, address1, address2, city, zipCode, stateCode, countryCode) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.BillingAddress.ID, profile.ID, profile.BillingAddress.FirstName, profile.BillingAddress.LastName, profile.BillingAddress.Address1, profile.BillingAddress.Address2, profile.BillingAddress.City, profile.BillingAddress.ZipCode, profile.BillingAddress.StateCode, profile.BillingAddress.CountryCode)
+	_, err = statement.Exec(profile.BillingAddress.ID, profile.ID, encryptedValues[0], encryptedValues[1], encryptedValues[2], encryptedValues[3], encryptedValues[4], encryptedValues[5], encryptedValues[6], encryptedValues[7])
 	if err != nil {
 		return err
 	}
@@ -506,12 +582,7 @@ func CreateCards(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
-	// @silent: Want to encrypt expMonth & expYear too?
-	encryptedCardNumber, err := common.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
-	if err != nil {
-		return err
-	}
-	encryptedCvv, err := common.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
+	encryptedValues, err := common.EncryptValues(enums.UserKey, profile.CreditCard.CardholderName, profile.CreditCard.CardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, profile.CreditCard.CVV, profile.CreditCard.CardType)
 	if err != nil {
 		return err
 	}
@@ -521,7 +592,7 @@ func CreateCards(profile entities.Profile) error {
 		return err
 	}
 
-	_, err = statement.Exec(profile.CreditCard.ID, profile.ID, profile.CreditCard.CardholderName, encryptedCardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, encryptedCvv, profile.CreditCard.CardType)
+	_, err = statement.Exec(profile.CreditCard.ID, profile.ID, encryptedValues[0], encryptedValues[1], encryptedValues[2], encryptedValues[3], encryptedValues[4], encryptedValues[5])
 	if err != nil {
 		return err
 	}
