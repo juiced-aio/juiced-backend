@@ -10,6 +10,8 @@ import (
 	api "backend.juicedbot.io/juiced.api"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
@@ -55,5 +57,28 @@ func TestMain(m *testing.M) {
 }
 
 func TestBestbuy(t *testing.T) {
-	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	MainTask.BestbuyTaskInfo = &entities.BestbuyTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+		Email:       "",
+		Password:    "",
+		LocationID:  "",
+		TaskType:    enums.TaskTypeGuest,
+	}
+	monitorID := "cc4883da-e7d4-4a82-8b5a-83f78358fecf"
+	MainTaskGroup.BestbuyMonitorInfo = &entities.BestbuyMonitorInfo{
+		ID:          monitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.BestbuySingleMonitorInfo{{
+			MonitorID:   monitorID,
+			TaskGroupID: MainTaskGroupID,
+			SKU:         "5901353",
+			MaxPrice:    -1,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.BestBuy
+	MainTask.TaskRetailer = enums.BestBuy
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup, *MainProxyGroup)
+	select {}
 }

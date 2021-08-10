@@ -261,6 +261,216 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 	return nil
 }
 
+// AddTestTaskToStore adds the Test Task to the TaskStore and returns true if successful
+func (taskStore *TaskStore) AddTestTaskToStore(task *entities.Task, profile entities.Profile, proxyGroup entities.ProxyGroup) error {
+	var queryError error
+	// Get Profile, Proxy for task
+	proxy := entities.Proxy{}
+	if proxyGroup.GroupID != "" {
+		proxy = proxyGroup.Proxies[rand.Intn(len(proxyGroup.Proxies))]
+	}
+	switch task.TaskRetailer {
+	// Future sitescripts will have a case here
+	case enums.Amazon:
+		// Check if task exists in store already
+		if _, ok := taskStore.AmazonTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.AmazonTaskInfo.LoginType == emptyString || task.AmazonTaskInfo.Email == emptyString || task.AmazonTaskInfo.Password == emptyString {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+		// Create task
+		amazonTask, err := amazon.CreateAmazonTask(task, profile, proxy, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.AmazonTasks[task.ID] = &amazonTask
+
+	case enums.BestBuy:
+		// Check if task exists in store already
+		if _, ok := taskStore.BestbuyTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.BestbuyTaskInfo.TaskType == emptyString || (task.BestbuyTaskInfo.TaskType == enums.TaskTypeAccount && (task.BestbuyTaskInfo.Email == emptyString || task.BestbuyTaskInfo.Password == emptyString)) {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+		// Create task
+		bestbuyTask, err := bestbuy.CreateBestbuyTask(task, profile, proxy, taskStore.EventBus, task.BestbuyTaskInfo.TaskType, task.BestbuyTaskInfo.LocationID, task.BestbuyTaskInfo.Email, task.BestbuyTaskInfo.Password)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.BestbuyTasks[task.ID] = &bestbuyTask
+
+	case enums.BoxLunch:
+		// Check if task exists in store already
+		if _, ok := taskStore.BoxlunchTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Create task
+		boxlunchTask, err := boxlunch.CreateBoxlunchTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.BoxlunchTasks[task.ID] = &boxlunchTask
+
+	case enums.GameStop:
+		// Check if task exists in store already
+		if _, ok := taskStore.GamestopTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.GamestopTaskInfo.TaskType == emptyString || (task.GamestopTaskInfo.TaskType == enums.TaskTypeAccount && (task.GamestopTaskInfo.Email == emptyString || task.GamestopTaskInfo.Password == emptyString)) {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+
+		// Create task
+		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxy, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.GamestopTasks[task.ID] = &gamestopTask
+
+	case enums.Disney:
+		// Check if task exists in store already
+		if _, ok := taskStore.DisneyTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.DisneyTaskInfo.TaskType == emptyString || (task.DisneyTaskInfo.TaskType == enums.TaskTypeAccount && (task.DisneyTaskInfo.Email == emptyString || task.DisneyTaskInfo.Password == emptyString)) {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+		// Create task
+		disneyTask, err := disney.CreateDisneyTask(task, profile, proxy, taskStore.EventBus, task.DisneyTaskInfo.TaskType, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.DisneyTasks[task.ID] = &disneyTask
+
+	case enums.HotTopic:
+		// Check if task exists in store already
+		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Create task
+		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.HottopicTasks[task.ID] = &hottopicTask
+
+	case enums.Shopify:
+		// Check if task exists in store already
+		if _, ok := taskStore.ShopifyTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.ShopifyTaskInfo.SiteURL == emptyString || task.ShopifyTaskInfo.ShopifyRetailer == emptyString {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+
+		// Shopify Site specifics
+		site := task.ShopifyTaskInfo.ShopifyRetailer
+		switch site {
+		case enums.HotWheels:
+			if task.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" && task.ShopifyTaskInfo.HotWheelsTaskInfo.Password != "" {
+				return e.New(errors.MissingTaskFieldsError)
+			}
+		}
+
+		// Create task
+		shopifyTask, err := shopify.CreateShopifyTask(task, profile, proxy, taskStore.EventBus, task.ShopifyTaskInfo.CouponCode, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.SitePassword, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.ShopifyTasks[task.ID] = &shopifyTask
+
+	case enums.Target:
+		// Check if task exists in store already
+		if _, ok := taskStore.TargetTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.TargetTaskInfo.Email == emptyString || task.TargetTaskInfo.Password == emptyString || task.TargetTaskInfo.PaymentType == emptyString {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+		// Create task
+		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.TargetTasks[task.ID] = &targetTask
+
+	case enums.Walmart:
+		// Check if task exists in store already
+		if _, ok := taskStore.WalmartTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Create task
+		walmartTask, err := walmart.CreateWalmartTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.WalmartTasks[task.ID] = &walmartTask
+
+	}
+	return nil
+}
+
 // StartTaskGroup runs the given TaskGroup's RunMonitor() function and the RunTask() function for each Task in the group and returns true if successful
 func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]string, error) {
 	// Start the task's TaskGroup (if it's already running, this will return true)

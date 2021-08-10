@@ -611,6 +611,8 @@ func GetCardType(cardNumber []byte, retailer enums.Retailer) string {
 		switch retailer {
 		case enums.Walmart:
 			return "VISA"
+		case enums.BestBuy:
+			return "VISA"
 		default:
 			return "Visa"
 		}

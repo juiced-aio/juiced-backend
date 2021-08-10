@@ -883,6 +883,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 		Useroverridden:      false,
 	}
 
+	binNumber := task.Task.Profile.CreditCard.CardNumber[0:6]
 	encryptedNumber := encrypt([]byte("00960001"+task.Task.Profile.CreditCard.CardNumber), paymentKey)
 	data, _ := json.Marshal(SetPaymentRequest{
 		Billingaddress: billing,
@@ -893,13 +894,13 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 			Isnewcard:       true,
 			Isvisacheckout:  false,
 			Govpurchasecard: false,
-			Number:          encryptedNumber + ":3:735818052:" + task.Task.Profile.CreditCard.CardNumber,
+			Number:          encryptedNumber + ":3:735818052:" + binNumber + "000000" + task.Task.Profile.CreditCard.CardNumber[len(task.Task.Profile.CreditCard.CardNumber)-4:],
 			// This number is specific to the card type from here: https://www.bestbuy.com/checkout/global/binRange - But it just gives a range
 			// Having it static either is fine or will only give declines, so I'll test with a working card soon and hopefully cancel it in time
-			Binnumber:       task.Task.Profile.CreditCard.CardNumber[0:6],
+			Binnumber:       binNumber,
 			Ispwpregistered: false,
 			Expmonth:        task.Task.Profile.CreditCard.ExpMonth,
-			Expyear:         task.Task.Profile.CreditCard.ExpYear,
+			Expyear:         "20" + task.Task.Profile.CreditCard.ExpYear,
 			Cvv:             task.Task.Profile.CreditCard.CVV,
 			Orderid:         task.CheckoutInfo.OrderID,
 			Savetoprofile:   false,
