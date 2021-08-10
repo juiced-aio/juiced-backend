@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -283,15 +284,20 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) Amazon
 	var merchantID string
 	var priceStr string
 	var itemName string
+	var imageURL string
 
 	if strings.Contains(resp.Request.URL.String(), "aod") {
-		if doc.Find("input", "name", "offeringID.1").Error != nil {
+		if doc.Find("span", "data-action", "aod-atc-action").Error != nil {
 			return stockData
 		}
-		ofid = doc.Find("input", "name", "offeringID.1").Attrs()["value"]
+		item := doc.Find("span", "data-action", "aod-atc-action")
+		jsonMap := make(map[string]string)
+		json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
+		ofid = jsonMap["oid"]
 		merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
 		priceStr = doc.Find("span", "class", "a-price-whole").Text()
 		itemName = doc.Find("h5", "id", "aod-asin-title-text").Text()
+		imageURL = doc.Find("img", "id", "aod-asin-image-id").Attrs()["src"]
 	} else {
 		if doc.Find("input", "name", "offerListingID").Error == nil {
 			ofid = doc.Find("input", "name", "offerListingID").Attrs()["value"]
@@ -301,11 +307,25 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) Amazon
 				return stockData
 			}
 		}
-		if doc.Find("input", "name", "merchantID").Error != nil {
-			return stockData
+		if doc.Find("input", "name", "merchantID").Error == nil {
+			merchantID = doc.Find("input", "name", "merchantID").Attrs()["value"]
+		} else {
+			if doc.Find("input", "id", "ftSelectMerchant").Error == nil {
+				merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
+			} else {
+				return stockData
+			}
+
 		}
-		merchantID = doc.Find("input", "name", "merchantID").Attrs()["value"]
-		priceStr = doc.Find("span", "class", "a-price-whole").Text()
+
+		item := doc.Find("div", "data-a-image-name", "immersiveViewMainImage")
+		if item.Error == nil {
+			imageURL = item.Attrs()["data-a-hires"]
+		}
+		item = doc.Find("span", "class", "a-price-whole")
+		if item.Error == nil {
+			priceStr = item.Text()
+		}
 		if doc.Find("div", "id", "comparison_title1").Error == nil {
 			title := doc.Find("div", "id", "comparison_title1").FindAll("span")
 			for _, source := range title {
@@ -332,14 +352,15 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) Amazon
 		return stockData
 	}
 
-	price, _ := strconv.Atoi(priceStr)
-	inBudget := monitor.ASINWithInfo[asin].MaxPrice >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
+	price, _ := strconv.ParseFloat(priceStr, 64)
+	inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
 	if inBudget {
 		stockData = AmazonInStockData{
 			ASIN:        asin,
 			OfferID:     ofid,
 			Price:       price,
 			ItemName:    itemName,
+			ImageURL:    imageURL,
 			UA:          ua,
 			MonitorType: enums.SlowSKUMonitor,
 		}
@@ -433,19 +454,29 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 				imageURL = source.Attrs()["src"]
 			}
 		}
-
-		stockData = AmazonInStockData{
-			ASIN:        asin,
-			OfferID:     monitor.ASINWithInfo[asin].OFID,
-			AntiCsrf:    antiCSRF,
-			PID:         pid,
-			RID:         rid,
-			ImageURL:    imageURL,
-			UA:          ua,
-			Client:      currentClient,
-			MonitorType: enums.FastSKUMonitor,
+		item := doc.Find("span", "class", "a-color-price")
+		var price float64
+		if item.Error == nil {
+			priceStr := strings.ReplaceAll(item.Text(), " ", "")
+			priceStr = strings.ReplaceAll(priceStr, "\n", "")
+			priceStr = strings.ReplaceAll(priceStr, "$", "")
+			price, _ = strconv.ParseFloat(priceStr, 64)
 		}
-
+		inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
+		if inBudget {
+			stockData = AmazonInStockData{
+				ASIN:        asin,
+				OfferID:     monitor.ASINWithInfo[asin].OFID,
+				AntiCsrf:    antiCSRF,
+				PID:         pid,
+				RID:         rid,
+				ImageURL:    imageURL,
+				Price:       price,
+				UA:          ua,
+				Client:      currentClient,
+				MonitorType: enums.FastSKUMonitor,
+			}
+		}
 		return stockData
 	case 503:
 		fmt.Println("Dogs of Amazon (503)")

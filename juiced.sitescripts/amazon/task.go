@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/url"
 	"strings"
@@ -107,22 +108,20 @@ func (task *Task) RunTask() {
 		return
 	}
 	status := enums.OrderStatusFailed
-	if task.CheckoutInfo.MonitorType == enums.SlowSKUMonitor {
+	if task.StockData.MonitorType == enums.SlowSKUMonitor {
 		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 		// 3. AddToCart
 		addedToCart := false
+		var retries int
 		for !addedToCart {
-			var retries int
 			needToStop := task.CheckForStop()
-			if needToStop {
+			if needToStop || retries > 5 {
 				return
 			}
 			addedToCart = task.AddToCart()
-			if !addedToCart && retries < 5 {
+			if !addedToCart {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-			} else {
-				return
 			}
 		}
 	} else {
@@ -141,19 +140,21 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > 5 {
 			break
 		}
 		placedOrder, status = task.PlaceOrder(startTime)
-		if !placedOrder && retries < 5 {
+		if !placedOrder {
 			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		} else {
-			status = enums.OrderStatusFailed
-			break
 		}
-
 	}
+
+	endTime := time.Now()
+
+	log.Println("STARTED AT: " + startTime.String())
+	log.Println("  ENDED AT: " + endTime.String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	switch status {
 	case enums.OrderStatusSuccess:
@@ -513,7 +514,7 @@ func (task *Task) WaitForMonitor() bool {
 			return true
 		}
 		emptyString := ""
-		if task.CheckoutInfo.MonitorType != emptyString {
+		if task.StockData.OfferID != emptyString {
 			return false
 		}
 		// I see why now
@@ -544,7 +545,7 @@ func (task *Task) AddToCart() bool {
 			{"x-amz-turbo-checkout-dp-url", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.StockData.ASIN) + util.Randomizer("&pldnSite=1")},
 			{"rtt", "100"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", task.CheckoutInfo.UA},
+			{"user-agent", task.StockData.UA},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"x-amz-support-custom-signin", "1"},
 			{"accept", "*/*"},
@@ -563,7 +564,7 @@ func (task *Task) AddToCart() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return false
 	}
 
 	switch resp.StatusCode {
@@ -574,23 +575,17 @@ func (task *Task) AddToCart() bool {
 		if err != nil {
 			return false
 		}
-		task.CheckoutInfo.AntiCsrf = doc.Find("input", "name", "anti-csrftoken-a2z").Attrs()["value"]
+		task.StockData.AntiCsrf = doc.Find("input", "name", "anti-csrftoken-a2z").Attrs()["value"]
 
-		task.CheckoutInfo.PID, err = util.FindInString(body, `currentPurchaseId":"`, `"`)
+		task.StockData.PID, err = util.FindInString(body, `currentPurchaseId":"`, `"`)
 		if err != nil {
 			fmt.Println("Could not find PID")
 			return false
 		}
-		task.CheckoutInfo.RID, err = util.FindInString(body, `var ue_id = '`, `'`)
+		task.StockData.RID, err = util.FindInString(body, `var ue_id = '`, `'`)
 		if err != nil {
 			fmt.Println("Could not find RID")
 			return false
-		}
-		images := doc.FindAll("img")
-		for _, source := range images {
-			if strings.Contains(source.Attrs()["src"], "https://m.media-amazon.com") {
-				task.CheckoutInfo.ImageURL = source.Attrs()["src"]
-			}
 		}
 
 		return true
@@ -615,7 +610,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		"x-amz-checkout-csrf-token": {task.AccountInfo.SessionID},
 		"ref_":                      {"chk_spc_placeOrder"},
 		"referrer":                  {"spc"},
-		"pid":                       {task.CheckoutInfo.PID},
+		"pid":                       {task.StockData.PID},
 		"pipelineType":              {"turbo"},
 		"clientId":                  {"retailwebsite"},
 		"temporaryAddToCart":        {"1"},
@@ -628,14 +623,14 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(CheckoutEndpoint, task.CheckoutInfo.RID, fmt.Sprint(time.Now().UnixNano())[0:13], task.CheckoutInfo.PID),
+		URL:    fmt.Sprintf(CheckoutEndpoint, task.StockData.RID, fmt.Sprint(time.Now().UnixNano())[0:13], task.StockData.PID),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
 			{"x-amz-checkout-entry-referer-url", currentEndpoint + "/gp/product/" + task.StockData.ASIN + "/ref=crt_ewc_title_oth_4?ie=UTF8&psc=1&smid=ATVPDKIKX0DER"},
-			{"anti-csrftoken-a2z", task.CheckoutInfo.AntiCsrf},
+			{"anti-csrftoken-a2z", task.StockData.AntiCsrf},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", task.CheckoutInfo.UA},
+			{"user-agent", task.StockData.UA},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
@@ -684,12 +679,12 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Success:      success,
 		Status:       status,
 		Content:      "",
-		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
+		Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ItemName,
-		ImageURL:     task.CheckoutInfo.ImageURL,
+		ImageURL:     task.StockData.ImageURL,
 		Sku:          task.StockData.ASIN,
 		Retailer:     enums.Amazon,
-		Price:        float64(task.CheckoutInfo.Price),
+		Price:        float64(task.StockData.Price),
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
