@@ -19,12 +19,12 @@ import (
 )
 
 func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteURL string, singleMonitors []entities.BigCartelSingleMonitorInfo) (Monitor, error) {
-	storedBigCartelMonitors := make(map[string]entities.BigCartelSingleMonitorInfo) //not sure what this is for atm, juust foam in for now.
+	storedBigCartelMonitors := make(map[string]entities.BigCartelSingleMonitorInfo) //List of storedsingle monitors
 	bigcartelMonitor := Monitor{}
 	_skus := []string{}
 
 	for _, monitor := range singleMonitors {
-		storedBigCartelMonitors[monitor.Sku] = monitor //not sure what this is for atm, juust foam in for now.
+		storedBigCartelMonitors[monitor.Sku] = monitor //list of monitors
 		_skus = append(_skus, monitor.Sku)             //gets list of skus from the passed in single monitors.
 	}
 
