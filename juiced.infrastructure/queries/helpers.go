@@ -158,6 +158,26 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 			task.ShopifyTaskInfo = &tempTaskInfo
 		}
 
+	case enums.BigCartel:
+		statement, err := database.Preparex(`SELECT * FROM bigcartelTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempTaskInfo := entities.BigCartelTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
+			if err != nil {
+				return task, err
+			}
+			task.BigCartelTaskInfo = &tempTaskInfo
+		}
+
 	case enums.Target:
 		statement, err := database.Preparex(`SELECT * FROM targetTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -490,6 +510,46 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.ShopifyMonitorInfo.Monitors = append(taskGroup.ShopifyMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.BigCartel:
+		statement, err := database.Preparex(`SELECT * FROM bigcartelMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempMonitorInfo := entities.BigCartelMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.BigCartelMonitorInfo = &tempMonitorInfo
+		}
+
+		statement, err = database.Preparex(`SELECT * FROM bigcartelSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.BigCartelMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempSingleMonitor := entities.BigCartelSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.BigCartelMonitorInfo.Monitors = append(taskGroup.BigCartelMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	case enums.Target:
