@@ -7,6 +7,7 @@ import (
 // Checkout contains all the info that is stored in the local db
 type Checkout struct {
 	ItemName     string         `json:"itemName" db:"itemName"`
+	ImageURL     string         `json:"imageURL" db:"imageURL"`
 	SKU          string         `json:"sku" db:"sku"`
 	Price        int            `json:"price" db:"price"`
 	Quantity     int            `json:"quantity" db:"quantity"`

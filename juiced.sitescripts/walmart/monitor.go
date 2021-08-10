@@ -89,7 +89,7 @@ func (monitor *Monitor) RunMonitor() {
 				if needToStop {
 					return
 				}
-				time.Sleep(25 * time.Millisecond)
+				time.Sleep(common.MS_TO_WAIT)
 			}
 		}
 	}
@@ -208,7 +208,7 @@ func (monitor *Monitor) RefreshPX3() {
 					return
 				}
 			}
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 	}()
 
@@ -251,7 +251,7 @@ func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool
 					return
 				}
 			}
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 	}()
 

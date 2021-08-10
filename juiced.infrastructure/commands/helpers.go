@@ -547,12 +547,22 @@ func CreateCards(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
+	// @silent: Want to encrypt expMonth & expYear too?
+	encryptedCardNumber, err := common.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
+	if err != nil {
+		return err
+	}
+	encryptedCvv, err := common.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
+	if err != nil {
+		return err
+	}
+
 	statement, err := database.Preparex(`INSERT INTO cards (ID, profileID, cardHolderName, cardNumber, expMonth, expYear, cvv, cardType) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.CreditCard.ID, profile.ID, profile.CreditCard.CardholderName, profile.CreditCard.CardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, profile.CreditCard.CVV, profile.CreditCard.CardType)
+	_, err = statement.Exec(profile.CreditCard.ID, profile.ID, profile.CreditCard.CardholderName, encryptedCardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, encryptedCvv, profile.CreditCard.CardType)
 	if err != nil {
 		return err
 	}

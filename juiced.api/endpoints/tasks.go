@@ -275,8 +275,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.BestbuyMonitorInfo.Monitors = newMonitors
 
 						case enums.BoxLunch:
 							newMonitors := make([]entities.BoxlunchSingleMonitorInfo, 0)
@@ -298,8 +298,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.BoxlunchMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.BoxlunchMonitorInfo.Monitors = newMonitors
 
 						case enums.Disney:
 							newMonitors := make([]entities.DisneySingleMonitorInfo, 0)
@@ -316,8 +316,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.DisneyMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.DisneyMonitorInfo.Monitors = newMonitors
 
 						case enums.GameStop:
 							newMonitors := make([]entities.GamestopSingleMonitorInfo, 0)
@@ -332,8 +332,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.GamestopMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.GamestopMonitorInfo.Monitors = newMonitors
 
 						case enums.HotTopic:
 							newMonitors := make([]entities.HottopicSingleMonitorInfo, 0)
@@ -355,8 +355,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.HottopicMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.HottopicMonitorInfo.Monitors = newMonitors
 
 						case enums.Shopify:
 							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
@@ -371,8 +371,8 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.ShopifyMonitorInfo.Monitors = newMonitors
 
 						case enums.BigCartel:
 							newMonitors := make([]entities.BigCartelSingleMonitorInfo, 0)
@@ -404,9 +404,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.TargetMonitorInfo.StoreID = updateTaskGroupRequestInfo.TargetUpdateInfo.StoreID
+								taskGroup.TargetMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.TargetMonitorInfo.StoreID = updateTaskGroupRequestInfo.TargetUpdateInfo.StoreID
-							taskGroup.TargetMonitorInfo.Monitors = newMonitors
 
 						case enums.Walmart:
 							newMonitors := make([]entities.WalmartSingleMonitorInfo, 0)
@@ -427,9 +427,10 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
+								taskGroup.WalmartMonitorInfo.Monitors = newMonitors
 							}
-							taskGroup.WalmartMonitorInfo.Monitors = newMonitors
 						}
+
 						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
 							newTaskGroup.UpdateMonitor = true
@@ -459,7 +460,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -559,7 +560,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStartWithTasks}, Errors: make([]string, 0), Warnings: warningsList}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupToStartWithTasks)}, Errors: make([]string, 0), Warnings: warningsList}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
@@ -597,7 +598,7 @@ func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{taskGroupToStopWithTasks}, Errors: make([]string, 0)}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupToStopWithTasks)}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
@@ -676,7 +677,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -834,20 +835,23 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 					oldTaskGroup, err := queries.GetTaskGroup(groupID)
 					if err == nil {
 						for i := 0; i < len(profileIDs); i++ {
-							task.SetTaskProfileID(profileIDs[i])
-							var createTaskError error
-							for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
-								task.SetID(uuid.New().String())
-								task.CreationDate = time.Now().Unix()
-								err = commands.CreateTask(*task)
-								if err != nil {
-									createTaskError = err
+							profile, err := queries.GetProfile(profileIDs[i])
+							if profile.ID != "" && err == nil {
+								task.SetTaskProfileID(profileIDs[i])
+								var createTaskError error
+								for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
+									task.SetID(uuid.New().String())
+									task.CreationDate = time.Now().Unix()
+									err = commands.CreateTask(*task)
+									if err != nil {
+										createTaskError = err
+										break
+									}
+									oldTaskGroup.SetTaskIDs(append(oldTaskGroup.TaskIDs, task.ID))
+								}
+								if createTaskError != nil {
 									break
 								}
-								oldTaskGroup.SetTaskIDs(append(oldTaskGroup.TaskIDs, task.ID))
-							}
-							if createTaskError != nil {
-								break
 							}
 						}
 
@@ -879,7 +883,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -1036,7 +1040,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{taskGroupWithTasks}
+	data := []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupWithTasks)}
 
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {

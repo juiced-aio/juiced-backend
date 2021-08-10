@@ -412,6 +412,7 @@ var cardsSchema = `
 var checkoutsSchema = `
 	CREATE TABLE IF NOT EXISTS checkouts (
 		itemName TEXT,
+		imageURL TEXT,
 		sku TEXT,
 		price INTEGER,
 		quantity INTEGER,
@@ -432,7 +433,8 @@ var settingsSchema = `
 		capMonsterAPIKey TEXT,
 		aycdAccessToken TEXT,
 		aycdAPIKey TEXT,
-		darkMode INTEGER
+		darkMode INTEGER,
+		useAnimations INTEGER
 	)
 `
 
