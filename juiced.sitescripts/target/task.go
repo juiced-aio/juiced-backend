@@ -87,7 +87,6 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		task.Task.Proxy.RemoveCount()
 		if recover() != nil {
 			task.Task.StopFlag = true
 			task.PublishEvent(enums.TaskIdle, enums.TaskFail)

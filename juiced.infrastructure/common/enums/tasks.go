@@ -9,6 +9,7 @@ const (
 	SettingUpMonitor          MonitorStatus = "Setting up"
 	BypassingPXMonitor        MonitorStatus = "Bypassing PX"
 	WaitingForProductData     MonitorStatus = "Searching"
+	ProxyBanned               MonitorStatus = "Proxy is banned"
 	UnableToFindProduct       MonitorStatus = "Product not found"
 	WaitingForInStock         MonitorStatus = "Out of stock"
 	OutOfPriceRange           MonitorStatus = "Out of price range"

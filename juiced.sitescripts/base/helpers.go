@@ -39,6 +39,7 @@ func (monitor *Monitor) UpdateProxy(proxy *entities.Proxy) error {
 // CreateClient creates an HTTP client
 func (task *Task) CreateClient(proxy ...*entities.Proxy) error {
 	var err error
+	task.Proxy.RemoveCount()
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()
@@ -62,6 +63,7 @@ func (task *Task) CreateClient(proxy ...*entities.Proxy) error {
 
 func (monitor *Monitor) CreateClient(proxy ...*entities.Proxy) error {
 	var err error
+	monitor.Proxy.RemoveCount()
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()

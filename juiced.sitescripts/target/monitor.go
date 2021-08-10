@@ -114,7 +114,6 @@ func (monitor *Monitor) RunMonitor() {
 	if somethingInStock {
 		needToStop := monitor.CheckForStop()
 		if needToStop {
-			proxy.RemoveCount()
 			return
 		}
 
@@ -145,7 +144,6 @@ func (monitor *Monitor) RunMonitor() {
 			}
 		}
 
-		proxy.RemoveCount()
 		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 		monitor.RunMonitor()
 	}

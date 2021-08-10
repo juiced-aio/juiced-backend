@@ -51,9 +51,10 @@ func GetAllProxyGroupsEndpoint(response http.ResponseWriter, request *http.Reque
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
 	proxyGroups, err := queries.GetAllProxyGroups()
+
 	if err == nil {
-		for _, proxyGroup := range proxyGroups {
-			stores.GetProxyStore().AddProxyGroup(&proxyGroup)
+		for i := range proxyGroups {
+			stores.GetProxyStore().AddProxyGroup(&proxyGroups[i])
 		}
 	} else {
 		errorsList = append(errorsList, errors.GetAllProxyGroupsError+err.Error())

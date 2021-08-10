@@ -70,7 +70,6 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		task.Task.Proxy.RemoveCount()
 		if recover() != nil {
 			task.Task.StopFlag = true
 			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
@@ -105,7 +104,7 @@ func (task *Task) RunTask() {
 			if task.Task.Task.TaskStatus != enums.SettingUp {
 				task.PublishEvent(enums.SettingUp, enums.TaskStart)
 			}
-			sessionMade = BecomeGuest(task.Task.Client)
+			sessionMade = BecomeGuest(&task.Task.Client)
 		}
 
 		if !sessionMade {

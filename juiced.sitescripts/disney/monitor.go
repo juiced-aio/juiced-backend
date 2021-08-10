@@ -117,7 +117,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 
 	needToStop = monitor.CheckForStop()
 	if needToStop {
-		proxy.RemoveCount()
 		return
 	}
 
@@ -167,7 +166,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 				(len(colors) > 0 && noSizesBeforeFilter) { // (Or if there are colors but no size variants)
 				needToStop = monitor.CheckForStop()
 				if needToStop {
-					proxy.RemoveCount()
+
 					return
 				}
 
@@ -175,7 +174,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 				stockDatas := monitor.GetInStockVariations(pid, sizes, colors)
 				needToStop = monitor.CheckForStop()
 				if needToStop {
-					proxy.RemoveCount()
+
 					return
 				}
 
@@ -217,7 +216,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 						})
 					}
 
-					proxy.RemoveCount()
 					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 					monitor.RunSingleMonitor(pid)
 				}
@@ -230,7 +228,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					})
 				}
 
-				proxy.RemoveCount()
 				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 				monitor.RunSingleMonitor(pid)
 			}
@@ -276,13 +273,12 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					}
 				}
 
-				proxy.RemoveCount()
 				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 				monitor.RunSingleMonitor(pid)
 			}
 		}
 	} else {
-		proxy.RemoveCount()
+
 		monitor.RunSingleMonitor(pid)
 	}
 }
@@ -302,6 +298,8 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 			{"sec-ch-ua-mobile", "?0"},
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", browser.Chrome()},
+			{"origin", BaseEndpoint},
+			{"referer", BaseEndpoint + "/"},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "none"},
 			{"sec-fetch-mode", "navigate"},
@@ -320,6 +318,8 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
 		return monitor.GetVariationInfo(body, pid)
+	case 403:
+		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 	default:
@@ -493,6 +493,8 @@ func (monitor *Monitor) GetInStockVariant(pid string, size, color string) Disney
 			stockData.Color = color
 		}
 		return stockData
+	case 403:
+		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 	default:

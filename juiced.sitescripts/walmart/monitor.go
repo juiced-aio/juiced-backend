@@ -146,7 +146,6 @@ func (monitor *Monitor) RunSingleMonitor(id string) {
 		if stockData.OfferID != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
-				proxy.RemoveCount()
 				return
 			}
 
@@ -178,7 +177,6 @@ func (monitor *Monitor) RunSingleMonitor(id string) {
 				}
 			}
 
-			proxy.RemoveCount()
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
 			monitor.RunSingleMonitor(id)

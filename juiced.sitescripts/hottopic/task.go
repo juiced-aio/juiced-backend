@@ -49,7 +49,6 @@ func (task *Task) CheckForStop() bool {
 // Start task
 func (task *Task) RunTask() {
 	defer func() {
-		task.Task.Proxy.RemoveCount()
 		if recover() != nil {
 			task.Task.StopFlag = true
 			task.PublishEvent(enums.TaskIdle, enums.TaskFail)

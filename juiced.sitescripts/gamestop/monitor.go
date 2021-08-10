@@ -93,7 +93,6 @@ func (monitor *Monitor) RunMonitor() {
 			if !becameGuest {
 				time.Sleep(1000 * time.Millisecond)
 			}
-			proxy.RemoveCount()
 		}
 	}
 
@@ -138,7 +137,6 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		if stockData.SKU != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
-				proxy.RemoveCount()
 				return
 			}
 
@@ -166,7 +164,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 					break
 				}
 			}
-			proxy.RemoveCount()
+
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(sku)
 		}

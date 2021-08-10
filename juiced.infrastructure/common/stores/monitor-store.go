@@ -43,7 +43,8 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 	var proxyGroup *entities.ProxyGroup
 	if monitor.MonitorProxyGroupID != "" {
 		var ok bool
-		proxyGroup, ok = GetProxyStore().GetProxyGroup(monitor.MonitorProxyGroupID)
+
+		proxyGroup, ok = proxyStore.ProxyGroups[monitor.MonitorProxyGroupID]
 		if !ok {
 			queryError = e.New("proxy group failure")
 		}

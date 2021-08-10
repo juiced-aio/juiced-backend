@@ -53,7 +53,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 	var proxyGroup *entities.ProxyGroup
 	if task.TaskProxyGroupID != "" {
 		var ok bool
-		proxyGroup, ok = GetProxyStore().GetProxyGroup(task.TaskProxyGroupID)
+		proxyGroup, ok = proxyStore.ProxyGroups[task.TaskProxyGroupID]
 		if !ok {
 			queryError = e.New("proxy group failure")
 		}
