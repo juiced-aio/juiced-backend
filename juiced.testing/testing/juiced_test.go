@@ -56,6 +56,34 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func TestAmazon(t *testing.T) {
+	MainTask.AmazonTaskInfo = &entities.AmazonTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+		Email:       "example@gmail.com",
+		Password:    "examplepass",
+		LoginType:   enums.LoginTypeBROWSER,
+	}
+
+	MainTaskGroup.AmazonMonitorInfo = &entities.AmazonMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.AmazonSingleMonitorInfo{{
+			MonitorID:   MainMonitorID,
+			TaskGroupID: MainTaskGroupID,
+			MonitorType: enums.FastSKUMonitor,
+			ASIN:        "B07R11LGDQ",
+			OFID:        "vrQLfZnyPNErArVdtORZv59PCLQnuVKvA6Ab5lDv5qpP2RH04BS%2FfoGwiZC%2Fi3933yvoIJsw%2F%2BAXGacjPAVPQiyS1Pe3hda3UagfQxm51u%2B4iIfQ5zx3p7zg%2BAsf4MpT%2BB3ZH0yGBhq8S4R0a1LCtA%3D%3D",
+			MaxPrice:    -1,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.Amazon
+	MainTask.TaskRetailer = enums.Amazon
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup, *MainProxyGroup)
+	select {}
+}
+
 func TestBestbuy(t *testing.T) {
 	MainTask.BestbuyTaskInfo = &entities.BestbuyTaskInfo{
 		TaskID:      MainTaskID,
@@ -65,12 +93,12 @@ func TestBestbuy(t *testing.T) {
 		LocationID:  "",
 		TaskType:    enums.TaskTypeGuest,
 	}
-	monitorID := "cc4883da-e7d4-4a82-8b5a-83f78358fecf"
+
 	MainTaskGroup.BestbuyMonitorInfo = &entities.BestbuyMonitorInfo{
-		ID:          monitorID,
+		ID:          MainMonitorID,
 		TaskGroupID: MainTaskGroupID,
 		Monitors: []entities.BestbuySingleMonitorInfo{{
-			MonitorID:   monitorID,
+			MonitorID:   MainMonitorID,
 			TaskGroupID: MainTaskGroupID,
 			SKU:         "5901353",
 			MaxPrice:    -1,
