@@ -991,6 +991,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Content:      "",
 		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
 		Sku:          task.StockData.SKU,
 		Retailer:     enums.Walmart,
 		Price:        task.StockData.Price,

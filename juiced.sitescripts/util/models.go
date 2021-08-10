@@ -98,6 +98,7 @@ type ProcessCheckoutInfo struct {
 	Embeds       []sec.DiscordEmbed
 	UserInfo     entities.UserInfo
 	ItemName     string
+	ImageURL     string
 	Sku          string
 	Retailer     string
 	Price        float64

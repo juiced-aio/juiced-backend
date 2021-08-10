@@ -194,6 +194,45 @@ type AkamaiAPIResponse struct {
 	Pixel      string `json:"iqB8qihe20"`
 }
 
+type ExerimentalAkamaiRequest struct {
+	ActivationToken string `json:"d4FmMviLeH"`
+	HWID            string `json:"UIzN2pmSS4"`
+	DeviceName      string `json:"QSyf9TPhgl"`
+	BaseURL         string `json:"BU6AK4vBSN"`
+	UserAgent       string `json:"wqUSQ1OIb7"`
+	Cookie          string `json:"FCrYYORzgf"`
+	PostIndx        string `json:"FIwDYyYcMF"`
+	SavedD3         string `json:"xuvNcrzBpb"`
+	SavedStartTS    string `json:"VihhvZ1c3w"`
+	DeviceNum       string `json:"kSJHn8HCYF"`
+}
+
+type ExperimentalAkamaiResponse struct {
+	Success           bool                          `json:"krZupQuo9w"`
+	AkamaiAPIResponse ExperimentalAkamaiAPIResponse `json:"xaESu1lcdG"`
+	ErrorMessage      string                        `json:"p1Lq0L1U7f"`
+}
+
+type ExperimentalAkamaiAPIResponse struct {
+	SensorData   string `json:"9QuV8IpkJQ"`
+	SavedD3      int64  `json:"iqB8qihe20"`
+	SavedStartTS int64  `json:"9kqx6QUA79"`
+	DeviceNum    int64  `json:"30lDTNCxcm"`
+}
+
+type EncryptedExperimentalAkamaiResponse struct {
+	Success           string                                 `json:"krZupQuo9w"`
+	AkamaiAPIResponse EncryptedExperimentalAkamaiAPIResponse `json:"xaESu1lcdG"`
+	ErrorMessage      string                                 `json:"p1Lq0L1U7f"`
+}
+
+type EncryptedExperimentalAkamaiAPIResponse struct {
+	SensorData   string `json:"9QuV8IpkJQ"`
+	SavedD3      string `json:"iqB8qihe20"`
+	SavedStartTS string `json:"9kqx6QUA79"`
+	DeviceNum    string `json:"30lDTNCxcm"`
+}
+
 type LogCheckoutRequest struct {
 	ActivationToken string `json:"ptZ53SiiQW"`
 	HWID            string `json:"x5NiPKFWkP"`
@@ -216,14 +255,20 @@ type EncryptedLogCheckoutResponse struct {
 	ErrorMessage string `json:"1brGHMkymR"`
 }
 
-type CipherTextTooShortError struct{}
-
-func (e *CipherTextTooShortError) Error() string {
-	return "cipher text is too short"
+type GetEncryptionKeyRequest struct {
+	ActivationToken string `json:"908tqy5VI2"`
+	HWID            string `json:"BN9GSbnV6z"`
+	DeviceName      string `json:"8Cgy8rh1Zp"`
 }
 
-type CipherTextNotMultipleOfBlockSizeError struct{}
+type GetEncryptionKeyResponse struct {
+	Success       bool   `json:"Gzdgq0zpma"`
+	EncryptionKey string `json:"5shDGZqkMD"`
+	ErrorMessage  string `json:"KARYl4Xg6o"`
+}
 
-func (e *CipherTextNotMultipleOfBlockSizeError) Error() string {
-	return "cipher text not a multiple of the block size"
+type EncryptedGetEncryptionKeyResponse struct {
+	Success       string `json:"Gzdgq0zpma"`
+	EncryptionKey string `json:"5shDGZqkMD"`
+	ErrorMessage  string `json:"KARYl4Xg6o"`
 }

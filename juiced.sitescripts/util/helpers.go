@@ -298,47 +298,46 @@ func Randomizer(s string) string {
 // Function to generate valid abck cookies using an API
 func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpoint string) error {
 	var ParsedBase, _ = url.Parse(BaseEndpoint)
-	ver := "1.7"
-	if ParsedBase.Host == "www.gamestop.com" {
-		ver = "1.69"
-	}
+
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		return err
 	}
 
-	resp, _, err := MakeRequest(&Request{
-		Client: *abckClient,
-		Method: "GET",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-	})
-	if err != nil {
-		return err
-	}
-
 	var abckCookie string
-	var genResponse sec.AkamaiAPIResponse
+	var genResponse sec.ExperimentalAkamaiAPIResponse
 	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
 			abckCookie = cookie.Value
 		}
 	}
 
-	genResponse, _, err = sec.Akamai(location, "true", "true", "false", "false", abckCookie, AkamaiEndpoint, ver, "true", "", "", "true", user)
+	if abckCookie == "" {
+		_, _, err := MakeRequest(&Request{
+			Client: *abckClient,
+			Method: "GET",
+			URL:    AkamaiEndpoint,
+			RawHeaders: [][2]string{
+				{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+				{"sec-ch-ua-mobile", "?0"},
+				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+				{"content-type", "text/plain;charset=UTF-8"},
+				{"accept", "*/*"},
+				{"origin", BaseEndpoint},
+				{"sec-fetch-site", "same-origin"},
+				{"sec-fetch-mode", "cors"},
+				{"sec-fetch-dest", "empty"},
+				{"referer", location},
+				{"accept-encoding", "gzip, deflate, br"},
+				{"accept-language", "en-US,en;q=0.9"},
+			},
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	genResponse, _, err = sec.ExperimentalAkamai(location, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36", abckCookie, 0, 0, 0, 0, user)
 	if err != nil {
 		return err
 	}
@@ -351,7 +350,9 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	if err != nil {
 		return err
 	}
-	resp, _, err = MakeRequest(&Request{
+
+	sensorResponse := SensorResponse{}
+	resp, _, err := MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
 		URL:    AkamaiEndpoint,
@@ -359,7 +360,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"content-length", fmt.Sprint(len(data))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"},
 			{"content-type", "text/plain;charset=UTF-8"},
 			{"accept", "*/*"},
 			{"origin", BaseEndpoint},
@@ -370,10 +371,14 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		Data: data,
+		Data:               data,
+		ResponseBodyStruct: &sensorResponse,
 	})
 	if err != nil {
 		return err
+	}
+	if !sensorResponse.Success || resp.StatusCode != 201 {
+		return errors.New("bad sensor")
 	}
 
 	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
@@ -382,7 +387,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		}
 	}
 
-	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
+	genResponse, _, err = sec.ExperimentalAkamai(location, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36", abckCookie, 1, genResponse.SavedD3, genResponse.SavedStartTS, genResponse.DeviceNum, user)
 	if err != nil {
 		return err
 	}
@@ -392,7 +397,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	}
 	data, _ = json.Marshal(sensorRequest)
 
-	sensorResponse := SensorResponse{}
+	sensorResponse = SensorResponse{}
 	resp, _, err = MakeRequest(&Request{
 		Client: *abckClient,
 		Method: "POST",
@@ -418,67 +423,28 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	if err != nil {
 		return err
 	}
-	if ParsedBase.Host == "www.gamestop.com" {
-		if sensorResponse.Success {
-			return err
-		}
-	}
-	for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-		if cookie.Name == "_abck" {
-			abckCookie = cookie.Value
-		}
-	}
-
-	genResponse, _, err = sec.Akamai(location, "true", "false", "false", "false", abckCookie, AkamaiEndpoint, ver, "false", "", "", "true", user)
-	if err != nil {
-		return err
-	}
-
-	sensorRequest = SensorRequest{
-		SensorData: genResponse.SensorData,
-	}
-
-	data, err = json.Marshal(sensorRequest)
-	if err != nil {
-		return err
-	}
-
-	resp, _, err = MakeRequest(&Request{
-		Client: *abckClient,
-		Method: "POST",
-		URL:    AkamaiEndpoint,
-		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "text/plain;charset=UTF-8"},
-			{"accept", "*/*"},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", location},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-		Data: data,
-	})
-	if err != nil {
-		return err
+	if !sensorResponse.Success {
+		return errors.New("bad sensor")
 	}
 
 	switch resp.StatusCode {
 	case 201:
-		for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
-			if cookie.Name == "_abck" {
-				validator, _ := FindInString(cookie.Value, "~", "~")
-				if validator == "-1" {
-					NewAbck(abckClient, location, BaseEndpoint, AkamaiEndpoint)
-				}
+		if ParsedBase.Host == "www.gamestop.com" {
+			if len(abckCookie) > 488 {
+				return nil
+			}
+		} else {
+			for _, cookie := range abckClient.Jar.Cookies(ParsedBase) {
+				if cookie.Name == "_abck" {
+					validator, _ := FindInString(cookie.Value, "~", "~")
+					if validator == "-1" {
+						NewAbck(abckClient, location, BaseEndpoint, AkamaiEndpoint)
+					}
 
+				}
 			}
 		}
+
 		return nil
 	}
 	return errors.New(resp.Status)
@@ -524,15 +490,16 @@ func ProcessCheckout(pci ProcessCheckoutInfo) {
 	}
 	if pci.Success {
 		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, int(pci.Price), pci.Quantity, pci.UserInfo)
-		go SendCheckout(pci.BaseTask, pci.ItemName, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
+		go SendCheckout(pci.BaseTask, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
 }
 
 // Logs the checkout
-func SendCheckout(task base.Task, itemName string, sku string, price int, quantity int, msToCheckout int64) {
+func SendCheckout(task base.Task, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
 	commands.CreateCheckout(entities.Checkout{
 		ItemName:     itemName,
+		ImageURL:     imageURL,
 		SKU:          sku,
 		Price:        price,
 		Quantity:     quantity,

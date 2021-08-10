@@ -63,7 +63,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
 		// Check if task exists in store already
-		if _, ok := taskStore.AmazonTasks[task.ID]; ok {
+		if _, ok := taskStore.AmazonTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -85,7 +85,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.BestBuy:
 		// Check if task exists in store already
-		if _, ok := taskStore.BestbuyTasks[task.ID]; ok {
+		if _, ok := taskStore.BestbuyTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -107,7 +107,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.BoxLunch:
 		// Check if task exists in store already
-		if _, ok := taskStore.BoxlunchTasks[task.ID]; ok {
+		if _, ok := taskStore.BoxlunchTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -124,7 +124,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.GameStop:
 		// Check if task exists in store already
-		if _, ok := taskStore.GamestopTasks[task.ID]; ok {
+		if _, ok := taskStore.GamestopTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -148,7 +148,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.Disney:
 		// Check if task exists in store already
-		if _, ok := taskStore.DisneyTasks[task.ID]; ok {
+		if _, ok := taskStore.DisneyTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -170,7 +170,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.HotTopic:
 		// Check if task exists in store already
-		if _, ok := taskStore.HottopicTasks[task.ID]; ok {
+		if _, ok := taskStore.HottopicTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -187,7 +187,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.Shopify:
 		// Check if task exists in store already
-		if _, ok := taskStore.ShopifyTasks[task.ID]; ok {
+		if _, ok := taskStore.ShopifyTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -220,7 +220,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.Target:
 		// Check if task exists in store already
-		if _, ok := taskStore.TargetTasks[task.ID]; ok {
+		if _, ok := taskStore.TargetTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -242,7 +242,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 
 	case enums.Walmart:
 		// Check if task exists in store already
-		if _, ok := taskStore.WalmartTasks[task.ID]; ok {
+		if _, ok := taskStore.WalmartTasks[task.ID]; ok && !task.UpdateTask {
 			return nil
 		}
 		// Only return false on a query error if the task doesn't exist in the store already
@@ -258,6 +258,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		taskStore.WalmartTasks[task.ID] = &walmartTask
 
 	}
+	task.UpdateTask = false
 	return nil
 }
 

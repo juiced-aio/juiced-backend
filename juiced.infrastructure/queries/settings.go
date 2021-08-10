@@ -2,10 +2,13 @@ package queries
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // GetSettings returns the settings object from the database
@@ -53,6 +56,31 @@ func GetAccounts() ([]entities.Account, error) {
 		if err != nil {
 			return accounts, err
 		}
+
+		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		if err == nil {
+			account.Password = decryptedPassword
+		} else {
+			encryptedPassword, err := common.Aes256Encrypt(account.Password, enums.UserKey)
+			if err != nil {
+				return accounts, err
+			}
+
+			if encryptedPassword != "" {
+				go func() {
+					for {
+						_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET password = "%v" WHERE ID = "%v"`, encryptedPassword, account.ID))
+						if err != nil {
+							continue
+						} else {
+							time.Sleep(1 * time.Second)
+						}
+					}
+
+				}()
+			}
+		}
+
 		accounts = append(accounts, account)
 	}
 
@@ -87,6 +115,30 @@ func GetAccount(ID string) (entities.Account, error) {
 		if err != nil {
 			return account, err
 		}
+
+		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		if err == nil {
+			account.Password = decryptedPassword
+		} else {
+			encryptedPassword, err := common.Aes256Encrypt(account.Password, enums.UserKey)
+			if err != nil {
+				return account, err
+			}
+
+			if encryptedPassword != "" {
+				go func() {
+					for {
+						_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET password = "%v" WHERE ID = "%v"`, encryptedPassword, account.ID))
+						if err != nil {
+							continue
+						} else {
+							time.Sleep(1 * time.Second)
+						}
+					}
+				}()
+			}
+		}
+
 	}
 
 	return account, nil

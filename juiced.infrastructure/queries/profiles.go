@@ -96,6 +96,9 @@ func GetAllProfiles() ([]entities.Profile, error) {
 			return profiles, err
 		}
 		tempProfile, err = GetProfileInfo(tempProfile)
+		if err != nil {
+			return profiles, err
+		}
 		if tempProfile.ID != "" && tempProfile.Name != "" {
 			profiles = append(profiles, tempProfile)
 		}

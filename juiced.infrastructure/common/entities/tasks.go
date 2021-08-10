@@ -3,22 +3,22 @@ package entities
 import (
 	"encoding/json"
 
-	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // Task is a class that holds details about a single bot task
 type Task struct {
-	ID               string            `json:"ID" db:"ID"`
-	TaskGroupID      string            `json:"taskGroupID" db:"taskGroupID"`
-	TaskProfileID    string            `json:"profileID" db:"profileID"`
-	TaskProxyGroupID string            `json:"proxyGroupID" db:"proxyGroupID"`
-	TaskRetailer     enums.Retailer    `json:"retailer" db:"retailer"`
-	TaskSize         []string          `json:"size"`
-	TaskSizeJoined   string            `json:"sizeJoined" db:"sizeJoined"`
-	TaskQty          int               `json:"qty" db:"qty"`
-	TaskStatus       enums.TaskStatus  `json:"status" db:"status"`
-	TaskDelay        int               `json:"taskDelay" db:"taskDelay"`
+	ID               string           `json:"ID" db:"ID"`
+	TaskGroupID      string           `json:"taskGroupID" db:"taskGroupID"`
+	TaskProfileID    string           `json:"profileID" db:"profileID"`
+	TaskProxyGroupID string           `json:"proxyGroupID" db:"proxyGroupID"`
+	TaskRetailer     enums.Retailer   `json:"retailer" db:"retailer"`
+	TaskSize         []string         `json:"size"`
+	TaskSizeJoined   string           `json:"sizeJoined" db:"sizeJoined"`
+	TaskQty          int              `json:"qty" db:"qty"`
+	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
+	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
+	UpdateTask       bool
 	CreationDate     int64             `json:"creationDate" db:"creationDate"`
 	AmazonTaskInfo   *AmazonTaskInfo   `json:"amazonTaskInfo,omitempty"`
 	BestbuyTaskInfo  *BestbuyTaskInfo  `json:"bestbuyTaskInfo,omitempty"`
@@ -219,7 +219,6 @@ type AmazonSingleMonitorInfo struct {
 	ASIN        string            `json:"asin" db:"asin"`
 	OFID        string            `json:"ofid" db:"ofid"`
 	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
-	Client      http.Client
 }
 
 type AmazonMonitorInfo struct {
