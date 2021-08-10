@@ -186,13 +186,10 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 			if err != nil {
 				//Error converting price string -> int
 				//unable to confirm price
-				//publish event
-				//reset
 				bigCartelInStockData = BigCartelInStockData{}
 			} else {
 				if responsePrice > monitor.SKUWithInfo[sku].MaxPrice {
-					//too expensive reset
-					//publish event
+					//too expensive
 					bigCartelInStockData = BigCartelInStockData{}
 				} else {
 					//We have found the product and we have added to cart and its in budget
@@ -204,8 +201,6 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 						bigCartelInStockData.Key = key
 					} else {
 						//Unable to locate storeId and cartToken this is required
-						//publish event maybe
-						//reset
 						bigCartelInStockData = BigCartelInStockData{}
 					}
 				}
@@ -213,20 +208,14 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 
 		} else {
 			//out of stock/not in cart
-			//publish event
-			//reset
 			bigCartelInStockData = BigCartelInStockData{}
 		}
 
 	case 422:
 		//Out Of Stock
-		//publish event
-		//reset
 		bigCartelInStockData = BigCartelInStockData{}
 	case 404:
 		//Item does not exist
-		//publish event
-		//reset
 		bigCartelInStockData = BigCartelInStockData{}
 	default:
 	}

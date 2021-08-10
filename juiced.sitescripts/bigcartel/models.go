@@ -54,6 +54,7 @@ type BigCartelInStockData struct {
 	StoreId   string
 	CartToken string
 	Key       string
+	PaymentId string
 }
 
 type AddToCartResponse struct {
@@ -95,4 +96,57 @@ type Item struct {
 		Url        string `json:"url"`
 		Secure_url string `json:"secure_url"`
 	} `json:"primary_image"`
+}
+
+type BigCartelRequestSubmitPaymentMethodResponse struct {
+	Id              string
+	Object          string
+	Billing_details struct {
+		Address struct {
+			City        string
+			Country     string
+			Line1       string
+			Line2       string
+			Postal_code string
+			State       string
+		}
+		Email string
+		Name  string
+		Phone string
+	}
+	Card struct {
+		Brand  string
+		Checks struct {
+			Address_line1_check       string
+			Address_postal_code_check string
+			Cvc_check                 string
+		}
+		Country        string
+		Exp_month      string
+		Exp_year       string
+		Funding        string
+		Generated_from string
+		Last4          string
+		Networks       struct {
+			Available []string
+			Preferred string
+		}
+		Three_d_secure_usage struct {
+			Supported bool
+		}
+		Wallet string
+	}
+	Created  string
+	Customer string
+	Livemode string
+	Type     string
+}
+
+type PaymentSubmitRequest struct {
+	Location string
+}
+type PaymentSubmitRequestFollowUp struct {
+	Token  string
+	Status string
+	Errors string
 }

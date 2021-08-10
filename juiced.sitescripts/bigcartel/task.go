@@ -120,15 +120,15 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.PaymentInfo()); !isSuccess || needtostop; {
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout(startTime)); !isSuccess || needtostop; {
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.PaymentInfo(startTime)); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
@@ -194,11 +194,9 @@ func (task *Task) NameAndEmail() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
+		//if we have reached this point then we have pulled the details from resposne and so its a success.
 		return true, enums.SettingEmailAddressSuccess
-	case 422:
-		return false, enums.SettingEmailAddressFailure
-	case 404:
-		return false, enums.SettingEmailAddressFailure
+
 	default:
 		return false, enums.SettingEmailAddressFailure
 	}
@@ -238,26 +236,23 @@ func (task *Task) Address() (bool, string) {
 		RequestBodyStruct: &payloadBytes,
 	})
 	if err != nil {
-		return false, ""
+		return false, enums.SettingShippingInfoFailure
 	}
 
 	switch resp.StatusCode {
 	case 200:
-
-		return true, ""
-	case 422:
-		return false, ""
-	case 404:
-		return false, ""
+		//Whatever values you pass it will respond the same. Just have to assume this worked if a 200 response.
+		return true, enums.SettingShippingInfoSuccess
 	default:
-		return false, ""
+		return false, enums.SettingShippingInfoFailure
 	}
 }
 
-func (task *Task) PaymentMethod() (bool, string) {
-	payload := "{\"cart_token\":\"" + task.InStockData.CartToken + "\",\"stripe_payment_method_id\":\"" + task.InStockData.StoreId + "\",\"stripe_payment_intent_id\":null}"
+func (task *Task) PaymentInfo(startTime time.Time) (bool, string) {
+	//This is technically the 'checkout' and where we get the response to see if its worked.
+	payload := "{\"cart_token\":\"" + task.InStockData.CartToken + "\",\"stripe_payment_method_id\":\"" + task.InStockData.PaymentId + "\",\"stripe_payment_intent_id\":null}"
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    PaymentMethodEndpoint,
@@ -281,19 +276,56 @@ func (task *Task) PaymentMethod() (bool, string) {
 		return false, ""
 	}
 
+	status := enums.CheckedOut
+	success := true
+
 	switch resp.StatusCode {
 	case 200:
-		return true, ""
-	case 422:
-		return false, ""
-	case 404:
-		return false, ""
+
+		paymentSubmitRequest := PaymentSubmitRequest{}
+		json.Unmarshal([]byte(body), &paymentSubmitRequest)
+
+		if paymentSubmitRequest.Location != "" {
+			//get request for this page
+			_, str, err := util.MakeRequest(&util.Request{
+				Client: task.Task.Client,
+				Method: "GET",
+				URL:    paymentSubmitRequest.Location,
+			})
+			if err != nil {
+				return false, enums.CheckoutFailed
+			} else {
+				paymentSubmitRequestFollowUp := PaymentSubmitRequestFollowUp{}
+				json.Unmarshal([]byte(str), &paymentSubmitRequestFollowUp)
+				if paymentSubmitRequestFollowUp.Status == "failure" {
+					status = enums.CheckoutFailed
+					success = false
+				}
+			}
+		}
+
 	default:
-		return false, ""
+		status = enums.CheckoutFailed
+		success = false
 	}
+
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      success,
+		Content:      "",
+		Embeds:       task.CreateBigCartelEmbed(status, task.InStockData.ImageURL),
+		ItemName:     task.InStockData.ItemName,
+		Sku:          task.InStockData.Sku,
+		Retailer:     enums.BigCartel,
+		Price:        float64(task.InStockData.ItemPrice),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
+	return success, status
 }
 
-func (task *Task) PaymentInfo() (bool, string) {
+func (task *Task) PaymentMethod() (bool, string) {
 	payload := url.Values{
 		"type":                                  {"card"},
 		"billing_details[name]":                 {task.Task.Profile.BillingAddress.FirstName + task.Task.Profile.BillingAddress.LastName},
@@ -312,7 +344,7 @@ func (task *Task) PaymentInfo() (bool, string) {
 		"referrer":                              {"https://checkout.bigcartel.com/"},
 		"key":                                   {task.InStockData.Key}, //Must get from the checkout page (currently done on monitor)
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    task.SiteURL + PaymentInfoEndpoint,
@@ -340,22 +372,27 @@ func (task *Task) PaymentInfo() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
-		return true, ""
-	case 422:
-		return false, ""
-	case 404:
-		return false, ""
+		bigCartelRequestSubmitPaymentMethodResponse := BigCartelRequestSubmitPaymentMethodResponse{}
+		json.Unmarshal([]byte(body), &bigCartelRequestSubmitPaymentMethodResponse)
+		task.InStockData.PaymentId = bigCartelRequestSubmitPaymentMethodResponse.Id
+
+		if task.InStockData.PaymentId != "" {
+			return true, enums.SettingBillingInfoSuccess
+		} else {
+			return false, enums.SettingBillingInfoFailure
+		}
+
 	default:
-		return false, ""
+		return false, enums.SettingBillingInfoFailure
 	}
 }
 
-func (task *Task) Checkout(startTime time.Time) (bool, string) {
+func (task *Task) Checkout() (bool, string) {
 	payloadBytes, _ := json.Marshal(Payment{
-		Stripe_payment_method_id: "",
+		Stripe_payment_method_id: task.InStockData.PaymentId,
 	})
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    task.SiteURL + PaymentInfoEndpoint,
@@ -376,36 +413,19 @@ func (task *Task) Checkout(startTime time.Time) (bool, string) {
 		RequestBodyStruct: payloadBytes,
 	})
 	if err != nil {
-		return false, ""
+		return false, enums.CheckoutFailed
 	}
-	var success bool
-	status := ""
 	switch resp.StatusCode {
 	case 200:
-		if 1 == 1 {
-			success = true
-			status = enums.OrderStatusSuccess
-		}
-		//successfull checkout
-		go util.ProcessCheckout(util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Content:      "",
-			Embeds:       task.CreateBigCartelEmbed(status, task.InStockData.ImageURL),
-			ItemName:     task.InStockData.ItemName,
-			Sku:          task.InStockData.Sku,
-			Retailer:     enums.BigCartel,
-			Price:        float64(task.InStockData.ItemPrice),
-			Quantity:     task.Task.Task.TaskQty,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
+		bigCartelRequestSubmitPaymentMethodResponse := BigCartelRequestSubmitPaymentMethodResponse{}
+		json.Unmarshal([]byte(body), &bigCartelRequestSubmitPaymentMethodResponse)
 
-		return true, enums.CheckedOut
-	case 422:
-		return false, ""
-	case 404:
-		return false, ""
+		if bigCartelRequestSubmitPaymentMethodResponse.Id != "" {
+			return true, enums.CheckedOut
+		} else {
+			return true, enums.CheckoutFailed
+		}
 	default:
-		return false, ""
+		return false, enums.CheckoutFailed
 	}
 }
