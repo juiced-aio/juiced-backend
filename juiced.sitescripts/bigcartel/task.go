@@ -121,7 +121,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.Checkout()); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitPayment()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
@@ -142,7 +142,7 @@ func (task *Task) RunTask() {
 }
 
 func (task *Task) NameAndEmail() (bool, string) {
-	payloadBytes, _ := json.Marshal(BigCartelRequestSubmitNameAndEmail{
+	payloadBytes, _ := json.Marshal(NameAndEmailRequest{
 		Buyer_email:                 task.Task.Profile.Email,
 		Buyer_first_name:            task.Task.Profile.ShippingAddress.FirstName,
 		Buyer_last_name:             task.Task.Profile.ShippingAddress.LastName,
@@ -153,7 +153,7 @@ func (task *Task) NameAndEmail() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    task.SiteURL + AddressEmailEndpoint,
+		URL:    fmt.Sprint(NameAndEmailEndpoint, task.InStockData.StoreId, task.InStockData.CartToken),
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payloadBytes))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -203,7 +203,7 @@ func (task *Task) NameAndEmail() (bool, string) {
 }
 
 func (task *Task) Address() (bool, string) {
-	payloadBytes, _ := json.Marshal(BigCartelRequestSubmitAddress{
+	payloadBytes, _ := json.Marshal(AddressRequest{
 		Shipping_address_1:             task.Task.Profile.ShippingAddress.Address1,
 		Shipping_address_2:             task.Task.Profile.ShippingAddress.Address2,
 		Shipping_city:                  task.Task.Profile.ShippingAddress.City,
@@ -216,7 +216,7 @@ func (task *Task) Address() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    task.SiteURL + AddressEmailEndpoint,
+		URL:    fmt.Sprint(AddressEndpoint, task.InStockData.StoreId, task.InStockData.CartToken),
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payloadBytes))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -255,7 +255,7 @@ func (task *Task) PaymentInfo(startTime time.Time) (bool, string) {
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    PaymentMethodEndpoint,
+		URL:    fmt.Sprint(PaymentInfoEndpoint, task.InStockData.StoreId, task.InStockData.CartToken),
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payload))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -286,7 +286,8 @@ func (task *Task) PaymentInfo(startTime time.Time) (bool, string) {
 		json.Unmarshal([]byte(body), &paymentSubmitRequest)
 
 		if paymentSubmitRequest.Location != "" {
-			//get request for this page
+			//get request for this page, this page tells us if the purchase was a failure or not. Im not sure all the possible options here. If not failure assuming success for now.
+			//If we get issues of reported success where there is none then this response shouold be logged and checked for possible 'Status's'
 			_, str, err := util.MakeRequest(&util.Request{
 				Client: task.Task.Client,
 				Method: "GET",
@@ -347,7 +348,7 @@ func (task *Task) PaymentMethod() (bool, string) {
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    task.SiteURL + PaymentInfoEndpoint,
+		URL:    PaymentMethodEndpoint,
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payload.Encode()))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -372,9 +373,9 @@ func (task *Task) PaymentMethod() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
-		bigCartelRequestSubmitPaymentMethodResponse := BigCartelRequestSubmitPaymentMethodResponse{}
-		json.Unmarshal([]byte(body), &bigCartelRequestSubmitPaymentMethodResponse)
-		task.InStockData.PaymentId = bigCartelRequestSubmitPaymentMethodResponse.Id
+		paymentMethodResponse := PaymentMethodResponse{}
+		json.Unmarshal([]byte(body), &paymentMethodResponse)
+		task.InStockData.PaymentId = paymentMethodResponse.Id
 
 		if task.InStockData.PaymentId != "" {
 			return true, enums.SettingBillingInfoSuccess
@@ -387,15 +388,15 @@ func (task *Task) PaymentMethod() (bool, string) {
 	}
 }
 
-func (task *Task) Checkout() (bool, string) {
+func (task *Task) SubmitPayment() (bool, string) {
 	payloadBytes, _ := json.Marshal(Payment{
 		Stripe_payment_method_id: task.InStockData.PaymentId,
 	})
 
-	resp, body, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    task.SiteURL + PaymentInfoEndpoint,
+		URL:    fmt.Sprint(SubmitPaymentEndpoint, task.InStockData.StoreId, task.InStockData.CartToken),
 		RawHeaders: http.RawHeader{
 			{"content-length", fmt.Sprint(len(payloadBytes))},
 			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
@@ -417,14 +418,9 @@ func (task *Task) Checkout() (bool, string) {
 	}
 	switch resp.StatusCode {
 	case 200:
-		bigCartelRequestSubmitPaymentMethodResponse := BigCartelRequestSubmitPaymentMethodResponse{}
-		json.Unmarshal([]byte(body), &bigCartelRequestSubmitPaymentMethodResponse)
+		//If the payment fails it will tell us on the following request. If we get a 200 here assume its fine for now.
+		return true, enums.SettingBillingInfoSuccess
 
-		if bigCartelRequestSubmitPaymentMethodResponse.Id != "" {
-			return true, enums.CheckedOut
-		} else {
-			return true, enums.CheckoutFailed
-		}
 	default:
 		return false, enums.CheckoutFailed
 	}

@@ -1,6 +1,7 @@
 package bigcartel
 
 import (
+	"fmt"
 	"math/rand"
 	"net/url"
 	"strconv"
@@ -155,13 +156,11 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 		"submit":        {""},
 	}
 
-	addToCartResponse := AddToCartResponse{}
 	resp, body, err := util.MakeRequest(&util.Request{
-		Client:             monitor.Monitor.Client,
-		Method:             "POST",
-		URL:                monitor.SiteURL + "/cart",
-		Data:               []byte(payload.Encode()),
-		ResponseBodyStruct: &addToCartResponse,
+		Client: monitor.Monitor.Client,
+		Method: "POST",
+		URL:    monitor.SiteURL + "/cart",
+		Data:   []byte(payload.Encode()),
 	})
 	if err != nil {
 		//theres some error so just return this empty
@@ -176,6 +175,8 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 		skuData := responseBody.Find("div", "class", "remove")
 		price = responseBody.Find("div", "class", "price").Text()
 		if skuData.Pointer != nil && price != "" {
+			//Product has been added to cart so we set InStockData.Sku
+			//If price isn't found then we also don't set
 			link := skuData.Find("a")
 			bigCartelInStockData.Sku = link.Pointer.Attr[1].Val
 		}
@@ -185,11 +186,11 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 			responsePrice, err := strconv.Atoi(price)
 			if err != nil {
 				//Error converting price string -> int
-				//unable to confirm price
+				//unable to confirm price so we reset InStockData
 				bigCartelInStockData = BigCartelInStockData{}
 			} else {
 				if responsePrice > monitor.SKUWithInfo[sku].MaxPrice {
-					//too expensive
+					//too expensive so we reset InStockData
 					bigCartelInStockData = BigCartelInStockData{}
 				} else {
 					//We have found the product and we have added to cart and its in budget
@@ -228,24 +229,30 @@ func (monitor *Monitor) StoreAndCartid() (string, string, string) {
 	resp, str, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
-		URL:    GetStockEndpoint,
+		URL:    fmt.Sprintf("%s/checkout", monitor.SiteURL),
 	})
 	if err != nil {
 		//error getting page
 		return "", "", ""
 	} else {
-		responseBody := soup.HTMLParse(str)
-		nextData := responseBody.Find("script", "type", "text/javascript").Text()
-		out, _ := common.FindInString(nextData, "stripePublishableKey': \"", "\",")
-
-		s := []string{}
 		if strings.Contains(resp.Request.URL.String(), "checkout.bigcartel.com/") {
-			s = strings.Split(string(resp.Request.URL.String()), "/")
-			return s[3], s[4], out
-		} else {
-			//unable to get values from URL
-			return "", "", ""
+			//Product is in cart
+			responseBody := soup.HTMLParse(str)
+			nextData := responseBody.Find("script", "type", "text/javascript").Text()
+			key, err := common.FindInString(nextData, "stripePublishableKey': \"", "\",")
+			if err != nil || nextData == "" {
+				//Issue finding key this is required.
+				return "", "", ""
+			}
+			if strings.Contains(resp.Request.URL.String(), "checkout.bigcartel.com/") {
+				s := strings.Split(string(resp.Request.URL.String()), "/")
+				return s[3], s[4], key
+			} else {
+				//not a success
+			}
+
 		}
 	}
-
+	//If we get here then theres an unforseen issue issue.
+	return "", "", ""
 }

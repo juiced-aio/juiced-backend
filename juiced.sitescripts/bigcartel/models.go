@@ -8,11 +8,11 @@ import (
 
 const (
 	AddToCartEndpoint     = "/cart"
-	AddressEmailEndpoint  = "/store/%s/carts/%s"
-	PaymentMethodEndpoint = "https://api.bigcartel.com/store/%s/checkouts"
-	PaymentInfoEndpoint   = "/store/%s/carts/%s"
-	CheckoutEndpoint      = "/store/%s/carts/%s"
-	GetStockEndpoint      = "https://redsky.target.com/redsky_aggregations/v1/web/plp_fulfillment_v1?"
+	NameAndEmailEndpoint  = "https://api.bigcartel.com/store/%s/carts/%s"
+	AddressEndpoint       = "https://api.bigcartel.com/store/%s/carts/%s"
+	PaymentInfoEndpoint   = "https://api.bigcartel.com/store/%s/carts/%s"
+	PaymentMethodEndpoint = "https://api.stripe.com/v1/payment_methods"
+	SubmitPaymentEndpoint = "https://api.bigcartel.com/store/%s/carts/%s"
 )
 
 type Step = int
@@ -57,10 +57,7 @@ type BigCartelInStockData struct {
 	PaymentId string
 }
 
-type AddToCartResponse struct {
-}
-
-type BigCartelRequestSubmitNameAndEmail struct {
+type NameAndEmailRequest struct {
 	Buyer_email                 string `json:"buyer_email"`
 	Buyer_first_name            string `json:"buyer_first_name"`
 	Buyer_last_name             string `json:"buyer_last_name"`
@@ -68,7 +65,7 @@ type BigCartelRequestSubmitNameAndEmail struct {
 	Buyer_phone_number          string `json:"buyer_phone_number"`
 }
 
-type BigCartelRequestSubmitAddress struct {
+type AddressRequest struct {
 	Shipping_address_1             string `json:"shipping_address_1"`
 	Shipping_address_2             string `json:"shipping_address_2"`
 	Shipping_city                  string `json:"shipping_city"`
@@ -98,7 +95,7 @@ type Item struct {
 	} `json:"primary_image"`
 }
 
-type BigCartelRequestSubmitPaymentMethodResponse struct {
+type PaymentMethodResponse struct {
 	Id              string
 	Object          string
 	Billing_details struct {
