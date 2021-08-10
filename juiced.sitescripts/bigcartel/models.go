@@ -53,6 +53,7 @@ type BigCartelInStockData struct {
 	ItemPrice float64
 	StoreId   string
 	CartToken string
+	Key       string
 }
 
 type AddToCartResponse struct {

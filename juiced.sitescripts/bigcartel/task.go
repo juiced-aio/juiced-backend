@@ -310,7 +310,7 @@ func (task *Task) PaymentInfo() (bool, string) {
 		"pasted_fields":                         {"number"},
 		"time_on_page":                          {"13709"}, ///this time seems fine? Maybe we could randomise it slightly? doesnt seem important.
 		"referrer":                              {"https://checkout.bigcartel.com/"},
-		"key":                                   {"pk_live_HAopYDMYyyhaXP505VRbXQtT"}, //Must get from the checkout page (currently done on monitor)
+		"key":                                   {task.InStockData.Key}, //Must get from the checkout page (currently done on monitor)
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,

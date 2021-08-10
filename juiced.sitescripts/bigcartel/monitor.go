@@ -197,10 +197,11 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 				} else {
 					//We have found the product and we have added to cart and its in budget
 					//Now we do a GET request on the checkout to get the cart ID for passover
-					storeId, cartToken := monitor.StoreAndCartid()
+					storeId, cartToken, key := monitor.StoreAndCartid()
 					if storeId != "" && cartToken != "" {
 						bigCartelInStockData.StoreId = storeId
 						bigCartelInStockData.CartToken = cartToken
+						bigCartelInStockData.Key = key
 					} else {
 						//Unable to locate storeId and cartToken this is required
 						//publish event maybe
@@ -234,23 +235,27 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 	return bigCartelInStockData
 }
 
-func (monitor *Monitor) StoreAndCartid() (string, string) {
-	resp, _, err := util.MakeRequest(&util.Request{
+func (monitor *Monitor) StoreAndCartid() (string, string, string) {
+	resp, str, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    GetStockEndpoint,
 	})
 	if err != nil {
 		//error getting page
-		return "", ""
+		return "", "", ""
 	} else {
+		responseBody := soup.HTMLParse(str)
+		nextData := responseBody.Find("script", "type", "text/javascript").Text()
+		out, _ := common.FindInString(nextData, "stripePublishableKey': \"", "\",")
+
 		s := []string{}
 		if strings.Contains(resp.Request.URL.String(), "checkout.bigcartel.com/") {
 			s = strings.Split(string(resp.Request.URL.String()), "/")
-			return s[3], s[4]
+			return s[3], s[4], out
 		} else {
 			//unable to get values from URL
-			return "", ""
+			return "", "", ""
 		}
 	}
 
