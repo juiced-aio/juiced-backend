@@ -22,6 +22,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/stealth"
 	cmap "github.com/orcaman/concurrent-map"
 )
@@ -180,11 +181,12 @@ func (task *Task) Setup() bool {
 			// Error will be nil unless the item isn't in the map which we are already checking above
 			value, ok := AmazonAccountStore.Get(task.AccountInfo.Email)
 			if ok {
-				client, isClient := value.(http.Client)
-				if isClient {
+				acc, ok := value.(Acc)
+				if ok {
 					if len(task.Task.Client.Jar.Cookies(baseURL)) == 0 {
-						task.Task.Client.Jar = client.Jar
+						task.Task.Client.Jar = acc.Client.Jar
 					}
+					task.AccountInfo = acc.AccountInfo
 					break
 				} else {
 					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
@@ -311,6 +313,7 @@ func (task *Task) browserLogin() bool {
 	}
 
 	page := stealth.MustPage(browserWithCancel)
+	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
 	page.MustNavigate(LoginEndpoint)
 	page.MustWaitLoad()
 	page.MustElement("#ap_email").MustWaitVisible().Input(task.AccountInfo.Email)
@@ -333,13 +336,18 @@ func (task *Task) browserLogin() bool {
 	}
 
 	doc := soup.HTMLParse(body)
-	task.AccountInfo.SavedAddressID = doc.Find("input", "name", "dropdown-selection").Attrs()["value"]
-	if task.AccountInfo.SavedAddressID == "" {
+	item := doc.Find("input", "name", "dropdown-selection")
+	var addressID string
+	if item.Error == nil {
+		addressID = item.Attrs()["value"]
+	}
+
+	if addressID == "" {
 		AmazonAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 
-	task.AccountInfo.SessionID, err = util.FindInString(body, `ue_sid = '`, `'`)
+	sid, err := util.FindInString(body, `ue_sid = '`, `'`)
 	if err != nil {
 		AmazonAccountStore.Remove(task.AccountInfo.Email)
 		return false
@@ -364,7 +372,19 @@ func (task *Task) browserLogin() bool {
 		}
 	}
 	task.Task.Client.Jar.SetCookies(baseURL, cookies)
-	AmazonAccountStore.Set(task.AccountInfo.Email, task.Task.Client)
+	acc := Acc{
+		GroupID: task.Task.Task.TaskGroupID,
+		Client:  task.Task.Client,
+		AccountInfo: AccountInfo{
+			Email:          task.AccountInfo.Email,
+			Password:       password,
+			LoginType:      enums.LoginTypeBROWSER,
+			SavedAddressID: addressID,
+			SessionID:      sid,
+		},
+	}
+	task.AccountInfo = acc.AccountInfo
+	AmazonAccountStore.Set(task.AccountInfo.Email, acc)
 	return true
 }
 

@@ -223,7 +223,7 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
 	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
 	currentClient := account.Client
-
+	ua := browser.Chrome()
 	if len(monitor.Monitor.Proxies) > 0 {
 		client.UpdateProxy(&currentClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	}
@@ -239,7 +239,7 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
 			{"sec-ch-ua-mobile", "?0"},
 			{"upgrade-insecure-requests", "1"},
-			{"user-agent", browser.Chrome()},
+			{"user-agent", ua},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "none"},
 			{"sec-fetch-mode", "navigate"},
@@ -255,7 +255,7 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 
 	switch resp.StatusCode {
 	case 200:
-		stockData = monitor.StockInfo(resp, body, asin)
+		stockData = monitor.StockInfo(ua, resp.Request.URL.String(), body, asin)
 		return stockData
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
@@ -271,14 +271,14 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 }
 
 // Scraping the info from the page, since we are rotating between two page types I have to check each value in two different places
-func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) AmazonInStockData {
+func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData {
 	stockData := AmazonInStockData{}
 	if strings.Contains(body, "automated access") {
 		fmt.Println("Captcha")
 		return stockData
 	}
 	doc := soup.HTMLParse(body)
-	ua := resp.Request.UserAgent()
+
 	var err error
 	var ofid string
 	var merchantID string
@@ -286,14 +286,21 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) Amazon
 	var itemName string
 	var imageURL string
 
-	if strings.Contains(resp.Request.URL.String(), "aod") {
-		if doc.Find("span", "data-action", "aod-atc-action").Error != nil {
-			return stockData
-		}
+	if strings.Contains(urL, "aod") {
 		item := doc.Find("span", "data-action", "aod-atc-action")
-		jsonMap := make(map[string]string)
-		json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
-		ofid = jsonMap["oid"]
+		if item.Error != nil {
+			item := doc.Find("input", "name", "offeringID.1")
+			if item.Error != nil {
+				return stockData
+			} else {
+				ofid = item.Attrs()["value"]
+			}
+		} else {
+			jsonMap := make(map[string]string)
+			json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
+			ofid = jsonMap["oid"]
+		}
+
 		merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
 		priceStr = doc.Find("span", "class", "a-price-whole").Text()
 		itemName = doc.Find("h5", "id", "aod-asin-title-text").Text()
