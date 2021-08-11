@@ -289,7 +289,10 @@ type HottopicMonitorInfo struct {
 type GamestopSingleMonitorInfo struct {
 	MonitorID   string `json:"monitorID" db:"monitorID"`
 	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
-	SKU         string `json:"sku" db:"sku"`
+	PID         string `json:"pid" db:"pid"`
+	Size        string `json:"size" db:"size"`
+	Color       string `json:"color" db:"color"`
+	Condition   string `json:"condition" db:"condition"`
 	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
 }
 

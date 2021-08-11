@@ -36,17 +36,17 @@ func (task *Task) CreateGamestopEmbed(status enums.OrderStatus, imageURL string)
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.CheckoutInfo.Price),
+					Value:  "$" + fmt.Sprint(task.StockData.Price),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](%v)", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.ProductURL),
+					Value:  fmt.Sprintf("[%v](%v)", task.StockData.PID, task.StockData.ProductURL),
 					Inline: true,
 				},
 				{
 					Name:  "Product Name:",
-					Value: task.CheckoutInfo.ItemName,
+					Value: task.StockData.ItemName,
 				},
 				{
 					Name:  "Mode:",

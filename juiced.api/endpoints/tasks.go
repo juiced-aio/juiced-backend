@@ -211,7 +211,11 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		Sizes  string `json:"sizes"`
 		Colors string `json:"colors"`
 	}
-	type GamestopUpdateInfo struct{}
+	type GamestopUpdateInfo struct {
+		Sizes      string `json:"sizes"`
+		Colors     string `json:"colors"`
+		Conditions string `json:"conditions"`
+	}
 	type HottopicUpdateInfo struct {
 		Sizes  string `json:"sizes"`
 		Colors string `json:"colors"`
@@ -320,12 +324,15 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						case enums.GameStop:
 							newMonitors := make([]entities.GamestopSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
-								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-								for _, sku := range skus {
+								pids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, pid := range pids {
 									monitor := entities.GamestopSingleMonitorInfo{
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
-										SKU:         sku,
+										PID:         pid,
+										Size:        updateTaskGroupRequestInfo.GamestopUpdateInfo.Sizes,
+										Color:       updateTaskGroupRequestInfo.GamestopUpdateInfo.Colors,
+										Condition:   updateTaskGroupRequestInfo.GamestopUpdateInfo.Conditions,
 										MaxPrice:    maxPrice,
 									}
 									newMonitors = append(newMonitors, monitor)

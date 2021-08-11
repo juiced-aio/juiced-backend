@@ -125,13 +125,13 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			return err
 		}
 		for _, monitor := range taskGroup.GamestopMonitorInfo.Monitors {
-			statement, err := database.Preparex(`INSERT INTO gamestopSingleMonitorInfos (monitorID, taskGroupID, sku, maxPrice) VALUES (?, ?, ?, ?)`)
+			statement, err := database.Preparex(`INSERT INTO gamestopSingleMonitorInfos (monitorID, taskGroupID, pid, size, color, condition, maxPrice) VALUES (?, ?, ?, ?, ?, ?, ?)`)
 			if err != nil {
 				return err
 			}
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
-			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.PID, monitor.Size, monitor.Color, monitor.Condition, monitor.MaxPrice)
 			if err != nil {
 				return err
 			}

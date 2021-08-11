@@ -34,19 +34,19 @@ type AddHeadersFunction func(*http.Request, ...string)
 // Monitor info
 type Monitor struct {
 	Monitor         base.Monitor
-	SKUsSentToTask  []string
+	PIDsSentToTask  []string
 	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
+	OutOfStockPIDs  []string
+	PIDs            []string
 	InStock         []GamestopInStockData
-	SKUWithInfo     map[string]entities.GamestopSingleMonitorInfo
+	PIDWithInfo     map[string]entities.GamestopSingleMonitorInfo
 }
 
 type GamestopInStockData struct {
-	SKU        string
+	PID        string
 	Price      float64
 	ItemName   string
-	PID        string
+	VID        string
 	ImageURL   string
 	ProductURL string
 }
@@ -68,6 +68,7 @@ var DefaultRawHeaders = [][2]string{
 type Task struct {
 	Task         base.Task
 	TaskType     enums.TaskType
+	StockData    GamestopInStockData
 	CheckoutInfo CheckoutInfo
 	AccountInfo  AccountInfo
 }
@@ -77,15 +78,9 @@ type AccountInfo struct {
 }
 
 type CheckoutInfo struct {
-	SKUInStock           string
-	PID                  string
-	Price                float64
 	ShipmentUUID         string
 	OriginalShipmentUUID string
 	CSRF                 string
-	ProductURL           string
-	ImageURL             string
-	ItemName             string
 }
 
 type LoginResponse struct {

@@ -220,7 +220,10 @@ var gamestopSingleMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS gamestopSingleMonitorInfos (
 		monitorID TEXT,
 		taskGroupID TEXT,
-		sku TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		condition TEXT,
 		maxPrice INTEGER
 	)
 `

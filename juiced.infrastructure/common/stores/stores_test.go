@@ -62,12 +62,12 @@ var disneyMonitorInfoAsset = &entities.DisneyMonitorInfo{
 	},
 }
 
-var gamestopMonitorAsset = map[string]*gamestop.Monitor{"gamestop_test_monitor": {Monitor: monitorAsset, SKUs: []string{"11105919"}}}
+var gamestopMonitorAsset = map[string]*gamestop.Monitor{"gamestop_test_monitor": {Monitor: monitorAsset, PIDs: []string{"11105919"}}}
 
 var gamestopMonitorInfoAsset = &entities.GamestopMonitorInfo{
 	Monitors: []entities.GamestopSingleMonitorInfo{
 		{
-			SKU:      "11105919",
+			PID:      "11105919",
 			MaxPrice: -1,
 		},
 	},
