@@ -291,7 +291,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.CheckoutInfo.SKUInStock != "" {
+		if task.StockData.VID != "" {
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
@@ -302,7 +302,7 @@ func (task *Task) WaitForMonitor() bool {
 func (task *Task) AddToCart() bool {
 	addToCartResponse := AddToCartResponse{}
 	form := url.Values{
-		"pid":            {task.CheckoutInfo.PID},
+		"pid":            {task.StockData.VID},
 		"upsellID":       {""},
 		"purPROID":       {""},
 		"options":        {"[]"},
@@ -314,7 +314,7 @@ func (task *Task) AddToCart() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint, task.CheckoutInfo.SKUInStock),
+		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.PID),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -327,7 +327,7 @@ func (task *Task) AddToCart() bool {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.CheckoutInfo.ProductURL},
+			{"referer", task.StockData.ProductURL},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -591,12 +591,12 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Success:      success,
 		Status:       status,
 		Content:      "",
-		Embeds:       task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.CheckoutInfo.ItemName,
-		ImageURL:     task.CheckoutInfo.ImageURL,
-		Sku:          task.CheckoutInfo.SKUInStock,
+		Embeds:       task.CreateGamestopEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ItemName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.PID,
 		Retailer:     enums.GameStop,
-		Price:        task.CheckoutInfo.Price,
+		Price:        task.StockData.Price,
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})

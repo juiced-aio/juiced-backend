@@ -3,6 +3,7 @@ package gamestop
 import (
 	"fmt"
 	"math/rand"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -21,11 +22,11 @@ import (
 func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.GamestopSingleMonitorInfo) (Monitor, error) {
 	storedGamestopMonitors := make(map[string]entities.GamestopSingleMonitorInfo)
 	gamestopMonitor := Monitor{}
-	skus := []string{}
+	pids := []string{}
 
 	for _, monitor := range singleMonitors {
-		storedGamestopMonitors[monitor.SKU] = monitor
-		skus = append(skus, monitor.SKU)
+		storedGamestopMonitors[monitor.PID] = monitor
+		pids = append(pids, monitor.PID)
 	}
 
 	gamestopMonitor = Monitor{
@@ -35,8 +36,8 @@ func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 			EventBus:  eventBus,
 		},
 
-		SKUs:        skus,
-		SKUWithInfo: storedGamestopMonitors,
+		PIDs:        pids,
+		PIDWithInfo: storedGamestopMonitors,
 	}
 
 	return gamestopMonitor, nil
@@ -101,24 +102,24 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(monitor.SKUs))
-	for _, sku := range monitor.SKUs {
+	wg.Add(len(monitor.PIDs))
+	for _, pid := range monitor.PIDs {
 		go func(x string) {
 			monitor.RunSingleMonitor(x)
 			wg.Done()
-		}(sku)
+		}(pid)
 	}
 	wg.Wait()
 
 }
 
-func (monitor *Monitor) RunSingleMonitor(sku string) {
+func (monitor *Monitor) RunSingleMonitor(pid string) {
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, sku) {
+	if !common.InSlice(monitor.RunningMonitors, pid) {
 		defer func() {
 			recover()
 			// TODO @silent: Re-run this specific monitor
@@ -128,8 +129,8 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
 
-		stockData := monitor.GetSKUStock(sku)
-		if stockData.SKU != "" {
+		stockData := monitor.GetPIDStock(pid)
+		if stockData.PID != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
 				return
@@ -137,11 +138,11 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 
 			var inSlice bool
 			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.SKU == stockData.SKU
+				inSlice = monitorStock.PID == stockData.PID
 			}
 			if !inSlice {
 				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
+				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
 				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
@@ -154,25 +155,40 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
-				if monitorStock.SKU == stockData.SKU {
+				if monitorStock.PID == stockData.PID {
 					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
 					break
 				}
 			}
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunSingleMonitor(sku)
+			monitor.RunSingleMonitor(pid)
 		}
 	}
 }
 
 // Checks if the item is instock and fills the monitors EventInfo if so
-func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
+func (monitor *Monitor) GetPIDStock(pid string) GamestopInStockData {
+	params := url.Values{}
+	if monitor.PIDWithInfo[pid].Color != "" {
+		params.Add(fmt.Sprintf("dwvar_%v_color", pid), monitor.PIDWithInfo[pid].Color)
+	}
+	if monitor.PIDWithInfo[pid].Size != "" {
+		params.Add(fmt.Sprintf("dwvar_%v_size", pid), monitor.PIDWithInfo[pid].Size)
+	}
+	if monitor.PIDWithInfo[pid].Condition != "" {
+		params.Add(fmt.Sprintf("dwvar_%v_condition", pid), monitor.PIDWithInfo[pid].Condition)
+	}
+	currentEndpoint := fmt.Sprintf(MonitorEndpoint, pid)
+	if params.Encode() != "" {
+		currentEndpoint += "&" + params.Encode()
+	}
+
 	stockData := GamestopInStockData{}
 	monitorResponse := MonitorResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(MonitorEndpoint, sku),
+		URL:    currentEndpoint,
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
@@ -194,26 +210,26 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 
 	switch resp.StatusCode {
 	case 200:
-		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
+		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
 		if monitorResponse.Gtmdata.Productinfo.Availability == "Available" || monitorResponse.Product.Availability.ButtonText == "Pre-Order" {
 			stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
-			inBudget := monitor.SKUWithInfo[sku].MaxPrice >= int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
+			inBudget := monitor.PIDWithInfo[pid].MaxPrice >= int(stockData.Price) || monitor.PIDWithInfo[pid].MaxPrice == -1
 			if inBudget {
 				for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
 					stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])
 				}
-				stockData.SKU = sku
+				stockData.PID = pid
 				stockData.ItemName = monitorResponse.Gtmdata.Productinfo.Name
-				stockData.PID = monitorResponse.Gtmdata.Productinfo.SKU
+				stockData.VID = monitorResponse.Gtmdata.Productinfo.SKU
 
 				stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
 
-				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+				monitor.PIDsSentToTask = append(monitor.PIDsSentToTask, pid)
 
 			}
 			return stockData
 		} else {
-			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
+			monitor.PIDsSentToTask = common.RemoveFromSlice(monitor.PIDsSentToTask, pid)
 			return stockData
 		}
 	default:
