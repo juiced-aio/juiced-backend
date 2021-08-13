@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -65,6 +66,15 @@ func FindInString(str string, start string, end string) (string, error) {
 	}
 
 	return parsed, nil
+}
+
+// CreateParams turns a string->string map into a URL parameter string
+func CreateParams(paramsLong map[string]string) string {
+	params := url.Values{}
+	for key, value := range paramsLong {
+		params.Add(key, value)
+	}
+	return params.Encode()
 }
 
 func FindInString2(str string, start string, end string) (string, error) {

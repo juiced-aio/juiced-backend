@@ -337,7 +337,7 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart(vid string) bool {
-	paramsString := util.CreateParams(map[string]string{
+	paramsString := common.CreateParams(map[string]string{
 		"form_type": "product",
 		"utf8":      "✓",
 		"id":        vid,
@@ -448,7 +448,7 @@ func (task *Task) Checkout() bool {
 }
 
 func (task *Task) HandleQueue() bool {
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"authenticity_token": task.TaskInfo.AuthToken,
 		// Empty for now
 		"g-recaptcha-response": "",
@@ -546,7 +546,7 @@ func (task *Task) HandleQueue() bool {
 }
 
 func (task *Task) SetShippingInfo() bool {
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                                      "patch",
 		"authenticity_token":                           task.TaskInfo.AuthToken,
 		"previous_step":                                "contact_information",
@@ -636,7 +636,7 @@ func (task *Task) SetShippingRate() bool {
 
 	task.TaskInfo.ShippingRate = shippingRateUnderPrice[prices[0]].Source + "-" + shippingRateUnderPrice[prices[0]].Code + "-" + shippingRateUnderPrice[prices[0]].Price
 
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                     "patch",
 		"authenticity_token":          task.TaskInfo.AuthToken,
 		"previous_step":               "shipping_method",
@@ -749,7 +749,7 @@ func (task *Task) GetCreditID() bool {
 
 func (task *Task) SetPaymentInfo() bool {
 	totalFloat, _ := strconv.ParseFloat(task.TaskInfo.OrderTotal, 64)
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                             "patch",
 		"authenticity_token":                  task.TaskInfo.AuthToken,
 		`checkout[reduction_code]`:            task.CouponCode,

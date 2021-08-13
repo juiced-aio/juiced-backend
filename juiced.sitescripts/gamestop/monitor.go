@@ -57,7 +57,6 @@ func (monitor *Monitor) CheckForStop() bool {
 	return false
 }
 
-// So theres a few different ways we can make the monitoring groups for Amazon, for now I'm going to make it so it runs a goroutine for each ASIN
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {

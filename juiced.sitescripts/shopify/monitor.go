@@ -168,7 +168,7 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 // Getting stock by adding to cart
 func (monitor *Monitor) GetVIDstock(vid string) ShopifyInStockData {
 	stockData := ShopifyInStockData{}
-	paramsString := util.CreateParams(map[string]string{
+	paramsString := common.CreateParams(map[string]string{
 		"form_type": "product",
 		"utf8":      "✓",
 		"id":        vid,

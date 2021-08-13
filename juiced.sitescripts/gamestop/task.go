@@ -124,7 +124,6 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-
 	startTime := time.Now()
 	// 4. Checkout
 	gotCartInfo := false

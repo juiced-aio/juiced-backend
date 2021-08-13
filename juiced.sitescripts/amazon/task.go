@@ -417,7 +417,7 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	params := util.CreateParams(map[string]string{
+	params := common.CreateParams(map[string]string{
 		"appActionToken":   string(appActionToken),
 		"appAction":        "IGNIN_PWD_COLLECT",
 		"subPageType":      "SignInClaimCollect",

@@ -180,38 +180,6 @@ type TaskGroup struct {
 	// Future sitescripts will have a field here
 }
 
-type TargetSingleMonitorInfo struct {
-	MonitorID    string             `json:"monitorID" db:"monitorID"`
-	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
-	TCIN         string             `json:"tcin" db:"tcin"`
-	MaxPrice     int                `json:"maxPrice" db:"maxPrice"`
-	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
-}
-
-// TargetMonitorInfo is a class that holds Target-specific details for a single monitor
-type TargetMonitorInfo struct {
-	ID          string                    `json:"ID" db:"ID"`
-	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
-	Monitors    []TargetSingleMonitorInfo `json:"monitors"`
-	StoreID     string                    `json:"storeID" db:"storeID"`
-	MonitorType enums.MonitorType         `json:"monitorType" db:"monitorType"`
-}
-
-type WalmartMonitorInfo struct {
-	ID          string                     `json:"ID" db:"ID"`
-	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
-	Monitors    []WalmartSingleMonitorInfo `json:"monitors"`
-}
-
-type WalmartSingleMonitorInfo struct {
-	MonitorID     string            `json:"monitorID" db:"monitorID"`
-	TaskGroupID   string            `json:"taskGroupID" db:"taskGroupID"`
-	ID            string            `json:"id" db:"id"`
-	MaxPrice      int               `json:"maxPrice" db:"maxPrice"`
-	SoldByWalmart bool              `json:"soldByWalmart" db:"soldByWalmart"`
-	MonitorType   enums.MonitorType `json:"monitorType" db:"monitorType"`
-}
-
 type AmazonSingleMonitorInfo struct {
 	MonitorID   string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
@@ -312,6 +280,51 @@ type ShopifyMonitorInfo struct {
 	SiteURL      string                     `json:"siteURL" db:"siteURL"`
 	SitePassword string                     `json:"sitePassword" db:"sitePassword"`
 	Monitors     []ShopifySingleMonitorInfo `json:"monitors"`
+}
+
+type TargetSingleMonitorInfo struct {
+	MonitorID    string             `json:"monitorID" db:"monitorID"`
+	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
+	TCIN         string             `json:"tcin" db:"tcin"`
+	MaxPrice     int                `json:"maxPrice" db:"maxPrice"`
+	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
+}
+
+// TargetMonitorInfo is a class that holds Target-specific details for a single monitor
+type TargetMonitorInfo struct {
+	ID          string                    `json:"ID" db:"ID"`
+	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []TargetSingleMonitorInfo `json:"monitors"`
+	StoreID     string                    `json:"storeID" db:"storeID"`
+	MonitorType enums.MonitorType         `json:"monitorType" db:"monitorType"`
+}
+
+type ToppsSingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	Item        string `json:"item" db:"item"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
+type ToppsMonitorInfo struct {
+	ID          string                   `json:"ID" db:"ID"`
+	TaskGroupID string                   `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []ToppsSingleMonitorInfo `json:"monitors"`
+}
+
+type WalmartMonitorInfo struct {
+	ID          string                     `json:"ID" db:"ID"`
+	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []WalmartSingleMonitorInfo `json:"monitors"`
+}
+
+type WalmartSingleMonitorInfo struct {
+	MonitorID     string            `json:"monitorID" db:"monitorID"`
+	TaskGroupID   string            `json:"taskGroupID" db:"taskGroupID"`
+	ID            string            `json:"id" db:"id"`
+	MaxPrice      int               `json:"maxPrice" db:"maxPrice"`
+	SoldByWalmart bool              `json:"soldByWalmart" db:"soldByWalmart"`
+	MonitorType   enums.MonitorType `json:"monitorType" db:"monitorType"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup
