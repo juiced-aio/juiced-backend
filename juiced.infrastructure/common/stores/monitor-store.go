@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
@@ -19,6 +20,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
+	"backend.juicedbot.io/juiced.sitescripts/topps"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
 )
@@ -33,6 +35,7 @@ type MonitorStore struct {
 	HottopicMonitors map[string]*hottopic.Monitor
 	ShopifyMonitors  map[string]*shopify.Monitor
 	TargetMonitors   map[string]*target.Monitor
+	ToppsMonitors    map[string]*topps.Monitor
 	WalmartMonitors  map[string]*walmart.Monitor
 	EventBus         *events.EventBus
 }
@@ -211,6 +214,25 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		// Add task to store
 		monitorStore.TargetMonitors[monitor.GroupID] = &targetMonitor
 
+	case enums.Topps:
+		if _, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return nil
+		}
+
+		if queryError != nil {
+			return queryError
+		}
+
+		if len(monitor.ToppsMonitorInfo.Monitors) == 0 {
+			return e.New(errors.NoMonitorsError)
+		}
+
+		toppsMonitor, err := topps.CreateToppsMonitor(monitor, proxies, monitorStore.EventBus, monitor.ToppsMonitorInfo.Monitors)
+		if err != nil {
+			return e.New(errors.CreateMonitorError + err.Error())
+		}
+		monitorStore.ToppsMonitors[monitor.GroupID] = &toppsMonitor
+
 	case enums.Walmart:
 		// Check if monitor exists in store already
 		if _, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
@@ -301,6 +323,12 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 		}
 		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 
+	case enums.Topps:
+		if toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok {
+			toppsMonitor.Monitor.StopFlag = false
+		}
+		go monitorStore.ToppsMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.Walmart:
 		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
 			walmartMonitor.Monitor.StopFlag = false
@@ -353,6 +381,11 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 	case enums.Target:
 		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
 			targetMonitor.Monitor.StopFlag = true
+		}
+
+	case enums.Topps:
+		if toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok {
+			toppsMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Walmart:
@@ -417,6 +450,12 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 		}
 		return true
 
+	case enums.Topps:
+		if toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok {
+			toppsMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
 	case enums.Walmart:
 		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
 			walmartMonitor.Monitor.Proxy = proxy
@@ -444,7 +483,7 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -464,7 +503,7 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -483,7 +522,7 @@ func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -501,7 +540,7 @@ func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -525,7 +564,7 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -543,7 +582,7 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -561,7 +600,7 @@ func (monitorStore *MonitorStore) CheckShopifyMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -596,7 +635,25 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (monitorStore *MonitorStore) CheckToppsMonitorStock() {
+	for {
+		for monitorID, toppsMonitor := range monitorStore.ToppsMonitors {
+			if len(toppsMonitor.InStock) > 0 {
+				taskGroup := toppsMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if toppsTask, ok := taskStore.ToppsTasks[taskID]; ok {
+						if ok && toppsTask.Task.Task.TaskGroupID == monitorID {
+							toppsTask.StockData = toppsMonitor.InStock[rand.Intn(len(toppsMonitor.InStock))]
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -615,7 +672,7 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -631,6 +688,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		HottopicMonitors: make(map[string]*hottopic.Monitor),
 		TargetMonitors:   make(map[string]*target.Monitor),
+		ToppsMonitors:    make(map[string]*topps.Monitor),
 		WalmartMonitors:  make(map[string]*walmart.Monitor),
 
 		EventBus: eventBus,
@@ -644,6 +702,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckShopifyMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
+	go monitorStore.CheckToppsMonitorStock()
 	go monitorStore.CheckWalmartMonitorStock()
 }
 
@@ -665,6 +724,9 @@ func GetMonitorStatus(groupID string) string {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.TargetMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.ToppsMonitors[groupID]; ok {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.WalmartMonitors[groupID]; ok {

@@ -28,6 +28,7 @@ type Task struct {
 	HottopicTaskInfo *HottopicTaskInfo `json:"hottopicTaskInfo,omitempty"`
 	ShopifyTaskInfo  *ShopifyTaskInfo  `json:"shopifyTaskInfo,omitempty"`
 	TargetTaskInfo   *TargetTaskInfo   `json:"targetTaskInfo,omitempty"`
+	ToppsTaskInfo    *ToppsTaskInfo    `json:"toppsTaskInfo,omitempty"`
 	WalmartTaskInfo  *WalmartTaskInfo  `json:"walmartTaskInfo,omitempty"`
 	// Future sitescripts will have a field here
 }
@@ -101,6 +102,14 @@ type TargetTaskInfo struct {
 	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
 }
 
+type ToppsTaskInfo struct {
+	TaskID      string         `json:"taskID" db:"taskID"`
+	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
+	Email       string         `json:"email" db:"email"`
+	Password    string         `json:"password" db:"password"`
+	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
+}
+
 type WalmartTaskInfo struct {
 	TaskID      string `json:"taskID" db:"taskID"`
 	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
@@ -144,6 +153,7 @@ type TaskGroupWithTasks struct {
 	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo,omitempty"`
 	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo,omitempty"`
 	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo,omitempty"`
+	ToppsMonitorInfo    *ToppsMonitorInfo    `json:"toppsMonitorInfo,omitempty"`
 	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo,omitempty"`
 
 	// Future sitescripts will have a field here
@@ -175,6 +185,7 @@ type TaskGroup struct {
 	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo,omitempty"`
 	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo,omitempty"`
 	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo,omitempty"`
+	ToppsMonitorInfo    *ToppsMonitorInfo    `json:"toppsMonitorInfo,omitempty"`
 	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo,omitempty"`
 
 	// Future sitescripts will have a field here

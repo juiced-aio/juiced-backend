@@ -294,6 +294,7 @@ func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWit
 		HottopicMonitorInfo: taskGroup.HottopicMonitorInfo,
 		ShopifyMonitorInfo:  taskGroup.ShopifyMonitorInfo,
 		TargetMonitorInfo:   taskGroup.TargetMonitorInfo,
+		ToppsMonitorInfo:    taskGroup.ToppsMonitorInfo,
 		WalmartMonitorInfo:  taskGroup.WalmartMonitorInfo,
 
 		Tasks: []entities.Task{},
