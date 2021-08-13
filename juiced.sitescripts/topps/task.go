@@ -57,6 +57,15 @@ func (task *Task) CheckForStop() bool {
 	return false
 }
 
+// RunTask is the script driver that calls all the individual requests
+// Function order:
+// 		1. Login / Become a guest
+// 		2. WaitForMonitor
+// 		3. AddToCart
+// 		4. GetCartInfo
+//		5. SubmitShippingInfo
+// 		6. GetCardToken
+// 		7. PlaceOrder
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -149,7 +158,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
-	// 6. SetPaymentInfo
+	// 6. GetCardToken
 	gotCardToken := false
 	for !gotCardToken {
 		needToStop := task.CheckForStop()
@@ -297,6 +306,7 @@ func (task *Task) WaitForMonitor() bool {
 	}
 }
 
+// Adds the item to the cart
 func (task *Task) AddToCart() bool {
 	data := task.CreateMultipartForm()
 
@@ -339,6 +349,7 @@ func (task *Task) AddToCart() bool {
 	return true
 }
 
+// Gets the cart info which includes the checkoutID and auth token for the card requests
 func (task *Task) GetCartInfo() bool {
 	var getCartInfoResponse GetCartInfoResponse
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -401,6 +412,7 @@ func (task *Task) GetCartInfo() bool {
 	return err == nil
 }
 
+// Submitting shipping info to the guest endpoint or the account endpoint depending on the TaskType
 func (task *Task) SubmitShippingInfo() bool {
 	currentEndpoint := fmt.Sprintf(SubmitShippingInfoEndpoint, task.TaskInfo.CheckoutID)
 	if task.TaskType == enums.TaskTypeAccount {
@@ -472,6 +484,7 @@ func (task *Task) SubmitShippingInfo() bool {
 	return true
 }
 
+// Getting the card token required in the PlaceOrder function
 func (task *Task) GetCardToken() bool {
 	sessionID := uuid.New().String()
 
@@ -560,6 +573,7 @@ func (task *Task) GetCardToken() bool {
 	return true
 }
 
+// Placing the order using the CardToken from the GetCardToken function
 func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 

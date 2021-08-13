@@ -12,6 +12,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
+// Takes the scraper and makes a request to the BaseEndpoint to get the requires cookies to checkout
 func BecomeGuest(scraper hawk.Scraper) bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Scraper: scraper,
@@ -38,6 +39,7 @@ func BecomeGuest(scraper hawk.Scraper) bool {
 	return true
 }
 
+// Creates a random string with the given selection and length
 func RandomString(selection string, length int) (r string) {
 	for i := 0; i < length; i++ {
 		r += string(selection[rand.Intn(len(selection))])
@@ -45,6 +47,7 @@ func RandomString(selection string, length int) (r string) {
 	return
 }
 
+// Creates the body for the AddToCart function
 func (task *Task) CreateMultipartForm() []byte {
 	if task.StockData.OptionName != "" {
 		return []byte(fmt.Sprintf(`------WebKitFormBoundaryIL7E2YKB4G0gjFhb

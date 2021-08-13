@@ -166,6 +166,7 @@ func (monitor *Monitor) RunSingleMonitor(item string) {
 	}
 }
 
+// Gets the items stock
 func (monitor *Monitor) GetItemStock(item string) ToppsInStockData {
 	stockData := ToppsInStockData{}
 	resp, body, err := util.MakeRequest(&util.Request{
@@ -198,6 +199,7 @@ func (monitor *Monitor) GetItemStock(item string) ToppsInStockData {
 	return monitor.ParseInfos(item, body)
 }
 
+// Parsing the body from the response to fill the ToppsInStockData struct
 func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 	stockData := ToppsInStockData{Item: item}
 
