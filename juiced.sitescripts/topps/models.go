@@ -6,6 +6,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
 const (
@@ -42,6 +43,12 @@ type Task struct {
 	AccountInfo AccountInfo
 	TaskInfo    TaskInfo
 	StockData   ToppsInStockData
+}
+
+type Acc struct {
+	GroupID     string
+	Scraper     hawk.Scraper
+	AccountInfo AccountInfo
 }
 
 type AccountInfo struct {

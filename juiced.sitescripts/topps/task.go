@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"math/rand"
 	"net/url"
 	"time"
 
@@ -20,7 +21,10 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 	"github.com/google/uuid"
+	cmap "github.com/orcaman/concurrent-map"
 )
+
+var ToppsAccountStore = cmap.New()
 
 // CreateToppsTask takes a Task entity and turns it into a Topps Task
 func CreateToppsTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
@@ -59,7 +63,7 @@ func (task *Task) CheckForStop() bool {
 
 // RunTask is the script driver that calls all the individual requests
 // Function order:
-// 		1. Login / Become a guest
+// 		1. Setup task
 // 		2. WaitForMonitor
 // 		3. AddToCart
 // 		4. GetCartInfo
@@ -86,26 +90,20 @@ func (task *Task) RunTask() {
 	}
 	task.Task.Scraper = hawk.Init(client, common.HAWK_KEY, false)
 
-	// 1. Login / Become a guest
-	sessionMade := false
-	for !sessionMade {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return
-		}
-		switch task.TaskType {
-		case enums.TaskTypeAccount:
-			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
-			sessionMade = task.Login()
-		case enums.TaskTypeGuest:
-			task.PublishEvent(enums.SettingUp, enums.TaskStart)
-			sessionMade = BecomeGuest(task.Task.Scraper)
-		}
-
-		if !sessionMade {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
+	// 1. Setup task
+	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	setup := task.Setup()
+	if setup {
+		return
 	}
+
+	// Adding the account to the pool
+	var accounts = []Acc{{task.Task.Task.TaskGroupID, task.Task.Scraper, task.AccountInfo}}
+	oldAccounts, _ := AccountPool.Get(task.Task.Task.TaskGroupID)
+	if oldAccounts != nil {
+		accounts = append(accounts, oldAccounts.([]Acc)...)
+	}
+	AccountPool.Set(task.Task.Task.TaskGroupID, accounts)
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
 	// 2. WaitForMonitor
@@ -206,8 +204,71 @@ func (task *Task) RunTask() {
 
 }
 
+// Sets the client up by either logging in or waiting for another task to login that is using the same account
+func (task *Task) Setup() bool {
+	if task.TaskType == enums.TaskTypeGuest {
+		return BecomeGuest(task.Task.Scraper)
+	}
+	// Bad but quick solution to the multiple logins
+	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
+	if ToppsAccountStore.Has(task.AccountInfo.Email) {
+		inMap := true
+		for inMap {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return true
+			}
+			// Error will be nil unless the item isn't in the map which we are already checking above
+			value, ok := ToppsAccountStore.Get(task.AccountInfo.Email)
+			if ok {
+				acc, ok := value.(Acc)
+				if ok {
+					if len(task.Task.Scraper.Client.Jar.Cookies(ParsedBase)) == 0 {
+						task.Task.Scraper.Client.Jar = acc.Scraper.Client.Jar
+					}
+					task.AccountInfo = acc.AccountInfo
+					break
+				} else {
+					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
+						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+					}
+					time.Sleep(common.MS_TO_WAIT)
+				}
+			} else {
+				inMap = false
+				return task.Setup()
+			}
+		}
+	} else {
+		// Login
+		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+		loggedIn := false
+		for !loggedIn {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return true
+			}
+			loggedIn = task.Login()
+			if !loggedIn {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			}
+		}
+
+	}
+
+	return false
+}
+
 // Haven't tested the login yet
 func (task *Task) Login() bool {
+	defer func() {
+		if recover() != nil {
+			ToppsAccountStore.Remove(task.AccountInfo.Email)
+		}
+	}()
+
+	ToppsAccountStore.Set(task.AccountInfo.Email, false)
+
 	resp, body, err := util.MakeRequest(&util.Request{
 		Scraper: task.Task.Scraper,
 		Method:  "GET",
@@ -227,18 +288,21 @@ func (task *Task) Login() bool {
 		},
 	})
 	if resp.StatusCode != 200 || err != nil {
+		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 
 	doc := soup.HTMLParse(body)
 	elem := doc.Find("input", "name", "form_key")
 	if elem.Error != nil {
+		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 	formKey := elem.Attrs()["value"]
 
 	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Topps, BaseLoginEndpoint+"/", "login", 0.7, task.Task.Proxy)
 	if err != nil {
+		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 	for token == nil {
@@ -247,6 +311,7 @@ func (task *Task) Login() bool {
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
 	if !ok {
+		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 
@@ -286,8 +351,20 @@ func (task *Task) Login() bool {
 		Data: []byte(payload),
 	})
 	if resp.StatusCode != 302 || err != nil {
+		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+
+	acc := Acc{
+		GroupID: task.Task.Task.TaskGroupID,
+		Scraper: task.Task.Scraper,
+		AccountInfo: AccountInfo{
+			Email:    task.AccountInfo.Email,
+			Password: task.AccountInfo.Password,
+		},
+	}
+
+	ToppsAccountStore.Set(task.AccountInfo.Email, acc)
 
 	return true
 }

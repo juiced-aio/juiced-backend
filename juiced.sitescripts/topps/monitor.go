@@ -18,7 +18,11 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
+	cmap "github.com/orcaman/concurrent-map"
 )
+
+// Creating a pool to store topps accounts that will be used to monitor
+var AccountPool = cmap.New()
 
 // CreateToppsMonitor takes a TaskGroup entity and turns it into a Topps Monitor
 func CreateToppsMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.ToppsSingleMonitorInfo) (Monitor, error) {
@@ -114,9 +118,20 @@ func (monitor *Monitor) RunMonitor() {
 }
 
 func (monitor *Monitor) RunSingleMonitor(item string) {
+again:
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
+	}
+	accounts, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	if accounts != nil {
+		if !(len(accounts.([]Acc)) > 0) {
+			time.Sleep(common.MS_TO_WAIT)
+			goto again
+		}
+	} else {
+		time.Sleep(common.MS_TO_WAIT)
+		goto again
 	}
 
 	if !common.InSlice(monitor.RunningMonitors, item) {
@@ -124,10 +139,6 @@ func (monitor *Monitor) RunSingleMonitor(item string) {
 			recover()
 			// TODO @silent: Re-run this specific monitor
 		}()
-
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Scraper.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
-		}
 
 		stockData := monitor.GetItemStock(item)
 		if stockData.SKU != "" && stockData.AddURL != "" && stockData.FormKey != "" {
@@ -168,9 +179,16 @@ func (monitor *Monitor) RunSingleMonitor(item string) {
 
 // Gets the items stock
 func (monitor *Monitor) GetItemStock(item string) ToppsInStockData {
+	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
+	currentScraper := account.Scraper
+	if len(monitor.Monitor.Proxies) > 0 {
+		client.UpdateProxy(&currentScraper.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	}
+
 	stockData := ToppsInStockData{}
 	resp, body, err := util.MakeRequest(&util.Request{
-		Scraper: monitor.Monitor.Scraper,
+		Scraper: currentScraper,
 		Method:  "GET",
 		URL:     fmt.Sprintf(MonitorEndpoint, item),
 		RawHeaders: http.RawHeader{
