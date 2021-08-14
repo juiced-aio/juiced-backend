@@ -377,7 +377,7 @@ func (task *Task) browserLogin() bool {
 		Client:  task.Task.Client,
 		AccountInfo: AccountInfo{
 			Email:          task.AccountInfo.Email,
-			Password:       password,
+			Password:       task.AccountInfo.Password,
 			LoginType:      enums.LoginTypeBROWSER,
 			SavedAddressID: addressID,
 			SessionID:      sid,
