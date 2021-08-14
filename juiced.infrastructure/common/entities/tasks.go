@@ -286,6 +286,19 @@ type HottopicMonitorInfo struct {
 	Monitors    []HottopicSingleMonitorInfo `json:"monitors"`
 }
 
+type NeweggSingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	SKU         string `json:"sku" db:"sku"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
+type NeweggMonitorInfo struct {
+	ID          string                    `json:"ID" db:"ID"`
+	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []NeweggSingleMonitorInfo `json:"monitors"`
+}
+
 type GamestopSingleMonitorInfo struct {
 	MonitorID   string `json:"monitorID" db:"monitorID"`
 	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
