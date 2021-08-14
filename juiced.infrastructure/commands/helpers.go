@@ -159,6 +159,31 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+
+	case enums.Newegg:
+		statement, err := database.Preparex(`INSERT INTO neweggMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.NeweggMonitorInfo.ID = monitorID
+		taskGroup.NeweggMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.NeweggMonitorInfo.ID, taskGroup.NeweggMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.NeweggMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO neweggSingleMonitorInfos (monitorID, taskGroupID, sku, maxPrice) VALUES (?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
+			if err != nil {
+				return err
+			}
+		}
+
 	case enums.Shopify:
 		statement, err := database.Preparex(`INSERT INTO shopifyMonitorInfos (ID, taskGroupID, siteURL, sitePassword) VALUES (?, ?, ?, ?)`)
 		if err != nil {
@@ -256,6 +281,9 @@ func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 	case enums.HotTopic:
 		monitorInfoSchema = "hottopicMonitorInfos"
 		singleMonitorInfoSchema = "hottopicSingleMonitorInfos"
+	case enums.Newegg:
+		monitorInfoSchema = "neweggMonitorInfos"
+		singleMonitorInfoSchema = "neweggSingleMonitorInfos"
 	case enums.Shopify:
 		monitorInfoSchema = "shopifyMonitorInfos"
 		singleMonitorInfoSchema = "shopifySingleMonitorInfos"
@@ -364,6 +392,16 @@ func CreateTaskInfos(task entities.Task) error {
 			return err
 		}
 
+	case enums.Newegg:
+		statement, err := database.Preparex(`INSERT INTO neweggTaskInfos (taskID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		_, err = statement.Exec(task.ID, task.TaskGroupID)
+		if err != nil {
+			return err
+		}
+
 	case enums.Shopify:
 		statement, err := database.Preparex(`INSERT INTO shopifyTaskInfos (taskID, taskGroupID, couponCode, siteURL, sitePassword, shopifyRetailer) VALUES (?, ?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -424,6 +462,8 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 		taskInfoSchema = "gamestopTaskInfos"
 	case enums.HotTopic:
 		taskInfoSchema = "hottopicTaskInfos"
+	case enums.Newegg:
+		taskInfoSchema = "neweggTaskInfos"
 	case enums.Shopify:
 		taskInfoSchema = "shopifyTaskInfos"
 	case enums.Target:

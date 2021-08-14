@@ -26,6 +26,7 @@ type Task struct {
 	DisneyTaskInfo   *DisneyTaskInfo   `json:"disneyTaskInfo,omitempty"`
 	GamestopTaskInfo *GamestopTaskInfo `json:"gamestopTaskInfo,omitempty"`
 	HottopicTaskInfo *HottopicTaskInfo `json:"hottopicTaskInfo,omitempty"`
+	NeweggTaskInfo   *NeweggTaskInfo   `json:"neweggTaskInfo,omitempty"`
 	ShopifyTaskInfo  *ShopifyTaskInfo  `json:"shopifyTaskInfo,omitempty"`
 	TargetTaskInfo   *TargetTaskInfo   `json:"targetTaskInfo,omitempty"`
 	WalmartTaskInfo  *WalmartTaskInfo  `json:"walmartTaskInfo,omitempty"`
@@ -80,6 +81,11 @@ type HotWheelsTaskInfo struct {
 	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 	Email       string `json:"email" db:"email"`
 	Password    string `json:"password" db:"password"`
+}
+
+type NeweggTaskInfo struct {
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 }
 
 type ShopifyTaskInfo struct {
@@ -142,6 +148,7 @@ type TaskGroupWithTasks struct {
 	DisneyMonitorInfo   *DisneyMonitorInfo   `json:"disneyMonitorInfo,omitempty"`
 	GamestopMonitorInfo *GamestopMonitorInfo `json:"gamestopMonitorInfo,omitempty"`
 	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo,omitempty"`
+	NeweggMonitorInfo   *NeweggMonitorInfo   `json:"neweggMonitorInfo,omitempty"`
 	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo,omitempty"`
 	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo,omitempty"`
 	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo,omitempty"`
@@ -173,6 +180,7 @@ type TaskGroup struct {
 	DisneyMonitorInfo   *DisneyMonitorInfo   `json:"disneyMonitorInfo,omitempty"`
 	GamestopMonitorInfo *GamestopMonitorInfo `json:"gamestopMonitorInfo,omitempty"`
 	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo,omitempty"`
+	NeweggMonitorInfo   *NeweggMonitorInfo   `json:"neweggMonitorInfo,omitempty"`
 	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo,omitempty"`
 	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo,omitempty"`
 	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo,omitempty"`
@@ -270,6 +278,19 @@ type DisneyMonitorInfo struct {
 	Monitors    []DisneySingleMonitorInfo `json:"monitors"`
 }
 
+type GamestopSingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	SKU         string `json:"sku" db:"sku"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
+type GamestopMonitorInfo struct {
+	ID          string                      `json:"ID" db:"ID"`
+	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []GamestopSingleMonitorInfo `json:"monitors"`
+}
+
 type HottopicSingleMonitorInfo struct {
 	MonitorID   string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
@@ -297,19 +318,6 @@ type NeweggMonitorInfo struct {
 	ID          string                    `json:"ID" db:"ID"`
 	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
 	Monitors    []NeweggSingleMonitorInfo `json:"monitors"`
-}
-
-type GamestopSingleMonitorInfo struct {
-	MonitorID   string `json:"monitorID" db:"monitorID"`
-	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
-	SKU         string `json:"sku" db:"sku"`
-	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
-}
-
-type GamestopMonitorInfo struct {
-	ID          string                      `json:"ID" db:"ID"`
-	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
-	Monitors    []GamestopSingleMonitorInfo `json:"monitors"`
 }
 
 type ShopifySingleMonitorInfo struct {

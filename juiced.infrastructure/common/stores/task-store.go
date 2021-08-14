@@ -17,6 +17,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/newegg"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
@@ -35,6 +36,7 @@ type TaskStore struct {
 	DisneyTasks   map[string]*disney.Task
 	GamestopTasks map[string]*gamestop.Task
 	HottopicTasks map[string]*hottopic.Task
+	NeweggTasks   map[string]*newegg.Task
 	ShopifyTasks  map[string]*shopify.Task
 	TargetTasks   map[string]*target.Task
 	WalmartTasks  map[string]*walmart.Task
@@ -184,6 +186,23 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 		// Add task to store
 		taskStore.HottopicTasks[task.ID] = &hottopicTask
+
+	case enums.Newegg:
+		// Check if task exists in store already
+		if _, ok := taskStore.NeweggTasks[task.ID]; ok && !task.UpdateTask {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Create task
+		walmartTask, err := newegg.CreateNeweggMonitor(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.WalmartTasks[task.ID] = &walmartTask
 
 	case enums.Shopify:
 		// Check if task exists in store already

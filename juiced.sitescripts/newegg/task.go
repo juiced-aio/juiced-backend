@@ -4,11 +4,249 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/url"
+	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
+
+// CreateNeweggTask takes a Task entity and turns it into a Newegg Task
+func CreateNeweggTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+	neweggTask := Task{
+		Task: base.Task{
+			Task:     task,
+			Profile:  profile,
+			Proxy:    proxy,
+			EventBus: eventBus,
+		},
+	}
+	return neweggTask, nil
+}
+
+// PublishEvent wraps the EventBus's PublishTaskEvent function
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+	task.Task.Task.SetTaskStatus(status)
+	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+}
+
+// CheckForStop checks the stop flag and stops the monitor if it's true
+func (task *Task) CheckForStop() bool {
+	if task.Task.StopFlag {
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		return true
+	}
+	return false
+}
+
+// RunTask is the script driver that calls all the individual requests
+// Function order:
+//		1. BecomeGuest
+//		2. WaitForMonitor
+//		3. AddTocart
+//		4. ProceedToCheckout
+//		5. Checkout
+//		6. SubmitShippingInfo
+//		7. GetPaymentToken
+//		8. SubmitPaymentInfo
+//		9. InitOrder
+//		10. PlaceOrder
+//		11. Verify
+func (task *Task) RunTask() {
+	// If the function panics due to a runtime error, recover from it
+	defer func() {
+		if recover() != nil {
+			task.Task.StopFlag = true
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		}
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
+	client, err := util.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
+	task.Task.Client = client
+
+	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	// 1. BecomeGuest
+	becameGuest := false
+	for !becameGuest {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		becameGuest = BecomeGuest(task.Task.Client)
+		if !becameGuest {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 2. WaitForMonitor
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	needToStop := task.WaitForMonitor()
+	if needToStop {
+		return
+	}
+
+	// 3. AddTocart
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	addedToCart := false
+	for !addedToCart {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		addedToCart = task.AddToCart()
+		if !addedToCart {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	startTime := time.Now()
+
+	// 4. ProceedToCheckout
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	preparedCheckout := false
+	for !preparedCheckout {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		preparedCheckout = task.PrepareCheckout()
+		if !preparedCheckout {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 5. Checkout
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	gotCheckout := false
+	for !gotCheckout {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		gotCheckout = task.Checkout()
+		if !gotCheckout {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 6. SubmitShippingInfo
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	submittedShipping := false
+	for !submittedShipping {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		submittedShipping = task.SubmitShippingInfo()
+		if !submittedShipping {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 7. GetPaymentToken
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	gotPaymentToken := false
+	for !gotPaymentToken {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		gotPaymentToken = task.GetPaymentToken()
+		if !gotPaymentToken {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 8. SubmitPaymentInfo
+	submittedPayment := false
+	for !submittedPayment {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		submittedPayment = task.SubmitPaymentInfo()
+		if !submittedPayment {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 9. InitOrder
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	initiatedOrder := false
+	for !initiatedOrder {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+
+		initiatedOrder = task.InitOrder()
+		if !initiatedOrder {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 10. PlaceOrder
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	submittedOrder := false
+	status := enums.OrderStatusFailed
+	for !submittedOrder {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		if status == enums.OrderStatusDeclined {
+			break
+		}
+		submittedOrder, status = task.PlaceOrder(startTime)
+		if !submittedOrder {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+	}
+
+	// 11. Verify
+	go task.Verify()
+
+	endTime := time.Now()
+
+	log.Println("STARTED AT: " + startTime.String())
+	log.Println("  ENDED AT: " + endTime.String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
+
+	if status == enums.OrderStatusSuccess {
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+	} else {
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+	}
+
+}
+
+// WaitForMonitor waits until the Monitor has sent the info to the task to continue
+func (task *Task) WaitForMonitor() bool {
+	for {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return true
+		}
+		if task.StockData.ItemNumber != "" {
+			return false
+		}
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
 
 func (task *Task) AddToCart() bool {
 	addToCartRequest := AddToCartRequest{
@@ -269,63 +507,6 @@ func (task *Task) SubmitShippingInfo() bool {
 	return result == "Success"
 }
 
-func (task *Task) InitOrder() bool {
-	initOrderRequest := InitOrderRequest{
-		Sessionid: task.TaskInfo.SessionID,
-		Actions: []Actions{
-			{
-				Actiontype:  "ConfirmPayment",
-				Jsoncontent: `{"ActionType":"ConfirmPayment","Cvv2":"260","TransactionNumber":0,"PaytermsCode":"Visa"}`,
-			},
-		},
-		Enableasynctoken: true,
-	}
-
-	params, newSign := CreateExtras()
-	if params == "" || newSign == "" {
-		return false
-	}
-
-	respMap := make(map[string]interface{})
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "POST",
-		URL:    InitOrderEndpoint + "?" + params,
-		RawHeaders: http.RawHeader{
-			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
-			{"x-sessionid", task.TaskInfo.SessionID},
-			{"sec-ch-ua-mobile", `?0`},
-			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36`},
-			{"content-type", `application/json`},
-			{"accept", `application/json, text/plain, */*`},
-			{"x-ne-sign", newSign},
-			{"x-requested-with", `XMLHttpRequest`},
-			{"x-ne-sign-type", `simple`},
-			{"origin", SecureBaseEndpoint},
-			{"sec-fetch-site", `same-origin`},
-			{"sec-fetch-mode", `cors`},
-			{"sec-fetch-dest", `empty`},
-			{"referer", fmt.Sprintf(BaseCheckoutEndpoint, task.TaskInfo.SessionID)},
-			{"accept-encoding", `gzip, deflate, br`},
-			{"accept-language", `en-US,en;q=0.9`},
-		},
-
-		RequestBodyStruct:  initOrderRequest,
-		ResponseBodyStruct: &respMap,
-	})
-	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
-		return false
-	}
-	var result string
-	var ok bool
-	if result, ok = respMap["Result"].(string); !ok {
-		return false
-	}
-
-	return result == "Success"
-}
-
 func (task *Task) GetPaymentToken() bool {
 	jsonMap := map[string]interface{}{
 		"SessionID":         task.TaskInfo.SessionID,
@@ -450,7 +631,65 @@ func (task *Task) SubmitPaymentInfo() bool {
 	return result == "Success"
 }
 
-func (task *Task) PlaceOrder() bool {
+func (task *Task) InitOrder() bool {
+	initOrderRequest := InitOrderRequest{
+		Sessionid: task.TaskInfo.SessionID,
+		Actions: []Actions{
+			{
+				Actiontype:  "ConfirmPayment",
+				Jsoncontent: `{"ActionType":"ConfirmPayment","Cvv2":"260","TransactionNumber":0,"PaytermsCode":"Visa"}`,
+			},
+		},
+		Enableasynctoken: true,
+	}
+
+	params, newSign := CreateExtras()
+	if params == "" || newSign == "" {
+		return false
+	}
+
+	respMap := make(map[string]interface{})
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    InitOrderEndpoint + "?" + params,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
+			{"x-sessionid", task.TaskInfo.SessionID},
+			{"sec-ch-ua-mobile", `?0`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36`},
+			{"content-type", `application/json`},
+			{"accept", `application/json, text/plain, */*`},
+			{"x-ne-sign", newSign},
+			{"x-requested-with", `XMLHttpRequest`},
+			{"x-ne-sign-type", `simple`},
+			{"origin", SecureBaseEndpoint},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", fmt.Sprintf(BaseCheckoutEndpoint, task.TaskInfo.SessionID)},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+
+		RequestBodyStruct:  initOrderRequest,
+		ResponseBodyStruct: &respMap,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err)
+		return false
+	}
+	var result string
+	var ok bool
+	if result, ok = respMap["Result"].(string); !ok {
+		return false
+	}
+
+	return result == "Success"
+}
+
+func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+	status := enums.OrderStatusFailed
 	placeOrderRequest := PlaceOrderRequest{
 		Sessionid:               task.TaskInfo.SessionID,
 		Isacceptnsccauth:        false,
@@ -464,7 +703,7 @@ func (task *Task) PlaceOrder() bool {
 
 	params, newSign := CreateExtras()
 	if params == "" || newSign == "" {
-		return false
+		return false, status
 	}
 
 	var placeOrderResponse PlaceOrderResponse
@@ -496,17 +735,42 @@ func (task *Task) PlaceOrder() bool {
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err)
-		return false
+		return false, status
 	}
 
 	if placeOrderResponse.Result != "Success" {
-		return false
+		return false, status
 	}
+	status = enums.OrderStatusSuccess
+	success := true
+
+	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      success,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.Newegg,
+		Price:        float64(task.StockData.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 	task.TaskInfo.VBVToken = placeOrderResponse.Vbvdata.Jwttoken
 	task.TaskInfo.CardBin = placeOrderResponse.Vbvdata.Cardbin
 
-	return true
+	return true, status
+}
+
+// Pretty sure these requests just speed up the payment, order goes through no matter what then you get a decline email a minute later if you send these requests.
+// If you don't send these requests it takes 10-15 min to get the decline email.
+func (task *Task) Verify() {
+	if task.VerifyPayment() {
+		task.VerifyOrder()
+	}
 }
 
 func (task *Task) VerifyPayment() bool {
