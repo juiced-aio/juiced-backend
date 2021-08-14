@@ -110,3 +110,28 @@ func TestBestbuy(t *testing.T) {
 	TestDriver(MainTask, *MainProfile, *MainTaskGroup, *MainProxyGroup)
 	select {}
 }
+
+func TestWalmart(t *testing.T) {
+	MainTask.WalmartTaskInfo = &entities.WalmartTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+	}
+
+	MainTaskGroup.WalmartMonitorInfo = &entities.WalmartMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.WalmartSingleMonitorInfo{{
+			MonitorID:     MainMonitorID,
+			TaskGroupID:   MainTaskGroupID,
+			ID:            "855737650",
+			MaxPrice:      -1,
+			SoldByWalmart: true,
+			MonitorType:   enums.SKUMonitor,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.Walmart
+	MainTask.TaskRetailer = enums.Walmart
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup, *MainProxyGroup)
+	select {}
+}
