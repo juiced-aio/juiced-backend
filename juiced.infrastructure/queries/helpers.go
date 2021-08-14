@@ -138,6 +138,26 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 			task.HottopicTaskInfo = &tempTaskInfo
 		}
 
+	case enums.Newegg:
+		statement, err := database.Preparex(`SELECT * FROM neweggTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempTaskInfo := entities.NeweggTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
+			if err != nil {
+				return task, err
+			}
+			task.NeweggTaskInfo = &tempTaskInfo
+		}
+
 	case enums.Shopify:
 		statement, err := database.Preparex(`SELECT * FROM shopifyTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -450,6 +470,46 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.HottopicMonitorInfo.Monitors = append(taskGroup.HottopicMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.Newegg:
+		statement, err := database.Preparex(`SELECT * FROM neweggMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempMonitorInfo := entities.NeweggMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.NeweggMonitorInfo = &tempMonitorInfo
+		}
+		statement, err = database.Preparex(`SELECT * FROM neweggSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.NeweggMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tempSingleMonitor := entities.NeweggSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.NeweggMonitorInfo.Monitors = append(taskGroup.NeweggMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	case enums.Shopify:

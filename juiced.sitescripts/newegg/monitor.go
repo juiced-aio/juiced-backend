@@ -194,6 +194,7 @@ func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
 		return stockData
 	}
 
+	monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
 	if price := monitorResponse.MainItem.FinalPrice; float64(monitor.SKUWithInfo[sku].MaxPrice) > price {
 		stockData.SKU = sku
 		stockData.ItemNumber = monitorResponse.MainItem.Item
@@ -201,6 +202,9 @@ func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
 		stockData.ItemURL = "https://www.newegg.com/p/" + sku
 		stockData.ImageURL = "https://c1.neweggimages.com/NeweggImage/ProductImage/" + monitorResponse.MainItem.Image.Normal.ImageName
 		stockData.Price = price
+		monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+	} else {
+		monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 	}
 
 	return stockData
