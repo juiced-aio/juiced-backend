@@ -42,6 +42,11 @@ func AddAccount(account entities.Account) error {
 		return errors.New("database not initialized")
 	}
 
+	encryptedEmail, err := common.Aes256Encrypt(account.Email, enums.UserKey)
+	if err != nil {
+		return err
+	}
+
 	encryptedPassword, err := common.Aes256Encrypt(account.Password, enums.UserKey)
 	if err != nil {
 		return err
@@ -52,7 +57,7 @@ func AddAccount(account entities.Account) error {
 		return err
 	}
 
-	_, err = statement.Exec(account.ID, account.Retailer, account.Email, encryptedPassword, account.CreationDate)
+	_, err = statement.Exec(account.ID, account.Retailer, encryptedEmail, encryptedPassword, account.CreationDate)
 
 	return err
 }

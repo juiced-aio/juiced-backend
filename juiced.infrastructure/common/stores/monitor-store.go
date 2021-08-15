@@ -64,6 +64,14 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
+		for _, monitor := range monitor.AmazonMonitorInfo.Monitors {
+			if monitor.MonitorType == enums.FastSKUMonitor {
+				if monitor.OFID == "" {
+					return e.New(errors.MissingMonitorFieldsError)
+				}
+			}
+		}
+
 		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
