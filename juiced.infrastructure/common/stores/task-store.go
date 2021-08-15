@@ -72,9 +72,13 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 		// Make sure necessary fields exist
 		emptyString := ""
-		if task.AmazonTaskInfo.LoginType == emptyString || task.AmazonTaskInfo.Email == emptyString || task.AmazonTaskInfo.Password == emptyString {
+		if task.AmazonTaskInfo.Email == emptyString || task.AmazonTaskInfo.Password == emptyString {
 			return e.New(errors.MissingTaskFieldsError)
 		}
+		if task.AmazonTaskInfo.LoginType == emptyString {
+			task.AmazonTaskInfo.LoginType = enums.LoginTypeBROWSER
+		}
+
 		// Create task
 		amazonTask, err := amazon.CreateAmazonTask(task, profile, proxy, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
 		if err != nil {

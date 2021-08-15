@@ -23,6 +23,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/stealth"
 	cmap "github.com/orcaman/concurrent-map"
 )
@@ -371,7 +372,7 @@ func (task *Task) Login() bool {
 	}
 
 	page := stealth.MustPage(browserWithCancel)
-
+	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
 	page.MustNavigate(LoginEndpoint).MustWaitLoad()
 	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
 		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
