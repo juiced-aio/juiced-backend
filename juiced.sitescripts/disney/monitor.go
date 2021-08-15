@@ -3,7 +3,6 @@ package disney
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 
@@ -11,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -24,7 +22,7 @@ import (
 )
 
 // CreateDisneyMonitor takes a TaskGroup entity and turns it into a Disney Monitor
-func CreateDisneyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.DisneySingleMonitorInfo) (Monitor, error) {
+func CreateDisneyMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.DisneySingleMonitorInfo) (Monitor, error) {
 	storedDisneyMonitors := make(map[string]entities.DisneySingleMonitorInfo)
 	disneyMonitor := Monitor{}
 
@@ -36,9 +34,9 @@ func CreateDisneyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 
 	disneyMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		Pids:        pids,
 		PidWithInfo: storedDisneyMonitors,
@@ -79,14 +77,9 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
-		}
-		monitor.Monitor.Client = monitorClient
-
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
 	}
 
@@ -112,8 +105,12 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	var stockData DisneyInStockData
 	var err error
 
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
 	}
 
 	sizes, colors, stockData, err = monitor.GetSizeAndColor(pid)
@@ -169,6 +166,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 				(len(colors) > 0 && noSizesBeforeFilter) { // (Or if there are colors but no size variants)
 				needToStop = monitor.CheckForStop()
 				if needToStop {
+
 					return
 				}
 
@@ -176,6 +174,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 				stockDatas := monitor.GetInStockVariations(pid, sizes, colors)
 				needToStop = monitor.CheckForStop()
 				if needToStop {
+
 					return
 				}
 
@@ -279,6 +278,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			}
 		}
 	} else {
+
 		monitor.RunSingleMonitor(pid)
 	}
 }
@@ -298,6 +298,8 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 			{"sec-ch-ua-mobile", "?0"},
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", browser.Chrome()},
+			{"origin", BaseEndpoint},
+			{"referer", BaseEndpoint + "/"},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "none"},
 			{"sec-fetch-mode", "navigate"},
@@ -316,6 +318,8 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
 		return monitor.GetVariationInfo(body, pid)
+	case 403:
+		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 	default:
@@ -489,6 +493,8 @@ func (monitor *Monitor) GetInStockVariant(pid string, size, color string) Disney
 			stockData.Color = color
 		}
 		return stockData
+	case 403:
+		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 	default:

@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	cclient "backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -45,21 +44,24 @@ func (task *Task) CheckForStop() bool {
 var AmazonAccountStore = cmap.New()
 
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
-func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
+func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
 	amazonTask := Task{}
 
 	amazonTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:     email,
 			Password:  password,
 			LoginType: loginType,
 		},
+	}
+	if proxyGroup != nil {
+		amazonTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return amazonTask, nil
 }
@@ -75,11 +77,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Setup task
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
@@ -103,7 +104,7 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	err = cclient.UpdateProxy(&task.Task.Client, common.ProxyCleaner(task.Task.Proxy))
+	err = task.Task.UpdateProxy(task.Task.Proxy)
 	if err != nil {
 		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 		return
@@ -242,7 +243,7 @@ func (task *Task) browserLogin() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	proxyCleaned := common.ProxyCleaner(*task.Task.Proxy)
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 

@@ -2,11 +2,9 @@ package shopify
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -17,7 +15,7 @@ import (
 )
 
 // CreateShopifyMonitor takes a TaskGroup entity and turns it into a Shopify Monitor
-func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteURL, sitePassword string, singleMonitors []entities.ShopifySingleMonitorInfo) (Monitor, error) {
+func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, siteURL, sitePassword string, singleMonitors []entities.ShopifySingleMonitorInfo) (Monitor, error) {
 	storedShopifyMonitors := make(map[string]entities.ShopifySingleMonitorInfo)
 	shopifyMonitor := Monitor{}
 	vIDs := []string{}
@@ -29,9 +27,9 @@ func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 
 	shopifyMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		SiteURL:      siteURL,
 		SitePassword: sitePassword,
@@ -71,14 +69,17 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		var proxy *entities.Proxy
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		becameGuest := false
@@ -124,8 +125,12 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 			// TODO @silent: Re-run this specific monitor
 		}()
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		var proxy *entities.Proxy
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		stockData := monitor.GetVIDstock(vid)
@@ -159,6 +164,7 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 					break
 				}
 			}
+
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(vid)
 		}

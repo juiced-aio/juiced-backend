@@ -19,19 +19,15 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL, sitePassword, email, password string) (Task, error) {
+func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, couponCode, siteURL, sitePassword, email, password string) (Task, error) {
 	shopifyTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return shopifyTask, err
-	}
+
 	shopifyTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
-			Client:   client,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -41,8 +37,10 @@ func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy enti
 		SiteURL:      siteURL,
 		SitePassword: sitePassword,
 	}
-
-	return shopifyTask, err
+	if proxyGroup != nil {
+		shopifyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
+	return shopifyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -82,6 +80,11 @@ func (task *Task) RunTask() {
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
+	}
+
+	err := task.Task.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
 	}
 
 	task.Step = SettingUp

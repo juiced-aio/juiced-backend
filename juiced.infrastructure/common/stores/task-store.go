@@ -2,7 +2,6 @@ package stores
 
 import (
 	e "errors"
-	"math/rand"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -46,18 +45,18 @@ type TaskStore struct {
 // AddTaskToStore adds the Task to the TaskStore and returns true if successful
 func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 	var queryError error
-	// Get Profile, Proxy for task
+	// Get Profile, ProxyGroup for task
 	profile, err := queries.GetProfile(task.TaskProfileID)
 	if err != nil {
 		queryError = err
 	}
-	proxy := entities.Proxy{}
+	var proxyGroup *entities.ProxyGroup
 	if task.TaskProxyGroupID != "" {
-		proxyGroup, err := queries.GetProxyGroup(task.TaskProxyGroupID)
-		if err != nil {
-			queryError = err
+		var ok bool
+		proxyGroup, ok = proxyStore.ProxyGroups[task.TaskProxyGroupID]
+		if !ok {
+			queryError = e.New("proxy group failure")
 		}
-		proxy = proxyGroup.Proxies[rand.Intn(len(proxyGroup.Proxies))]
 	}
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
@@ -80,7 +79,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 
 		// Create task
-		amazonTask, err := amazon.CreateAmazonTask(task, profile, proxy, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
+		amazonTask, err := amazon.CreateAmazonTask(task, profile, proxyGroup, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -102,7 +101,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return e.New(errors.MissingTaskFieldsError)
 		}
 		// Create task
-		bestbuyTask, err := bestbuy.CreateBestbuyTask(task, profile, proxy, taskStore.EventBus, task.BestbuyTaskInfo.TaskType, task.BestbuyTaskInfo.LocationID, task.BestbuyTaskInfo.Email, task.BestbuyTaskInfo.Password)
+		bestbuyTask, err := bestbuy.CreateBestbuyTask(task, profile, proxyGroup, taskStore.EventBus, task.BestbuyTaskInfo.TaskType, task.BestbuyTaskInfo.LocationID, task.BestbuyTaskInfo.Email, task.BestbuyTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -119,7 +118,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return queryError
 		}
 		// Create task
-		boxlunchTask, err := boxlunch.CreateBoxlunchTask(task, profile, proxy, taskStore.EventBus)
+		boxlunchTask, err := boxlunch.CreateBoxlunchTask(task, profile, proxyGroup, taskStore.EventBus)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -143,7 +142,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 
 		// Create task
-		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxy, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
+		gamestopTask, err := gamestop.CreateGamestopTask(task, profile, proxyGroup, taskStore.EventBus, task.GamestopTaskInfo.TaskType, task.GamestopTaskInfo.Email, task.GamestopTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -165,7 +164,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return e.New(errors.MissingTaskFieldsError)
 		}
 		// Create task
-		disneyTask, err := disney.CreateDisneyTask(task, profile, proxy, taskStore.EventBus, task.DisneyTaskInfo.TaskType, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password)
+		disneyTask, err := disney.CreateDisneyTask(task, profile, proxyGroup, taskStore.EventBus, task.DisneyTaskInfo.TaskType, task.DisneyTaskInfo.Email, task.DisneyTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -182,7 +181,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return queryError
 		}
 		// Create task
-		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxy, taskStore.EventBus)
+		hottopicTask, err := hottopic.CreateHottopicTask(task, profile, proxyGroup, taskStore.EventBus)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -215,7 +214,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 
 		// Create task
-		shopifyTask, err := shopify.CreateShopifyTask(task, profile, proxy, taskStore.EventBus, task.ShopifyTaskInfo.CouponCode, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.SitePassword, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
+		shopifyTask, err := shopify.CreateShopifyTask(task, profile, proxyGroup, taskStore.EventBus, task.ShopifyTaskInfo.CouponCode, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.SitePassword, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -237,7 +236,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return e.New(errors.MissingTaskFieldsError)
 		}
 		// Create task
-		targetTask, err := target.CreateTargetTask(task, profile, proxy, taskStore.EventBus, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
+		targetTask, err := target.CreateTargetTask(task, profile, proxyGroup, taskStore.EventBus, task.TargetTaskInfo.Email, task.TargetTaskInfo.Password, task.TargetTaskInfo.PaymentType)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -254,7 +253,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return queryError
 		}
 		// Create task
-		walmartTask, err := walmart.CreateWalmartTask(task, profile, proxy, taskStore.EventBus)
+		walmartTask, err := walmart.CreateWalmartTask(task, profile, proxyGroup, taskStore.EventBus)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -454,7 +453,7 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 	return false
 }
 
-func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy entities.Proxy) bool {
+func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy *entities.Proxy) bool {
 	switch task.TaskRetailer {
 	case enums.Amazon:
 		if amazonTask, ok := taskStore.AmazonTasks[task.ID]; ok {

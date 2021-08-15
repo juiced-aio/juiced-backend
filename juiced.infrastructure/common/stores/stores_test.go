@@ -136,7 +136,7 @@ var taskgroupAsset = entities.TaskGroup{
 
 var monitorAsset = base.Monitor{
 	TaskGroup: &taskgroupAsset,
-	Proxy: entities.Proxy{
+	Proxy: &entities.Proxy{
 		Host: "localhost",
 		Port: "3000",
 	},

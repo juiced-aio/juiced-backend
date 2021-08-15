@@ -44,7 +44,7 @@ func (task *Task) CreateAmazonEmbed(status enums.OrderStatus, imageURL string) [
 				},
 				{
 					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+					Value: "||" + " " + util.ProxyCleaner(*task.Task.Proxy) + " " + "||",
 				},
 				{
 					Name:  "Offer Listing ID:",
