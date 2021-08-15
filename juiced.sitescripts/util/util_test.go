@@ -100,16 +100,16 @@ func TestTernaryOperator(t *testing.T) {
 
 func TestProxyCleaner(t *testing.T) {
 	type args struct {
-		proxyDirty entities.Proxy
+		proxyDirty *entities.Proxy
 	}
 	tests := []struct {
 		name string
 		args args
 		want string
 	}{
-		{name: "Incorrect Proxy", args: args{proxyDirty: entities.Proxy{}}, want: ""},
-		{name: "User-Pass Proxy", args: args{proxyDirty: entities.Proxy{Host: "randomprovider", Port: "3000", Username: "admin", Password: "password"}}, want: "http://admin:password@randomprovider:3000"},
-		{name: "Regular Proxy", args: args{proxyDirty: entities.Proxy{Host: "randomprovider", Port: "3000"}}, want: "http://randomprovider:3000"},
+		{name: "Incorrect Proxy", args: args{proxyDirty: &entities.Proxy{}}, want: ""},
+		{name: "User-Pass Proxy", args: args{proxyDirty: &entities.Proxy{Host: "randomprovider", Port: "3000", Username: "admin", Password: "password"}}, want: "http://admin:password@randomprovider:3000"},
+		{name: "Regular Proxy", args: args{proxyDirty: &entities.Proxy{Host: "randomprovider", Port: "3000"}}, want: "http://randomprovider:3000"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -182,7 +182,7 @@ func TestGetPXCookie(t *testing.T) {
 	walmartURL := "https://www.walmart.com"
 	type args struct {
 		site  string
-		proxy entities.Proxy
+		proxy *entities.Proxy
 	}
 	tests := []struct {
 		name    string
@@ -205,7 +205,7 @@ func TestGetPXCookie(t *testing.T) {
 
 func TestGetPXCapCookie(t *testing.T) {
 	walmartURL := "https://www.walmart.com"
-	_, pxValues, _, err := GetPXCookie(walmartURL, entities.Proxy{}, &CancellationToken{})
+	_, pxValues, _, err := GetPXCookie(walmartURL, &entities.Proxy{}, &CancellationToken{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,14 +230,14 @@ func TestGetPXCapCookie(t *testing.T) {
 		vid   string
 		uuid  string
 		token string
-		proxy entities.Proxy
+		proxy *entities.Proxy
 	}
 	tests := []struct {
 		name    string
 		args    args
 		wantErr bool
 	}{
-		{name: "Success", args: args{site: walmartURL, setID: pxValues.SetID, vid: pxValues.VID, uuid: pxValues.UUID, token: tokenInfo.Token, proxy: entities.Proxy{}}, wantErr: false},
+		{name: "Success", args: args{site: walmartURL, setID: pxValues.SetID, vid: pxValues.VID, uuid: pxValues.UUID, token: tokenInfo.Token, proxy: &entities.Proxy{}}, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

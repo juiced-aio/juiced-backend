@@ -230,7 +230,7 @@ func TernaryOperator(condition bool, trueOutcome interface{}, falseOutcome inter
 	return falseOutcome
 }
 
-func ProxyCleaner(proxyDirty entities.Proxy) string {
+func ProxyCleaner(proxyDirty *entities.Proxy) string {
 	if proxyDirty.Host == "" {
 		return ""
 	}
@@ -488,7 +488,7 @@ func SendCheckout(task base.Task, itemName string, imageURL string, sku string, 
 	})
 }
 
-func GetPXCookie(site string, proxy entities.Proxy, cancellationToken *CancellationToken) (string, PXValues, bool, error) {
+func GetPXCookie(site string, proxy *entities.Proxy, cancellationToken *CancellationToken) (string, PXValues, bool, error) {
 	var pxValues PXValues
 
 	_, userInfo, err := queries.GetUserInfo()
@@ -515,7 +515,7 @@ func GetPXCookie(site string, proxy entities.Proxy, cancellationToken *Cancellat
 	}, false, nil
 }
 
-func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy, cancellationToken *CancellationToken) (string, bool, error) {
+func GetPXCapCookie(site, setID, vid, uuid, token string, proxy *entities.Proxy, cancellationToken *CancellationToken) (string, bool, error) {
 	var px3 string
 
 	_, userInfo, err := queries.GetUserInfo()

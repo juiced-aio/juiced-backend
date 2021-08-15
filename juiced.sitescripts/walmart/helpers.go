@@ -30,7 +30,7 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-func SetPXCookie(proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) (util.PXValues, bool, error) {
+func SetPXCookie(proxy *entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) (util.PXValues, bool, error) {
 	px3, pxValues, cancel, err := util.GetPXCookie("walmart", proxy, cancellationToken)
 	if cancel {
 		return pxValues, true, nil
@@ -59,7 +59,7 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client, cancellationToken *u
 	return pxValues, false, nil
 }
 
-func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
+func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy *entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
 	px3, cancel, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, "", proxy, cancellationToken)
 	if cancel {
 		return nil
@@ -133,7 +133,7 @@ func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(*task.Task.Proxy) + " " + "||",
+					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
 				},
 			},
 			Footer: sec.DiscordFooter{

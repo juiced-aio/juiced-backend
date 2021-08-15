@@ -202,7 +202,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return queryError
 		}
 		// Create task
-		neweggTask, err := newegg.CreateNeweggTask(task, profile, proxy, taskStore.EventBus)
+		neweggTask, err := newegg.CreateNeweggTask(task, profile, proxyGroup, taskStore.EventBus)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -281,7 +281,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 
 		// Create task
-		toppsTask, err := topps.CreateToppsTask(task, profile, proxy, taskStore.EventBus, task.ToppsTaskInfo.TaskType, task.ToppsTaskInfo.Email, task.ToppsTaskInfo.Password)
+		toppsTask, err := topps.CreateToppsTask(task, profile, proxyGroup, taskStore.EventBus, task.ToppsTaskInfo.TaskType, task.ToppsTaskInfo.Email, task.ToppsTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}

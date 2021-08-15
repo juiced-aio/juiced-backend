@@ -18,13 +18,13 @@ import (
 )
 
 // CreateNeweggTask takes a Task entity and turns it into a Newegg Task
-func CreateNeweggTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+func CreateNeweggTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus) (Task, error) {
 	neweggTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 	}
 	return neweggTask, nil
@@ -72,11 +72,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	// 1. BecomeGuest

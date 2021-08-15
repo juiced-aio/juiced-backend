@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
@@ -52,7 +53,7 @@ func CreateExtras() (string, string) {
 		return "", ""
 	}
 
-	params := util.CreateParams(map[string]string{
+	params := common.CreateParams(map[string]string{
 		"timestamp": fmt.Sprint(time.Now().Unix()),
 		"nonce":     strings.ToLower(fmt.Sprintf("%X", nonceBytes)),
 		"appId":     "107630",

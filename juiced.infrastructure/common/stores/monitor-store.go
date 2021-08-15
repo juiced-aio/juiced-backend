@@ -196,7 +196,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		neweggMonitor, err := newegg.CreateNeweggMonitor(monitor, proxies, monitorStore.EventBus, monitor.NeweggMonitorInfo.Monitors)
+		neweggMonitor, err := newegg.CreateNeweggMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.NeweggMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -256,7 +256,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		toppsMonitor, err := topps.CreateToppsMonitor(monitor, proxies, monitorStore.EventBus, monitor.ToppsMonitorInfo.Monitors)
+		toppsMonitor, err := topps.CreateToppsMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.ToppsMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}

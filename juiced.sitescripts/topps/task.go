@@ -27,21 +27,24 @@ import (
 var ToppsAccountStore = cmap.New()
 
 // CreateToppsTask takes a Task entity and turns it into a Topps Task
-func CreateToppsTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+func CreateToppsTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	toppsTask := Task{}
 
 	toppsTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		TaskType: taskType,
 		AccountInfo: AccountInfo{
 			Email:    email,
 			Password: password,
 		},
+	}
+	if proxyGroup != nil {
+		toppsTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return toppsTask, nil
 }
@@ -84,11 +87,11 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Scraper = hawk.Init(client, common.HAWK_KEY, false)
+	task.Task.Scraper = hawk.Init(task.Task.Client, common.HAWK_KEY, false)
 
 	// 1. Setup task
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
@@ -300,13 +303,13 @@ func (task *Task) Login() bool {
 	}
 	formKey := elem.Attrs()["value"]
 
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Topps, BaseLoginEndpoint+"/", "login", 0.7, task.Task.Proxy)
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Topps, BaseLoginEndpoint+"/", "login", 0.7, *task.Task.Proxy)
 	if err != nil {
 		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseEndpoint+"/", task.Task.Proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseEndpoint+"/", *task.Task.Proxy)
 		time.Sleep(common.MS_TO_WAIT)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)

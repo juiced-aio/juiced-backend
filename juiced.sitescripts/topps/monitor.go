@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -25,7 +24,7 @@ import (
 var AccountPool = cmap.New()
 
 // CreateToppsMonitor takes a TaskGroup entity and turns it into a Topps Monitor
-func CreateToppsMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.ToppsSingleMonitorInfo) (Monitor, error) {
+func CreateToppsMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.ToppsSingleMonitorInfo) (Monitor, error) {
 	storedToppsMonitors := make(map[string]entities.ToppsSingleMonitorInfo)
 
 	items := []string{}
@@ -37,9 +36,9 @@ func CreateToppsMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy,
 
 	toppsMonitor := Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		Items:        items,
 		ItemWithInfo: storedToppsMonitors,
@@ -77,14 +76,19 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Scraper = hawk.Init(monitorClient, common.HAWK_KEY, false)
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Scraper.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		monitor.Monitor.Scraper = hawk.Init(monitor.Monitor.Client, common.HAWK_KEY, false)
+
+		var proxy *entities.Proxy
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		becameGuest := false
@@ -182,9 +186,6 @@ func (monitor *Monitor) GetItemStock(item string) ToppsInStockData {
 	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
 	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
 	currentScraper := account.Scraper
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&currentScraper.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
-	}
 
 	stockData := ToppsInStockData{}
 	resp, body, err := util.MakeRequest(&util.Request{

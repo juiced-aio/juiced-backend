@@ -62,8 +62,11 @@ func (task *Task) RefreshPX3() {
 	}()
 
 	for {
+		if cancellationToken.Cancel {
+			return
+		}
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(*task.Task.Proxy, &task.Task.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, &cancellationToken)
 			if cancelled {
 				return
 			}
@@ -75,6 +78,7 @@ func (task *Task) RefreshPX3() {
 			task.PXValues = pxValues
 			task.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -345,7 +349,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, *task.Task.Proxy, &task.Task.Client, &cancellationToken)
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
 		return false
@@ -727,6 +731,7 @@ func (task *Task) WaitForEncryptedPaymentInfo() bool {
 		if task.CardInfo.EncryptedPan != "" {
 			return false
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 

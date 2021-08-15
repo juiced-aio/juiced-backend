@@ -213,7 +213,7 @@ func (monitor *Monitor) RefreshPX3() {
 
 	for {
 		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(*monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
 			if cancelled {
 				return
 			}
@@ -259,7 +259,7 @@ func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &monitor.PXValues, *monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
 		return false
