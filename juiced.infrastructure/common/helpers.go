@@ -438,3 +438,14 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 
 	return false
 }
+
+func EncryptValues(key string, values ...string) (encryptedValues []string, _ error) {
+	for _, value := range values {
+		e, err := Aes256Encrypt(value, key)
+		if err != nil {
+			return encryptedValues, err
+		}
+		encryptedValues = append(encryptedValues, e)
+	}
+	return encryptedValues, nil
+}

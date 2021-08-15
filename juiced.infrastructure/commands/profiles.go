@@ -6,6 +6,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 	_ "github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -107,12 +108,21 @@ func CreateProfile(profile entities.Profile) error {
 		return errors.New("database not initialized")
 	}
 
+	encryptedEmail, err := common.Aes256Encrypt(profile.Email, enums.UserKey)
+	if err != nil {
+		return err
+	}
+	encryptedPhoneNumber, err := common.Aes256Encrypt(profile.PhoneNumber, enums.UserKey)
+	if err != nil {
+		return err
+	}
+
 	statement, err := database.Preparex(`INSERT INTO profiles (ID, profileGroupIDsJoined, name, email, phoneNumber, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(profile.ID, profile.ProfileGroupIDsJoined, profile.Name, profile.Email, profile.PhoneNumber, profile.CreationDate)
+	_, err = statement.Exec(profile.ID, profile.ProfileGroupIDsJoined, profile.Name, encryptedEmail, encryptedPhoneNumber, profile.CreationDate)
 	if err != nil {
 		return err
 	}

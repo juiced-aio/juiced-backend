@@ -18,21 +18,24 @@ import (
 )
 
 // CreateGamestopTask takes a Task entity and turns it into a Gamestop Task
-func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	gamestopTask := Task{}
 
 	gamestopTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
 			Password: password,
 		},
 		TaskType: taskType,
+	}
+	if proxyGroup != nil {
+		gamestopTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return gamestopTask, nil
 }
@@ -75,11 +78,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -214,6 +216,11 @@ func (task *Task) Login() bool {
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+
+	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
 	}
 
 	loginResponse := LoginResponse{}

@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -20,7 +18,7 @@ import (
 )
 
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
-func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.WalmartSingleMonitorInfo) (Monitor, error) {
+func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.WalmartSingleMonitorInfo) (Monitor, error) {
 	storedWalmartMonitors := make(map[string]entities.WalmartSingleMonitorInfo)
 	walmartMonitor := Monitor{}
 	ids := []string{}
@@ -33,9 +31,9 @@ func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 
 	walmartMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		IDs:        ids,
 		IDWithInfo: storedWalmartMonitors,
@@ -72,11 +70,11 @@ func (monitor *Monitor) RunMonitor() {
 	}()
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
+
 	}
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -96,10 +94,6 @@ func (monitor *Monitor) RunMonitor() {
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.SettingUpMonitor {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorUpdate, nil)
-	}
-
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 	}
 
 	needToStop := monitor.CheckForStop()
@@ -131,9 +125,13 @@ func (monitor *Monitor) RunSingleMonitor(id string) {
 		return
 	}
 
+	var proxy *entities.Proxy
 	if !common.InSlice(monitor.RunningMonitors, id) {
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		stockData := WalmartInStockData{}
@@ -178,6 +176,7 @@ func (monitor *Monitor) RunSingleMonitor(id string) {
 					break
 				}
 			}
+
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
 			monitor.RunSingleMonitor(id)
@@ -214,7 +213,7 @@ func (monitor *Monitor) RefreshPX3() {
 
 	for {
 		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(*monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
 			if cancelled {
 				return
 			}
@@ -260,7 +259,7 @@ func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &monitor.PXValues, monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &monitor.PXValues, *monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
 		return false

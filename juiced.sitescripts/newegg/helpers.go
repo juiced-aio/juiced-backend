@@ -1,9 +1,10 @@
-package disney
+package newegg
 
 import (
+	"encoding/base64"
 	"fmt"
-	"log"
 	"math/rand"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
@@ -12,16 +13,16 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func BecomeGuest(client *http.Client) bool {
+func BecomeGuest(client http.Client) bool {
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: *client,
+		Client: client,
 		Method: "GET",
 		URL:    BaseEndpoint,
 		RawHeaders: http.RawHeader{
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
 			{"sec-ch-ua-mobile", `?0`},
 			{"upgrade-insecure-requests", `1`},
-			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36`},
 			{"accept", `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9`},
 			{"sec-fetch-site", `none`},
 			{"sec-fetch-mode", `navigate`},
@@ -31,41 +32,54 @@ func BecomeGuest(client *http.Client) bool {
 			{"accept-language", `en-US,en;q=0.9`},
 		},
 	})
-	if err != nil || resp.StatusCode != 200 {
-		if err != nil {
-			log.Println(err.Error())
-		}
+	if resp.StatusCode != 200 || err != nil {
 		return false
 	}
 
 	return true
 }
 
-func RandomString(selection string, length int) (r string) {
-	for i := 0; i < length; i++ {
-		r += string(selection[rand.Intn(len(selection))])
+func CreateExtras() (string, string) {
+	nonceBytes := make([]byte, 16)
+	_, err := rand.Read(nonceBytes)
+	if err != nil {
+		return "", ""
 	}
-	return
+
+	newSign := make([]byte, 16)
+	_, err = rand.Read(newSign)
+	if err != nil {
+		return "", ""
+	}
+
+	params := util.CreateParams(map[string]string{
+		"timestamp": fmt.Sprint(time.Now().Unix()),
+		"nonce":     strings.ToLower(fmt.Sprintf("%X", nonceBytes)),
+		"appId":     "107630",
+	})
+
+	return params, base64.StdEncoding.EncodeToString([]byte(strings.ToLower(fmt.Sprintf("%X", newSign))))
+
 }
 
 // Creates a embed for the DiscordWebhook function
-func (task *Task) CreateDisneyEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+func (task *Task) CreateNeweggEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
 	embeds := []sec.DiscordEmbed{
 		{
 			Fields: []sec.DiscordField{
 				{
 					Name:   "Site:",
-					Value:  "Disney",
+					Value:  "Newegg",
 					Inline: true,
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.TaskInfo.Total),
+					Value:  "$" + fmt.Sprint(task.StockData.Price),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](%v)", task.StockData.PID, task.StockData.ItemURL),
+					Value:  fmt.Sprintf("[%v](%v)", task.StockData.SKU, task.StockData.ItemURL),
 					Inline: true,
 				},
 				{
@@ -73,12 +87,8 @@ func (task *Task) CreateDisneyEmbed(status enums.OrderStatus, imageURL string) [
 					Value: task.StockData.ProductName,
 				},
 				{
-					Name:  "Task Type:",
-					Value: string(task.TaskType),
-				},
-				{
 					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(*task.Task.Proxy) + " " + "||",
+					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
 				},
 			},
 			Footer: sec.DiscordFooter{

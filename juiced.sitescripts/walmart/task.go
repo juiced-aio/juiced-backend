@@ -19,14 +19,17 @@ import (
 )
 
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
-func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus) (Task, error) {
 	walmartTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
+	}
+	if proxyGroup != nil {
+		walmartTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return walmartTask, nil
 }
@@ -60,7 +63,7 @@ func (task *Task) RefreshPX3() {
 
 	for {
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(*task.Task.Proxy, &task.Task.Client, &cancellationToken)
 			if cancelled {
 				return
 			}
@@ -115,11 +118,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()
@@ -343,7 +345,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
 	}
-	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, task.Task.Proxy, &task.Task.Client, &cancellationToken)
+	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, *task.Task.Proxy, &task.Task.Client, &cancellationToken)
 	if err != nil {
 		log.Println(err.Error())
 		return false

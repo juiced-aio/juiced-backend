@@ -22,32 +22,8 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestCreateClient(t *testing.T) {
-	type args struct {
-		proxy []entities.Proxy
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{name: "Success W/O Proxy", wantErr: false},
-		{name: "Success W Regular Proxy", args: args{proxy: []entities.Proxy{{Host: "localhost", Port: "3000"}}}, wantErr: false},
-		{name: "Success W User-Pass Proxy", args: args{proxy: []entities.Proxy{{Host: "localhost", Port: "3000", Username: "admin", Password: "password"}}}, wantErr: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := CreateClient(tt.args.proxy...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateClient() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-	}
-}
-
 func TestMakeRequest(t *testing.T) {
-	client, _ := CreateClient()
+	client := *http.DefaultClient
 	type args struct {
 		requestInfo *Request
 	}
@@ -175,7 +151,7 @@ func TestFindInString(t *testing.T) {
 
 func TestNewAbck(t *testing.T) {
 	//entities.Proxy{Host: "localhost", Port: "8888"}
-	client, _ := CreateClient()
+	client := *http.DefaultClient
 	bestbuyURL := "https://www.bestbuy.com/"
 	akamaiURL := "https://www.bestbuy.com/Z43Qo-szvQDrezPFUWbI-oosQsM/9YOhShXz9OX1/D3ZjQkgC/EWdSfC5P/DlY"
 	type args struct {
@@ -269,6 +245,28 @@ func TestGetPXCapCookie(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetPXCapCookie() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+		})
+	}
+}
+
+func TestRandomLeastUsedProxy(t *testing.T) {
+	type args struct {
+		proxies []*entities.Proxy
+	}
+	tests := []struct {
+		args args
+		want *entities.Proxy
+	}{
+		{args{}, &entities.Proxy{}},
+		{args{[]*entities.Proxy{{Count: 1}}}, &entities.Proxy{Count: 1}},
+		{args{[]*entities.Proxy{{Count: 1}, {Count: 2}, {Count: 3}}}, &entities.Proxy{Count: 1}},
+		{args{[]*entities.Proxy{{Count: 1}, {Count: 2}, {Count: 2}, {Count: 2}, {Count: 3}, {Count: 3}, {Count: 3}, {Count: 3}}}, &entities.Proxy{Count: 1}},
+	}
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			if got := RandomLeastUsedProxy(tt.args.proxies); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RandomLeastUsedProxy() = %v, want %v", got, tt.want)
 			}
 		})
 	}

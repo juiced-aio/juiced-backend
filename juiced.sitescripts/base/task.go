@@ -10,7 +10,8 @@ import (
 type Task struct {
 	Task       *entities.Task
 	Profile    entities.Profile
-	Proxy      entities.Proxy
+	Proxy      *entities.Proxy
+	ProxyGroup *entities.ProxyGroup
 	EventBus   *events.EventBus
 	Client     http.Client
 	Scraper    hawk.Scraper

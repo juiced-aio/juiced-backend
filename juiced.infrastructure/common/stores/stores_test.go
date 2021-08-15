@@ -14,6 +14,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/newegg"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/topps"
@@ -88,6 +89,17 @@ var hottopicMonitorInfoAsset = &entities.HottopicMonitorInfo{
 	},
 }
 
+var neweggMonitorAsset = map[string]*newegg.Monitor{"newegg_test_monitor": {Monitor: monitorAsset, SKUs: []string{"N82E16820147790"}}}
+
+var neweggMonitorInfoAsset = &entities.NeweggMonitorInfo{
+	Monitors: []entities.NeweggSingleMonitorInfo{
+		{
+			SKU:      "N82E16820147790",
+			MaxPrice: -1,
+		},
+	},
+}
+
 var shopifyMonitorAsset = map[string]*shopify.Monitor{"shopify_test_monitor": {Monitor: monitorAsset, VIDs: []string{""}}}
 
 var shopifyMonitorInfoAsset = &entities.ShopifyMonitorInfo{
@@ -148,7 +160,7 @@ var taskgroupAsset = entities.TaskGroup{
 
 var monitorAsset = base.Monitor{
 	TaskGroup: &taskgroupAsset,
-	Proxy: entities.Proxy{
+	Proxy: &entities.Proxy{
 		Host: "localhost",
 		Port: "3000",
 	},
@@ -178,6 +190,8 @@ func TestStartMonitor(t *testing.T) {
 		{"disney_test", enums.Disney, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"gamestop_test", enums.GameStop, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"hottopic_test", enums.HotTopic, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"newegg_test", enums.Newegg, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"shopify_test", enums.Shopify, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"topps_test", enums.Topps, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"walmart_test", enums.Walmart, &MonitorStore{}, args{&taskgroupAsset}, nil},
@@ -204,6 +218,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.HotTopic:
 			tt.monitorStore.HottopicMonitors = hottopicMonitorAsset
 			tt.args.monitor.HottopicMonitorInfo = hottopicMonitorInfoAsset
+		case enums.Newegg:
+			tt.monitorStore.NeweggMonitors = neweggMonitorAsset
+			tt.args.monitor.NeweggMonitorInfo = neweggMonitorInfoAsset
 		case enums.Shopify:
 			tt.monitorStore.ShopifyMonitors = shopifyMonitorAsset
 			tt.args.monitor.ShopifyMonitorInfo = shopifyMonitorInfoAsset

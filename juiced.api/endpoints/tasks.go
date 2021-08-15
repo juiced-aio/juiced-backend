@@ -212,6 +212,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		Colors string `json:"colors"`
 	}
 	type GamestopUpdateInfo struct{}
+	type NeweggUpdateInfo struct{}
 	type HottopicUpdateInfo struct {
 		Sizes  string `json:"sizes"`
 		Colors string `json:"colors"`
@@ -239,6 +240,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		DisneyUpdateInfo    DisneyUpdateInfo   `json:"disneyUpdateInfo"`
 		GamestopUpdateInfo  GamestopUpdateInfo `json:"gamestopUpdateInfo"`
 		HottopicUpdateInfo  HottopicUpdateInfo `json:"hottopicUpdateInfo"`
+		NeweggUpdateInfo    NeweggUpdateInfo   `json:"neweggUpdateInfo"`
 		ShopifyUpdateInfo   ShopifyUpdateInfo  `json:"shopifyUpdateInfo"`
 		TargetUpdateInfo    TargetUpdateInfo   `json:"targetUpdateInfo"`
 		ToppsUpdateInfo     ToppsUpdateInfo    `json:"toppsUpdateInfo"`
@@ -357,6 +359,22 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 									newMonitors = append(newMonitors, monitor)
 								}
 								taskGroup.HottopicMonitorInfo.Monitors = newMonitors
+							}
+
+						case enums.Newegg:
+							newMonitors := make([]entities.NeweggSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, sku := range skus {
+									monitor := entities.NeweggSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										SKU:         sku,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+								taskGroup.NeweggMonitorInfo.Monitors = newMonitors
 							}
 
 						case enums.Shopify:
@@ -753,6 +771,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		DisneyTaskInfo     *entities.DisneyTaskInfo   `json:"disneyTaskInfo"`
 		GamestopTaskInfo   *entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo   *entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		NeweggTaskInfo     *entities.NeweggTaskInfo   `json:"neweggTaskInfo"`
 		ShopifyTaskInfo    *entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
 		TargetTaskInfo     *entities.TargetTaskInfo   `json:"targetTaskInfo"`
 		ToppsTaskInfo      *entities.ToppsTaskInfo    `json:"toppsTaskInfo"`
@@ -796,6 +815,9 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 
 				case enums.HotTopic:
 					task.HottopicTaskInfo = createTaskRequestInfo.HottopicTaskInfo
+
+				case enums.Newegg:
+					task.NeweggTaskInfo = createTaskRequestInfo.NeweggTaskInfo
 
 				case enums.Shopify:
 					task.ShopifyTaskInfo = createTaskRequestInfo.ShopifyTaskInfo
@@ -904,6 +926,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		DisneyTaskInfo   entities.DisneyTaskInfo   `json:"disneyTaskInfo"`
 		GamestopTaskInfo entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		NeweggTaskInfo   entities.NeweggTaskInfo   `json:"neweggTaskInfo"`
 		ShopifyTaskInfo  entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
 		TargetTaskInfo   entities.TargetTaskInfo   `json:"targetTaskInfo"`
 		ToppsTaskInfo    entities.ToppsTaskInfo    `json:"toppsTaskInfo"`
@@ -978,6 +1001,8 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 
 								case enums.HotTopic:
 									// TODO @silent
+
+								case enums.Newegg:
 
 								case enums.Shopify:
 									if updateTasksRequestInfo.ShopifyTaskInfo.CouponCode != "DO_NOT_UPDATE" {

@@ -9,8 +9,8 @@ import (
 
 type Monitor struct {
 	TaskGroup  *entities.TaskGroup
-	Proxy      entities.Proxy
-	Proxies    []entities.Proxy
+	Proxy      *entities.Proxy
+	ProxyGroup *entities.ProxyGroup
 	EventBus   *events.EventBus
 	Client     http.Client
 	Scraper    hawk.Scraper

@@ -1,12 +1,13 @@
-package gamestop
+package newegg
 
 import (
 	"fmt"
-	"strconv"
-	"strings"
+	"math/rand"
 	"sync"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -15,29 +16,29 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-// CreateGamestopMonitor takes a TaskGroup entity and turns it into a Gamestop Monitor
-func CreateGamestopMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.GamestopSingleMonitorInfo) (Monitor, error) {
-	storedGamestopMonitors := make(map[string]entities.GamestopSingleMonitorInfo)
-	gamestopMonitor := Monitor{}
+// CreateNeweggMonitor takes a TaskGroup entity and turns it into a Newegg Monitor
+func CreateNeweggMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.NeweggSingleMonitorInfo) (Monitor, error) {
+	storedNeweggMonitors := make(map[string]entities.NeweggSingleMonitorInfo)
+	neweggMonitor := Monitor{}
 	skus := []string{}
 
 	for _, monitor := range singleMonitors {
-		storedGamestopMonitors[monitor.SKU] = monitor
+		storedNeweggMonitors[monitor.SKU] = monitor
 		skus = append(skus, monitor.SKU)
 	}
 
-	gamestopMonitor = Monitor{
+	neweggMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup:  taskGroup,
-			ProxyGroup: proxyGroup,
-			EventBus:   eventBus,
+			TaskGroup: taskGroup,
+			Proxies:   proxies,
+			EventBus:  eventBus,
 		},
 
 		SKUs:        skus,
-		SKUWithInfo: storedGamestopMonitors,
+		SKUWithInfo: storedNeweggMonitors,
 	}
 
-	return gamestopMonitor, nil
+	return neweggMonitor, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
@@ -55,6 +56,7 @@ func (monitor *Monitor) CheckForStop() bool {
 	return false
 }
 
+// So theres a few different ways we can make the monitoring groups for Amazon, for now I'm going to make it so it runs a goroutine for each ASIN
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -69,17 +71,14 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		err := monitor.Monitor.CreateClient()
+		monitorClient, err := util.CreateClient()
 		if err != nil {
 			return
 		}
+		monitor.Monitor.Client = monitorClient
 
-		var proxy *entities.Proxy
-		if monitor.Monitor.ProxyGroup != nil {
-			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-				monitor.Monitor.UpdateProxy(proxy)
-			}
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
 
 		becameGuest := false
@@ -88,7 +87,7 @@ func (monitor *Monitor) RunMonitor() {
 			if needToStop {
 				return
 			}
-			becameGuest = BecomeGuest(&monitor.Monitor.Client)
+			becameGuest = BecomeGuest(monitor.Monitor.Client)
 			if !becameGuest {
 				time.Sleep(1000 * time.Millisecond)
 			}
@@ -124,12 +123,8 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			// TODO @silent: Re-run this specific monitor
 		}()
 
-		var proxy *entities.Proxy
-		if monitor.Monitor.ProxyGroup != nil {
-			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-				monitor.Monitor.UpdateProxy(proxy)
-			}
+		if len(monitor.Monitor.Proxies) > 0 {
+			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
 
 		stockData := monitor.GetSKUStock(sku)
@@ -148,7 +143,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
 				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
 		} else {
@@ -163,66 +158,54 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 					break
 				}
 			}
-
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(sku)
 		}
 	}
 }
 
-// Checks if the item is instock and fills the monitors EventInfo if so
-func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
-	stockData := GamestopInStockData{}
-	monitorResponse := MonitorResponse{}
+func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
+	stockData := NeweggInStockData{}
+	var monitorResponse MonitorResponse
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    fmt.Sprintf(MonitorEndpoint, sku),
-		RawHeaders: [][2]string{
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"accept", "*/*"},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", BaseEndpoint},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
+		RawHeaders: http.RawHeader{
+			{"pragma", `no-cache`},
+			{"cache-control", `no-cache`},
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"upgrade-insecure-requests", `1`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36`},
+			{"accept", `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9`},
+			{"sec-fetch-site", `none`},
+			{"sec-fetch-mode", `navigate`},
+			{"sec-fetch-user", `?1`},
+			{"sec-fetch-dest", `document`},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
 		},
+
 		ResponseBodyStruct: &monitorResponse,
 	})
-	if err != nil {
+	if err != nil || resp.StatusCode != 200 {
+		fmt.Println(err)
 		return stockData
 	}
 
-	switch resp.StatusCode {
-	case 200:
-		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-		if monitorResponse.Gtmdata.Productinfo.Availability == "Available" || monitorResponse.Product.Availability.ButtonText == "Pre-Order" {
-			stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
-			inBudget := monitor.SKUWithInfo[sku].MaxPrice >= int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
-			if inBudget {
-				for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
-					stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])
-				}
-				stockData.SKU = sku
-				stockData.ItemName = monitorResponse.Gtmdata.Productinfo.Name
-				stockData.PID = monitorResponse.Gtmdata.Productinfo.SKU
-
-				stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
-
-				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
-
-			}
-			return stockData
-		} else {
-			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
-			return stockData
-		}
-	default:
-		return stockData
+	monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
+	if price := monitorResponse.MainItem.FinalPrice; float64(monitor.SKUWithInfo[sku].MaxPrice) > price {
+		stockData.SKU = sku
+		stockData.ItemNumber = monitorResponse.MainItem.Item
+		stockData.ProductName = monitorResponse.MainItem.Description.ProductName
+		stockData.ItemURL = "https://www.newegg.com/p/" + sku
+		stockData.ImageURL = "https://c1.neweggimages.com/NeweggImage/ProductImage/" + monitorResponse.MainItem.Image.Normal.ImageName
+		stockData.Price = price
+		monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+	} else {
+		monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 	}
 
+	return stockData
 }

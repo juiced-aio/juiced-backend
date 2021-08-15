@@ -2,11 +2,14 @@ package queries
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // GetAllProfileGroups returns all ProfileGroup objects from the database
@@ -90,11 +93,62 @@ func GetAllProfiles() ([]entities.Profile, error) {
 
 	defer rows.Close()
 	for rows.Next() {
+		var encryptedEmail string
+		var encryptedPhoneNumber string
+
 		tempProfile := entities.Profile{}
 		err = rows.StructScan(&tempProfile)
 		if err != nil {
 			return profiles, err
 		}
+
+		decryptedEmail, err := common.Aes256Decrypt(tempProfile.Email, enums.UserKey)
+		if err == nil {
+			tempProfile.Email = decryptedEmail
+		} else {
+			encryptedEmail, err = common.Aes256Encrypt(tempProfile.Email, enums.UserKey)
+			if err != nil {
+				return profiles, err
+			}
+		}
+		decryptedPhoneNumber, err := common.Aes256Decrypt(tempProfile.PhoneNumber, enums.UserKey)
+		if err == nil {
+			tempProfile.PhoneNumber = decryptedPhoneNumber
+		} else {
+			encryptedPhoneNumber, err = common.Aes256Encrypt(tempProfile.PhoneNumber, enums.UserKey)
+			if err != nil {
+				return profiles, err
+			}
+		}
+
+		if encryptedEmail != "" {
+			go func() {
+				for {
+					_, err = database.Exec(fmt.Sprintf(`UPDATE profiles SET email = "%v" WHERE ID = "%v"`, encryptedEmail, tempProfile.ID))
+					if err != nil {
+						time.Sleep(1 * time.Second)
+						continue
+					} else {
+						break
+					}
+				}
+			}()
+		}
+
+		if encryptedPhoneNumber != "" {
+			go func() {
+				for {
+					_, err = database.Exec(fmt.Sprintf(`UPDATE profiles SET phoneNumber = "%v" WHERE ID = "%v"`, encryptedPhoneNumber, tempProfile.ID))
+					if err != nil {
+						time.Sleep(1 * time.Second)
+						continue
+					} else {
+						break
+					}
+				}
+			}()
+		}
+
 		tempProfile, err = GetProfileInfo(tempProfile)
 		if err != nil {
 			return profiles, err
