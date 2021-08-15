@@ -16,6 +16,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/newegg"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
@@ -34,6 +35,7 @@ type TaskStore struct {
 	DisneyTasks   map[string]*disney.Task
 	GamestopTasks map[string]*gamestop.Task
 	HottopicTasks map[string]*hottopic.Task
+	NeweggTasks   map[string]*newegg.Task
 	ShopifyTasks  map[string]*shopify.Task
 	TargetTasks   map[string]*target.Task
 	WalmartTasks  map[string]*walmart.Task
@@ -187,6 +189,23 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 		// Add task to store
 		taskStore.HottopicTasks[task.ID] = &hottopicTask
+
+	case enums.Newegg:
+		// Check if task exists in store already
+		if _, ok := taskStore.NeweggTasks[task.ID]; ok && !task.UpdateTask {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Create task
+		neweggTask, err := newegg.CreateNeweggTask(task, profile, proxy, taskStore.EventBus)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.NeweggTasks[task.ID] = &neweggTask
 
 	case enums.Shopify:
 		// Check if task exists in store already
@@ -425,6 +444,13 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 				}
 			}
 
+		case enums.Newegg:
+			if neweggTask, ok := taskStore.NeweggTasks[taskID]; ok {
+				if !neweggTask.Task.StopFlag {
+					return true
+				}
+			}
+
 		case enums.Shopify:
 			if shopifyTask, ok := taskStore.ShopifyTasks[taskID]; ok {
 				if !shopifyTask.Task.StopFlag {
@@ -491,6 +517,12 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy *entities
 		}
 		return true
 
+	case enums.Newegg:
+		if neweggTask, ok := taskStore.NeweggTasks[task.ID]; ok {
+			neweggTask.Task.Proxy = proxy
+		}
+		return true
+
 	case enums.Shopify:
 		if shopifyTask, ok := taskStore.ShopifyTasks[task.ID]; ok {
 			shopifyTask.Task.Proxy = proxy
@@ -540,6 +572,9 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 	case enums.HotTopic:
 		go taskStore.HottopicTasks[taskID].RunTask()
 
+	case enums.Newegg:
+		go taskStore.NeweggTasks[taskID].RunTask()
+
 	case enums.Shopify:
 		go taskStore.ShopifyTasks[taskID].RunTask()
 
@@ -563,6 +598,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 		DisneyTasks:   make(map[string]*disney.Task),
 		GamestopTasks: make(map[string]*gamestop.Task),
 		HottopicTasks: make(map[string]*hottopic.Task),
+		NeweggTasks:   make(map[string]*newegg.Task),
 		ShopifyTasks:  make(map[string]*shopify.Task),
 		TargetTasks:   make(map[string]*target.Task),
 		WalmartTasks:  make(map[string]*walmart.Task),
@@ -588,6 +624,12 @@ func GetTaskStatuses() map[string]string {
 		taskStatuses[taskID] = task.Task.Task.TaskStatus
 	}
 	for taskID, task := range taskStore.HottopicTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.NeweggTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.ShopifyTasks {
 		taskStatuses[taskID] = task.Task.Task.TaskStatus
 	}
 	for taskID, task := range taskStore.TargetTasks {

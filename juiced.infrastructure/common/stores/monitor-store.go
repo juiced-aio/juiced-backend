@@ -16,6 +16,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/newegg"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
@@ -30,6 +31,7 @@ type MonitorStore struct {
 	DisneyMonitors   map[string]*disney.Monitor
 	GamestopMonitors map[string]*gamestop.Monitor
 	HottopicMonitors map[string]*hottopic.Monitor
+	NeweggMonitors   map[string]*newegg.Monitor
 	ShopifyMonitors  map[string]*shopify.Monitor
 	TargetMonitors   map[string]*target.Monitor
 	WalmartMonitors  map[string]*walmart.Monitor
@@ -178,6 +180,25 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 
 		monitorStore.HottopicMonitors[monitor.GroupID] = &hottopicMonitor
 
+	case enums.Newegg:
+		if _, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return nil
+		}
+
+		if queryError != nil {
+			return queryError
+		}
+
+		if len(monitor.NeweggMonitorInfo.Monitors) == 0 {
+			return e.New(errors.NoMonitorsError)
+		}
+
+		neweggMonitor, err := newegg.CreateNeweggMonitor(monitor, proxies, monitorStore.EventBus, monitor.NeweggMonitorInfo.Monitors)
+		if err != nil {
+			return e.New(errors.CreateMonitorError + err.Error())
+		}
+		monitorStore.NeweggMonitors[monitor.GroupID] = &neweggMonitor
+
 	case enums.Shopify:
 		if _, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return nil
@@ -297,6 +318,12 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 		}
 		go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
 
+	case enums.Newegg:
+		if neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok {
+			neweggMonitor.Monitor.StopFlag = false
+		}
+		go monitorStore.NeweggMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.StopFlag = false
@@ -351,6 +378,11 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 	case enums.HotTopic:
 		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
 			hottopicMonitor.Monitor.StopFlag = true
+		}
+
+	case enums.Newegg:
+		if neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok {
+			neweggMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Shopify:
@@ -414,6 +446,13 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 			hottopicMonitor.Monitor.Proxy = proxy
 		}
 		return true
+
+	case enums.Newegg:
+		if neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok {
+			neweggMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.Proxy = proxy
@@ -555,6 +594,24 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 	}
 }
 
+func (monitorStore *MonitorStore) CheckNeweggMonitorStock() {
+	for {
+		for monitorID, neweggMonitor := range monitorStore.NeweggMonitors {
+			if len(neweggMonitor.InStock) > 0 {
+				taskGroup := neweggMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if neweggTask, ok := taskStore.NeweggTasks[taskID]; ok {
+						if ok && neweggTask.Task.Task.TaskGroupID == monitorID {
+							neweggTask.StockData = neweggMonitor.InStock[rand.Intn(len(neweggMonitor.InStock))]
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(1 * time.Second / 100)
+	}
+}
+
 func (monitorStore *MonitorStore) CheckShopifyMonitorStock() {
 	for {
 		for monitorID, shopifyMonitor := range monitorStore.ShopifyMonitors {
@@ -638,6 +695,8 @@ func InitMonitorStore(eventBus *events.EventBus) {
 		DisneyMonitors:   make(map[string]*disney.Monitor),
 		GamestopMonitors: make(map[string]*gamestop.Monitor),
 		HottopicMonitors: make(map[string]*hottopic.Monitor),
+		ShopifyMonitors:  make(map[string]*shopify.Monitor),
+		NeweggMonitors:   make(map[string]*newegg.Monitor),
 		TargetMonitors:   make(map[string]*target.Monitor),
 		WalmartMonitors:  make(map[string]*walmart.Monitor),
 
@@ -650,6 +709,7 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckDisneyMonitorStock()
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
+	go monitorStore.CheckNeweggMonitorStock()
 	go monitorStore.CheckShopifyMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
 	go monitorStore.CheckWalmartMonitorStock()
@@ -670,6 +730,12 @@ func GetMonitorStatus(groupID string) string {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.HottopicMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.NeweggMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.ShopifyMonitors[groupID]; ok {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.TargetMonitors[groupID]; ok {

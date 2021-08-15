@@ -70,17 +70,18 @@ type Retailer = string
 
 // Choose one per Task/Monitor
 const (
-	Target      Retailer = "Target"
-	Walmart     Retailer = "Walmart"
 	Amazon      Retailer = "Amazon"
 	BestBuy     Retailer = "BestBuy"
+	BigCartel   Retailer = "BigCartel"
+	BoxLunch    Retailer = "BoxLunch"
 	Disney      Retailer = "Disney"
 	GameStop    Retailer = "GameStop"
-	Shopify     Retailer = "Shopify"
-	BigCartel   Retailer = "BigCartel"
-	SquareSpace Retailer = "SquareSpace"
 	HotTopic    Retailer = "HotTopic"
-	BoxLunch    Retailer = "BoxLunch"
+	Newegg      Retailer = "Newegg"
+	Shopify     Retailer = "Shopify"
+	SquareSpace Retailer = "SquareSpace"
+	Target      Retailer = "Target"
+	Walmart     Retailer = "Walmart"
 )
 
 type ShopifyRetailer = string

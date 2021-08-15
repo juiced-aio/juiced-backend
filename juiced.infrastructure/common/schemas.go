@@ -95,6 +95,13 @@ var hotwheelsTaskInfosSchema = `
 	)
 `
 
+var neweggTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS neweggTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT
+	)
+`
+
 var shopifyTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
 		taskID TEXT,
@@ -224,6 +231,42 @@ var gamestopSingleMonitorInfosSchema = `
 		maxPrice INTEGER
 	)
 `
+
+var hottopicMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var hottopicSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
+	)
+`
+
+var neweggMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS neweggMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var neweggSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS neweggSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		sku TEXT,
+		maxPrice INTEGER
+	)
+`
+
 var shopifyMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS shopifyMonitorInfos (
 		ID TEXT,
@@ -274,25 +317,6 @@ var walmartSingleMonitorInfosSchema = `
 		id TEXT,
 		maxPrice INTEGER,
 		soldByWalmart INTEGER,
-		monitorType TEXT
-	)
-`
-
-var hottopicMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS hottopicMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT
-	)
-`
-
-var hottopicSingleMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS hottopicSingleMonitorInfos (
-		monitorID TEXT,
-		taskGroupID TEXT,
-		pid TEXT,
-		size TEXT,
-		color TEXT,
-		maxPrice INTEGER,
 		monitorType TEXT
 	)
 `
@@ -429,8 +453,9 @@ var schemas = []string{
 	bestbuyTaskInfosSchema,
 	boxlunchTaskInfosSchema,
 	disneyTaskInfosSchema,
-	hottopicTaskInfosSchema,
 	gamestopTaskInfosSchema,
+	hottopicTaskInfosSchema,
+	neweggTaskInfosSchema,
 	targetTaskInfosSchema,
 	walmartTaskInfosSchema,
 
@@ -452,6 +477,8 @@ var schemas = []string{
 	gamestopSingleMonitorInfosSchema,
 	hottopicMonitorInfosSchema,
 	hottopicSingleMonitorInfosSchema,
+	neweggMonitorInfosSchema,
+	neweggSingleMonitorInfosSchema,
 	shopifyMonitorInfosSchema,
 	shopifySingleMonitorInfosSchema,
 	targetMonitorInfosSchema,
