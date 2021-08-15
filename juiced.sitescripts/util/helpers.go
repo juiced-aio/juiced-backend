@@ -32,6 +32,7 @@ import (
 
 // Adds base headers to the request
 func AddBaseHeaders(request *http.Request) {
+	request.UserAgent()
 	request.Header.Set("Connection", "keep-alive")
 	request.Header.Set("Sec-Ch-Ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"")
 	request.Header.Set("X-Application-Name", "web")
@@ -121,7 +122,13 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 		}
 		log.Println()
 	}
-	response, err := requestInfo.Client.Do(request)
+
+	var response *http.Response
+	if requestInfo.Client.Transport != nil {
+		response, err = requestInfo.Client.Do(request)
+	} else {
+		response, err = requestInfo.Scraper.Do(request)
+	}
 	ok = HandleErrors(err, RequestDoError)
 	if !ok {
 		return response, "", err
@@ -213,15 +220,6 @@ func SendDiscordWebhook(discordWebhook string, embeds []Embed) bool {
 
 	fmt.Println(string(body))
 	return response.StatusCode >= 200 && response.StatusCode < 300
-}
-
-// CreateParams turns a string->string map into a URL parameter string
-func CreateParams(paramsLong map[string]string) string {
-	params := url.Values{}
-	for key, value := range paramsLong {
-		params.Add(key, value)
-	}
-	return params.Encode()
 }
 
 // TernaryOperator is a make-shift ternary operator since Golang doesn't have one out of the box

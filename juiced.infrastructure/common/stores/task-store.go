@@ -19,6 +19,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/newegg"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
+	"backend.juicedbot.io/juiced.sitescripts/topps"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 	// Future sitescripts will be imported here
 )
@@ -38,6 +39,7 @@ type TaskStore struct {
 	NeweggTasks   map[string]*newegg.Task
 	ShopifyTasks  map[string]*shopify.Task
 	TargetTasks   map[string]*target.Task
+	ToppsTasks    map[string]*topps.Task
 	WalmartTasks  map[string]*walmart.Task
 
 	// Future sitescripts will have a field here
@@ -262,6 +264,30 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		// Add task to store
 		taskStore.TargetTasks[task.ID] = &targetTask
 
+	case enums.Topps:
+		// Check if task exists in store already
+		if _, ok := taskStore.ToppsTasks[task.ID]; ok && !task.UpdateTask {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.ToppsTaskInfo.TaskType == emptyString || (task.ToppsTaskInfo.TaskType == enums.TaskTypeAccount && (task.ToppsTaskInfo.Email == emptyString || task.ToppsTaskInfo.Password == emptyString)) {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+
+		// Create task
+		toppsTask, err := topps.CreateToppsTask(task, profile, proxy, taskStore.EventBus, task.ToppsTaskInfo.TaskType, task.ToppsTaskInfo.Email, task.ToppsTaskInfo.Password)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.ToppsTasks[task.ID] = &toppsTask
+
 	case enums.Walmart:
 		// Check if task exists in store already
 		if _, ok := taskStore.WalmartTasks[task.ID]; ok && !task.UpdateTask {
@@ -323,7 +349,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 				warnings = append(warnings, err.Error())
 			}
 		} else {
-
+			warnings = append(warnings, err.Error())
 		}
 	}
 
@@ -466,6 +492,13 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 				}
 			}
 
+		case enums.Topps:
+			if toppsTask, ok := taskStore.ToppsTasks[taskID]; ok {
+				if !toppsTask.Task.StopFlag {
+					return true
+				}
+			}
+
 		case enums.Walmart:
 			if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
 				if !walmartTask.Task.StopFlag {
@@ -535,6 +568,12 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy *entities
 		}
 		return true
 
+	case enums.Topps:
+		if toppsTask, ok := taskStore.ToppsTasks[task.ID]; ok {
+			toppsTask.Task.Proxy = proxy
+		}
+		return true
+
 	case enums.Walmart:
 		if walmartTask, ok := taskStore.WalmartTasks[task.ID]; ok {
 			walmartTask.Task.Proxy = proxy
@@ -581,6 +620,9 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 	case enums.Target:
 		go taskStore.TargetTasks[taskID].RunTask()
 
+	case enums.Topps:
+		go taskStore.ToppsTasks[taskID].RunTask()
+
 	case enums.Walmart:
 		go taskStore.WalmartTasks[taskID].RunTask()
 
@@ -601,6 +643,7 @@ func InitTaskStore(eventBus *events.EventBus) {
 		NeweggTasks:   make(map[string]*newegg.Task),
 		ShopifyTasks:  make(map[string]*shopify.Task),
 		TargetTasks:   make(map[string]*target.Task),
+		ToppsTasks:    make(map[string]*topps.Task),
 		WalmartTasks:  make(map[string]*walmart.Task),
 
 		EventBus: eventBus,
@@ -633,6 +676,9 @@ func GetTaskStatuses() map[string]string {
 		taskStatuses[taskID] = task.Task.Task.TaskStatus
 	}
 	for taskID, task := range taskStore.TargetTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.ToppsTasks {
 		taskStatuses[taskID] = task.Task.Task.TaskStatus
 	}
 	for taskID, task := range taskStore.WalmartTasks {

@@ -81,6 +81,7 @@ const (
 	Shopify     Retailer = "Shopify"
 	SquareSpace Retailer = "SquareSpace"
 	Target      Retailer = "Target"
+	Topps       Retailer = "Topps"
 	Walmart     Retailer = "Walmart"
 )
 

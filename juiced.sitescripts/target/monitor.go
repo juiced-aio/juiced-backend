@@ -168,7 +168,7 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 
 	getTCINStockResponse := GetTCINStockResponse{}
 
-	params := util.CreateParams(getTCINStockRequest)
+	params := common.CreateParams(getTCINStockRequest)
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             monitor.Monitor.Client,
 		Method:             "GET",
@@ -247,7 +247,7 @@ func (monitor *Monitor) GetTCINInfo(sku string) (string, string, bool) {
 	if monitor.StoreID == "" {
 		storeID = "199"
 	}
-	params := util.CreateParams(map[string]string{
+	params := common.CreateParams(map[string]string{
 		"key":                             "ff457966e64d5e877fdbad070f276d18ecec4a01",
 		"tcin":                            sku,
 		"store_id":                        storeID,

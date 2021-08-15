@@ -55,6 +55,11 @@ func (taskStore *TaskStore) SetStopFlag(retailer enums.Retailer, ID string, flag
 			targetTask.Task.StopFlag = flag
 		}
 
+	case enums.Topps:
+		if toppsTask, ok := taskStore.ToppsTasks[ID]; ok {
+			toppsTask.Task.StopFlag = flag
+		}
+
 	case enums.Walmart:
 		if walmartTask, ok := taskStore.WalmartTasks[ID]; ok {
 			walmartTask.Task.StopFlag = flag

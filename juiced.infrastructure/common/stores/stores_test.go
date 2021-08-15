@@ -17,6 +17,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/newegg"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
+	"backend.juicedbot.io/juiced.sitescripts/topps"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 )
 
@@ -124,6 +125,17 @@ var targetMonitorInfoAsset = &entities.TargetMonitorInfo{
 	MonitorType: enums.SKUMonitor,
 }
 
+var toppsMonitorAsset = map[string]*topps.Monitor{"topps_test_monitor": {Monitor: monitorAsset, Items: []string{"on-card-auto-to-25-greg-maddux-2021-mlb-topps-now-reg-turn-back-the-clock-card-134b"}}}
+
+var toppsMonitorInfoAsset = &entities.ToppsMonitorInfo{
+	Monitors: []entities.ToppsSingleMonitorInfo{
+		{
+			Item:     "on-card-auto-to-25-greg-maddux-2021-mlb-topps-now-reg-turn-back-the-clock-card-134b",
+			MaxPrice: -1,
+		},
+	},
+}
+
 var walmartMonitorAsset = map[string]*walmart.Monitor{"walmart_test_monitor": {Monitor: monitorAsset, IDs: []string{"544900177"}}}
 
 var walmartMonitorInfoAsset = &entities.WalmartMonitorInfo{
@@ -181,6 +193,7 @@ func TestStartMonitor(t *testing.T) {
 		{"newegg_test", enums.Newegg, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"shopify_test", enums.Shopify, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"topps_test", enums.Topps, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"walmart_test", enums.Walmart, &MonitorStore{}, args{&taskgroupAsset}, nil},
 	}
 
@@ -214,6 +227,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.Target:
 			tt.monitorStore.TargetMonitors = targetMonitorsAsset
 			tt.args.monitor.TargetMonitorInfo = targetMonitorInfoAsset
+		case enums.Topps:
+			tt.monitorStore.ToppsMonitors = toppsMonitorAsset
+			tt.args.monitor.ToppsMonitorInfo = toppsMonitorInfoAsset
 		case enums.Walmart:
 			tt.monitorStore.WalmartMonitors = walmartMonitorAsset
 			tt.args.monitor.WalmartMonitorInfo = walmartMonitorInfoAsset

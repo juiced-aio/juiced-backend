@@ -124,6 +124,16 @@ var targetTaskInfosSchema = `
 	)
 `
 
+var toppsTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS toppsTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT,
+		taskType TEXT
+	)
+`
+
 var walmartTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
 		taskID TEXT,
@@ -303,6 +313,22 @@ var targetSingleMonitorInfosSchema = `
 	)
 `
 
+var toppsMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS toppsMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var toppsSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS toppsSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		item TEXT,
+		maxPrice INTEGER
+	)
+`
+
 var walmartMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
 		ID TEXT,
@@ -457,6 +483,7 @@ var schemas = []string{
 	hottopicTaskInfosSchema,
 	neweggTaskInfosSchema,
 	targetTaskInfosSchema,
+	toppsTaskInfosSchema,
 	walmartTaskInfosSchema,
 
 	// Shopify
@@ -483,6 +510,8 @@ var schemas = []string{
 	shopifySingleMonitorInfosSchema,
 	targetMonitorInfosSchema,
 	targetSingleMonitorInfosSchema,
+	toppsMonitorInfosSchema,
+	toppsSingleMonitorInfosSchema,
 	walmartMonitorInfosSchema,
 	walmartSingleMonitorInfosSchema,
 

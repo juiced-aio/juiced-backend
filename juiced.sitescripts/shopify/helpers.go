@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
@@ -110,7 +111,7 @@ func BecomeGuest(client http.Client, siteURL, sitePassword string) bool {
 			return false
 		}
 	} else {
-		paramsString := util.CreateParams(map[string]string{
+		paramsString := common.CreateParams(map[string]string{
 			"form_type": "storefront_password",
 			"utf8":      "✓",
 			"password":  sitePassword,

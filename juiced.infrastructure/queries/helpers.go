@@ -346,6 +346,26 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 			task.TargetTaskInfo = &tempTaskInfo
 		}
 
+	case enums.Topps:
+		statement, err := database.Preparex(`SELECT * FROM toppsTaskInfos WHERE taskID = @p1`)
+		if err != nil {
+			return task, err
+		}
+		rows, err := statement.Queryx(task.ID)
+		if err != nil {
+			return task, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempTaskInfo := entities.ToppsTaskInfo{}
+			err = rows.StructScan(&tempTaskInfo)
+			if err != nil {
+				return task, err
+			}
+			task.ToppsTaskInfo = &tempTaskInfo
+		}
+
 	case enums.Walmart:
 		statement, err := database.Preparex(`SELECT * FROM walmartTaskInfos WHERE taskID = @p1`)
 		if err != nil {
@@ -765,6 +785,46 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.TargetMonitorInfo.Monitors = append(taskGroup.TargetMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
+	case enums.Topps:
+		statement, err := database.Preparex(`SELECT * FROM toppsMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempMonitorInfo := entities.ToppsMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.ToppsMonitorInfo = &tempMonitorInfo
+		}
+		statement, err = database.Preparex(`SELECT * FROM toppsSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.ToppsMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tempSingleMonitor := entities.ToppsSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.ToppsMonitorInfo.Monitors = append(taskGroup.ToppsMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	case enums.Walmart:
