@@ -71,6 +71,7 @@ type Task struct {
 	CheckoutInfo CheckoutInfo
 	AccountInfo  AccountInfo
 }
+
 type AccountInfo struct {
 	Email    string
 	Password string
@@ -132,9 +133,14 @@ type MonitorResponse struct {
 	Gtmdata   Gtmdata         `json:"gtmData"`
 	Mccevents [][]interface{} `json:"__mccEvents"`
 }
+type Availability struct {
+	ButtonText string `json:"buttonText"`
+}
+
 type Product struct {
-	ID                 string `json:"id"`
-	Selectedproducturl string `json:"selectedProductUrl"`
+	Availability       Availability `json:"availability"`
+	ID                 string       `json:"id"`
+	Selectedproducturl string       `json:"selectedProductUrl"`
 }
 
 type Productinfo struct {

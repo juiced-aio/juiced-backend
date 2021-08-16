@@ -17,13 +17,13 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/stealth"
 	cmap "github.com/orcaman/concurrent-map"
 )
@@ -38,24 +38,23 @@ import (
 var TargetAccountStore = cmap.New()
 
 // CreateTargetTask takes a Task entity and turns it into a Target Task
-func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, storeID string, paymentType enums.PaymentType) (Task, error) {
-	targetTask := Task{}
-
-	targetTask = Task{
+func CreateTargetTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string, paymentType enums.PaymentType) (Task, error) {
+	targetTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
-		CheckoutType: checkoutType,
 		AccountInfo: AccountInfo{
 			Email:          email,
 			Password:       password,
 			PaymentType:    paymentType,
 			DefaultCardCVV: profile.CreditCard.CVV,
-			StoreID:        storeID,
 		},
+	}
+	if proxyGroup != nil {
+		targetTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return targetTask, nil
 }
@@ -96,11 +95,14 @@ func (task *Task) RunTask() {
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
 	}()
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Setup task
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
@@ -169,12 +171,13 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
+	doNotRetry := false
 	for !setPaymentInfo {
 		needToStop := task.CheckForStop()
-		if needToStop {
+		if needToStop || doNotRetry {
 			return
 		}
-		setPaymentInfo = task.SetPaymentInfo()
+		setPaymentInfo, doNotRetry = task.SetPaymentInfo()
 		if !setPaymentInfo {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
@@ -211,7 +214,7 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusSuccess:
 		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
 	case enums.OrderStatusFailed:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
 	}
@@ -242,7 +245,7 @@ func (task *Task) Setup() bool {
 					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
 						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
 					}
-					time.Sleep(1 * time.Millisecond)
+					time.Sleep(common.MS_TO_WAIT)
 				}
 			} else {
 				inMap = false
@@ -300,7 +303,7 @@ func (task *Task) Login() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	proxyCleaned := common.ProxyCleaner(*task.Task.Proxy)
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 
@@ -352,24 +355,26 @@ func (task *Task) Login() bool {
 	go func() {
 		// Wait until either the StopFlag is set to true or the BrowserComplete flag is set to true
 		for !task.Task.StopFlag && !task.BrowserComplete {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
 		if task.Task.StopFlag {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
+			browserWithCancel.MustClose()
 			cancel()
 		}
 	}()
 
 	browserWithCancel.MustIgnoreCertErrors(true)
 
-	defer func() { browserWithCancel.MustClose(); task.BrowserComplete = true }()
+	defer func() { browserWithCancel.MustClose() }()
 
 	if userPassProxy {
 		go browserWithCancel.MustHandleAuth(username, password)()
 	}
 
 	page := stealth.MustPage(browserWithCancel)
-
+	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
 	page.MustNavigate(LoginEndpoint).MustWaitLoad()
 	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
 		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
@@ -392,6 +397,15 @@ func (task *Task) Login() bool {
 
 	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
 	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
+
+	time.Sleep(1 * time.Second / 2)
+	if strings.Contains(page.MustHTML(), "That password is incorrect.") {
+		task.PublishEvent("Incorrect password", enums.TaskUpdate)
+		return false
+	} else if strings.Contains(page.MustHTML(), "Your account is locked") {
+		task.PublishEvent("Account is locked", enums.TaskUpdate)
+		return false
+	}
 	page.MustElement("#account").MustWaitLoad()
 	page.MustWaitLoad()
 	page.MustNavigate(BaseEndpoint).MustWaitLoad()
@@ -432,6 +446,7 @@ func (task *Task) Login() bool {
 	task.AccountInfo.Cookies = cookies
 	task.Task.Client.Jar.SetCookies(baseURL, cookies)
 	TargetAccountStore.Set(task.AccountInfo.Email, task.Task.Client)
+	task.BrowserComplete = true
 
 	return true
 }
@@ -542,7 +557,7 @@ func (task *Task) WaitForMonitor() bool {
 			task.TCIN = task.InStockData.TCIN
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -717,7 +732,11 @@ func (task *Task) SetShippingInfo() bool {
 }
 
 // SetPaymentInfo sets the payment info to prepare for placing an order
-func (task *Task) SetPaymentInfo() bool {
+func (task *Task) SetPaymentInfo() (bool, bool) {
+	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
+		return false, true
+	}
+
 	var data []byte
 	var err error
 	var endpoint string
@@ -758,7 +777,7 @@ func (task *Task) SetPaymentInfo() bool {
 	}
 	ok := util.HandleErrors(err, util.RequestMarshalBodyError)
 	if !ok {
-		return false
+		return false, false
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -770,16 +789,16 @@ func (task *Task) SetPaymentInfo() bool {
 		Data:               data,
 	})
 	if err != nil {
-		return false
+		return false, false
 	}
 
 	// TODO: Handle various responses
 	// Not much to handle here
 
 	if resp.StatusCode != 200 {
-		return false
+		return false, false
 	}
-	return true
+	return true, false
 }
 
 // PlaceOrder completes the checkout process
@@ -835,19 +854,15 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 			success = false
 		}
 	}
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return success, status, false
-	}
 
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
-		UserInfo:     user,
 		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		ImageURL:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath,
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,
 		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,

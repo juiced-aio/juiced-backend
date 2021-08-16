@@ -6,9 +6,13 @@ type MonitorStatus = string
 // Idle --> WaitingForProductData --> WaitingForInStock* --> SendingProductInfoToTasks --> WaitingForOutOfStock --> WaitingForInStock --> ...
 const (
 	MonitorIdle               MonitorStatus = "Idle"
+	SettingUpMonitor          MonitorStatus = "Setting up"
+	BypassingPXMonitor        MonitorStatus = "Bypassing PX"
 	WaitingForProductData     MonitorStatus = "Searching"
+	ProxyBanned               MonitorStatus = "Proxy is banned"
 	UnableToFindProduct       MonitorStatus = "Product not found"
 	WaitingForInStock         MonitorStatus = "Out of stock"
+	OutOfPriceRange           MonitorStatus = "Out of price range"
 	SendingProductInfoToTasks MonitorStatus = "Sending to tasks"
 	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
 )
@@ -34,6 +38,7 @@ const (
 	SettingUp           TaskStatus = "Setting up task"
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
 	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
+	BypassingPX         TaskStatus = "Bypassing PX"
 	AddingToCart        TaskStatus = "Adding to cart"
 	GettingCartInfo     TaskStatus = "Getting cart info"
 	SettingCartInfo     TaskStatus = "Setting cart info"
@@ -46,6 +51,7 @@ const (
 	SettingOrderInfo    TaskStatus = "Setting order info"
 	CheckingOut         TaskStatus = "Checking out"
 	CheckedOut          TaskStatus = "Checked out!"
+	CardDeclined        TaskStatus = "Card declined"
 	CheckoutFailed      TaskStatus = "Checkout failed"
 )
 
@@ -64,17 +70,31 @@ type Retailer = string
 
 // Choose one per Task/Monitor
 const (
-	Target      Retailer = "Target"
-	Walmart     Retailer = "Walmart"
 	Amazon      Retailer = "Amazon"
 	BestBuy     Retailer = "BestBuy"
-	GameStop    Retailer = "GameStop"
-	HotWheels   Retailer = "HotWheels"
-	Shopify     Retailer = "Shopify"
 	BigCartel   Retailer = "BigCartel"
-	SquareSpace Retailer = "SquareSpace"
+	BoxLunch    Retailer = "BoxLunch"
+	Disney      Retailer = "Disney"
+	GameStop    Retailer = "GameStop"
 	HotTopic    Retailer = "HotTopic"
+	Newegg      Retailer = "Newegg"
+	Shopify     Retailer = "Shopify"
+	SquareSpace Retailer = "SquareSpace"
+	Target      Retailer = "Target"
+	Topps       Retailer = "Topps"
+	Walmart     Retailer = "Walmart"
 )
+
+type ShopifyRetailer = string
+
+const (
+	GenericShopify ShopifyRetailer = "GenericShopify"
+	HotWheels      ShopifyRetailer = "HotWheels"
+)
+
+var ShopifySiteURLs = map[ShopifyRetailer]string{
+	HotWheels: "https://creations.mattel.com",
+}
 
 // MonitorType is used to choose which monitoring method to use (SKU / URL / keywords)
 type MonitorType = string

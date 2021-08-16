@@ -5,8 +5,10 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
 type ErrorType = string
@@ -28,6 +30,7 @@ type AddHeadersFunction func(*http.Request, ...string)
 // Request parameters
 type Request struct {
 	Client             http.Client
+	Scraper            hawk.Scraper
 	Method             string
 	URL                string
 	Headers            http.Header
@@ -38,6 +41,10 @@ type Request struct {
 	RequestBodyStruct  interface{}
 	ResponseBodyStruct interface{}
 	RandOpt            string
+}
+
+type CancellationToken struct {
+	Cancel bool
 }
 
 // Discord webhook details
@@ -88,10 +95,12 @@ type SensorResponse struct {
 type ProcessCheckoutInfo struct {
 	BaseTask     base.Task
 	Success      bool
+	Status       enums.OrderStatus
 	Content      string
 	Embeds       []sec.DiscordEmbed
 	UserInfo     entities.UserInfo
 	ItemName     string
+	ImageURL     string
 	Sku          string
 	Retailer     string
 	Price        float64
