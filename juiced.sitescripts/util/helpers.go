@@ -231,6 +231,9 @@ func TernaryOperator(condition bool, trueOutcome interface{}, falseOutcome inter
 }
 
 func ProxyCleaner(proxyDirty *entities.Proxy) string {
+	if proxyDirty == nil {
+		return ""
+	}
 	if proxyDirty.Host == "" {
 		return ""
 	}
@@ -505,7 +508,7 @@ func GetPXCookie(site string, proxy *entities.Proxy, cancellationToken *Cancella
 		if cancellationToken.Cancel {
 			return "", pxValues, true, err
 		}
-		return GetPXCookie(site, proxy, cancellationToken)
+		return "", pxValues, false, errors.New("retry")
 	}
 
 	return pxResponse.PX3, PXValues{
@@ -531,7 +534,7 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy *entities.Proxy,
 		if cancellationToken.Cancel {
 			return "", true, err
 		}
-		return GetPXCapCookie(site, setID, vid, uuid, token, proxy, cancellationToken)
+		return "", false, errors.New("retry")
 	}
 	return px3, false, nil
 }

@@ -189,12 +189,9 @@ func (monitor *Monitor) RefreshPX3() {
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
-		if r := recover(); r != nil {
-			monitor.RefreshPX3()
-		}
 	}()
 
-	cancellationToken := util.CancellationToken{Cancel: false}
+	cancellationToken := &util.CancellationToken{Cancel: false}
 	go func() {
 		for {
 			select {
@@ -211,20 +208,32 @@ func (monitor *Monitor) RefreshPX3() {
 		}
 	}()
 
+	retry := true
+	for retry {
+		retry = monitor.RefreshPX3Helper(cancellationToken)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (monitor *Monitor) RefreshPX3Helper(cancellationToken *util.CancellationToken) bool {
 	for {
+		if cancellationToken.Cancel {
+			return false
+		}
 		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, cancellationToken)
 			if cancelled {
-				return
+				return false
 			}
 
 			if err != nil {
 				log.Println("Error setting px cookie for monitor: " + err.Error())
-				panic(err)
+				return true
 			}
 			monitor.PXValues = pxValues
 			monitor.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -232,9 +241,6 @@ func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
-		if r := recover(); r != nil {
-			monitor.HandlePXCap(resp, redirectURL)
-		}
 	}()
 
 	cancellationToken := util.CancellationToken{Cancel: false}
