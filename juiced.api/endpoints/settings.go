@@ -249,3 +249,26 @@ func RemoveAccountsEndpoint(response http.ResponseWriter, request *http.Request)
 	}
 	json.NewEncoder(response).Encode(result)
 }
+
+func TestWebhookEndpoint(response http.ResponseWriter, request *http.Request) {
+	response.Header().Set("content-type", "application/json")
+	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	errorsList := make([]string, 0)
+
+	type TestWebhookRequest struct {
+		SuccessWebhook string `json:"successWebhook"`
+		FailureWebhook string `json:"failureWebhook"`
+	}
+
+	body, err := ioutil.ReadAll(request.Body)
+	if err == nil {
+		testWebhookRequest := TestWebhookRequest{}
+		err = json.Unmarshal(body, &testWebhookRequest)
+		if err == nil {
+
+		}
+	} else {
+		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
+	}
+
+}
