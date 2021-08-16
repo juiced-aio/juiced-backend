@@ -9,6 +9,10 @@ import (
 
 // GetUserInfo returns the user's UserInfo from the SQL database
 func GetUserInfo() (int, entities.UserInfo, error) {
+	if entities.UserInfo_.Email != "" {
+		return 0, entities.UserInfo_, nil
+	}
+
 	userInfo := entities.UserInfo{}
 	numRows := 0
 
@@ -29,5 +33,8 @@ func GetUserInfo() (int, entities.UserInfo, error) {
 			return numRows, userInfo, err
 		}
 	}
+
+	entities.UserInfo_ = userInfo
+
 	return numRows, userInfo, err
 }
