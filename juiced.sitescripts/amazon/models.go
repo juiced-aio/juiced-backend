@@ -49,7 +49,7 @@ type Monitor struct {
 type AmazonInStockData struct {
 	ASIN        string
 	OfferID     string
-	Price       int
+	Price       float64
 	ItemName    string
 	AntiCsrf    string
 	PID         string

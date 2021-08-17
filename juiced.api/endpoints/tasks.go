@@ -212,11 +212,14 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		Colors string `json:"colors"`
 	}
 	type GamestopUpdateInfo struct{}
+	type NeweggUpdateInfo struct{}
 	type HottopicUpdateInfo struct {
 		Sizes  string `json:"sizes"`
 		Colors string `json:"colors"`
 	}
 	type ShopifyUpdateInfo struct{}
+
+	type ToppsUpdateInfo struct{}
 	type TargetUpdateInfo struct {
 		CheckoutType enums.CheckoutType `json:"checkoutType"`
 		StoreID      string             `json:"storeID"`
@@ -237,8 +240,10 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		DisneyUpdateInfo    DisneyUpdateInfo   `json:"disneyUpdateInfo"`
 		GamestopUpdateInfo  GamestopUpdateInfo `json:"gamestopUpdateInfo"`
 		HottopicUpdateInfo  HottopicUpdateInfo `json:"hottopicUpdateInfo"`
+		NeweggUpdateInfo    NeweggUpdateInfo   `json:"neweggUpdateInfo"`
 		ShopifyUpdateInfo   ShopifyUpdateInfo  `json:"shopifyUpdateInfo"`
 		TargetUpdateInfo    TargetUpdateInfo   `json:"targetUpdateInfo"`
+		ToppsUpdateInfo     ToppsUpdateInfo    `json:"toppsUpdateInfo"`
 		WalmartUpdateInfo   WalmartUpdateInfo  `json:"walmartUpdateInfo"`
 	}
 
@@ -356,6 +361,22 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 								taskGroup.HottopicMonitorInfo.Monitors = newMonitors
 							}
 
+						case enums.Newegg:
+							newMonitors := make([]entities.NeweggSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, sku := range skus {
+									monitor := entities.NeweggSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										SKU:         sku,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+								taskGroup.NeweggMonitorInfo.Monitors = newMonitors
+							}
+
 						case enums.Shopify:
 							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
@@ -388,6 +409,22 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 								}
 								taskGroup.TargetMonitorInfo.StoreID = updateTaskGroupRequestInfo.TargetUpdateInfo.StoreID
 								taskGroup.TargetMonitorInfo.Monitors = newMonitors
+							}
+
+						case enums.Topps:
+							newMonitors := make([]entities.ToppsSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								items := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, item := range items {
+									monitor := entities.ToppsSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										Item:        item,
+										MaxPrice:    maxPrice,
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+								taskGroup.ToppsMonitorInfo.Monitors = newMonitors
 							}
 
 						case enums.Walmart:
@@ -734,8 +771,10 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		DisneyTaskInfo     *entities.DisneyTaskInfo   `json:"disneyTaskInfo"`
 		GamestopTaskInfo   *entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo   *entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		NeweggTaskInfo     *entities.NeweggTaskInfo   `json:"neweggTaskInfo"`
 		ShopifyTaskInfo    *entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
 		TargetTaskInfo     *entities.TargetTaskInfo   `json:"targetTaskInfo"`
+		ToppsTaskInfo      *entities.ToppsTaskInfo    `json:"toppsTaskInfo"`
 		WalmartTaskInfo    *entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 	}
 
@@ -777,6 +816,9 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				case enums.HotTopic:
 					task.HottopicTaskInfo = createTaskRequestInfo.HottopicTaskInfo
 
+				case enums.Newegg:
+					task.NeweggTaskInfo = createTaskRequestInfo.NeweggTaskInfo
+
 				case enums.Shopify:
 					task.ShopifyTaskInfo = createTaskRequestInfo.ShopifyTaskInfo
 					taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
@@ -789,6 +831,9 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 
 				case enums.Target:
 					task.TargetTaskInfo = createTaskRequestInfo.TargetTaskInfo
+
+				case enums.Topps:
+					task.ToppsTaskInfo = createTaskRequestInfo.ToppsTaskInfo
 
 				case enums.Walmart:
 					task.WalmartTaskInfo = createTaskRequestInfo.WalmartTaskInfo
@@ -881,8 +926,10 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		DisneyTaskInfo   entities.DisneyTaskInfo   `json:"disneyTaskInfo"`
 		GamestopTaskInfo entities.GamestopTaskInfo `json:"gamestopTaskInfo"`
 		HottopicTaskInfo entities.HottopicTaskInfo `json:"hottopicTaskInfo"`
+		NeweggTaskInfo   entities.NeweggTaskInfo   `json:"neweggTaskInfo"`
 		ShopifyTaskInfo  entities.ShopifyTaskInfo  `json:"shopifyTaskInfo"`
 		TargetTaskInfo   entities.TargetTaskInfo   `json:"targetTaskInfo"`
+		ToppsTaskInfo    entities.ToppsTaskInfo    `json:"toppsTaskInfo"`
 		WalmartTaskInfo  entities.WalmartTaskInfo  `json:"walmartTaskInfo"`
 	}
 
@@ -955,6 +1002,8 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								case enums.HotTopic:
 									// TODO @silent
 
+								case enums.Newegg:
+
 								case enums.Shopify:
 									if updateTasksRequestInfo.ShopifyTaskInfo.CouponCode != "DO_NOT_UPDATE" {
 										task.ShopifyTaskInfo.CouponCode = updateTasksRequestInfo.ShopifyTaskInfo.CouponCode
@@ -978,6 +1027,17 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 									}
 									if singleTask || updateTasksRequestInfo.TargetTaskInfo.Password != "" {
 										task.TargetTaskInfo.Password = updateTasksRequestInfo.TargetTaskInfo.Password
+									}
+
+								case enums.Topps:
+									if updateTasksRequestInfo.ToppsTaskInfo.TaskType != "DO_NOT_UPDATE" {
+										task.ToppsTaskInfo.TaskType = updateTasksRequestInfo.ToppsTaskInfo.TaskType
+									}
+									if singleTask || updateTasksRequestInfo.ToppsTaskInfo.Email != "" {
+										task.ToppsTaskInfo.Email = updateTasksRequestInfo.ToppsTaskInfo.Email
+									}
+									if singleTask || updateTasksRequestInfo.ToppsTaskInfo.Password != "" {
+										task.ToppsTaskInfo.Password = updateTasksRequestInfo.ToppsTaskInfo.Password
 									}
 
 								case enums.Walmart:

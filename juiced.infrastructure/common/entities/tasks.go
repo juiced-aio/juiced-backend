@@ -3,6 +3,8 @@ package entities
 import (
 	"encoding/json"
 
+	"backend.juicedbot.io/juiced.client/http"
+
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
@@ -26,8 +28,10 @@ type Task struct {
 	DisneyTaskInfo   *DisneyTaskInfo   `json:"disneyTaskInfo,omitempty"`
 	GamestopTaskInfo *GamestopTaskInfo `json:"gamestopTaskInfo,omitempty"`
 	HottopicTaskInfo *HottopicTaskInfo `json:"hottopicTaskInfo,omitempty"`
+	NeweggTaskInfo   *NeweggTaskInfo   `json:"neweggTaskInfo,omitempty"`
 	ShopifyTaskInfo  *ShopifyTaskInfo  `json:"shopifyTaskInfo,omitempty"`
 	TargetTaskInfo   *TargetTaskInfo   `json:"targetTaskInfo,omitempty"`
+	ToppsTaskInfo    *ToppsTaskInfo    `json:"toppsTaskInfo,omitempty"`
 	WalmartTaskInfo  *WalmartTaskInfo  `json:"walmartTaskInfo,omitempty"`
 	// Future sitescripts will have a field here
 }
@@ -82,6 +86,11 @@ type HotWheelsTaskInfo struct {
 	Password    string `json:"password" db:"password"`
 }
 
+type NeweggTaskInfo struct {
+	TaskID      string `json:"taskID" db:"taskID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+}
+
 type ShopifyTaskInfo struct {
 	TaskID            string                `json:"taskID" db:"taskID"`
 	TaskGroupID       string                `json:"taskGroupID" db:"taskGroupID"`
@@ -99,6 +108,14 @@ type TargetTaskInfo struct {
 	Email        string             `json:"email" db:"email"`
 	Password     string             `json:"password" db:"password"`
 	PaymentType  enums.PaymentType  `json:"paymentType" db:"paymentType"`
+}
+
+type ToppsTaskInfo struct {
+	TaskID      string         `json:"taskID" db:"taskID"`
+	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
+	Email       string         `json:"email" db:"email"`
+	Password    string         `json:"password" db:"password"`
+	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
 }
 
 type WalmartTaskInfo struct {
@@ -142,8 +159,10 @@ type TaskGroupWithTasks struct {
 	DisneyMonitorInfo   *DisneyMonitorInfo   `json:"disneyMonitorInfo,omitempty"`
 	GamestopMonitorInfo *GamestopMonitorInfo `json:"gamestopMonitorInfo,omitempty"`
 	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo,omitempty"`
+	NeweggMonitorInfo   *NeweggMonitorInfo   `json:"neweggMonitorInfo,omitempty"`
 	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo,omitempty"`
 	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo,omitempty"`
+	ToppsMonitorInfo    *ToppsMonitorInfo    `json:"toppsMonitorInfo,omitempty"`
 	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo,omitempty"`
 
 	// Future sitescripts will have a field here
@@ -173,43 +192,13 @@ type TaskGroup struct {
 	DisneyMonitorInfo   *DisneyMonitorInfo   `json:"disneyMonitorInfo,omitempty"`
 	GamestopMonitorInfo *GamestopMonitorInfo `json:"gamestopMonitorInfo,omitempty"`
 	HottopicMonitorInfo *HottopicMonitorInfo `json:"hottopicMonitorInfo,omitempty"`
+	NeweggMonitorInfo   *NeweggMonitorInfo   `json:"neweggMonitorInfo,omitempty"`
 	ShopifyMonitorInfo  *ShopifyMonitorInfo  `json:"shopifyMonitorInfo,omitempty"`
 	TargetMonitorInfo   *TargetMonitorInfo   `json:"targetMonitorInfo,omitempty"`
+	ToppsMonitorInfo    *ToppsMonitorInfo    `json:"toppsMonitorInfo,omitempty"`
 	WalmartMonitorInfo  *WalmartMonitorInfo  `json:"walmartMonitorInfo,omitempty"`
 
 	// Future sitescripts will have a field here
-}
-
-type TargetSingleMonitorInfo struct {
-	MonitorID    string             `json:"monitorID" db:"monitorID"`
-	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
-	TCIN         string             `json:"tcin" db:"tcin"`
-	MaxPrice     int                `json:"maxPrice" db:"maxPrice"`
-	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
-}
-
-// TargetMonitorInfo is a class that holds Target-specific details for a single monitor
-type TargetMonitorInfo struct {
-	ID          string                    `json:"ID" db:"ID"`
-	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
-	Monitors    []TargetSingleMonitorInfo `json:"monitors"`
-	StoreID     string                    `json:"storeID" db:"storeID"`
-	MonitorType enums.MonitorType         `json:"monitorType" db:"monitorType"`
-}
-
-type WalmartMonitorInfo struct {
-	ID          string                     `json:"ID" db:"ID"`
-	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
-	Monitors    []WalmartSingleMonitorInfo `json:"monitors"`
-}
-
-type WalmartSingleMonitorInfo struct {
-	MonitorID     string            `json:"monitorID" db:"monitorID"`
-	TaskGroupID   string            `json:"taskGroupID" db:"taskGroupID"`
-	ID            string            `json:"id" db:"id"`
-	MaxPrice      int               `json:"maxPrice" db:"maxPrice"`
-	SoldByWalmart bool              `json:"soldByWalmart" db:"soldByWalmart"`
-	MonitorType   enums.MonitorType `json:"monitorType" db:"monitorType"`
 }
 
 type AmazonSingleMonitorInfo struct {
@@ -219,6 +208,7 @@ type AmazonSingleMonitorInfo struct {
 	ASIN        string            `json:"asin" db:"asin"`
 	OFID        string            `json:"ofid" db:"ofid"`
 	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
+	Client      http.Client
 }
 
 type AmazonMonitorInfo struct {
@@ -270,6 +260,19 @@ type DisneyMonitorInfo struct {
 	Monitors    []DisneySingleMonitorInfo `json:"monitors"`
 }
 
+type GamestopSingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	SKU         string `json:"sku" db:"sku"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
+type GamestopMonitorInfo struct {
+	ID          string                      `json:"ID" db:"ID"`
+	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []GamestopSingleMonitorInfo `json:"monitors"`
+}
+
 type HottopicSingleMonitorInfo struct {
 	MonitorID   string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`
@@ -286,17 +289,17 @@ type HottopicMonitorInfo struct {
 	Monitors    []HottopicSingleMonitorInfo `json:"monitors"`
 }
 
-type GamestopSingleMonitorInfo struct {
+type NeweggSingleMonitorInfo struct {
 	MonitorID   string `json:"monitorID" db:"monitorID"`
 	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
 	SKU         string `json:"sku" db:"sku"`
 	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
 }
 
-type GamestopMonitorInfo struct {
-	ID          string                      `json:"ID" db:"ID"`
-	TaskGroupID string                      `json:"taskGroupID" db:"taskGroupID"`
-	Monitors    []GamestopSingleMonitorInfo `json:"monitors"`
+type NeweggMonitorInfo struct {
+	ID          string                    `json:"ID" db:"ID"`
+	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []NeweggSingleMonitorInfo `json:"monitors"`
 }
 
 type ShopifySingleMonitorInfo struct {
@@ -312,6 +315,51 @@ type ShopifyMonitorInfo struct {
 	SiteURL      string                     `json:"siteURL" db:"siteURL"`
 	SitePassword string                     `json:"sitePassword" db:"sitePassword"`
 	Monitors     []ShopifySingleMonitorInfo `json:"monitors"`
+}
+
+type TargetSingleMonitorInfo struct {
+	MonitorID    string             `json:"monitorID" db:"monitorID"`
+	TaskGroupID  string             `json:"taskGroupID" db:"taskGroupID"`
+	TCIN         string             `json:"tcin" db:"tcin"`
+	MaxPrice     int                `json:"maxPrice" db:"maxPrice"`
+	CheckoutType enums.CheckoutType `json:"checkoutType" db:"checkoutType"`
+}
+
+// TargetMonitorInfo is a class that holds Target-specific details for a single monitor
+type TargetMonitorInfo struct {
+	ID          string                    `json:"ID" db:"ID"`
+	TaskGroupID string                    `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []TargetSingleMonitorInfo `json:"monitors"`
+	StoreID     string                    `json:"storeID" db:"storeID"`
+	MonitorType enums.MonitorType         `json:"monitorType" db:"monitorType"`
+}
+
+type ToppsSingleMonitorInfo struct {
+	MonitorID   string `json:"monitorID" db:"monitorID"`
+	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	Item        string `json:"item" db:"item"`
+	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
+}
+
+type ToppsMonitorInfo struct {
+	ID          string                   `json:"ID" db:"ID"`
+	TaskGroupID string                   `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []ToppsSingleMonitorInfo `json:"monitors"`
+}
+
+type WalmartMonitorInfo struct {
+	ID          string                     `json:"ID" db:"ID"`
+	TaskGroupID string                     `json:"taskGroupID" db:"taskGroupID"`
+	Monitors    []WalmartSingleMonitorInfo `json:"monitors"`
+}
+
+type WalmartSingleMonitorInfo struct {
+	MonitorID     string            `json:"monitorID" db:"monitorID"`
+	TaskGroupID   string            `json:"taskGroupID" db:"taskGroupID"`
+	ID            string            `json:"id" db:"id"`
+	MaxPrice      int               `json:"maxPrice" db:"maxPrice"`
+	SoldByWalmart bool              `json:"soldByWalmart" db:"soldByWalmart"`
+	MonitorType   enums.MonitorType `json:"monitorType" db:"monitorType"`
 }
 
 // AddTasksToGroup adds the given Tasks to the TaskGroup
