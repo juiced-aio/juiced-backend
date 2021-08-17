@@ -2,6 +2,7 @@ package endpoints
 
 import (
 	"log"
+	"sync"
 	"time"
 
 	"backend.juicedbot.io/juiced.api/responses"
@@ -11,6 +12,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/errors"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
@@ -260,15 +262,45 @@ func TestWebhookEndpoint(response http.ResponseWriter, request *http.Request) {
 		FailureWebhook string `json:"failureWebhook"`
 	}
 
+	embed := util.Embed{
+		Title: "Juiced Test Webhook",
+		Color: 16742912,
+		Footer: util.Footer{
+			Text:    "Juiced AIO",
+			IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
+		},
+		Timestamp: time.Now(),
+	}
+
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
 		testWebhookRequest := TestWebhookRequest{}
 		err = json.Unmarshal(body, &testWebhookRequest)
 		if err == nil {
-
+			wg := sync.WaitGroup{}
+			wg.Add(2)
+			go func() {
+				if !util.SendDiscordWebhook(testWebhookRequest.SuccessWebhook, []util.Embed{embed}) {
+					errorsList = append(errorsList, errors.TestSuccessWebhookError)
+				}
+				wg.Done()
+			}()
+			go func() {
+				embed.Color = 14495044
+				if !util.SendDiscordWebhook(testWebhookRequest.FailureWebhook, []util.Embed{embed}) {
+					errorsList = append(errorsList, errors.TestFailureWebhookError)
+				}
+				wg.Done()
+			}()
+			wg.Wait()
 		}
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-
+	result := &responses.TestWebhookResponse{Success: true, Errors: make([]string, 0)}
+	if len(errorsList) > 0 {
+		response.WriteHeader(http.StatusBadRequest)
+		result = &responses.TestWebhookResponse{Success: false, Errors: errorsList}
+	}
+	json.NewEncoder(response).Encode(result)
 }
