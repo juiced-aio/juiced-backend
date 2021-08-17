@@ -415,10 +415,12 @@ func (task *Task) AddToCart() bool {
 	)
 
 	addToCartRequest := AddToCartRequest{
-		Items: []Items{
-			{Skuid: task.CheckoutInfo.SKUInStock},
-		},
+		Items: []Items{},
 	}
+	for i := 0; i < task.Task.Task.TaskQty; i++ {
+		addToCartRequest.Items = append(addToCartRequest.Items, Items{Skuid: task.CheckoutInfo.SKUInStock})
+	}
+
 	data, _ := json.Marshal(addToCartRequest)
 	addToCartResponse := AddToCartResponse{}
 	var handled bool

@@ -210,7 +210,7 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 				stockData.SKU = sku
 				stockData.ItemName = monitorResponse.Gtmdata.Productinfo.Name
 				stockData.PID = monitorResponse.Gtmdata.Productinfo.SKU
-
+				stockData.MaxQuantity = monitorResponse.Product.MaxOrderQuantity
 				stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
 
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
