@@ -252,19 +252,17 @@ func RemoveAccountsEndpoint(response http.ResponseWriter, request *http.Request)
 	json.NewEncoder(response).Encode(result)
 }
 
-func TestWebhookEndpoint(response http.ResponseWriter, request *http.Request) {
+func TestWebhooksEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
 
-	type TestWebhookRequest struct {
-		SuccessWebhook string `json:"successWebhook"`
-		FailureWebhook string `json:"failureWebhook"`
+	type TestWebhooksRequest struct {
+		SuccessWebhook string `json:"successDiscordWebhook"`
+		FailureWebhook string `json:"failureDiscordWebhook"`
 	}
 
 	embed := util.Embed{
-		Title: "Juiced Test Webhook",
-		Color: 16742912,
 		Footer: util.Footer{
 			Text:    "Juiced AIO",
 			IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
@@ -274,21 +272,28 @@ func TestWebhookEndpoint(response http.ResponseWriter, request *http.Request) {
 
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
-		testWebhookRequest := TestWebhookRequest{}
-		err = json.Unmarshal(body, &testWebhookRequest)
+		testWebhooksRequest := TestWebhooksRequest{}
+		err = json.Unmarshal(body, &testWebhooksRequest)
 		if err == nil {
 			wg := sync.WaitGroup{}
 			wg.Add(2)
 			go func() {
-				if !util.SendDiscordWebhook(testWebhookRequest.SuccessWebhook, []util.Embed{embed}) {
-					errorsList = append(errorsList, errors.TestSuccessWebhookError)
+				if testWebhooksRequest.SuccessWebhook != "" {
+					embed.Title = "Success Webhook"
+					embed.Color = 16742912
+					if !util.SendDiscordWebhook(testWebhooksRequest.SuccessWebhook, []util.Embed{embed}) {
+						errorsList = append(errorsList, errors.TestSuccessWebhookError)
+					}
 				}
 				wg.Done()
 			}()
 			go func() {
-				embed.Color = 14495044
-				if !util.SendDiscordWebhook(testWebhookRequest.FailureWebhook, []util.Embed{embed}) {
-					errorsList = append(errorsList, errors.TestFailureWebhookError)
+				if testWebhooksRequest.FailureWebhook != "" {
+					embed.Title = "Failure Webhook"
+					embed.Color = 14495044
+					if !util.SendDiscordWebhook(testWebhooksRequest.FailureWebhook, []util.Embed{embed}) {
+						errorsList = append(errorsList, errors.TestFailureWebhookError)
+					}
 				}
 				wg.Done()
 			}()
