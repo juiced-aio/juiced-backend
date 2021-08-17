@@ -381,7 +381,9 @@ func (task *Task) Login() bool {
 		TargetAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+
 	usernameBox := page.MustElement("#username").MustWaitVisible()
+	usernameBox.MustTap()
 	for i := range task.AccountInfo.Email {
 		usernameBox.Input(string(task.AccountInfo.Email[i]))
 		time.Sleep(125 * time.Millisecond)
@@ -389,13 +391,22 @@ func (task *Task) Login() bool {
 
 	time.Sleep(1 * time.Second / 2)
 	passwordBox := page.MustElement("#password").MustWaitVisible()
+	passwordBox.MustTap()
 	for i := range task.AccountInfo.Password {
 		passwordBox.Input(string(task.AccountInfo.Password[i]))
 		time.Sleep(125 * time.Millisecond)
 	}
 	time.Sleep(1 * time.Second / 2)
 
-	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
+	checkbox, err := page.ElementX(`//*[contains(@class, 'nds-checkbox')]`)
+	if err != nil {
+		checkbox, err = page.ElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`)
+		if err != nil {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
+			return false
+		}
+	}
+	checkbox.MustWaitVisible().MustClick()
 	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
 
 	time.Sleep(1 * time.Second / 2)
@@ -760,7 +771,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 				CardNumber:  task.Task.Profile.CreditCard.CardNumber,
 				CVV:         task.Task.Profile.CreditCard.CVV,
 				ExpiryMonth: task.Task.Profile.CreditCard.ExpMonth,
-				ExpiryYear:  task.Task.Profile.CreditCard.ExpYear,
+				ExpiryYear:  "20" + task.Task.Profile.CreditCard.ExpYear,
 			},
 			BillingAddress: BillingAddress{
 				AddressLine1: task.Task.Profile.BillingAddress.Address1,
