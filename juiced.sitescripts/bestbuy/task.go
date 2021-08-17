@@ -1219,6 +1219,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 
 	}
 
+	quantity := task.Task.Task.TaskQty
+	if task.CheckoutInfo.MaxQuantity != 0 && quantity > task.CheckoutInfo.MaxQuantity {
+		quantity = task.CheckoutInfo.MaxQuantity
+	}
+
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
@@ -1230,7 +1235,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Sku:          task.CheckoutInfo.SKUInStock,
 		Retailer:     enums.BestBuy,
 		Price:        float64(task.CheckoutInfo.Price),
-		Quantity:     1,
+		Quantity:     quantity,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
