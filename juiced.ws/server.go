@@ -107,6 +107,15 @@ func ManageEvents(eventBus *events.EventBus) {
 		// if event.EventType == events.TaskEventType {
 		// 	log.Println("Event info: " + string(event.TaskEvent.EventType) + ", " + string(event.TaskEvent.Status))
 		// }
+		fmt.Println(event)
+		if os.Getenv("JUICED_MODE") == "DEV" {
+			if event.EventType == events.MonitorEventType {
+				log.Println("Event info: " + string(event.MonitorEvent.EventType) + ", " + string(event.MonitorEvent.Status))
+			}
+			if event.EventType == events.TaskEventType {
+				log.Println("Event info: " + string(event.TaskEvent.EventType) + ", " + string(event.TaskEvent.Status))
+			}
+		}
 		for client, connected := range clients {
 			if connected {
 				client.WriteJSON(event)

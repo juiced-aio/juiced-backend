@@ -16,11 +16,17 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 	"backend.juicedbot.io/juiced.sitescripts/util"
+	ws "backend.juicedbot.io/juiced.ws"
 )
 
 func TestMain(m *testing.M) {
+	os.Setenv("JUICED_MODE", "DEV")
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
+
+	// Start the websocket server
+	go ws.StartWebsocketServer(eventBus)
+
 	err := common.InitDatabase()
 	if err != nil {
 		log.Println(err)
@@ -133,6 +139,35 @@ func TestWalmart(t *testing.T) {
 	}
 	MainTaskGroup.MonitorRetailer = enums.Walmart
 	MainTask.TaskRetailer = enums.Walmart
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	select {}
+}
+
+func TestTarget(t *testing.T) {
+	MainTask.TargetTaskInfo = &entities.TargetTaskInfo{
+		TaskID:       MainTaskID,
+		TaskGroupID:  MainTaskGroupID,
+		Email:        "example@gmail.com",
+		Password:     "examplepass",
+		PaymentType:  enums.PaymentTypeNEW,
+		CheckoutType: enums.CheckoutTypeEITHER,
+	}
+
+	MainTaskGroup.TargetMonitorInfo = &entities.TargetMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.TargetSingleMonitorInfo{{
+			MonitorID:    MainMonitorID,
+			TaskGroupID:  MainTaskGroupID,
+			CheckoutType: enums.CheckoutTypeEITHER,
+			TCIN:         "82786239",
+			MaxPrice:     -1,
+		}},
+		StoreID: "1120",
+	}
+	MainTaskGroup.MonitorRetailer = enums.Target
+	MainTask.TaskRetailer = enums.Target
 	MainTaskGroup.MonitorStatus = enums.MonitorIdle
 	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
 	select {}
