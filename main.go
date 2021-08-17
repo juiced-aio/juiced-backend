@@ -22,6 +22,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	ws "backend.juicedbot.io/juiced.ws"
+	"github.com/denisbrodbeck/machineid"
 	"github.com/hugolgst/rich-go/client"
 )
 
@@ -34,6 +35,13 @@ func main() {
 			time.Sleep(1 * time.Second)
 		}
 	}()
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		os.Exit(0)
+	}
+
+	sec.HWID = hwid
 
 	go func() {
 		log.Println(http.ListenAndServe("localhost:5012", nil))

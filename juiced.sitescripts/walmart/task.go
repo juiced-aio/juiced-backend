@@ -39,12 +39,9 @@ func (task *Task) RefreshPX3() {
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
-		if r := recover(); r != nil {
-			task.RefreshPX3()
-		}
 	}()
 
-	cancellationToken := util.CancellationToken{Cancel: false}
+	cancellationToken := &util.CancellationToken{Cancel: false}
 	go func() {
 		for {
 			select {
@@ -61,19 +58,27 @@ func (task *Task) RefreshPX3() {
 		}
 	}()
 
+	retry := true
+	for retry {
+		retry = task.RefreshPX3Helper(cancellationToken)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (task *Task) RefreshPX3Helper(cancellationToken *util.CancellationToken) bool {
 	for {
 		if cancellationToken.Cancel {
-			return
+			return false
 		}
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, cancellationToken)
 			if cancelled {
-				return
+				return false
 			}
 
 			if err != nil {
 				log.Println("Error setting px cookie for task: " + err.Error())
-				panic(err)
+				return true
 			}
 			task.PXValues = pxValues
 			task.PXValues.RefreshAt = time.Now().Unix() + 240

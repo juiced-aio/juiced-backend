@@ -16,9 +16,9 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"github.com/denisbrodbeck/machineid"
 )
+
+var HWID string
 
 func Authenticate(userInfo entities.UserInfo) (AuthenticationResult, error) {
 	authenticateResponse := AuthenticateResponse{}
@@ -26,11 +26,6 @@ func Authenticate(userInfo entities.UserInfo) (AuthenticationResult, error) {
 
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/a"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/a"
-
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return ERROR_AUTHENTICATE_HWID, err
-	}
 
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
@@ -51,7 +46,7 @@ func Authenticate(userInfo entities.UserInfo) (AuthenticationResult, error) {
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_HWID, err
 	}
@@ -155,11 +150,6 @@ func Refresh(userInfo entities.UserInfo) (entities.UserInfo, RefreshResult, erro
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/r"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/r"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return userInfo, ERROR_REFRESH_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return userInfo, ERROR_REFRESH_CREATE_IV, err
@@ -183,7 +173,7 @@ func Refresh(userInfo entities.UserInfo) (entities.UserInfo, RefreshResult, erro
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_REFRESH_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_HWID, err
 	}
@@ -312,11 +302,6 @@ func DiscordWebhook(success bool, content string, embeds []DiscordEmbed, userInf
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/dw"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/dw"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return ERROR_DISCORD_WEBHOOK_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return ERROR_DISCORD_WEBHOOK_CREATE_IV, err
@@ -336,7 +321,7 @@ func DiscordWebhook(success bool, content string, embeds []DiscordEmbed, userInf
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HWID, err
 	}
@@ -488,11 +473,6 @@ func PX(site, proxy string, userInfo entities.UserInfo) (PXAPIResponse, PXResult
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/p"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/p"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return pxAPIResponse, ERROR_PX_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return pxAPIResponse, ERROR_PX_CREATE_IV, err
@@ -512,7 +492,7 @@ func PX(site, proxy string, userInfo entities.UserInfo) (PXAPIResponse, PXResult
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_HWID, err
 	}
@@ -650,11 +630,6 @@ func PXCap(site, proxy, setID, vid, uuid, token string, userInfo entities.UserIn
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/pc"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/pc"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return "", ERROR_PX_CAP_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return "", ERROR_PX_CAP_CREATE_IV, err
@@ -674,7 +649,7 @@ func PXCap(site, proxy, setID, vid, uuid, token string, userInfo entities.UserIn
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_HWID, err
 	}
@@ -823,11 +798,6 @@ func Akamai(pageURL, skipKact, skipMact, onBlur, onFocus, abck, sensorDataLink, 
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/ak"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/ak"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return akamaiAPIResponse, ERROR_AKAMAI_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_CREATE_IV, err
@@ -847,7 +817,7 @@ func Akamai(pageURL, skipKact, skipMact, onBlur, onFocus, abck, sensorDataLink, 
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HWID, err
 	}
@@ -1021,11 +991,6 @@ func ExperimentalAkamai(baseURL string, userAgent string, cookie string, postInd
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/ake"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/ake"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return akamaiAPIResponse, ERROR_AKAMAI_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_CREATE_IV, err
@@ -1045,7 +1010,7 @@ func ExperimentalAkamai(baseURL string, userAgent string, cookie string, postInd
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HWID, err
 	}
@@ -1215,11 +1180,6 @@ func LogCheckout(itemName, sku, retailer string, price, quantity int, userInfo e
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/c"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/c"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return ERROR_LOG_CHECKOUT_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return ERROR_LOG_CHECKOUT_CREATE_IV, err
@@ -1239,7 +1199,7 @@ func LogCheckout(itemName, sku, retailer string, price, quantity int, userInfo e
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_HWID, err
 	}
@@ -1370,11 +1330,6 @@ func GetEncryptionKey(userInfo entities.UserInfo) (string, GetEncryptionKeyResul
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/e"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/e"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_CREATE_IV, err
@@ -1394,7 +1349,7 @@ func GetEncryptionKey(userInfo entities.UserInfo) (string, GetEncryptionKeyResul
 	if err != nil {
 		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := common.Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HWID, err
 	}
