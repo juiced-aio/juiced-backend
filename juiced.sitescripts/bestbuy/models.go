@@ -95,15 +95,16 @@ type Task struct {
 }
 
 type CheckoutInfo struct {
-	SKUInStock string
-	ID         string
-	ItemID     string
-	PaymentID  string
-	OrderID    string
-	ThreeDsID  string
-	ImageURL   string
-	Price      int
-	ItemName   string
+	SKUInStock  string
+	ID          string
+	ItemID      string
+	PaymentID   string
+	OrderID     string
+	ThreeDsID   string
+	ImageURL    string
+	Price       int
+	ItemName    string
+	MaxQuantity int
 }
 
 type AccountInfo struct {
