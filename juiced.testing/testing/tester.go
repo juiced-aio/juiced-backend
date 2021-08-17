@@ -15,19 +15,19 @@ var taskStore *stores.TaskStore
 var monitorStore *stores.MonitorStore
 
 // TestDriver
-func TestDriver(task *entities.Task, profile entities.Profile, taskGroup entities.TaskGroup, proxyGroup entities.ProxyGroup) error {
+func TestDriver(task *entities.Task, profile entities.Profile, taskGroup entities.TaskGroup) error {
 	if !common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
 		return e.New(errors.StartTaskInvalidCardError + task.TaskRetailer)
 	}
 
 	// Start the task's TaskGroup (if it's already running, this will return true)
-	err := monitorStore.StartTestMonitor(&taskGroup, proxyGroup)
+	err := monitorStore.StartTestMonitor(&taskGroup)
 	if err != nil {
 		return err
 	}
 
 	// Add task to store (if it already exists, this will return true)
-	err = taskStore.AddTestTaskToStore(task, profile, proxyGroup)
+	err = taskStore.AddTestTaskToStore(task, profile)
 	if err != nil {
 		return err
 	}

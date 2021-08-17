@@ -90,20 +90,17 @@ type Task struct {
 	Task         base.Task
 	TaskType     enums.TaskType
 	CheckoutInfo CheckoutInfo
+	StockData    BestbuyInStockData
 	AccountInfo  AccountInfo
 	LocationID   string
 }
 
 type CheckoutInfo struct {
-	SKUInStock string
-	ID         string
-	ItemID     string
-	PaymentID  string
-	OrderID    string
-	ThreeDsID  string
-	ImageURL   string
-	Price      int
-	ItemName   string
+	ID        string
+	ItemID    string
+	PaymentID string
+	OrderID   string
+	ThreeDsID string
 }
 
 type AccountInfo struct {

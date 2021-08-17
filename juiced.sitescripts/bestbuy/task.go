@@ -397,7 +397,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.CheckoutInfo.SKUInStock != "" {
+		if task.StockData.SKU != "" {
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
@@ -413,7 +413,7 @@ func (task *Task) AddToCart() bool {
 
 	addToCartRequest := AddToCartRequest{
 		Items: []Items{
-			{Skuid: task.CheckoutInfo.SKUInStock},
+			{Skuid: task.StockData.SKU},
 		},
 	}
 	data, _ := json.Marshal(addToCartRequest)
@@ -429,7 +429,7 @@ func (task *Task) AddToCart() bool {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
 					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
-					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU), BaseEndpoint, AkamaiEndpoint)
 					if err != nil {
 						return false
 					}
@@ -452,7 +452,7 @@ func (task *Task) AddToCart() bool {
 				{"sec-fetch-site", "same-origin"},
 				{"sec-fetch-mode", "cors"},
 				{"sec-fetch-dest", "empty"},
-				{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock)},
+				{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU)},
 				{"accept-encoding", "gzip, deflate, br"},
 				{"accept-language", "en-US,en;q=0.9"},
 			},
@@ -483,7 +483,7 @@ func (task *Task) AddToCart() bool {
 					if cookie.Name == "_abck" {
 						validator, _ := util.FindInString(cookie.Value, "~", "~")
 						if validator == "-1" {
-							err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+							err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU), BaseEndpoint, AkamaiEndpoint)
 							if err != nil {
 								return false
 							}
@@ -532,7 +532,7 @@ func (task *Task) AddToCart() bool {
 						{"sec-fetch-site", "same-origin"},
 						{"sec-fetch-mode", "cors"},
 						{"sec-fetch-dest", "empty"},
-						{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock)},
+						{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU)},
 						{"accept-encoding", "gzip, deflate, br"},
 						{"accept-language", "en-US,en;q=0.9"},
 					},
@@ -609,8 +609,6 @@ func (task *Task) Checkout() bool {
 			task.CheckoutInfo.ItemID = orderData.Items[0].ID
 			task.CheckoutInfo.PaymentID = orderData.Payment.ID
 			task.CheckoutInfo.OrderID = orderData.Customerorderid
-			task.CheckoutInfo.ImageURL = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
-			task.CheckoutInfo.ItemName = orderData.Items[0].Meta.Shortlabel
 		}
 		return true
 	}
@@ -1192,12 +1190,12 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Success:      success,
 		Status:       status,
 		Content:      "",
-		Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.CheckoutInfo.ItemName,
-		ImageURL:     task.CheckoutInfo.ImageURL,
-		Sku:          task.CheckoutInfo.SKUInStock,
+		Embeds:       task.CreateBestbuyEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
 		Retailer:     enums.BestBuy,
-		Price:        float64(task.CheckoutInfo.Price),
+		Price:        float64(task.StockData.Price),
 		Quantity:     1,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})

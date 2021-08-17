@@ -29,6 +29,8 @@ func TestMain(m *testing.M) {
 	rand.Seed(time.Now().UnixNano())
 	go stores.InitTaskStore(eventBus)
 	stores.InitMonitorStore(eventBus)
+	stores.InitProxyStore()
+	stores.GetProxyStore().AddProxyGroup(MainProxyGroup)
 	captcha.InitCaptchaStore(eventBus)
 	err = captcha.InitAycd()
 	if err == nil {
@@ -80,7 +82,7 @@ func TestAmazon(t *testing.T) {
 	MainTaskGroup.MonitorRetailer = enums.Amazon
 	MainTask.TaskRetailer = enums.Amazon
 	MainTaskGroup.MonitorStatus = enums.MonitorIdle
-	TestDriver(MainTask, *MainProfile, *MainTaskGroup, *MainProxyGroup)
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
 	select {}
 }
 
@@ -107,7 +109,7 @@ func TestBestbuy(t *testing.T) {
 	MainTaskGroup.MonitorRetailer = enums.BestBuy
 	MainTask.TaskRetailer = enums.BestBuy
 	MainTaskGroup.MonitorStatus = enums.MonitorIdle
-	TestDriver(MainTask, *MainProfile, *MainTaskGroup, *MainProxyGroup)
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
 	select {}
 }
 
@@ -132,6 +134,6 @@ func TestWalmart(t *testing.T) {
 	MainTaskGroup.MonitorRetailer = enums.Walmart
 	MainTask.TaskRetailer = enums.Walmart
 	MainTaskGroup.MonitorStatus = enums.MonitorIdle
-	TestDriver(MainTask, *MainProfile, *MainTaskGroup, *MainProxyGroup)
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
 	select {}
 }

@@ -90,6 +90,6 @@ var MainCard = entities.Card{
 var MainProxyGroup = &entities.ProxyGroup{
 	GroupID:      MainProxyGroupID,
 	Name:         "MainProxyGroup",
-	Proxies:      []entities.Proxy{{Host: "localhost", Port: "8888"}},
+	Proxies:      []*entities.Proxy{{Host: "localhost", Port: "8888"}},
 	CreationDate: 0,
 }

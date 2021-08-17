@@ -1005,7 +1005,7 @@ func ExperimentalAkamai(baseURL string, userAgent string, cookie string, postInd
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
-
+	fmt.Println(key, "key")
 	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ACTIVATION_TOKEN, err
@@ -1018,7 +1018,7 @@ func ExperimentalAkamai(baseURL string, userAgent string, cookie string, postInd
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_DEVICE_NAME, err
 	}
-
+	fmt.Println(encryptedActivationToken, encryptedHWID, encryptedDeviceName, encryptedTimestamp)
 	encryptedBaseURL, err := common.Aes256Encrypt(baseURL, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_BASE_URL, err
@@ -1138,10 +1138,12 @@ func DecryptExperimentalAkamaiResponse(response EncryptedExperimentalAkamaiRespo
 	if err != nil {
 		return akamaiResponse, err
 	}
+
 	savedD3, err := strconv.ParseInt(savedD3Str, 10, 64)
 	if err != nil {
 		return akamaiResponse, err
 	}
+
 	savedStartTSStr, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SavedStartTS, key)
 	if err != nil {
 		return akamaiResponse, err

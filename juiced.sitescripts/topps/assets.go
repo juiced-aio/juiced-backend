@@ -2,7 +2,6 @@ package topps
 
 import (
 	"encoding/json"
-	"fmt"
 )
 
 var regionMap = make(map[string]RegionID)
@@ -14,7 +13,6 @@ func init() {
 	regionMap := make(map[string]RegionID)
 	for i := range regionsParsed.RegionID {
 		regionMap[regionsParsed.RegionID[i].Label] = regionsParsed.RegionID[i]
-		fmt.Println(regionsParsed.RegionID[i])
 	}
 }
 

@@ -289,13 +289,19 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 }
 
 // AddTestMonitorToStore adds the Test Monitor to the Store and returns true if successful
-func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGroup, proxyGroup entities.ProxyGroup) error {
+func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGroup) error {
 	var queryError error
 	// Get Proxy for monitor
-	proxies := []entities.Proxy{}
-	if proxyGroup.GroupID != "" {
-		proxies = proxyGroup.Proxies
+	var proxyGroup *entities.ProxyGroup
+	if monitor.MonitorProxyGroupID != "" {
+		var ok bool
+
+		proxyGroup, ok = proxyStore.ProxyGroups[monitor.MonitorProxyGroupID]
+		if !ok {
+			queryError = e.New("proxy group failure")
+		}
 	}
+
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
@@ -311,7 +317,15 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 
-		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxies, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
+		for _, monitor := range monitor.AmazonMonitorInfo.Monitors {
+			if monitor.MonitorType == enums.FastSKUMonitor {
+				if monitor.OFID == "" {
+					return e.New(errors.MissingMonitorFieldsError)
+				}
+			}
+		}
+
+		amazonMonitor, err := amazon.CreateAmazonMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.AmazonMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -331,7 +345,7 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 
-		bestbuyMonitor, err := bestbuy.CreateBestbuyMonitor(monitor, proxies, monitorStore.EventBus, monitor.BestbuyMonitorInfo.Monitors)
+		bestbuyMonitor, err := bestbuy.CreateBestbuyMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.BestbuyMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -351,7 +365,7 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 
-		disneyMonitor, err := disney.CreateDisneyMonitor(monitor, proxies, monitorStore.EventBus, monitor.DisneyMonitorInfo.Monitors)
+		disneyMonitor, err := disney.CreateDisneyMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.DisneyMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -371,7 +385,7 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 
-		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxies, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
+		boxlunchMonitor, err := boxlunch.CreateBoxlunchMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.BoxlunchMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -391,7 +405,7 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 
-		gamestopMonitor, err := gamestop.CreateGamestopMonitor(monitor, proxies, monitorStore.EventBus, monitor.GamestopMonitorInfo.Monitors)
+		gamestopMonitor, err := gamestop.CreateGamestopMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.GamestopMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -410,12 +424,31 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 
-		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxies, monitorStore.EventBus, monitor.HottopicMonitorInfo.Monitors)
+		hottopicMonitor, err := hottopic.CreateHottopicMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.HottopicMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
 
 		monitorStore.HottopicMonitors[monitor.GroupID] = &hottopicMonitor
+
+	case enums.Newegg:
+		if _, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return nil
+		}
+
+		if queryError != nil {
+			return queryError
+		}
+
+		if len(monitor.NeweggMonitorInfo.Monitors) == 0 {
+			return e.New(errors.NoMonitorsError)
+		}
+
+		neweggMonitor, err := newegg.CreateNeweggMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.NeweggMonitorInfo.Monitors)
+		if err != nil {
+			return e.New(errors.CreateMonitorError + err.Error())
+		}
+		monitorStore.NeweggMonitors[monitor.GroupID] = &neweggMonitor
 
 	case enums.Shopify:
 		if _, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
@@ -430,7 +463,7 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 
-		shopifyMonitor, err := shopify.CreateShopifyMonitor(monitor, proxies, monitorStore.EventBus, monitor.ShopifyMonitorInfo.SiteURL, monitor.ShopifyMonitorInfo.SitePassword, monitor.ShopifyMonitorInfo.Monitors)
+		shopifyMonitor, err := shopify.CreateShopifyMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.ShopifyMonitorInfo.SiteURL, monitor.ShopifyMonitorInfo.SitePassword, monitor.ShopifyMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -451,12 +484,31 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 
 		}
 		// Create monitor
-		targetMonitor, err := target.CreateTargetMonitor(monitor, proxies, monitorStore.EventBus, monitor.TargetMonitorInfo)
+		targetMonitor, err := target.CreateTargetMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.TargetMonitorInfo)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
 		// Add task to store
 		monitorStore.TargetMonitors[monitor.GroupID] = &targetMonitor
+
+	case enums.Topps:
+		if _, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return nil
+		}
+
+		if queryError != nil {
+			return queryError
+		}
+
+		if len(monitor.ToppsMonitorInfo.Monitors) == 0 {
+			return e.New(errors.NoMonitorsError)
+		}
+
+		toppsMonitor, err := topps.CreateToppsMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.ToppsMonitorInfo.Monitors)
+		if err != nil {
+			return e.New(errors.CreateMonitorError + err.Error())
+		}
+		monitorStore.ToppsMonitors[monitor.GroupID] = &toppsMonitor
 
 	case enums.Walmart:
 		// Check if monitor exists in store already
@@ -472,7 +524,7 @@ func (monitorStore *MonitorStore) AddTestMonitorToStore(monitor *entities.TaskGr
 			return e.New(errors.NoMonitorsError)
 		}
 		// Create monitor
-		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxies, monitorStore.EventBus, monitor.WalmartMonitorInfo.Monitors)
+		walmartMonitor, err := walmart.CreateWalmartMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.WalmartMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
@@ -571,9 +623,9 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 }
 
 // StartTestMonitor runs the Run() function for the given Monitor and returns true if successful
-func (monitorStore *MonitorStore) StartTestMonitor(monitor *entities.TaskGroup, proxyGroup entities.ProxyGroup) error {
+func (monitorStore *MonitorStore) StartTestMonitor(monitor *entities.TaskGroup) error {
 	// Add monitor to store (if it already exists, this will return true)
-	err := monitorStore.AddTestMonitorToStore(monitor, proxyGroup)
+	err := monitorStore.AddTestMonitorToStore(monitor)
 	if err != nil {
 		return err
 	}
@@ -813,8 +865,7 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
 						if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(bestbuyMonitor.InStock))
-							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[randomNumber].SKU
-							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[randomNumber].Price
+							bestbuyTask.StockData = bestbuyMonitor.InStock[randomNumber]
 						}
 					}
 				}
