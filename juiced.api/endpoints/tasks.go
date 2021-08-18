@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"log"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -95,11 +97,20 @@ func GetAllTaskGroupsEndpoint(response http.ResponseWriter, request *http.Reques
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: data, Errors: errorsList}
 	}
-	json.NewEncoder(response).Encode(result)
+	err = json.NewEncoder(response).Encode(result)
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 
 // CreateTaskGroupEndpoint handles the POST request at /api/task/group
 func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(r)
+			log.Println(string(debug.Stack()))
+		}
+	}()
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	groupID := uuid.New().String()
@@ -131,7 +142,10 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: data, Errors: errorsList}
 	}
-	json.NewEncoder(response).Encode(result)
+	err = json.NewEncoder(response).Encode(result)
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 
 // RemoveTaskGroupEndpoint handles the DELETE request at /api/task/group/{GroupID}

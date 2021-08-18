@@ -119,7 +119,7 @@ func (monitor *Monitor) RunMonitor() {
 			}
 
 			newValue := value
-			newValue.Client = currentClient
+			newValue.Client = &currentClient
 			monitor.ASINWithInfo[key] = newValue
 
 			go func(monitorClient http.Client) {
@@ -137,7 +137,7 @@ func (monitor *Monitor) RunMonitor() {
 				}
 				proxy.RemoveCount()
 				wg.Done()
-			}(value.Client)
+			}(*value.Client)
 		}
 
 	}
