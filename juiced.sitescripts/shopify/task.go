@@ -799,41 +799,48 @@ func (task *Task) SetPaymentInfo() bool {
 }
 
 func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
-	var status enums.OrderStatus
+	status := enums.OrderStatusFailed
+	success := false
 
-	time.Sleep(3 * time.Second)
-	resp, body, err := util.MakeRequest(&util.Request{
-		Client: task.Client,
-		Method: "GET",
-		URL:    task.TaskInfo.CheckoutURL + "/processing?from_processing_page=1",
-		RawHeaders: http.RawHeader{
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"sec-ch-ua-mobile", "?0"},
-			{"upgrade-insecure-requests", "1"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
-			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "navigate"},
-			{"sec-fetch-dest", "document"},
-			{"referer", task.SiteURL + "/"},
-			{"accept-encoding", "gzip, deflate"},
-			{"accept-language", "en-US,en;q=0.9"},
-		},
-	})
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	var success bool
-	// I have absolutely no idea what happens when the order actually goes through, I'll use my card and hopefully will be able to cancel
-	if resp.StatusCode == 200 {
-		if strings.Contains(body, "declined") {
-			success = false
-			status = enums.OrderStatusDeclined
-		} else {
-			success = true
-			status = enums.OrderStatusSuccess
+	gotStatus := false
+	for !gotStatus {
+		resp, _, err := util.MakeRequest(&util.Request{
+			Client: task.Client,
+			Method: "GET",
+			URL:    task.TaskInfo.CheckoutURL + "/processing?from_processing_page=1",
+			RawHeaders: http.RawHeader{
+				{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+				{"sec-ch-ua-mobile", "?0"},
+				{"upgrade-insecure-requests", "1"},
+				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.106 Safari/537.36"},
+				{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+				{"sec-fetch-site", "same-origin"},
+				{"sec-fetch-mode", "navigate"},
+				{"sec-fetch-dest", "document"},
+				{"referer", task.SiteURL + "/"},
+				{"accept-encoding", "gzip, deflate"},
+				{"accept-language", "en-US,en;q=0.9"},
+			},
+		})
+		if err != nil {
+			return false, status
 		}
+
+		if strings.Contains(resp.Request.URL.String(), "validate=true") {
+			status = enums.OrderStatusDeclined
+			gotStatus = true
+			break
+		}
+		if strings.Contains(resp.Request.URL.String(), "thank_you") {
+			status = enums.OrderStatusSuccess
+			gotStatus = true
+			break
+		}
+		if strings.Contains(resp.Request.URL.String(), "stock_problems") {
+			gotStatus = true
+			break
+		}
+		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 	}
 
 	go util.ProcessCheckout(util.ProcessCheckoutInfo{
