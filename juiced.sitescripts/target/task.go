@@ -23,6 +23,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/stealth"
 	cmap "github.com/orcaman/concurrent-map"
 )
@@ -37,13 +38,13 @@ import (
 var TargetAccountStore = cmap.New()
 
 // CreateTargetTask takes a Task entity and turns it into a Target Task
-func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, email, password string, paymentType enums.PaymentType) (Task, error) {
+func CreateTargetTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string, paymentType enums.PaymentType) (Task, error) {
 	targetTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:          email,
@@ -51,6 +52,9 @@ func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entit
 			PaymentType:    paymentType,
 			DefaultCardCVV: profile.CreditCard.CVV,
 		},
+	}
+	if proxyGroup != nil {
+		targetTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return targetTask, nil
 }
@@ -95,11 +99,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Setup task
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
@@ -300,7 +303,7 @@ func (task *Task) Login() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	proxyCleaned := common.ProxyCleaner(*task.Task.Proxy)
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 
@@ -371,14 +374,16 @@ func (task *Task) Login() bool {
 	}
 
 	page := stealth.MustPage(browserWithCancel)
-
+	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
 	page.MustNavigate(LoginEndpoint).MustWaitLoad()
 	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
 		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
 		TargetAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+
 	usernameBox := page.MustElement("#username").MustWaitVisible()
+	usernameBox.MustTap()
 	for i := range task.AccountInfo.Email {
 		usernameBox.Input(string(task.AccountInfo.Email[i]))
 		time.Sleep(125 * time.Millisecond)
@@ -386,13 +391,22 @@ func (task *Task) Login() bool {
 
 	time.Sleep(1 * time.Second / 2)
 	passwordBox := page.MustElement("#password").MustWaitVisible()
+	passwordBox.MustTap()
 	for i := range task.AccountInfo.Password {
 		passwordBox.Input(string(task.AccountInfo.Password[i]))
 		time.Sleep(125 * time.Millisecond)
 	}
 	time.Sleep(1 * time.Second / 2)
 
-	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
+	checkbox, err := page.ElementX(`//*[contains(@class, 'nds-checkbox')]`)
+	if err != nil {
+		checkbox, err = page.ElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`)
+		if err != nil {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
+			return false
+		}
+	}
+	checkbox.MustWaitVisible().MustClick()
 	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
 
 	time.Sleep(1 * time.Second / 2)
@@ -757,7 +771,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 				CardNumber:  task.Task.Profile.CreditCard.CardNumber,
 				CVV:         task.Task.Profile.CreditCard.CVV,
 				ExpiryMonth: task.Task.Profile.CreditCard.ExpMonth,
-				ExpiryYear:  task.Task.Profile.CreditCard.ExpYear,
+				ExpiryYear:  "20" + task.Task.Profile.CreditCard.ExpYear,
 			},
 			BillingAddress: BillingAddress{
 				AddressLine1: task.Task.Profile.BillingAddress.Address1,

@@ -12,9 +12,9 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func BecomeGuest(client http.Client) bool {
+func BecomeGuest(client *http.Client) bool {
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: client,
+		Client: *client,
 		Method: "GET",
 		URL:    BaseEndpoint,
 		RawHeaders: http.RawHeader{

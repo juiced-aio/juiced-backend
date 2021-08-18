@@ -6,6 +6,10 @@ import (
 	"os"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http"
+
+	_ "backend.juicedbot.io/juiced.client/http/pprof"
+
 	api "backend.juicedbot.io/juiced.api"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
@@ -14,11 +18,11 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	ws "backend.juicedbot.io/juiced.ws"
+	"github.com/denisbrodbeck/machineid"
 	"github.com/hugolgst/rich-go/client"
 )
 
@@ -30,6 +34,17 @@ func main() {
 			}
 			time.Sleep(1 * time.Second)
 		}
+	}()
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		os.Exit(0)
+	}
+
+	sec.HWID = hwid
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:5012", nil))
 	}()
 
 	// Initalize the event bus
@@ -71,6 +86,7 @@ func main() {
 				go Heartbeat(eventBus, userInfo)
 				go stores.InitTaskStore(eventBus)
 				stores.InitMonitorStore(eventBus)
+				stores.InitProxyStore()
 				captcha.InitCaptchaStore(eventBus)
 				err := captcha.InitAycd()
 				if err == nil {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -65,6 +66,15 @@ func FindInString(str string, start string, end string) (string, error) {
 	}
 
 	return parsed, nil
+}
+
+// CreateParams turns a string->string map into a URL parameter string
+func CreateParams(paramsLong map[string]string) string {
+	params := url.Values{}
+	for key, value := range paramsLong {
+		params.Add(key, value)
+	}
+	return params.Encode()
 }
 
 func FindInString2(str string, start string, end string) (string, error) {
@@ -335,6 +345,7 @@ func Aes256Decrypt(encryptedText string, key string) (string, error) {
 	return string(cipherText), err
 }
 
+// @silent: I just went to go make a commit in the Juiced-AIO repo but the ValidCardType function doesn't seem to be there
 func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 	// Visa
 	matched, _ := regexp.Match(`^4`, cardNumber)
@@ -360,7 +371,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 	matched, _ = regexp.Match(`^3[47]`, cardNumber)
 	if matched {
 		switch retailer {
-
+		case enums.Topps:
 		default:
 			return true
 		}
@@ -370,7 +381,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 	matched, _ = regexp.Match(`^(6011|622(12[6-9]|1[3-9][0-9]|[2-8][0-9]{2}|9[0-1][0-9]|92[0-5]|64[4-9])|65)`, cardNumber)
 	if matched {
 		switch retailer {
-
+		case enums.Topps:
 		default:
 			return true
 		}
@@ -380,6 +391,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 	matched, _ = regexp.Match(`^36`, cardNumber)
 	if matched {
 		switch retailer {
+		case enums.Topps:
 		case enums.GameStop:
 		case enums.Walmart:
 		default:
@@ -391,6 +403,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 	matched, _ = regexp.Match(`^30[0-5]`, cardNumber)
 	if matched {
 		switch retailer {
+		case enums.Topps:
 		case enums.BestBuy:
 		case enums.BoxLunch:
 		case enums.HotTopic:
@@ -404,6 +417,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 	matched, _ = regexp.Match(`^35(2[89]|[3-8][0-9])`, cardNumber)
 	if matched {
 		switch retailer {
+		case enums.Topps:
 		case enums.BoxLunch:
 		case enums.HotTopic:
 		case enums.Target:
@@ -423,4 +437,15 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 	}
 
 	return false
+}
+
+func EncryptValues(key string, values ...string) (encryptedValues []string, _ error) {
+	for _, value := range values {
+		e, err := Aes256Encrypt(value, key)
+		if err != nil {
+			return encryptedValues, err
+		}
+		encryptedValues = append(encryptedValues, e)
+	}
+	return encryptedValues, nil
 }

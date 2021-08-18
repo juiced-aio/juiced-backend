@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
@@ -30,8 +31,18 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-func SetPXCookie(proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) (util.PXValues, bool, error) {
-	px3, pxValues, cancel, err := util.GetPXCookie("walmart", proxy, cancellationToken)
+func SetPXCookie(proxy *entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) (util.PXValues, bool, error) {
+	var px3 string
+	var pxValues util.PXValues
+	var cancel bool
+	var err error
+	for {
+		px3, pxValues, cancel, err = util.GetPXCookie("walmart", proxy, cancellationToken)
+		if err == nil || err.Error() != "retry" {
+			break
+		}
+		time.Sleep(common.MS_TO_WAIT)
+	}
 	if cancel {
 		return pxValues, true, nil
 	}
@@ -59,8 +70,18 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client, cancellationToken *u
 	return pxValues, false, nil
 }
 
-func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
-	px3, cancel, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, "", proxy, cancellationToken)
+func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy *entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
+	var px3 string
+	var cancel bool
+	var err error
+	for {
+		px3, cancel, err = util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, "", proxy, cancellationToken)
+		if err == nil || err.Error() != "retry" {
+			break
+		}
+		time.Sleep(common.MS_TO_WAIT)
+	}
+
 	if cancel {
 		return nil
 	}

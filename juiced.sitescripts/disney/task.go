@@ -20,19 +20,22 @@ import (
 )
 
 // CreateDisneyTask takes a Task entity and turns it into a Disney Task
-func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+func CreateDisneyTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	disneyTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		TaskType: taskType,
 		AccountInfo: AccountInfo{
 			Email:    email,
 			Password: password,
 		},
+	}
+	if proxyGroup != nil {
+		disneyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return disneyTask, nil
 }
@@ -78,11 +81,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskDelay = 2000
 	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -102,7 +104,7 @@ func (task *Task) RunTask() {
 			if task.Task.Task.TaskStatus != enums.SettingUp {
 				task.PublishEvent(enums.SettingUp, enums.TaskStart)
 			}
-			sessionMade = BecomeGuest(task.Task.Client)
+			sessionMade = BecomeGuest(&task.Task.Client)
 		}
 
 		if !sessionMade {
@@ -351,7 +353,7 @@ func (task *Task) Login() bool {
 	}
 
 	unid := uuid.New().String()
-	params := util.CreateParams(map[string]string{
+	params := common.CreateParams(map[string]string{
 		"action_name":     `api:launch:login`,
 		"anon":            `true`,
 		"appid":           `DTSS-DISNEYID-UI`,
@@ -404,12 +406,12 @@ func (task *Task) Login() bool {
 		Password:   task.AccountInfo.Password,
 	}
 
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, task.Task.Proxy)
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, *task.Task.Proxy)
 	if err != nil {
 		return false
 	}
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, task.Task.Proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, *task.Task.Proxy)
 		time.Sleep(1 * time.Second / 10)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
@@ -570,7 +572,7 @@ func (task *Task) AddToCart() bool {
 		}
 	}
 
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"pid":      task.StockData.VID,
 		"quantity": fmt.Sprint(task.Task.Task.TaskQty),
 	}))
@@ -666,7 +668,7 @@ func (task *Task) ValidateCheckout() bool {
 }
 
 func (task *Task) SubmitShippingInfo() bool {
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"originalShipmentUUID": task.TaskInfo.ShipmentUUID,
 		"shipmentUUID":         task.TaskInfo.ShipmentUUID,
 		"emojiValidation":      `(?:[\u2700-\u27bf]|(?:\ud83c[\udde6-\uddff]){2}|[\ud800-\udbff][\udc00-\udfff]|[\u0023-\u0039]\ufe0f?\u20e3|\u3299|\u3297|\u303d|\u3030|\u24c2|\ud83c[\udd70-\udd71]|\ud83c[\udd7e-\udd7f]|\ud83c\udd8e|\ud83c[\udd91-\udd9a]|\ud83c[\udde6-\uddff]|\ud83c[\ude01-\ude02]|\ud83c\ude1a|\ud83c\ude2f|\ud83c[\ude32-\ude3a]|\ud83c[\ude50-\ude51]|\u203c|\u2049|[\u25aa-\u25ab]|\u25b6|\u25c0|[\u25fb-\u25fe]|\u00a9|\u00ae|\u2122|\u2139|\ud83c\udc04|[\u2600-\u26FF]|\u2b05|\u2b06|\u2b07|\u2b1b|\u2b1c|\u2b50|\u2b55|\u231a|\u231b|\u2328|\u23cf|[\u23e9-\u23f3]|[\u23f8-\u23fa]|\ud83c\udccf|\u2934|\u2935|[\u2190-\u21ff]|\uFE0F)`,

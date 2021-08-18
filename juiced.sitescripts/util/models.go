@@ -8,6 +8,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
 type ErrorType = string
@@ -29,6 +30,7 @@ type AddHeadersFunction func(*http.Request, ...string)
 // Request parameters
 type Request struct {
 	Client             http.Client
+	Scraper            hawk.Scraper
 	Method             string
 	URL                string
 	Headers            http.Header

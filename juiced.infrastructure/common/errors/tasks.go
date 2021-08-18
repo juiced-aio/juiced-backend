@@ -86,6 +86,9 @@ const InvalidTaskRetailerError = "the Task's retailer is not supported"
 // StartMonitorInvalidCardError is the error encountered when starting a Monitor with every task with an invalid card type for the given retailer
 const StartMonitorInvalidCardError = "none of the Tasks in the TaskGroup have a Profile with a payment method that is supported by "
 
+// MissingMonitorFieldsError is returned when the Monitor's <Retailer>MonitorInfo is missing certain required fields
+const MissingMonitorFieldsError = "the Monitor is missing required fields"
+
 // NoMonitorsError is returned when the TaskGroup's <Retailer>MonitorInfo.Monitors is an empty slice
 const NoMonitorsError = "the TaskGroup has no monitors attached to it"
 

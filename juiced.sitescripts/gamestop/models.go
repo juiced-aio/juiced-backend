@@ -71,6 +71,7 @@ type Task struct {
 	CheckoutInfo CheckoutInfo
 	AccountInfo  AccountInfo
 }
+
 type AccountInfo struct {
 	Email    string
 	Password string
