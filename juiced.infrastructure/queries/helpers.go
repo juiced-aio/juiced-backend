@@ -327,6 +327,7 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 		}
 
 	case enums.Target:
+		currentTaskInfo = "targetTaskInfos"
 		statement, err := database.Preparex(`SELECT * FROM targetTaskInfos WHERE taskID = @p1`)
 		if err != nil {
 			return task, err
@@ -343,6 +344,29 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 			if err != nil {
 				return task, err
 			}
+
+			decryptedEmail, err := common.Aes256Decrypt(tempTaskInfo.Email, enums.UserKey)
+			if err == nil {
+				tempTaskInfo.Email = decryptedEmail
+			} else {
+				encryptedEmail, err = common.Aes256Encrypt(tempTaskInfo.Email, enums.UserKey)
+				if err != nil {
+					return task, err
+				}
+
+			}
+
+			decryptedPassword, err := common.Aes256Decrypt(tempTaskInfo.Password, enums.UserKey)
+			if err == nil {
+				tempTaskInfo.Password = decryptedPassword
+			} else {
+				encryptedPassword, err = common.Aes256Encrypt(tempTaskInfo.Password, enums.UserKey)
+				if err != nil {
+					return task, err
+				}
+
+			}
+
 			task.TargetTaskInfo = &tempTaskInfo
 		}
 
@@ -1519,11 +1543,68 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 }
 
 func GetProfileInfo(profile entities.Profile) (entities.Profile, error) {
+	database := common.GetDatabase()
+	if database == nil {
+		return profile, errors.New("database not initialized")
+	}
+
 	if profile.ProfileGroupIDsJoined != "" {
 		profile.ProfileGroupIDs = strings.Split(profile.ProfileGroupIDsJoined, ",")
 	}
 
-	profile, err := GetShippingAddress(profile)
+	var (
+		encryptedEmail       string
+		encryptedPhoneNumber string
+	)
+
+	decryptedEmail, err := common.Aes256Decrypt(profile.Email, enums.UserKey)
+	if err == nil {
+		profile.Email = decryptedEmail
+	} else {
+		encryptedEmail, err = common.Aes256Encrypt(profile.Email, enums.UserKey)
+		if err != nil {
+			return profile, err
+		}
+	}
+
+	decryptedPhoneNumber, err := common.Aes256Decrypt(profile.PhoneNumber, enums.UserKey)
+	if err == nil {
+		profile.PhoneNumber = decryptedPhoneNumber
+	} else {
+		encryptedPhoneNumber, err = common.Aes256Encrypt(profile.PhoneNumber, enums.UserKey)
+		if err != nil {
+			return profile, err
+		}
+	}
+
+	if encryptedEmail != "" {
+		go func() {
+			for {
+				_, err = database.Exec(fmt.Sprintf(`UPDATE profiles SET email = "%v" WHERE ID = "%v"`, encryptedEmail, profile.ID))
+				if err != nil {
+					time.Sleep(1 * time.Second)
+					continue
+				} else {
+					break
+				}
+			}
+		}()
+	}
+	if encryptedPhoneNumber != "" {
+		go func() {
+			for {
+				_, err = database.Exec(fmt.Sprintf(`UPDATE profiles SET phoneNumber = "%v" WHERE ID = "%v"`, encryptedPhoneNumber, profile.ID))
+				if err != nil {
+					time.Sleep(1 * time.Second)
+					continue
+				} else {
+					break
+				}
+			}
+		}()
+	}
+
+	profile, err = GetShippingAddress(profile)
 	if err != nil {
 		return profile, err
 	}
@@ -1531,5 +1612,6 @@ func GetProfileInfo(profile entities.Profile) (entities.Profile, error) {
 	if err != nil {
 		return profile, err
 	}
+
 	return GetCard(profile)
 }

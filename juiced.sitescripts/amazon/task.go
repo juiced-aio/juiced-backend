@@ -76,6 +76,9 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
 	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
@@ -551,7 +554,7 @@ func (task *Task) AddToCart() bool {
 		"addressID":       {task.AccountInfo.SavedAddressID},
 		"asin.1":          {task.StockData.ASIN},
 		"offerListing.1":  {task.StockData.OfferID},
-		"quantity.1":      {"1"},
+		"quantity.1":      {fmt.Sprint(task.Task.Task.TaskQty)},
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
 
