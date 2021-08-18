@@ -290,7 +290,7 @@ var shopifySingleMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS shopifySingleMonitorInfos (
 		monitorID TEXT,
 		taskGroupID TEXT,
-		variantID TEXT,
+		keyword TEXT,
 		maxPrice INTEGER
 	)
 `

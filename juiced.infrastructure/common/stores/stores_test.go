@@ -100,13 +100,13 @@ var neweggMonitorInfoAsset = &entities.NeweggMonitorInfo{
 	},
 }
 
-var shopifyMonitorAsset = map[string]*shopify.Monitor{"shopify_test_monitor": {Monitor: monitorAsset, VIDs: []string{""}}}
+var shopifyMonitorAsset = map[string]*shopify.Monitor{"shopify_test_monitor": {Monitor: monitorAsset, Keywords: []string{""}}}
 
 var shopifyMonitorInfoAsset = &entities.ShopifyMonitorInfo{
 	Monitors: []entities.ShopifySingleMonitorInfo{
 		{
-			VariantID: "",
-			MaxPrice:  -1,
+			Keyword:  "",
+			MaxPrice: -1,
 		},
 	},
 }

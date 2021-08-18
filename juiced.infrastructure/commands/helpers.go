@@ -196,13 +196,13 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			return err
 		}
 		for _, monitor := range taskGroup.ShopifyMonitorInfo.Monitors {
-			statement, err := database.Preparex(`INSERT INTO shopifySingleMonitorInfos (monitorID, taskGroupID, variantID, maxPrice) VALUES (?, ?, ?, ?)`)
+			statement, err := database.Preparex(`INSERT INTO shopifySingleMonitorInfos (monitorID, taskGroupID, keyword, maxPrice) VALUES (?, ?, ?, ?)`)
 			if err != nil {
 				return err
 			}
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
-			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.VariantID, monitor.MaxPrice)
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.Keyword, monitor.MaxPrice)
 			if err != nil {
 				return err
 			}

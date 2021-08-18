@@ -659,7 +659,15 @@ func (monitorStore *MonitorStore) CheckShopifyMonitorStock() {
 				for _, taskID := range taskGroup.TaskIDs {
 					if shopifyTask, ok := taskStore.ShopifyTasks[taskID]; ok {
 						if ok && shopifyTask.Task.Task.TaskGroupID == monitorID {
-							shopifyTask.InStockData = shopifyMonitor.InStock[rand.Intn(len(shopifyMonitor.InStock))]
+							var inStock []shopify.SingleStockData
+
+							for _, value := range shopifyMonitor.InStock.Items() {
+								inStock = append(inStock, value.(shopify.SingleStockData))
+							}
+							if len(inStock) > 0 {
+								shopifyTask.StockData = inStock[rand.Intn(len(inStock))]
+							}
+
 						}
 					}
 				}

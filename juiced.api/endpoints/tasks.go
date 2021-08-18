@@ -380,12 +380,12 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						case enums.Shopify:
 							newMonitors := make([]entities.ShopifySingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
-								vids := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
-								for _, vid := range vids {
+								keywords := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, keyword := range keywords {
 									monitor := entities.ShopifySingleMonitorInfo{
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
-										VariantID:   vid,
+										Keyword:     keyword,
 										MaxPrice:    maxPrice,
 									}
 									newMonitors = append(newMonitors, monitor)

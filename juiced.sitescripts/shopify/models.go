@@ -6,14 +6,15 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-
 	"backend.juicedbot.io/juiced.sitescripts/base"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
 const (
 	ClearCartEndpoint     = "/cart/clear"
 	ProductsEndpoint      = "/products.json"
 	SearchEndpoint        = "/search/suggest.json?q=%v&resources[type]=product"
+	MonitorEndpoint       = "/products.json"
 	AddToCartEndpoint     = "/cart/add.js"
 	CartEndpoint          = "/cart"
 	CheckoutEndpoint      = "/checkout"
@@ -37,15 +38,19 @@ type Task struct {
 	ShopifyRetailer enums.ShopifyRetailer
 	SiteURL         string
 	SitePassword    string
-	VariantID       string
 	CouponCode      string
-	InStockData     ShopifyInStockData
+	StockData       SingleStockData
 	AccountInfo     AccountInfo
 	TaskInfo        TaskInfo
 	Client          http.Client
 }
 
-type ShopifyInStockData struct {
+type ShopifyStockData struct {
+	InStock    []SingleStockData
+	OutOfStock []SingleStockData
+}
+
+type SingleStockData struct {
 	VariantID string
 	Price     float64
 	ItemName  string
@@ -55,14 +60,11 @@ type ShopifyInStockData struct {
 // Monitor info
 type Monitor struct {
 	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	VIDs            []string
-	InStock         []ShopifyInStockData
+	Keywords        []string
+	InStock         cmap.ConcurrentMap
 	SiteURL         string
 	SitePassword    string
-	SKUWithInfo     map[string]entities.ShopifySingleMonitorInfo
+	KeywordWithInfo map[string]entities.ShopifySingleMonitorInfo
 }
 
 type AccountInfo struct {
@@ -83,16 +85,62 @@ type TaskInfo struct {
 	OrderTotal     string
 }
 
-type ProductsResponse struct {
+type MonitorResponse struct {
 	Products []Products `json:"products"`
 }
-
+type Variants struct {
+	ID               int64       `json:"id"`
+	Title            string      `json:"title"`
+	Option1          string      `json:"option1"`
+	Option2          interface{} `json:"option2"`
+	Option3          interface{} `json:"option3"`
+	Sku              string      `json:"sku"`
+	RequiresShipping bool        `json:"requires_shipping"`
+	Taxable          bool        `json:"taxable"`
+	FeaturedImage    interface{} `json:"featured_image"`
+	Available        bool        `json:"available"`
+	Price            string      `json:"price"`
+	Grams            int         `json:"grams"`
+	CompareAtPrice   interface{} `json:"compare_at_price"`
+	Position         int         `json:"position"`
+	ProductID        int64       `json:"product_id"`
+	CreatedAt        string      `json:"created_at"`
+	UpdatedAt        string      `json:"updated_at"`
+}
+type Images struct {
+	ID         int64         `json:"id"`
+	CreatedAt  string        `json:"created_at"`
+	Position   int           `json:"position"`
+	UpdatedAt  string        `json:"updated_at"`
+	ProductID  int64         `json:"product_id"`
+	VariantIds []interface{} `json:"variant_ids"`
+	Src        string        `json:"src"`
+	Width      int           `json:"width"`
+	Height     int           `json:"height"`
+}
+type Options struct {
+	Name     string   `json:"name"`
+	Position int      `json:"position"`
+	Values   []string `json:"values"`
+}
 type Products struct {
-	Variants []Variants `json:"variants"`
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Handle      string     `json:"handle"`
+	BodyHTML    string     `json:"body_html"`
+	PublishedAt string     `json:"published_at"`
+	CreatedAt   string     `json:"created_at"`
+	UpdatedAt   string     `json:"updated_at"`
+	Vendor      string     `json:"vendor"`
+	ProductType string     `json:"product_type"`
+	Tags        []string   `json:"tags"`
+	Variants    []Variants `json:"variants"`
+	Images      []Images   `json:"images"`
+	Options     []Options  `json:"options"`
 }
 
-type Variants struct {
-	ID int64 `json:"id"`
+type ProductsResponse struct {
+	Products []Products `json:"products"`
 }
 
 type AddToCartResponse struct {

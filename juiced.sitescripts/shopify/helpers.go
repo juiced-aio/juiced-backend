@@ -42,7 +42,7 @@ func (task *Task) CreateShopifyEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](%v%v)", task.SiteURL, task.VariantID, task.TaskInfo.ItemURL),
+					Value:  fmt.Sprintf("[%v](%v%v)", task.SiteURL, task.StockData.VariantID, task.TaskInfo.ItemURL),
 					Inline: true,
 				},
 				{

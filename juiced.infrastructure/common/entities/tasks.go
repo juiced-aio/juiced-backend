@@ -305,7 +305,7 @@ type NeweggMonitorInfo struct {
 type ShopifySingleMonitorInfo struct {
 	MonitorID   string `json:"monitorID" db:"monitorID"`
 	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
-	VariantID   string `json:"variantID" db:"variantID"`
+	Keyword     string `json:"keyword" db:"keyword"`
 	MaxPrice    int    `json:"maxPrice" db:"maxPrice"`
 }
 
