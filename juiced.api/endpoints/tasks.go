@@ -201,7 +201,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
-	type AmazonUpdateInfo struct{}
+	type AmazonUpdateInfo struct {
+		MonitorType enums.MonitorType `json:"monitorType"`
+	}
 	type BestBuyUpdateInfo struct{}
 	type BoxlunchUpdateInfo struct {
 		Sizes  string `json:"sizes"`
@@ -265,6 +267,27 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						taskGroup.MonitorProxyGroupID = updateTaskGroupRequestInfo.MonitorProxyGroupID
 						maxPrice := updateTaskGroupRequestInfo.MaxPrice
 						switch taskGroup.MonitorRetailer {
+						case enums.Amazon:
+							newMonitors := make([]entities.AmazonSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, sku := range skus {
+									monitor := entities.AmazonSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										MaxPrice:    maxPrice,
+									}
+									switch updateTaskGroupRequestInfo.AmazonUpdateInfo.MonitorType {
+									case enums.SlowSKUMonitor:
+										monitor.ASIN = sku
+									case enums.FastSKUMonitor:
+										monitor.OFID = sku
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+								taskGroup.AmazonMonitorInfo.Monitors = newMonitors
+							}
+
 						case enums.BestBuy:
 							newMonitors := make([]entities.BestbuySingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
