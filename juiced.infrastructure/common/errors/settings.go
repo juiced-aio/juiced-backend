@@ -23,3 +23,9 @@ const RemoveAccountError = "Removing the account returned an error: "
 
 // ParseRemoveAccountsRequestError is the error encountered when parsing JSON into a DeleteAccountsRequest object returns an error
 const ParseRemoveAccountsRequestError = "Parsing the JSON into a DeleteAccountsRequest returned an error: "
+
+// TestSuccessWebhookError is the error when sending the webhook to the success webhook url fails
+const TestSuccessWebhookError = "Error while sending success webhook"
+
+// TestFailureWebhookError is the error when sending the webhook to the failure webhook url fails
+const TestFailureWebhookError = "Error while sending failure webhook"
