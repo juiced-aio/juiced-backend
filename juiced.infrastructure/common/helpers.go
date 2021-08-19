@@ -129,7 +129,7 @@ func InitDatabase() error {
 		return err
 	}
 	filename := filepath.Join(configPath, "juiced.db")
-	database, err = sqlx.Connect("sqlite3", filename)
+	database, err = sqlx.Connect("sqlite3", "file:"+filename+"?cache=shared&mode=rwc")
 	if err != nil {
 		return err
 	}
