@@ -238,6 +238,12 @@ func (task *Task) Login() bool {
 
 // Browser login using Rod
 func (task *Task) browserLogin() bool {
+	defer func() {
+		if recover() != nil {
+			AmazonAccountStore.Remove(task.AccountInfo.Email)
+		}
+	}()
+
 	cookies := make([]*http.Cookie, 0)
 
 	var userPassProxy bool
@@ -327,8 +333,9 @@ func (task *Task) browserLogin() bool {
 	page.MustElementX(`//input[@name="rememberMe"]`).MustWaitVisible().MustClick()
 	time.Sleep(2 * time.Second)
 	page.MustElement("#signInSubmit").MustWaitVisible().MustClick()
-	fmt.Println("Accept 2fa")
+	task.PublishEvent("Check for 2FA", enums.TaskUpdate)
 	page.MustElement("#auth-cnep-done-button").MustWaitVisible().MustClick()
+	task.PublishEvent("2FA passed", enums.TaskUpdate)
 	page.MustWaitLoad()
 	page.MustNavigate(BaseEndpoint)
 	page.MustNavigate(TestItemEndpoint)
