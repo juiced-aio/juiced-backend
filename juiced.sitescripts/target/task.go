@@ -774,7 +774,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 				CardNumber:  task.Task.Profile.CreditCard.CardNumber,
 				CVV:         task.Task.Profile.CreditCard.CVV,
 				ExpiryMonth: task.Task.Profile.CreditCard.ExpMonth,
-				ExpiryYear:  "20" + task.Task.Profile.CreditCard.ExpYear,
+				ExpiryYear:  task.Task.Profile.CreditCard.ExpYear,
 			},
 			BillingAddress: BillingAddress{
 				AddressLine1: task.Task.Profile.BillingAddress.Address1,
