@@ -301,10 +301,6 @@ func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWit
 		Tasks: []entities.Task{},
 	}
 
-	for _, monitor := range taskGroupWithTasks.AmazonMonitorInfo.Monitors {
-		monitor.Client = nil
-	}
-
 	tasks := []entities.Task{}
 	for i := 0; i < len(taskGroup.TaskIDs); i++ {
 		task, err := GetTask(taskGroup.TaskIDs[i])

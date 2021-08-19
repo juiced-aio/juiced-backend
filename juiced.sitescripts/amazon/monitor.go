@@ -94,56 +94,7 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 
-	var emptyClients int
-	for _, value := range monitor.ASINWithInfo {
-		if value.Client.Transport == nil {
-			emptyClients++
-		}
-	}
-
 	wg := sync.WaitGroup{}
-	wg.Add(emptyClients)
-	for key, value := range monitor.ASINWithInfo {
-		if value.Client.Transport == nil {
-			currentClient, err := util.CreateClient()
-			if err != nil {
-				return
-			}
-
-			var proxy *entities.Proxy
-			if monitor.Monitor.ProxyGroup != nil {
-				if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-					proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-					client.UpdateProxy(&currentClient, proxy)
-				}
-			}
-
-			newValue := value
-			newValue.Client = &currentClient
-			monitor.ASINWithInfo[key] = newValue
-
-			go func(monitorClient http.Client) {
-				becameGuest := false
-				for !becameGuest {
-					needToStop := monitor.CheckForStop()
-					if needToStop {
-						proxy.RemoveCount()
-						return
-					}
-					becameGuest = monitor.BecomeGuest(monitorClient)
-					if !becameGuest {
-						time.Sleep(1000 * time.Millisecond)
-					}
-				}
-				proxy.RemoveCount()
-				wg.Done()
-			}(*value.Client)
-		}
-
-	}
-	wg.Wait()
-
-	wg = sync.WaitGroup{}
 	wg.Add(len(monitor.ASINs))
 	for _, asin := range monitor.ASINs {
 		go func(x string) {

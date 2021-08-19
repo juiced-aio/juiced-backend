@@ -3,8 +3,6 @@ package entities
 import (
 	"encoding/json"
 
-	"backend.juicedbot.io/juiced.client/http"
-
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
@@ -208,7 +206,6 @@ type AmazonSingleMonitorInfo struct {
 	ASIN        string            `json:"asin" db:"asin"`
 	OFID        string            `json:"ofid" db:"ofid"`
 	MaxPrice    int               `json:"maxPrice" db:"maxPrice"`
-	Client      *http.Client      `json:",omitempty"`
 }
 
 type AmazonMonitorInfo struct {
