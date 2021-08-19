@@ -459,7 +459,7 @@ func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
 }
 
 // Processes each checkout by sending a webhook and logging the checkout
-func ProcessCheckout(pci ProcessCheckoutInfo) {
+func ProcessCheckout(pci *ProcessCheckoutInfo) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
