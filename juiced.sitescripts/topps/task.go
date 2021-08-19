@@ -732,7 +732,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = true
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Status:       status,

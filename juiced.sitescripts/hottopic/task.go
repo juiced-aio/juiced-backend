@@ -473,7 +473,7 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Status:       status,
