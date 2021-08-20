@@ -459,7 +459,7 @@ func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
 }
 
 // Processes each checkout by sending a webhook and logging the checkout
-func ProcessCheckout(pci ProcessCheckoutInfo) {
+func ProcessCheckout(pci *ProcessCheckoutInfo) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
@@ -471,13 +471,13 @@ func ProcessCheckout(pci ProcessCheckoutInfo) {
 	}
 	if pci.Success {
 		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, int(pci.Price), pci.Quantity, pci.UserInfo)
-		go SendCheckout(pci.BaseTask, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
+		go SendCheckout(&pci.BaseTask, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
 }
 
 // Logs the checkout
-func SendCheckout(task base.Task, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
+func SendCheckout(task *base.Task, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
 	commands.CreateCheckout(entities.Checkout{
 		ItemName:     itemName,
 		ImageURL:     imageURL,

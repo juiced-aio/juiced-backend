@@ -600,12 +600,7 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 					if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
 						if ok && gamestopTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(gamestopMonitor.InStock))
-							gamestopTask.CheckoutInfo.SKUInStock = gamestopMonitor.InStock[randomNumber].SKU
-							gamestopTask.CheckoutInfo.Price = gamestopMonitor.InStock[randomNumber].Price
-							gamestopTask.CheckoutInfo.ItemName = gamestopMonitor.InStock[randomNumber].ItemName
-							gamestopTask.CheckoutInfo.PID = gamestopMonitor.InStock[randomNumber].PID
-							gamestopTask.CheckoutInfo.ImageURL = gamestopMonitor.InStock[randomNumber].ImageURL
-							gamestopTask.CheckoutInfo.ProductURL = gamestopMonitor.InStock[randomNumber].ProductURL
+							gamestopTask.StockData = gamestopMonitor.InStock[randomNumber]
 						}
 					}
 				}
