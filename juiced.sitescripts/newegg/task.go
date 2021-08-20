@@ -27,6 +27,9 @@ func CreateNeweggTask(task *entities.Task, profile entities.Profile, proxyGroup 
 			EventBus:   eventBus,
 		},
 	}
+	if proxyGroup != nil {
+		neweggTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
 	return neweggTask, nil
 }
 
@@ -444,11 +447,15 @@ func (task *Task) Checkout() bool {
 }
 
 func (task *Task) SubmitShippingInfo() bool {
+	countryCode := task.Task.Profile.ShippingAddress.CountryCode
+	if countryCode == "US" {
+		countryCode += "A"
+	}
 	submitShippingInfoRequest := SubmitShippingInfoRequest{
 		Detailinfo: Detailinfo{
 			Contactwith:       task.Task.Profile.ShippingAddress.FirstName + " " + task.Task.Profile.ShippingAddress.LastName,
 			Phone:             task.Task.Profile.PhoneNumber,
-			Country:           task.Task.Profile.ShippingAddress.CountryCode,
+			Country:           countryCode,
 			State:             task.Task.Profile.ShippingAddress.StateCode,
 			City:              task.Task.Profile.ShippingAddress.City,
 			Address1:          task.Task.Profile.ShippingAddress.Address1,

@@ -1,6 +1,8 @@
 package endpoints
 
 import (
+	"log"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -95,11 +97,20 @@ func GetAllTaskGroupsEndpoint(response http.ResponseWriter, request *http.Reques
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: data, Errors: errorsList}
 	}
-	json.NewEncoder(response).Encode(result)
+	err = json.NewEncoder(response).Encode(result)
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 
 // CreateTaskGroupEndpoint handles the POST request at /api/task/group
 func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println(r)
+			log.Println(string(debug.Stack()))
+		}
+	}()
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	groupID := uuid.New().String()
@@ -131,7 +142,10 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.TaskGroupResponse{Success: false, Data: data, Errors: errorsList}
 	}
-	json.NewEncoder(response).Encode(result)
+	err = json.NewEncoder(response).Encode(result)
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 
 // RemoveTaskGroupEndpoint handles the DELETE request at /api/task/group/{GroupID}
@@ -201,7 +215,9 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
-	type AmazonUpdateInfo struct{}
+	type AmazonUpdateInfo struct {
+		MonitorType enums.MonitorType `json:"monitorType"`
+	}
 	type BestBuyUpdateInfo struct{}
 	type BoxlunchUpdateInfo struct {
 		Sizes  string `json:"sizes"`
@@ -265,6 +281,27 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						taskGroup.MonitorProxyGroupID = updateTaskGroupRequestInfo.MonitorProxyGroupID
 						maxPrice := updateTaskGroupRequestInfo.MaxPrice
 						switch taskGroup.MonitorRetailer {
+						case enums.Amazon:
+							newMonitors := make([]entities.AmazonSingleMonitorInfo, 0)
+							if updateTaskGroupRequestInfo.MonitorInput != "" {
+								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
+								for _, sku := range skus {
+									monitor := entities.AmazonSingleMonitorInfo{
+										MonitorID:   uuid.New().String(),
+										TaskGroupID: taskGroup.GroupID,
+										MaxPrice:    maxPrice,
+									}
+									switch updateTaskGroupRequestInfo.AmazonUpdateInfo.MonitorType {
+									case enums.SlowSKUMonitor:
+										monitor.ASIN = sku
+									case enums.FastSKUMonitor:
+										monitor.OFID = sku
+									}
+									newMonitors = append(newMonitors, monitor)
+								}
+								taskGroup.AmazonMonitorInfo.Monitors = newMonitors
+							}
+
 						case enums.BestBuy:
 							newMonitors := make([]entities.BestbuySingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {

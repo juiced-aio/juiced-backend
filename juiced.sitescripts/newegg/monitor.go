@@ -192,7 +192,7 @@ func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
 	}
 
 	monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-	if price := monitorResponse.MainItem.FinalPrice; float64(monitor.SKUWithInfo[sku].MaxPrice) > price {
+	if price := monitorResponse.MainItem.FinalPrice; float64(monitor.SKUWithInfo[sku].MaxPrice) > price || monitor.SKUWithInfo[sku].MaxPrice == -1 {
 		stockData.SKU = sku
 		stockData.ItemNumber = monitorResponse.MainItem.Item
 		stockData.ProductName = monitorResponse.MainItem.Description.ProductName
