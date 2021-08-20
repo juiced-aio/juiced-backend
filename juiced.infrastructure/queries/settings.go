@@ -59,11 +59,11 @@ func GetAccounts() ([]entities.Account, error) {
 
 		var encryptedEmail string
 		var encryptedPassword string
-		decryptedEmail, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		decryptedEmail, err := common.Aes256Decrypt(account.Email, enums.UserKey)
 		if err == nil {
 			account.Email = decryptedEmail
 		} else {
-			encryptedPassword, err = common.Aes256Encrypt(account.Password, enums.UserKey)
+			encryptedEmail, err = common.Aes256Encrypt(account.Email, enums.UserKey)
 			if err != nil {
 				return accounts, err
 			}
@@ -144,11 +144,11 @@ func GetAccount(ID string) (entities.Account, error) {
 
 		var encryptedEmail string
 		var encryptedPassword string
-		decryptedEmail, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		decryptedEmail, err := common.Aes256Decrypt(account.Email, enums.UserKey)
 		if err == nil {
 			account.Email = decryptedEmail
 		} else {
-			encryptedPassword, err = common.Aes256Encrypt(account.Password, enums.UserKey)
+			encryptedEmail, err = common.Aes256Encrypt(account.Email, enums.UserKey)
 			if err != nil {
 				return account, err
 			}
