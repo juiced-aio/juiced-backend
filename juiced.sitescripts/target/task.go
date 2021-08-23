@@ -294,7 +294,8 @@ func (task *Task) Setup() bool {
 // TODO @silent: Handle stop flag within Login function
 func (task *Task) Login() bool {
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			log.Println(r)
 			TargetAccountStore.Remove(task.AccountInfo.Email)
 		}
 	}()
@@ -306,7 +307,10 @@ func (task *Task) Login() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(*task.Task.Proxy)
+	proxyCleaned := ""
+	if task.Task.Proxy != nil {
+		proxyCleaned = common.ProxyCleaner(*task.Task.Proxy)
+	}
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 

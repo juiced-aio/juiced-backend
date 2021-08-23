@@ -246,7 +246,10 @@ func (task *Task) browserLogin() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(*task.Task.Proxy)
+	proxyCleaned := ""
+	if task.Task.Proxy != nil {
+		proxyCleaned = common.ProxyCleaner(*task.Task.Proxy)
+	}
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 
