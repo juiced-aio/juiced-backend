@@ -294,7 +294,8 @@ func (task *Task) Setup() bool {
 // TODO @silent: Handle stop flag within Login function
 func (task *Task) Login() bool {
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			log.Println(r)
 			TargetAccountStore.Remove(task.AccountInfo.Email)
 		}
 	}()
@@ -306,7 +307,10 @@ func (task *Task) Login() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(*task.Task.Proxy)
+	proxyCleaned := ""
+	if task.Task.Proxy != nil {
+		proxyCleaned = common.ProxyCleaner(*task.Task.Proxy)
+	}
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 
@@ -427,23 +431,7 @@ func (task *Task) Login() bool {
 	page.MustElement("#accountNav-signIn").MustWaitVisible().MustClick()
 	page.MustWaitLoad()
 
-	startTimeout := time.Now().Unix()
 	browserCookies, _ := page.Cookies([]string{BaseEndpoint})
-	for validCookie := false; !validCookie; {
-		for _, cookie := range browserCookies {
-			if cookie.Name == "accessToken" {
-				claims := &LoginJWT{}
-				new(jwt.Parser).ParseUnverified(cookie.Value, claims)
-				if claims.Eid == task.AccountInfo.Email {
-					validCookie = true
-				}
-			}
-		}
-		if time.Now().Unix()-startTimeout > 30 {
-			TargetAccountStore.Remove(task.AccountInfo.Email)
-			return false
-		}
-	}
 
 	for _, cookie := range browserCookies {
 		httpCookie := &http.Cookie{

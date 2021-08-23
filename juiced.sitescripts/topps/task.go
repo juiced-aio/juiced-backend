@@ -307,13 +307,17 @@ func (task *Task) Login() bool {
 	}
 	formKey := elem.Attrs()["value"]
 
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Topps, BaseLoginEndpoint+"/", "login", 0.7, *task.Task.Proxy)
+	proxy := entities.Proxy{}
+	if task.Task.Proxy != nil {
+		proxy = *task.Task.Proxy
+	}
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.Topps, BaseLoginEndpoint+"/", "login", 0.7, proxy)
 	if err != nil {
 		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseEndpoint+"/", *task.Task.Proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseEndpoint+"/", proxy)
 		time.Sleep(common.MS_TO_WAIT)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
