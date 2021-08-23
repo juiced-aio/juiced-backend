@@ -604,20 +604,23 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	if quantity > task.StockData.MaxQuantity {
 		quantity = task.StockData.MaxQuantity
 	}
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateGamestopEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ItemName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.GameStop,
-		Price:        task.StockData.Price,
-		Quantity:     quantity,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateGamestopEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ItemName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.SKU,
+			Retailer:     enums.GameStop,
+			Price:        task.StockData.Price,
+			Quantity:     quantity,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 

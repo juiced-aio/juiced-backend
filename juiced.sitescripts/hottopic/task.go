@@ -473,20 +473,22 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateHottopicEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.PID,
-		Retailer:     enums.HotTopic,
-		Price:        float64(task.StockData.Price),
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateHottopicEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ProductName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.PID,
+			Retailer:     enums.HotTopic,
+			Price:        float64(task.StockData.Price),
+			Quantity:     task.Task.Task.TaskQty,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }

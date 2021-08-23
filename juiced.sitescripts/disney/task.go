@@ -940,20 +940,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool, enums.OrderStatus
 		success = true
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateDisneyEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.PID,
-		Retailer:     enums.Disney,
-		Price:        task.TaskInfo.Total,
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateDisneyEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ProductName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.PID,
+			Retailer:     enums.Disney,
+			Price:        task.TaskInfo.Total,
+			Quantity:     task.Task.Task.TaskQty,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return true, false, status
 }

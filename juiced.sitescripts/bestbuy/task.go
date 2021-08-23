@@ -1224,20 +1224,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		quantity = task.CheckoutInfo.MaxQuantity
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.CheckoutInfo.ItemName,
-		ImageURL:     task.CheckoutInfo.ImageURL,
-		Sku:          task.CheckoutInfo.SKUInStock,
-		Retailer:     enums.BestBuy,
-		Price:        float64(task.CheckoutInfo.Price),
-		Quantity:     quantity,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
+			ItemName:     task.CheckoutInfo.ItemName,
+			ImageURL:     task.CheckoutInfo.ImageURL,
+			Sku:          task.CheckoutInfo.SKUInStock,
+			Retailer:     enums.BestBuy,
+			Price:        float64(task.CheckoutInfo.Price),
+			Quantity:     quantity,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }

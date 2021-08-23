@@ -999,20 +999,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		quantity = task.StockData.MaxQty
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.Walmart,
-		Price:        task.StockData.Price,
-		Quantity:     quantity,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ProductName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.SKU,
+			Retailer:     enums.Walmart,
+			Price:        task.StockData.Price,
+			Quantity:     quantity,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }

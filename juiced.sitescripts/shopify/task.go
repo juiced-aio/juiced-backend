@@ -840,20 +840,22 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		}
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
-		ItemName:     task.TaskInfo.Name,
-		ImageURL:     task.TaskInfo.Image,
-		Sku:          task.VariantID,
-		Retailer:     enums.Shopify,
-		Price:        float64(task.TaskInfo.Price),
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
+			ItemName:     task.TaskInfo.Name,
+			ImageURL:     task.TaskInfo.Image,
+			Sku:          task.VariantID,
+			Retailer:     enums.Shopify,
+			Price:        float64(task.TaskInfo.Price),
+			Quantity:     task.Task.Task.TaskQty,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }
