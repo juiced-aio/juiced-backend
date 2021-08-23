@@ -210,7 +210,7 @@ func (monitor *Monitor) GetSiteStock() ShopifyStockData {
 		var wanted bool
 		var currentKeyword string
 		for _, keyword := range monitor.Keywords {
-			wanted = strings.Contains(strings.ToLower(product.Title), keyword)
+			wanted = strings.Contains(strings.ToLower(product.Title), strings.ToLower(keyword))
 			if wanted {
 				currentKeyword = keyword
 				break

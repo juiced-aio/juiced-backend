@@ -47,7 +47,7 @@ type TaskStore struct {
 }
 
 // AddTaskToStore adds the Task to the TaskStore and returns true if successful
-func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
+func (taskStore *TaskStore) AddTaskToStore(task *entities.Task, taskGroup entities.TaskGroup) error {
 	var queryError error
 	// Get Profile, ProxyGroup for task
 	profile, err := queries.GetProfile(task.TaskProfileID)
@@ -234,6 +234,10 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			}
 		}
 
+		// Fill some needed task fields from the monitor
+		task.ShopifyTaskInfo.SitePassword = taskGroup.ShopifyMonitorInfo.SitePassword
+		task.ShopifyTaskInfo.SiteURL = taskGroup.ShopifyMonitorInfo.SiteURL
+
 		// Create task
 		shopifyTask, err := shopify.CreateShopifyTask(task, profile, proxyGroup, taskStore.EventBus, task.ShopifyTaskInfo.CouponCode, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.SitePassword, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
 		if err != nil {
@@ -327,7 +331,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 			if err == nil {
 				if common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
 					// Add task to store (if it already exists, this will return true)
-					err = taskStore.AddTaskToStore(&task)
+					err = taskStore.AddTaskToStore(&task, *taskGroup)
 					if err == nil {
 						// Setting the stop flag to false before running the task
 						taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
@@ -399,7 +403,7 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 	}
 
 	// Add task to store (if it already exists, this will return true)
-	err = taskStore.AddTaskToStore(task)
+	err = taskStore.AddTaskToStore(task, taskGroup)
 	if err != nil {
 		return err
 	}
