@@ -409,12 +409,16 @@ func (task *Task) Login() bool {
 		Password:   task.AccountInfo.Password,
 	}
 
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, *task.Task.Proxy)
+	proxy := entities.Proxy{}
+	if task.Task.Proxy != nil {
+		proxy = *task.Task.Proxy
+	}
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, proxy)
 	if err != nil {
 		return false
 	}
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, *task.Task.Proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, proxy)
 		time.Sleep(1 * time.Second / 10)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
