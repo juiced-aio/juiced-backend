@@ -138,7 +138,7 @@ again:
 			stockData = monitor.OFIDMonitor(asin)
 		}
 
-		if stockData.ASIN != "" {
+		if stockData.OfferID != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
 				return
@@ -158,7 +158,10 @@ again:
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+					})
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -167,6 +170,7 @@ again:
 					break
 				}
 			}
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, asin)
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(asin)
 		}
@@ -238,6 +242,9 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 
 // Scraping the info from the page, since we are rotating between two page types I have to check each value in two different places
 func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData {
+	defer func() {
+		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
+	}()
 	stockData := AmazonInStockData{}
 	if strings.Contains(body, "automated access") {
 		fmt.Println("Captcha")
@@ -256,87 +263,111 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 		item := doc.Find("span", "data-action", "aod-atc-action")
 		if item.Error != nil {
 			item := doc.Find("input", "name", "offeringID.1")
-			if item.Error != nil {
-				return stockData
-			} else {
+			if item.Error == nil {
 				ofid = item.Attrs()["value"]
 			}
 		} else {
 			jsonMap := make(map[string]string)
-			json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
-			ofid = jsonMap["oid"]
+			err = json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
+			if err == nil {
+				ofid = jsonMap["oid"]
+			}
 		}
 
-		merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
-		priceStr = doc.Find("span", "class", "a-price-whole").Text()
-		itemName = doc.Find("h5", "id", "aod-asin-title-text").Text()
-		imageURL = doc.Find("img", "id", "aod-asin-image-id").Attrs()["src"]
+		item = doc.Find("input", "id", "ftSelectMerchant")
+		if item.Error == nil {
+			merchantID = item.Attrs()["value"]
+		}
+
+		item = doc.Find("span", "class", "a-price-whole")
+		if item.Error == nil {
+			priceStr = item.Text()
+		}
+
+		item = doc.Find("h5", "id", "aod-asin-title-text")
+		if item.Error == nil {
+			itemName = item.Text()
+		}
+
+		item = doc.Find("img", "id", "aod-asin-image-id")
+		if item.Error == nil {
+			imageURL = item.Attrs()["src"]
+		}
+
 	} else {
-		if doc.Find("input", "name", "offerListingID").Error == nil {
-			ofid = doc.Find("input", "name", "offerListingID").Attrs()["value"]
+		item := doc.Find("input", "name", "offerListingID")
+		if item.Error == nil {
+			ofid = item.Attrs()["value"]
 		} else {
 			ofid, err = util.FindInString(body, `name="offerListingId" value="`, `"`)
 			if err != nil {
 				return stockData
 			}
 		}
-		if doc.Find("input", "name", "merchantID").Error == nil {
-			merchantID = doc.Find("input", "name", "merchantID").Attrs()["value"]
+
+		item = doc.Find("input", "name", "merchantID")
+		if item.Error == nil {
+			merchantID = item.Attrs()["value"]
 		} else {
-			if doc.Find("input", "id", "ftSelectMerchant").Error == nil {
-				merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
+
+			item = doc.Find("input", "id", "ftSelectMerchant")
+			if item.Error == nil {
+				merchantID = item.Attrs()["value"]
 			} else {
 				return stockData
 			}
 
 		}
 
-		item := doc.Find("div", "data-a-image-name", "immersiveViewMainImage")
+		item = doc.Find("div", "data-a-image-name", "immersiveViewMainImage")
 		if item.Error == nil {
 			imageURL = item.Attrs()["data-a-hires"]
+		} else {
+			item := doc.Find("img", "data-a-image-name", "landingImage")
+			if item.Error == nil {
+				imageURL = item.Attrs()["data-a-hires"]
+			}
 		}
 		item = doc.Find("span", "class", "a-price-whole")
 		if item.Error == nil {
 			priceStr = item.Text()
 		}
-		if doc.Find("div", "id", "comparison_title1").Error == nil {
-			title := doc.Find("div", "id", "comparison_title1").FindAll("span")
+
+		item = doc.Find("div", "id", "comparison_title1")
+		if item.Error == nil {
+			title := item.FindAll("span")
 			for _, source := range title {
 				itemName = source.Text()
 			}
 		} else {
-			title := doc.Find("title").Text()
-			itemName, err = util.FindInString(title, "Amazon.com:", ":")
-			if err != nil {
-				itemName, err = util.FindInString(title, "AmazonSmile:", ":")
+			item := doc.Find("title")
+			if item.Error == nil {
+				title := item.Text()
+				itemName, err = util.FindInString(title, "Amazon.com:", ":")
 				if err != nil {
-					return stockData
+					itemName, err = util.FindInString(title, "AmazonSmile:", ":")
+					if err != nil {
+						return stockData
+					}
 				}
 			}
-		}
-	}
 
-	if ofid == "" {
-		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return stockData
-	}
-	if merchantID != "ATVPDKIKX0DER" {
-		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return stockData
+		}
 	}
 
 	price, _ := strconv.ParseFloat(priceStr, 64)
-	inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
-	if inBudget {
-		stockData = AmazonInStockData{
-			ASIN:        asin,
-			OfferID:     ofid,
-			Price:       price,
-			ItemName:    itemName,
-			ImageURL:    imageURL,
-			UA:          ua,
-			MonitorType: enums.SlowSKUMonitor,
-		}
+	stockData = AmazonInStockData{
+		ASIN:        asin,
+		OfferID:     ofid,
+		Price:       price,
+		ItemName:    itemName,
+		ImageURL:    imageURL,
+		UA:          ua,
+		MonitorType: enums.SlowSKUMonitor,
+	}
+
+	if merchantID != "ATVPDKIKX0DER" || !(float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1) {
+		stockData.OfferID = ""
 	}
 
 	return stockData

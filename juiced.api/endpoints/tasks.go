@@ -169,7 +169,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 					taskToStop, err := queries.GetTask(taskID)
 					if err == nil {
 						taskStore := stores.GetTaskStore()
-						err = taskStore.StopTask(&taskToStop)
+						_, err = taskStore.StopTask(&taskToStop)
 						if err != nil {
 							next = false
 							errorsList = append(errorsList, errors.StopTaskError+err.Error())
@@ -707,7 +707,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								errorsList = append(errorsList, errors.RemoveTaskError+err.Error())
 							}
 						}
-						if !taskStore.TasksRunning(&newTaskGroup) {
+						if !taskStore.TasksRunning(newTaskGroup.TaskIDs, newTaskGroup.MonitorRetailer) {
 							monitorStore := stores.GetMonitorStore()
 							err = monitorStore.StopMonitor(&newTaskGroup)
 							if err != nil {
@@ -957,6 +957,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		TaskIDs          []string                  `json:"taskIDs"`
 		ProfileID        string                    `json:"profileID"`
 		ProxyGroupID     string                    `json:"proxyGroupID"`
+		Quantity         int                       `json:"quantity"`
 		AmazonTaskInfo   entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
 		BestbuyTaskInfo  entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
 		BoxlunchTaskInfo entities.BoxlunchTaskInfo `json:"boxlunchTaskInfo"`
@@ -985,13 +986,17 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 						task, err := queries.GetTask(taskID)
 						if err == nil {
 							taskStore := stores.GetTaskStore()
-							err = taskStore.StopTask(&task)
+							var wasRunning bool
+							wasRunning, err = taskStore.StopTask(&task)
 							if err == nil {
 								if updateTasksRequestInfo.ProfileID != "DO_NOT_UPDATE" {
 									task.TaskProfileID = updateTasksRequestInfo.ProfileID
 								}
 								if updateTasksRequestInfo.ProxyGroupID != "DO_NOT_UPDATE" {
 									task.TaskProxyGroupID = updateTasksRequestInfo.ProxyGroupID
+								}
+								if updateTasksRequestInfo.Quantity != -1 && updateTasksRequestInfo.Quantity > 0 {
+									task.TaskQty = updateTasksRequestInfo.Quantity
 								}
 								switch taskGroup.MonitorRetailer {
 								case enums.Amazon:
@@ -1083,9 +1088,11 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								_, err = commands.UpdateTask(taskID, task)
 								if err == nil {
 									task.UpdateTask = true
-									err = taskStore.StartTask(&task)
-									if err != nil {
-										errorsList = append(errorsList, errors.StartTaskError+err.Error())
+									if wasRunning {
+										err = taskStore.StartTask(&task)
+										if err != nil {
+											errorsList = append(errorsList, errors.StartTaskError+err.Error())
+										}
 									}
 								} else {
 									errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
@@ -1216,11 +1223,11 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		taskToStop, err = queries.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
-			err = taskStore.StopTask(&taskToStop)
+			_, err = taskStore.StopTask(&taskToStop)
 			if err == nil {
 				taskGroup, err = queries.GetTaskGroup(taskToStop.TaskGroupID)
 				if err == nil {
-					if !taskStore.TasksRunning(&taskGroup) {
+					if !taskStore.TasksRunning(taskGroup.TaskIDs, taskGroup.MonitorRetailer) {
 						monitorStore := stores.GetMonitorStore()
 						err = monitorStore.StopMonitor(&taskGroup)
 						if err != nil {

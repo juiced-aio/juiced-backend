@@ -19,10 +19,10 @@ const RemoveTaskGroupError = "Removing the TaskGroup with the given ID returned 
 const UpdateTaskGroupError = "Updating the TaskGroup with the given ID returned an error: "
 
 // StartTaskGroupError is the error encountered when starting a TaskGroup returns an error
-const StartTaskGroupError = "Starting the TaskGroup encountered an error."
+const StartTaskGroupError = "Starting the TaskGroup encountered an error: "
 
 // StopTaskGroupError is the error encountered when stopping a TaskGroup returns an error
-const StopTaskGroupError = "Stopping the TaskGroup encountered an error."
+const StopTaskGroupError = "Stopping the TaskGroup encountered an error: "
 
 // ParseTaskError is the error encountered when parsing JSON into a Task returns an error
 const ParseTaskError = "Parsing the JSON into a Task returned an error: "
