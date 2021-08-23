@@ -957,6 +957,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		TaskIDs          []string                  `json:"taskIDs"`
 		ProfileID        string                    `json:"profileID"`
 		ProxyGroupID     string                    `json:"proxyGroupID"`
+		Quantity         int                       `json:"quantity"`
 		AmazonTaskInfo   entities.AmazonTaskInfo   `json:"amazonTaskInfo"`
 		BestbuyTaskInfo  entities.BestbuyTaskInfo  `json:"bestbuyTaskInfo"`
 		BoxlunchTaskInfo entities.BoxlunchTaskInfo `json:"boxlunchTaskInfo"`
@@ -992,6 +993,9 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								}
 								if updateTasksRequestInfo.ProxyGroupID != "DO_NOT_UPDATE" {
 									task.TaskProxyGroupID = updateTasksRequestInfo.ProxyGroupID
+								}
+								if updateTasksRequestInfo.Quantity != -1 && updateTasksRequestInfo.Quantity > 0 {
+									task.TaskQty = updateTasksRequestInfo.Quantity
 								}
 								switch taskGroup.MonitorRetailer {
 								case enums.Amazon:
