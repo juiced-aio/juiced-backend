@@ -26,6 +26,8 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 )
 
+const MAX_RETRIES = 5
+
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
 	task.Task.Task.SetTaskStatus(status)
@@ -76,7 +78,7 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
-	if task.Task.Task.TaskQty == 0 {
+	if task.Task.Task.TaskQty <= 0 {
 		task.Task.Task.TaskQty = 1
 	}
 
@@ -145,10 +147,10 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined || retries > 5 {
+		if status == enums.OrderStatusDeclined || retries > MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder(startTime, retries)
 		if !placedOrder {
 			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -238,6 +240,12 @@ func (task *Task) Login() bool {
 
 // Browser login using Rod
 func (task *Task) browserLogin() bool {
+	defer func() {
+		if recover() != nil {
+			AmazonAccountStore.Remove(task.AccountInfo.Email)
+		}
+	}()
+
 	cookies := make([]*http.Cookie, 0)
 
 	var userPassProxy bool
@@ -330,8 +338,9 @@ func (task *Task) browserLogin() bool {
 	page.MustElementX(`//input[@name="rememberMe"]`).MustWaitVisible().MustClick()
 	time.Sleep(2 * time.Second)
 	page.MustElement("#signInSubmit").MustWaitVisible().MustClick()
-	fmt.Println("Accept 2fa")
+	task.PublishEvent("Check for 2FA", enums.TaskUpdate)
 	page.MustElement("#auth-cnep-done-button").MustWaitVisible().MustClick()
+	task.PublishEvent("2FA passed", enums.TaskUpdate)
 	page.MustWaitLoad()
 	page.MustNavigate(BaseEndpoint)
 	page.MustNavigate(TestItemEndpoint)
@@ -630,7 +639,7 @@ func (task *Task) AddToCart() bool {
 }
 
 // Places the order
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder(startTime time.Time, retries int) (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
@@ -701,20 +710,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ItemName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.ASIN,
-		Retailer:     enums.Amazon,
-		Price:        float64(task.StockData.Price),
-		Quantity:     1,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined || retries >= MAX_RETRIES {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ItemName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.ASIN,
+			Retailer:     enums.Amazon,
+			Price:        float64(task.StockData.Price),
+			Quantity:     1,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }

@@ -423,7 +423,7 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 			next := true
 			taskStore := stores.GetTaskStore()
 			for _, task := range tasks {
-				err = taskStore.StopTask(&task)
+				_, err = taskStore.StopTask(&task)
 				if err != nil {
 					next = false
 					break

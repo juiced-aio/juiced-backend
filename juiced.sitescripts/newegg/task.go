@@ -27,6 +27,9 @@ func CreateNeweggTask(task *entities.Task, profile entities.Profile, proxyGroup 
 			EventBus:   eventBus,
 		},
 	}
+	if proxyGroup != nil {
+		neweggTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
 	return neweggTask, nil
 }
 
@@ -71,7 +74,7 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
-	if task.Task.Task.TaskQty == 0 {
+	if task.Task.Task.TaskQty <= 0 {
 		task.Task.Task.TaskQty = 1
 	}
 
@@ -444,11 +447,15 @@ func (task *Task) Checkout() bool {
 }
 
 func (task *Task) SubmitShippingInfo() bool {
+	countryCode := task.Task.Profile.ShippingAddress.CountryCode
+	if countryCode == "US" {
+		countryCode += "A"
+	}
 	submitShippingInfoRequest := SubmitShippingInfoRequest{
 		Detailinfo: Detailinfo{
 			Contactwith:       task.Task.Profile.ShippingAddress.FirstName + " " + task.Task.Profile.ShippingAddress.LastName,
 			Phone:             task.Task.Profile.PhoneNumber,
-			Country:           task.Task.Profile.ShippingAddress.CountryCode,
+			Country:           countryCode,
 			State:             task.Task.Profile.ShippingAddress.StateCode,
 			City:              task.Task.Profile.ShippingAddress.City,
 			Address1:          task.Task.Profile.ShippingAddress.Address1,
@@ -746,20 +753,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status = enums.OrderStatusSuccess
 	success := true
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.Newegg,
-		Price:        float64(task.StockData.Price),
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ProductName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.SKU,
+			Retailer:     enums.Newegg,
+			Price:        float64(task.StockData.Price),
+			Quantity:     task.Task.Task.TaskQty,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	task.TaskInfo.VBVToken = placeOrderResponse.Vbvdata.Jwttoken
 	task.TaskInfo.CardBin = placeOrderResponse.Vbvdata.Cardbin

@@ -440,14 +440,17 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 }
 
 // StopTask sets the stop field for the given Task and returns true if successful
-func (taskStore *TaskStore) StopTask(task *entities.Task) error {
-	return taskStore.SetStopFlag(task.TaskRetailer, task.ID, true)
+func (taskStore *TaskStore) StopTask(task *entities.Task) (bool, error) {
+	if !taskStore.TasksRunning([]string{task.ID}, task.TaskRetailer) {
+		return false, nil
+	}
+	return true, taskStore.SetStopFlag(task.TaskRetailer, task.ID, true)
 }
 
 // TasksRunning checks to see if any tasks in the taskGroup are running, if so it returns true
-func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
-	for _, taskID := range taskGroup.TaskIDs {
-		switch taskGroup.MonitorRetailer {
+func (taskStore *TaskStore) TasksRunning(taskIDs []string, retailer enums.Retailer) bool {
+	for _, taskID := range taskIDs {
+		switch retailer {
 		// Future sitescripts will have a case here
 		case enums.Amazon:
 			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {

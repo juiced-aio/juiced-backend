@@ -42,7 +42,7 @@ import (
 const (
 	// transportDefaultConnFlow is how many connection-level flow control
 	// tokens we give the server at start-up, past the default 64k.
-	transportDefaultConnFlow = 1 << 30
+	transportDefaultConnFlow = 15663105
 
 	// transportDefaultStreamFlow is how many stream-level flow
 	// control tokens we announce to the peer, and how many bytes
@@ -701,7 +701,7 @@ func (t *Transport) newClientConn(c net.Conn, addr string, singleUse bool) (*Cli
 		nextStreamID:          1,
 		maxFrameSize:          16 << 10,           // spec default
 		initialWindowSize:     initialWindowSize,  // spec default
-		maxConcurrentStreams:  100,                // "infinite", per spec. 1000 seems good enough.
+		maxConcurrentStreams:  1000,               // "infinite", per spec. 1000 seems good enough.
 		peerMaxHeaderListSize: 0xffffffffffffffff, // "infinite", per spec. Use 2^64-1 instead.
 		streams:               make(map[uint32]*clientStream),
 		singleUse:             singleUse,
@@ -745,7 +745,7 @@ func (t *Transport) newClientConn(c net.Conn, addr string, singleUse bool) (*Cli
 
 	initialSettings := []Setting{
 		{ID: SettingHeaderTableSize, Val: _initialHeaderTableSize},
-		{ID: SettingMaxConcurrentStreams, Val: 100},
+		{ID: SettingMaxConcurrentStreams, Val: 1000},
 		{ID: SettingInitialWindowSize, Val: initialWindowSize},
 	}
 	// var pushEnabled uint32

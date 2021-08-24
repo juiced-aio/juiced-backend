@@ -10,8 +10,3 @@ type SettingsResponse struct {
 	Data    entities.Settings `json:"data"`
 	Errors  []string          `json:"errors"`
 }
-
-type TestWebhookResponse struct {
-	Success bool     `json:"success"`
-	Errors  []string `json:"errors"`
-}
