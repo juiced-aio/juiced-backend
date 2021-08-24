@@ -5,7 +5,6 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -81,8 +80,7 @@ func CyberSourceV2(keyId string, card entities.Card) (string, error) {
 	header_.Kid = kid
 	header_.Jwk = *rsa_
 
-	card_ := new(Card)
-	card_ = &Card{SecurityCode: card.CVV, Number: card.CardNumber, ExpMonth: card.ExpMonth, ExpYear: card.ExpYear}
+	card_ := &Card{SecurityCode: card.CVV, Number: card.CardNumber, ExpMonth: card.ExpMonth, ExpYear: card.ExpYear}
 
 	switch card.CardType { // https://developer.cybersource.com/library/documentation/dev_guides/Retail_SO_API/html/Topics/app_card_types.htm
 	case "Visa":
@@ -139,7 +137,7 @@ func CyberSourceV2(keyId string, card entities.Card) (string, error) {
 		rsa___, ok := rawkey.(*rsa.PublicKey)
 
 		if !ok {
-			return "", errors.New(fmt.Sprintf("expected rsa key, got %T", rawkey))
+			return "", fmt.Errorf("expected rsa key, got %T", rawkey)
 		}
 
 		payload := `{
