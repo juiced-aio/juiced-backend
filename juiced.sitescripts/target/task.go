@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/url"
@@ -300,6 +301,11 @@ func (task *Task) Login() bool {
 	cookies := make([]*http.Cookie, 0)
 
 	launcher_ := launcher.New()
+
+	fileInfos, err := ioutil.ReadDir(launcher.DefaultBrowserDir)
+	if len(fileInfos) == 0 || err != nil {
+		task.PublishEvent("Possibly downloading browser. Please wait patiently", enums.TaskUpdate)
+	}
 
 	proxyCleaned := ""
 	if task.Task.Proxy != nil {

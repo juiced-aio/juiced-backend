@@ -1,9 +1,11 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
@@ -23,6 +25,7 @@ import (
 
 	ws "backend.juicedbot.io/juiced.ws"
 	"github.com/denisbrodbeck/machineid"
+	"github.com/go-rod/rod/lib/launcher"
 )
 
 func main() {
@@ -110,6 +113,30 @@ func main() {
 				go api.StartServer()
 
 				rpc.EnableRPC()
+				fileInfos, err := ioutil.ReadDir(launcher.DefaultBrowserDir)
+				if err == nil {
+					if len(fileInfos) == 0 {
+						log.Println("Chromium is not installed")
+						err = launcher.NewBrowser().Download()
+						if err != nil {
+							log.Println("Failed to download latest chromium snapshot")
+						}
+					}
+				} else {
+					log.Println("Failed to find files in default chromium path, trying to download")
+					err = launcher.NewBrowser().Download()
+					if err != nil {
+						log.Println("Failed to download latest chromium snapshot")
+					}
+				}
+				for _, fileInfo := range fileInfos {
+					if strings.Contains(fileInfo.Name(), "zip") {
+						if os.Remove(launcher.DefaultBrowserDir+"\\"+fileInfo.Name()) != nil {
+							log.Println("Could not remove a zip file")
+						}
+					}
+				}
+
 			}
 		}
 
