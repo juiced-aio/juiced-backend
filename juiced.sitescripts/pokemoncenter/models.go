@@ -38,10 +38,10 @@ const (
 const (
 	UnknownError = "unknown error"
 
-	RetrieveCyberSourcePublicKeyError    = ""
-	CyberSourceEncryptionError           = ""
-	RetrieveCyberSourceTokenError        = ""
-	RetrieveCyberSourcePaymentTokenError = ""
+	RetrieveCyberSourcePublicKeyError    = "could not retrieve CyberSource public key"
+	CyberSourceEncryptionError           = "could not perform CyberSource encryption"
+	RetrieveCyberSourceTokenError        = "could not retrieve CyberSource token"
+	RetrieveCyberSourcePaymentTokenError = "could not retrieve CyberSource payment token"
 
 	AddToCartQuantityError = "expected quantity of %d but found %d"
 )
