@@ -32,39 +32,43 @@ type TaskStatus = string
 
 // Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
 const (
-	TaskIdle TaskStatus = "Idle"
+	TaskIdle   TaskStatus = "Idle"
+	TaskFailed TaskStatus = "Fatal error: %s"
+
+	SettingUp        TaskStatus = "Setting up task"
+	SettingUpSuccess TaskStatus = "Set up task"
+	SettingUpFailure TaskStatus = "Error setting up task: %s"
 
 	LoggingIn    TaskStatus = "Logging in"
-	LoginSuccess TaskStatus = "Login success"
-	LoginFailed  TaskStatus = "Login failed"
+	LoginSuccess TaskStatus = "Logged in"
+	LoginFailure TaskStatus = "Error logging in: %s"
 
 	EncryptingCardInfo        TaskStatus = "Encrypting card details"
-	EncryptingCardInfoSuccess TaskStatus = "Encrypting card details success"
-	EncryptingCardInfoFailure TaskStatus = "Failed to encrypt card details"
-	CardDetailsMissing        TaskStatus = "Card information missing"
+	EncryptingCardInfoSuccess TaskStatus = "Encrypted card details"
+	EncryptingCardInfoFailure TaskStatus = "Error encrypting card details: %s"
 
-	AddingToCart                TaskStatus = "Adding to cart"
-	AddingToCartFailure         TaskStatus = "Add cart failed retry"
-	AddingToCartSuccess         TaskStatus = "Add cart success"
-	AddingToCartQuantityFailure TaskStatus = "Expected quantity of 1 but found "
+	AddingToCart        TaskStatus = "Adding to cart"
+	AddingToCartSuccess TaskStatus = "Added to cart"
+	AddingToCartFailure TaskStatus = "Error adding to cart: %s"
 
 	SettingEmailAddress        TaskStatus = "Setting email address"
-	SettingEmailAddressFailure TaskStatus = "Setting email failed"
-	SettingEmailAddressSuccess TaskStatus = "Setting email address success"
+	SettingEmailAddressSuccess TaskStatus = "Set email address"
+	SettingEmailAddressFailure TaskStatus = "Error setting email address: %s"
 
 	SettingShippingInfo        TaskStatus = "Setting shipping info"
-	SettingShippingInfoFailure TaskStatus = "Setting shipping failed"
-	SettingShippingInfoSuccess TaskStatus = "Setting shipping info success"
+	SettingShippingInfoSuccess TaskStatus = "Set shipping info"
+	SettingShippingInfoFailure TaskStatus = "Error setting shipping info: %s"
 
 	SettingBillingInfo        TaskStatus = "Setting billing info"
-	SettingBillingInfoFailure TaskStatus = "Setting billing info failed"
-	SettingBillingInfoSuccess TaskStatus = "Setting billing info Success"
+	SettingBillingInfoSuccess TaskStatus = "Set billing info"
+	SettingBillingInfoFailure TaskStatus = "Error setting billing info: %s"
 
-	CheckingOutFailure TaskStatus = "Checkout failed"
+	CheckingOut        TaskStatus = "Checking out"
+	CheckingOutSuccess TaskStatus = "Checked out!"
+	CheckingOutFailure TaskStatus = "Error checking out: %s"
+	CardDeclined       TaskStatus = "Error checking out: card declined"
 
-	GetUserFailure      TaskStatus = "Failed to get user information on checkout"
 	WaitingForLogin     TaskStatus = "Waiting for login cookies"
-	SettingUp           TaskStatus = "Setting up task"
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
 	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
 	BypassingPX         TaskStatus = "Bypassing PX"
@@ -74,8 +78,6 @@ const (
 	GettingBillingInfo  TaskStatus = "Getting billing info"
 	GettingOrderInfo    TaskStatus = "Getting order info"
 	SettingOrderInfo    TaskStatus = "Setting order info"
-	CheckingOut         TaskStatus = "Checking out"
-	CardDeclined        TaskStatus = "Card declined"
 	CheckoutFailed      TaskStatus = "Checkout failed"
 	CheckedOut          TaskStatus = "Checked out!"
 )

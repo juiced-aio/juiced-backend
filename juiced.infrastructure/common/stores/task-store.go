@@ -2,6 +2,7 @@ package stores
 
 import (
 	e "errors"
+	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -314,10 +315,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		if queryError != nil {
 			return queryError
 		}
-		// Make sure necessary fields exist
-		if len(task.PokemonCenterTaskInfo.AddToCartForms) < 1 {
-			return nil
-		}
 		// Create task
 		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxyGroup, taskStore.EventBus, task.PokemonCenterTaskInfo.Email, task.PokemonCenterTaskInfo.Password)
 		if err != nil {
@@ -353,9 +350,10 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 						taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
 
 						// If the Task is already running, then we're all set already
-						if task.TaskStatus == enums.TaskIdle ||
-							task.TaskStatus == enums.CheckedOut ||
-							task.TaskStatus == enums.CheckoutFailed {
+						if strings.Contains(task.TaskStatus, enums.TaskIdle) ||
+							strings.Contains(task.TaskStatus, enums.TaskFailed) ||
+							strings.Contains(task.TaskStatus, enums.CheckedOut) ||
+							strings.Contains(task.TaskStatus, enums.CheckoutFailed) {
 							// Otherwise, start the Task
 							taskStore.RunTask(task.TaskRetailer, task.ID)
 						}
@@ -425,9 +423,10 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 	}
 
 	// If the Task is already running, then we're all set already
-	if task.TaskStatus != enums.TaskIdle &&
-		task.TaskStatus != enums.CheckedOut &&
-		task.TaskStatus != enums.CheckoutFailed {
+	if !strings.Contains(task.TaskStatus, enums.TaskIdle) &&
+		!strings.Contains(task.TaskStatus, enums.TaskFailed) &&
+		!strings.Contains(task.TaskStatus, enums.CheckedOut) &&
+		!strings.Contains(task.TaskStatus, enums.CheckoutFailed) {
 		return nil
 	}
 

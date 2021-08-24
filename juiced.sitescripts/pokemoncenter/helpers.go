@@ -5,8 +5,8 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 
@@ -47,14 +47,21 @@ func dumpMap(space string, m map[string]interface{}) {
 }
 
 //We could of made this task apart of 'task' and pulled details from here but as this will be moved later to security its best to pass these details in.
-func CyberSourceV2(keyId string, card entities.Card) (returnVal string) {
+func CyberSourceV2(keyId string, card entities.Card) (string, error) {
+	returnVal := ""
 	key := strings.Split(keyId, ".")[1]
 
-	decodedKeyBytes, _ := base64.StdEncoding.DecodeString(key)
+	decodedKeyBytes, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return "", err
+	}
 	decodedKeyString := string(decodedKeyBytes)
 
 	var encrypt Encrypt
-	json.Unmarshal([]byte(decodedKeyString), &encrypt)
+	err = json.Unmarshal([]byte(decodedKeyString), &encrypt)
+	if err != nil {
+		return "", err
+	}
 
 	kid := string(encrypt.Flx.Jwk.Kid)
 
@@ -117,7 +124,7 @@ func CyberSourceV2(keyId string, card entities.Card) (returnVal string) {
 
 	set, err := jwk.Parse([]byte(jwkJSON))
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
 	for it := set.Iterate(context.Background()); it.Next(context.Background()); {
@@ -126,14 +133,13 @@ func CyberSourceV2(keyId string, card entities.Card) (returnVal string) {
 
 		var rawkey interface{}
 		if err := key.Raw(&rawkey); err != nil {
-			log.Printf("failed to create public key: %s", err)
-			return
+			return "", err
 		}
 
 		rsa___, ok := rawkey.(*rsa.PublicKey)
 
 		if !ok {
-			panic(fmt.Sprintf("expected ras key, got %T", rawkey))
+			return "", errors.New(fmt.Sprintf("expected rsa key, got %T", rawkey))
 		}
 
 		payload := `{
@@ -162,30 +168,33 @@ func CyberSourceV2(keyId string, card entities.Card) (returnVal string) {
 		headerMap := make(map[string]interface{})
 		err := json.Unmarshal([]byte(h_map), &headerMap)
 		if err != nil {
-			panic(err)
+			return "", err
 		}
 		dumpMap("", headerMap)
 
-		token__, err__ := jose.Encrypt(payload, jose.RSA_OAEP, jose.A256GCM, rsa___, jose.Headers(headerMap))
-		if err__ != nil {
-			fmt.Println(err__)
+		token__, err := jose.Encrypt(payload, jose.RSA_OAEP, jose.A256GCM, rsa___, jose.Headers(headerMap))
+		if err != nil {
+			return "", err
 		}
 		returnVal = token__
-
 	}
-	return returnVal
+
+	return returnVal, nil
 }
 
-func retrievePaymentToken(keyId string) (jti string) {
+func retrievePaymentToken(keyId string) (string, error) {
 	key := strings.Split(keyId, ".")[1]
-	decodedKeyBytes, _ := base64.StdEncoding.DecodeString(key)
+	decodedKeyBytes, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return "", err
+	}
 	decodedKeyString_ := string(decodedKeyBytes) + "}"
 	fmt.Println(decodedKeyString_)
 	var encrypt PaymentToken
 	if err := json.Unmarshal([]byte(decodedKeyString_), &encrypt); err != nil {
-		fmt.Println(err)
+		return "", err
 	}
-	return encrypt.Jti
+	return encrypt.Jti, nil
 }
 
 // Creates a embed for the DiscordWebhook function
@@ -249,30 +258,51 @@ func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL st
 	return embeds
 }
 
-//Improves readability on RunTask
-func (task *Task) RunUntilSuccessful(runTaskResult bool, status string) (bool, bool) {
-	needToStop := task.CheckForStop()
-	// -1 retry = unlimited amount of retries.
-	if needToStop || task.Retry > task.MaxRetry {
-		task.Task.StopFlag = true //if retry is over the limit we want to set our stop flag.
-		return true, true
-	}
-	if !runTaskResult { //We have failed the task
-		if status != "" { //Check if we need to publish event
-			task.PublishEvent(fmt.Sprint(status, " Retry: ", task.Retry), enums.TaskUpdate) //if failure then also send back retry number
-		}
-		if task.Retry >= 0 {
-			task.Retry++ //increment our retry.
-		}
-		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		return false, false
-	} else { //We have completed the task succesfully
-		if status != "" { //Check if we need to publish event
-			task.PublishEvent(status, enums.TaskUpdate) //If success then just publish the status
-		}
-		//If we want we can reset retry amount here, depending on if we want the retries global or per task.
-		task.Retry = 0
+// RunUntilSuccessful runs a single function until (a) it succeeds, (b) the task needs to stop, or (c) it fails maxRetries times.
+// 		Passing in -1 for maxRetries will retry the function indefinitely.
+//		Returns true if the function was successful, false if the function failed (and the task should stop)
+func (task *Task) RunUntilSuccessful(fn func() (bool, string), maxRetries int) (bool, string) {
+	attempt := 1
+	if maxRetries == -1 {
+		attempt = -1
 	}
 
-	return true, false //Finally if we have reached this point then task was a success.
+	var success bool
+	var status string
+	for success, status = task.RunUntilSuccessfulHelper(fn, attempt); !success; {
+		needToStop := task.CheckForStop()
+		if needToStop || attempt > maxRetries {
+			task.Task.StopFlag = true
+			return false, ""
+		}
+		if attempt >= 0 {
+			attempt++
+		}
+
+		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+	}
+
+	return true, status
+}
+
+func (task *Task) RunUntilSuccessfulHelper(fn func() (bool, string), attempt int) (bool, string) {
+	success, status := fn()
+
+	if !success {
+		if attempt > 0 {
+			if status != "" {
+				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), enums.TaskUpdate)
+			}
+		} else {
+			if status != "" {
+				task.PublishEvent(fmt.Sprint("(Retrying) ", status), enums.TaskUpdate)
+			}
+		}
+		return false, status
+	}
+
+	if status != "" {
+		task.PublishEvent(status, enums.TaskUpdate)
+	}
+	return true, status
 }

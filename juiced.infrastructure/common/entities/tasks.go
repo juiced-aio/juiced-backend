@@ -92,12 +92,11 @@ type NeweggTaskInfo struct {
 }
 
 type PokemonCenterTaskInfo struct {
-	TaskID         string         `json:"taskID" db:"taskID"`
-	TaskGroupID    string         `json:"taskGroupID" db:"taskGroupID"`
-	AddToCartForms []string       `json:"addToCartForms" db:"addToCartForms"`
-	Email          string         `json:"email" db:"email"`
-	Password       string         `json:"password" db:"password"`
-	TaskType       enums.TaskType `json:"taskType" db:"taskType"`
+	TaskID      string         `json:"taskID" db:"taskID"`
+	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
+	Email       string         `json:"email" db:"email"`
+	Password    string         `json:"password" db:"password"`
+	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
 }
 
 type ShopifyTaskInfo struct {

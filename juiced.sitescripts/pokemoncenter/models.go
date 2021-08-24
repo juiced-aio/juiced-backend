@@ -34,6 +34,18 @@ const (
 	LoginRefererEndpoint                = "https://www.pokemoncenter.com/cart"
 )
 
+// Errors
+const (
+	UnknownError = "unknown error"
+
+	RetrieveCyberSourcePublicKeyError    = ""
+	CyberSourceEncryptionError           = ""
+	RetrieveCyberSourceTokenError        = ""
+	RetrieveCyberSourcePaymentTokenError = ""
+
+	AddToCartQuantityError = "expected quantity of %d but found %d"
+)
+
 // Monitor info
 type Monitor struct {
 	Monitor         base.Monitor
@@ -84,8 +96,6 @@ type Task struct {
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
 	RefreshAt       int64
-	Retry           int
-	MaxRetry        int
 }
 
 //Info used for payment encryption
@@ -109,7 +119,7 @@ type CheckoutInfo struct {
 
 //Used to Retrieve the GuestAuthId
 type AccessToken struct {
-	Access_token string
+	AccessToken string
 }
 
 //Used in a couple of requests
