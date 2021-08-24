@@ -566,7 +566,9 @@ func (monitorStore *MonitorStore) CheckMonitorStock() {
 						if baseTask, ok := taskStore.Tasks[taskID]; ok {
 							if ok && baseTask.PokemonCenterTask.TaskInfo.Task.TaskGroupID == monitorID {
 								randomNumber := rand.Intn(len(baseMonitor.PokemonCenterMonitor.InStock))
-								baseTask.PokemonCenterTask.StockData = baseMonitor.PokemonCenterMonitor.InStock[randomNumber]
+								stockData := baseMonitor.PokemonCenterMonitor.InStock[randomNumber]
+								baseTask.PokemonCenterTask.TaskInfo.StockInfo = stockData.StockInfo
+								baseTask.PokemonCenterTask.AddToCartForm = stockData.AddToCartForm
 							}
 						}
 					}

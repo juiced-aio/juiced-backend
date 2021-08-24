@@ -108,7 +108,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		}
 
 		stockData := monitor.GetSKUStock(sku)
-		if stockData.SKU != "" {
+		if stockData.StockInfo.SKU != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
 				return
@@ -116,25 +116,25 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 
 			var inSlice bool
 			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.SKU == stockData.SKU
+				inSlice = monitorStock.StockInfo.SKU == stockData.StockInfo.SKU
 			}
 			if !inSlice {
 				monitor.InStock = append(monitor.InStock, stockData)
 				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
 				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+						{ProductName: stockData.StockInfo.ItemName, ProductImageURL: stockData.StockInfo.ImageURL}},
 				})
 			}
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+						{ProductName: stockData.StockInfo.ItemName, ProductImageURL: stockData.StockInfo.ImageURL}},
 				})
 			}
 			for i, monitorStock := range monitor.InStock {
-				if monitorStock.SKU == stockData.SKU {
+				if monitorStock.StockInfo.SKU == stockData.StockInfo.SKU {
 					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
 					break
 				}
@@ -183,14 +183,14 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 
 		switch monitorResponse.Props.InitialState.Product.Availability {
 		case "AVAILABLE":
-			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
+			stockData.StockInfo.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
 			fmt.Println(monitorResponse.Props.InitialState.Product.ListPrice.Amount)
 			var inBudget bool
-			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
+			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.StockInfo.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
-				stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
-				stockData.SKU = sku
-				stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
+				stockData.StockInfo.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+				stockData.StockInfo.SKU = sku
+				stockData.StockInfo.ItemName = monitorResponse.Props.InitialState.Product.Name
 				stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
 			}

@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
-	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -18,118 +17,118 @@ import (
 
 const MAX_RETRIES = 5
 
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	task.TaskInfo.Task.SetTaskStatus(status)
-	task.TaskInfo.EventBus.PublishTaskEvent(status, eventType, nil, task.TaskInfo.Task.ID)
-}
+func (task *Task) GetTaskFunctions() []util.TaskFunction {
+	var runTaskFunctions = []util.TaskFunction{}
 
-func (task *Task) CheckForStop() bool {
-	if task.TaskInfo.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
-		return true
-	}
-	return false
-}
-
-func (task *Task) RunTask() {
-	defer func() {
-		if r := recover(); r != nil {
-			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail)
-		} else {
-			task.PublishEvent(enums.TaskIdle, enums.TaskStop)
-		}
-		task.TaskInfo.StopFlag = true
-	}()
-
-	if task.TaskInfo.Task.TaskDelay == 0 {
-		task.TaskInfo.Task.TaskDelay = 2000
-	}
-	if task.TaskInfo.Task.TaskQty <= 0 {
-		task.TaskInfo.Task.TaskQty = 1
-	}
-
-	// 1. Login/LoginGuest
-	if task.Input.TaskType == enums.TaskTypeAccount && task.Input.Email != "" && task.Input.Password != "" {
-		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
-		if success, _ := task.RunUntilSuccessful(task.Login, MAX_RETRIES); !success {
-			return
-		}
+	if task.Input.TaskType == enums.TaskTypeAccount {
+		runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+			// 1. Login
+			{
+				Function:    task.Login,
+				StatusBegin: enums.LoggingIn,
+				MaxRetries:  MAX_RETRIES,
+			},
+			// 2. Refresh Login
+			{
+				Function:        task.Login,
+				StatusBegin:     enums.LoggingIn,
+				MaxRetries:      MAX_RETRIES,
+				RefreshFunction: true,
+				RefreshEvery:    1800,
+			},
+		}...)
 	} else {
-		task.PublishEvent(enums.SettingUp, enums.TaskUpdate)
-		if success, _ := task.RunUntilSuccessful(task.LoginGuest, MAX_RETRIES); !success {
-			return
-		}
+		runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+			// 1. LoginGuest
+			{
+				Function:    task.LoginGuest,
+				StatusBegin: enums.SettingUp,
+				MaxRetries:  MAX_RETRIES,
+			},
+			// 2. Refresh LoginGuest
+			{
+				Function:        task.LoginGuest,
+				StatusBegin:     enums.SettingUp,
+				MaxRetries:      MAX_RETRIES,
+				RefreshFunction: true,
+				RefreshEvery:    1800,
+			},
+		}...)
 	}
 
-	// 2. RefreshLogin (in background)
-	task.RefreshAt = time.Now().Unix() + 1800
-	go task.RefreshLogin()
+	runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+		// 3. EncryptCardDetails
+		// 		3a. RetrievePublicKey
+		{
+			Function:    task.RetrievePublicKey,
+			StatusBegin: enums.EncryptingCardInfo,
+			MaxRetries:  MAX_RETRIES,
+		},
+		//		3b. RetrievePrivateKey
+		{
+			Function:    task.RetrievePrivateKey,
+			StatusBegin: "",
+			MaxRetries:  MAX_RETRIES,
+		},
+		//		3c. RetrieveToken
+		{
+			Function:    task.RetrieveToken,
+			StatusBegin: "",
+			MaxRetries:  MAX_RETRIES,
+		},
+		//		3d. RetrieveJTI
+		{
+			Function:    task.RetrieveJTI,
+			StatusBegin: "",
+			MaxRetries:  MAX_RETRIES,
+		},
+		// 4. WaitForMonitor
+		{
+			Function:          task.WaitForMonitor,
+			StatusBegin:       enums.WaitingForMonitor,
+			MsBetweenRetries:  int(common.MS_TO_WAIT),
+			WaitingForMonitor: true,
+		},
+		// 5. AddToCart
+		{
+			Function:         task.AddToCart,
+			StatusBegin:      enums.WaitingForMonitor,
+			MsBetweenRetries: int(common.MS_TO_WAIT),
+		},
+	}...)
 
-	// 3. Encrypt card details
-	task.PublishEvent(enums.EncryptingCardInfo, enums.TaskUpdate)
-	if success, _ := task.RunUntilSuccessful(task.RetrieveEncryptedCardDetails, MAX_RETRIES); !success {
-		return
-	}
-
-	// 4. WaitForMonitor
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
-	needToStop := task.WaitForMonitor()
-	if needToStop {
-		return
-	}
-
-	task.TaskInfo.StartTime = time.Now()
-
-	// 5. AddToCart
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
-	if success, _ := task.RunUntilSuccessful(task.AddToCart, -1); !success {
-		return
-	}
-
-	// 6. Submit email address
 	if task.Input.TaskType == enums.TaskTypeGuest {
-		task.PublishEvent(enums.SettingEmailAddress, enums.TaskUpdate)
-		if success, _ := task.RunUntilSuccessful(task.SubmitEmailAddress, MAX_RETRIES); !success {
-			return
-		}
+		// 6. SubmitEmailAddress
+		runTaskFunctions = append(runTaskFunctions, util.TaskFunction{
+			Function:    task.SubmitEmailAddress,
+			StatusBegin: enums.SettingEmailAddress,
+			MaxRetries:  MAX_RETRIES,
+		})
 	}
 
-	// 7. Submit address details
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
-	if success, _ := task.RunUntilSuccessful(task.SubmitAddressDetails, MAX_RETRIES); !success {
-		return
-	}
+	runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+		// 7. SubmitAddressDetails
+		{
+			Function:    task.SubmitAddressDetails,
+			StatusBegin: enums.SettingShippingInfo,
+			MaxRetries:  MAX_RETRIES,
+		},
+		// 8. SubmitPaymentDetails
+		{
+			Function:    task.SubmitPaymentDetails,
+			StatusBegin: enums.SettingBillingInfo,
+			MaxRetries:  MAX_RETRIES,
+		},
+		// 9. Checkout
+		{
+			Function:    task.Checkout,
+			StatusBegin: enums.CheckingOut,
+			MaxRetries:  MAX_RETRIES,
+			Checkout:    true,
+		},
+	}...)
 
-	// 8. Submit payment details
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
-	if success, _ := task.RunUntilSuccessful(task.SubmitPaymentDetails, MAX_RETRIES); !success {
-		return
-	}
-
-	// 9. Checkout
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
-	success, status := task.RunUntilSuccessful(task.Checkout, MAX_RETRIES)
-
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		TaskInfo:     task.TaskInfo,
-		Success:      success,
-		Status:       status,
-		Embeds:       task.CreatePokemonCenterEmbed(status, task.StockData.ImageURL),
-		Content:      "",
-		ItemName:     task.StockData.ItemName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.PokemonCenter,
-		Price:        task.StockData.Price,
-		Quantity:     task.TaskInfo.Task.TaskQty,
-		MsToCheckout: time.Since(task.TaskInfo.StartTime).Milliseconds(),
-	})
-
-	task.TaskInfo.EndTime = time.Now()
-
-	log.Println("STARTED AT: " + task.TaskInfo.StartTime.String())
-	log.Println("  ENDED AT: " + task.TaskInfo.EndTime.String())
-	log.Println("TIME TO CHECK OUT: ", task.TaskInfo.EndTime.Sub(task.TaskInfo.StartTime).Milliseconds())
+	return runTaskFunctions
 }
 
 func (task *Task) Login() (bool, string) {
@@ -221,66 +220,6 @@ func (task *Task) LoginGuest() (bool, string) {
 	return false, fmt.Sprintf(enums.SettingUpFailure, UnknownError)
 }
 
-func (task *Task) RefreshLogin() {
-	defer func() {
-		if r := recover(); r != nil {
-			task.RefreshLogin()
-		}
-	}()
-
-	for {
-		if task.RefreshAt == 0 || time.Now().Unix() > task.RefreshAt {
-			if task.Input.TaskType == enums.TaskTypeAccount {
-				if success, _ := task.RunUntilSuccessful(task.Login, MAX_RETRIES); !success {
-					return
-				}
-			} else {
-				if success, _ := task.RunUntilSuccessful(task.LoginGuest, MAX_RETRIES); !success {
-					return
-				}
-			}
-			task.RefreshAt = time.Now().Unix() + 1800
-		}
-		time.Sleep(time.Millisecond * common.MS_TO_WAIT)
-	}
-}
-
-func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
-	var err error
-
-	// 1. Retrieve public key for encryption
-	if success, _ := task.RunUntilSuccessful(task.RetrievePublicKey, MAX_RETRIES); !success {
-		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, RetrieveCyberSourcePublicKeyError)
-	}
-
-	// 2. Encrypt using CyberSourceV2 encryption
-	task.CyberSecureInfo.PublicToken, err = CyberSourceV2(task.CyberSecureInfo.PublicKey, task.TaskInfo.Profile.CreditCard)
-	if task.CyberSecureInfo.PublicToken == "" || err != nil {
-		errorMessage := CyberSourceEncryptionError
-		if err != nil {
-			errorMessage = err.Error()
-		}
-		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, errorMessage)
-	}
-
-	// 3. Retrieve CyberSourceV2 Token
-	if success, _ := task.RunUntilSuccessful(task.RetrieveToken, MAX_RETRIES); !success {
-		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, RetrieveCyberSourceTokenError)
-	}
-
-	// 4. Retrieve JTI from CyberSourceInfo
-	task.CyberSecureInfo.JtiToken, err = retrievePaymentToken(task.CyberSecureInfo.Privatekey)
-	if task.CyberSecureInfo.JtiToken == "" || err != nil {
-		errorMessage := RetrieveCyberSourcePaymentTokenError
-		if err != nil {
-			errorMessage = err.Error()
-		}
-		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, errorMessage)
-	}
-
-	return true, enums.EncryptingCardInfoSuccess
-}
-
 func (task *Task) RetrievePublicKey() (bool, string) {
 	paymentKeyResponse := PaymentKeyResponse{}
 
@@ -317,6 +256,19 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 	}
 
 	return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, UnknownError)
+}
+
+func (task *Task) RetrievePrivateKey() (bool, string) {
+	var err error
+	task.CyberSecureInfo.PublicToken, err = CyberSourceV2(task.CyberSecureInfo.PublicKey, task.TaskInfo.Profile.CreditCard)
+	if task.CyberSecureInfo.PublicToken == "" || err != nil {
+		errorMessage := CyberSourceEncryptionError
+		if err != nil {
+			errorMessage = err.Error()
+		}
+		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, errorMessage)
+	}
+	return true, ""
 }
 
 func (task *Task) RetrieveToken() (bool, string) {
@@ -359,22 +311,30 @@ func (task *Task) RetrieveToken() (bool, string) {
 	return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, UnknownError)
 }
 
-func (task *Task) WaitForMonitor() bool {
-	for {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return true
+func (task *Task) RetrieveJTI() (bool, string) {
+	var err error
+	task.CyberSecureInfo.JtiToken, err = retrievePaymentToken(task.CyberSecureInfo.Privatekey)
+	if task.CyberSecureInfo.JtiToken == "" || err != nil {
+		errorMessage := RetrieveCyberSourcePaymentTokenError
+		if err != nil {
+			errorMessage = err.Error()
 		}
-		if task.StockData.AddToCartForm != "" {
-			return false
-		}
-		time.Sleep(time.Millisecond * common.MS_TO_WAIT)
+		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, errorMessage)
 	}
+
+	return true, enums.EncryptingCardInfoSuccess
+}
+
+func (task *Task) WaitForMonitor() (bool, string) {
+	if task.AddToCartForm != "" {
+		return true, ""
+	}
+	return false, ""
 }
 
 func (task *Task) AddToCart() (bool, string) {
 	addToCartRequest := AddToCartRequest{
-		ProductUri:    task.StockData.AddToCartForm,
+		ProductUri:    task.AddToCartForm,
 		Quantity:      task.TaskInfo.Task.TaskQty,
 		Configuration: "",
 	}
@@ -401,7 +361,7 @@ func (task *Task) AddToCart() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.StockData.SKU)},
+			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.TaskInfo.StockInfo.SKU)},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},

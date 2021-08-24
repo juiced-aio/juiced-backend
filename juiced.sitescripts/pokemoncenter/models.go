@@ -80,10 +80,9 @@ type MonitorResponse struct {
 type Task struct {
 	TaskInfo        *util.TaskInfo
 	Input           TaskInput
-	StockData       PokemonCenterInStockData
+	AddToCartForm   string
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
-	RefreshAt       int64
 	CheckoutUri     string
 }
 
@@ -94,11 +93,8 @@ type TaskInput struct {
 }
 
 type PokemonCenterInStockData struct {
-	SKU           string
-	Price         float64
-	ItemName      string
+	StockInfo     util.StockInfo
 	AddToCartForm string
-	ImageURL      string
 }
 
 type CyberSecureInfo struct {

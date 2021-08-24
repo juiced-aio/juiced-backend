@@ -82,6 +82,11 @@ const (
 	CheckedOut          TaskStatus = "Checked out!"
 )
 
+var StatusMap = map[TaskStatus][]TaskStatus{
+	LoggingIn: {LoggingIn, LoginFailure, LoginSuccess},
+	SettingUp: {SettingUp, SettingUpFailure, SettingUpSuccess},
+}
+
 type TaskEventType = string
 
 const (

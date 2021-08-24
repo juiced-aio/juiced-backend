@@ -7,12 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	jose "github.com/dvsekhvalnov/jose2go"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -193,114 +190,4 @@ func retrievePaymentToken(keyId string) (string, error) {
 		return "", err
 	}
 	return encrypt.Jti, nil
-}
-
-// Creates a embed for the DiscordWebhook function
-func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
-	embeds := []sec.DiscordEmbed{
-		{
-			Fields: []sec.DiscordField{
-				{
-					Name:   "Site:",
-					Value:  "Pokemon Center",
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprintf("%f", task.StockData.Price),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  task.StockData.SKU,
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: task.StockData.ItemName,
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.TaskInfo.Proxy) + " " + "||",
-				},
-			},
-			Footer: sec.DiscordFooter{
-				Text:    "Juiced AIO",
-				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
-			},
-			Timestamp: time.Now(),
-		},
-	}
-
-	switch status {
-	case enums.OrderStatusSuccess:
-		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
-		embeds[0].Color = 16742912
-		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
-		}
-	case enums.OrderStatusDeclined:
-		embeds[0].Title = ":lemon: Card Declined :lemon:"
-		embeds[0].Color = 16766464
-		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
-		}
-	case enums.OrderStatusFailed:
-		embeds[0].Title = ":apple: Failed to Place Order :apple:"
-		embeds[0].Color = 14495044
-		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
-		}
-	}
-
-	return embeds
-}
-
-// RunUntilSuccessful runs a single function until (a) it succeeds, (b) the task needs to stop, or (c) it fails maxRetries times.
-// 		Passing in -1 for maxRetries will retry the function indefinitely.
-//		Returns true if the function was successful, false if the function failed (and the task should stop)
-func (task *Task) RunUntilSuccessful(fn func() (bool, string), maxRetries int) (bool, string) {
-	attempt := 1
-	if maxRetries == -1 {
-		attempt = -1
-	}
-
-	var success bool
-	var status string
-	for success, status = task.RunUntilSuccessfulHelper(fn, attempt); !success; {
-		needToStop := task.CheckForStop()
-		if needToStop || attempt > maxRetries {
-			task.TaskInfo.StopFlag = true
-			return false, ""
-		}
-		if attempt >= 0 {
-			attempt++
-		}
-
-		time.Sleep(time.Duration(task.TaskInfo.Task.TaskDelay) * time.Millisecond)
-	}
-
-	return true, status
-}
-
-func (task *Task) RunUntilSuccessfulHelper(fn func() (bool, string), attempt int) (bool, string) {
-	success, status := fn()
-
-	if !success {
-		if attempt > 0 {
-			if status != "" {
-				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), enums.TaskUpdate)
-			}
-		} else {
-			if status != "" {
-				task.PublishEvent(fmt.Sprint("(Retrying) ", status), enums.TaskUpdate)
-			}
-		}
-		return false, status
-	}
-
-	if status != "" {
-		task.PublishEvent(status, enums.TaskUpdate)
-	}
-	return true, status
 }

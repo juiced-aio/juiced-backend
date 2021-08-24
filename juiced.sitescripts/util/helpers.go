@@ -459,18 +459,17 @@ func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
 
 // Processes each checkout by sending a webhook and logging the checkout
 func ProcessCheckout(pci *ProcessCheckoutInfo) {
-	_, user, err := queries.GetUserInfo()
+	_, userInfo, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
 		return
 	}
-	pci.UserInfo = user
 	if pci.Status != enums.OrderStatusFailed {
-		go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, pci.UserInfo)
+		go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, userInfo)
 	}
 	if pci.Success {
-		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, int(pci.Price), pci.Quantity, pci.UserInfo)
-		go SendCheckout(pci.TaskInfo, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
+		go sec.LogCheckout(pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.SKU, pci.Retailer, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.TaskQty, userInfo)
+		go SendCheckout(pci.TaskInfo, pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.ImageURL, pci.TaskInfo.StockInfo.SKU, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.TaskQty, time.Since(pci.TaskInfo.StartTime).Milliseconds())
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
 }

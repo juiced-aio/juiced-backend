@@ -11,6 +11,27 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
+type TaskFunction struct {
+	Function          func() (bool, string)
+	StatusBegin       enums.TaskStatus
+	InBackground      bool
+	SpecialFunction   bool
+	RefreshFunction   bool
+	RefreshAt         int64
+	RefreshEvery      int
+	MaxRetries        int
+	MsBetweenRetries  int
+	WaitingForMonitor bool
+	Checkout          bool
+}
+
+type StockInfo struct {
+	SKU      string
+	Price    float64
+	ItemName string
+	ImageURL string
+}
+
 type TaskInfo struct {
 	Task       *entities.Task
 	Profile    entities.Profile
@@ -23,6 +44,8 @@ type TaskInfo struct {
 	Client     http.Client
 	Scraper    hawk.Scraper
 	ErrorField string
+
+	StockInfo StockInfo
 }
 
 type MonitorInfo struct {
@@ -118,19 +141,12 @@ type SensorResponse struct {
 
 // All info needed for ProcessCheckout
 type ProcessCheckoutInfo struct {
-	TaskInfo     *TaskInfo
-	Success      bool
-	Status       enums.OrderStatus
-	Content      string
-	Embeds       []sec.DiscordEmbed
-	UserInfo     entities.UserInfo
-	ItemName     string
-	ImageURL     string
-	Sku          string
-	Retailer     string
-	Price        float64
-	Quantity     int
-	MsToCheckout int64
+	TaskInfo *TaskInfo
+	Success  bool
+	Status   enums.OrderStatus
+	Content  string
+	Embeds   []sec.DiscordEmbed
+	Retailer string
 }
 
 type PXValues struct {
