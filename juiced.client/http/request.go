@@ -401,7 +401,15 @@ func (r *Request) ProtoAtLeast(major, minor int) bool {
 
 // UserAgent returns the client's User-Agent, if sent in the request.
 func (r *Request) UserAgent() string {
-	return r.Header.Get("User-Agent")
+	ua := r.Header.Get("User-Agent")
+	if ua == "" {
+		for _, rawHeader := range r.RawHeader {
+			if rawHeader[0] == "user-agent" || rawHeader[0] == "User-Agent" {
+				return rawHeader[1]
+			}
+		}
+	}
+	return ua
 }
 
 // Cookies parses and returns the HTTP cookies sent with the request.

@@ -9,6 +9,7 @@ const (
 	SettingUpMonitor          MonitorStatus = "Setting up"
 	BypassingPXMonitor        MonitorStatus = "Bypassing PX"
 	WaitingForProductData     MonitorStatus = "Searching"
+	ProxyBanned               MonitorStatus = "Proxy is banned"
 	UnableToFindProduct       MonitorStatus = "Product not found"
 	WaitingForInStock         MonitorStatus = "Out of stock"
 	OutOfPriceRange           MonitorStatus = "Out of price range"
@@ -87,17 +88,19 @@ type Retailer = string
 
 // Choose one per Task/Monitor
 const (
-	Target      Retailer = "Target"
-	Walmart     Retailer = "Walmart"
 	Amazon      Retailer = "Amazon"
 	BestBuy     Retailer = "BestBuy"
+	BigCartel   Retailer = "BigCartel"
+	BoxLunch    Retailer = "BoxLunch"
 	Disney      Retailer = "Disney"
 	GameStop    Retailer = "GameStop"
-	Shopify     Retailer = "Shopify"
-	BigCartel   Retailer = "BigCartel"
-	SquareSpace Retailer = "SquareSpace"
 	HotTopic    Retailer = "HotTopic"
-	BoxLunch    Retailer = "BoxLunch"
+	Newegg      Retailer = "Newegg"
+	Shopify     Retailer = "Shopify"
+	SquareSpace Retailer = "SquareSpace"
+	Target      Retailer = "Target"
+	Topps       Retailer = "Topps"
+	Walmart     Retailer = "Walmart"
 )
 
 type ShopifyRetailer = string

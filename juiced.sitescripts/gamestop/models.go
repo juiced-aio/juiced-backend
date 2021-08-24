@@ -43,12 +43,13 @@ type Monitor struct {
 }
 
 type GamestopInStockData struct {
-	SKU        string
-	Price      float64
-	ItemName   string
-	PID        string
-	ImageURL   string
-	ProductURL string
+	SKU         string
+	Price       float64
+	ItemName    string
+	PID         string
+	ImageURL    string
+	ProductURL  string
+	MaxQuantity int
 }
 
 var DefaultRawHeaders = [][2]string{
@@ -68,24 +69,20 @@ var DefaultRawHeaders = [][2]string{
 type Task struct {
 	Task         base.Task
 	TaskType     enums.TaskType
-	CheckoutInfo CheckoutInfo
 	AccountInfo  AccountInfo
+	CheckoutInfo CheckoutInfo
+	StockData    GamestopInStockData
 }
+
 type AccountInfo struct {
 	Email    string
 	Password string
 }
 
 type CheckoutInfo struct {
-	SKUInStock           string
-	PID                  string
-	Price                float64
 	ShipmentUUID         string
 	OriginalShipmentUUID string
 	CSRF                 string
-	ProductURL           string
-	ImageURL             string
-	ItemName             string
 }
 
 type LoginResponse struct {
@@ -140,6 +137,7 @@ type Product struct {
 	Availability       Availability `json:"availability"`
 	ID                 string       `json:"id"`
 	Selectedproducturl string       `json:"selectedProductUrl"`
+	MaxOrderQuantity   int          `json:"maxOrderQuantity"`
 }
 
 type Productinfo struct {

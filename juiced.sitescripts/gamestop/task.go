@@ -18,21 +18,24 @@ import (
 )
 
 // CreateGamestopTask takes a Task entity and turns it into a Gamestop Task
-func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	gamestopTask := Task{}
 
 	gamestopTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
 			Password: password,
 		},
 		TaskType: taskType,
+	}
+	if proxyGroup != nil {
+		gamestopTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return gamestopTask, nil
 }
@@ -74,12 +77,14 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -124,7 +129,6 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-
 	startTime := time.Now()
 	// 4. Checkout
 	gotCartInfo := false
@@ -296,7 +300,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.CheckoutInfo.SKUInStock != "" {
+		if task.StockData.SKU != "" {
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
@@ -305,9 +309,14 @@ func (task *Task) WaitForMonitor() bool {
 
 // AddToCart adds an item to the cart
 func (task *Task) AddToCart() bool {
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
 	addToCartResponse := AddToCartResponse{}
 	form := url.Values{
-		"pid":            {task.CheckoutInfo.PID},
+		"pid":            {task.StockData.PID},
+		"quantity":       {fmt.Sprint(quantity)},
 		"upsellID":       {""},
 		"purPROID":       {""},
 		"options":        {"[]"},
@@ -319,7 +328,7 @@ func (task *Task) AddToCart() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint, task.CheckoutInfo.SKUInStock),
+		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.SKU),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -332,7 +341,7 @@ func (task *Task) AddToCart() bool {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.CheckoutInfo.ProductURL},
+			{"referer", task.StockData.ProductURL},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -591,18 +600,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Status:       status,
 		Content:      "",
-		Embeds:       task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.CheckoutInfo.ItemName,
-		ImageURL:     task.CheckoutInfo.ImageURL,
-		Sku:          task.CheckoutInfo.SKUInStock,
+		Embeds:       task.CreateGamestopEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ItemName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
 		Retailer:     enums.GameStop,
-		Price:        task.CheckoutInfo.Price,
-		Quantity:     1,
+		Price:        task.StockData.Price,
+		Quantity:     quantity,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 

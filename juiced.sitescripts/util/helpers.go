@@ -12,14 +12,17 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
-	cclient "backend.juicedbot.io/juiced.client/client"
-	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
-	utls "backend.juicedbot.io/juiced.client/utls"
+
+	"backend.juicedbot.io/juiced.client/client"
+	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
@@ -27,31 +30,9 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
-// CreateClient creates an HTTP client
-func CreateClient(proxy ...entities.Proxy) (http.Client, error) {
-	var client http.Client
-	var err error
-	if len(proxy) > 0 {
-		client, err = cclient.NewClient(utls.HelloChrome_90, ProxyCleaner(proxy[0]))
-		if err != nil {
-			return client, err
-		}
-	} else {
-		client, err = cclient.NewClient(utls.HelloChrome_90)
-		if err != nil {
-			return client, err
-		}
-	}
-	cookieJar, err := cookiejar.New(nil)
-	if err != nil {
-		return client, err
-	}
-	client.Jar = cookieJar
-	return client, err
-}
-
 // Adds base headers to the request
 func AddBaseHeaders(request *http.Request) {
+	request.UserAgent()
 	request.Header.Set("Connection", "keep-alive")
 	request.Header.Set("Sec-Ch-Ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\"")
 	request.Header.Set("X-Application-Name", "web")
@@ -141,7 +122,13 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 		}
 		log.Println()
 	}
-	response, err := requestInfo.Client.Do(request)
+
+	var response *http.Response
+	if requestInfo.Client.Transport != nil {
+		response, err = requestInfo.Client.Do(request)
+	} else {
+		response, err = requestInfo.Scraper.Do(request)
+	}
 	ok = HandleErrors(err, RequestDoError)
 	if !ok {
 		return response, "", err
@@ -235,15 +222,6 @@ func SendDiscordWebhook(discordWebhook string, embeds []Embed) bool {
 	return response.StatusCode >= 200 && response.StatusCode < 300
 }
 
-// CreateParams turns a string->string map into a URL parameter string
-func CreateParams(paramsLong map[string]string) string {
-	params := url.Values{}
-	for key, value := range paramsLong {
-		params.Add(key, value)
-	}
-	return params.Encode()
-}
-
 // TernaryOperator is a make-shift ternary operator since Golang doesn't have one out of the box
 func TernaryOperator(condition bool, trueOutcome interface{}, falseOutcome interface{}) interface{} {
 	if condition {
@@ -252,7 +230,10 @@ func TernaryOperator(condition bool, trueOutcome interface{}, falseOutcome inter
 	return falseOutcome
 }
 
-func ProxyCleaner(proxyDirty entities.Proxy) string {
+func ProxyCleaner(proxyDirty *entities.Proxy) string {
+	if proxyDirty == nil {
+		return ""
+	}
 	if proxyDirty.Host == "" {
 		return ""
 	}
@@ -478,7 +459,7 @@ func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
 }
 
 // Processes each checkout by sending a webhook and logging the checkout
-func ProcessCheckout(pci ProcessCheckoutInfo) {
+func ProcessCheckout(pci *ProcessCheckoutInfo) {
 	_, user, err := queries.GetUserInfo()
 	if err != nil {
 		fmt.Println("Could not get user info")
@@ -490,13 +471,13 @@ func ProcessCheckout(pci ProcessCheckoutInfo) {
 	}
 	if pci.Success {
 		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, int(pci.Price), pci.Quantity, pci.UserInfo)
-		go SendCheckout(pci.BaseTask, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
+		go SendCheckout(&pci.BaseTask, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
 }
 
 // Logs the checkout
-func SendCheckout(task base.Task, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
+func SendCheckout(task *base.Task, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
 	commands.CreateCheckout(entities.Checkout{
 		ItemName:     itemName,
 		ImageURL:     imageURL,
@@ -510,7 +491,7 @@ func SendCheckout(task base.Task, itemName string, imageURL string, sku string, 
 	})
 }
 
-func GetPXCookie(site string, proxy entities.Proxy, cancellationToken *CancellationToken) (string, PXValues, bool, error) {
+func GetPXCookie(site string, proxy *entities.Proxy, cancellationToken *CancellationToken) (string, PXValues, bool, error) {
 	var pxValues PXValues
 
 	_, userInfo, err := queries.GetUserInfo()
@@ -527,7 +508,7 @@ func GetPXCookie(site string, proxy entities.Proxy, cancellationToken *Cancellat
 		if cancellationToken.Cancel {
 			return "", pxValues, true, err
 		}
-		return GetPXCookie(site, proxy, cancellationToken)
+		return "", pxValues, false, errors.New("retry")
 	}
 
 	return pxResponse.PX3, PXValues{
@@ -537,7 +518,7 @@ func GetPXCookie(site string, proxy entities.Proxy, cancellationToken *Cancellat
 	}, false, nil
 }
 
-func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy, cancellationToken *CancellationToken) (string, bool, error) {
+func GetPXCapCookie(site, setID, vid, uuid, token string, proxy *entities.Proxy, cancellationToken *CancellationToken) (string, bool, error) {
 	var px3 string
 
 	_, userInfo, err := queries.GetUserInfo()
@@ -553,7 +534,7 @@ func GetPXCapCookie(site, setID, vid, uuid, token string, proxy entities.Proxy, 
 		if cancellationToken.Cancel {
 			return "", true, err
 		}
-		return GetPXCapCookie(site, setID, vid, uuid, token, proxy, cancellationToken)
+		return "", false, errors.New("retry")
 	}
 	return px3, false, nil
 }
@@ -661,4 +642,48 @@ func GetCardType(cardNumber []byte, retailer enums.Retailer) string {
 	}
 
 	return ""
+}
+
+// Takes a slice of proxies and returns a random proxy from the proxies being used least
+func RandomLeastUsedProxy(proxies []*entities.Proxy) *entities.Proxy {
+	if len(proxies) == 0 {
+		return &entities.Proxy{}
+	}
+	countMap := make(map[int][]*entities.Proxy)
+	for _, proxy := range proxies {
+		countMap[proxy.Count] = append(countMap[proxy.Count], proxy)
+	}
+
+	var proxyCounts []int
+	for key := range countMap {
+		proxyCounts = append(proxyCounts, key)
+	}
+	sort.Ints(proxyCounts)
+
+	return countMap[proxyCounts[0]][rand.Intn(len(countMap[proxyCounts[0]]))]
+}
+
+// CreateClient creates an HTTP client
+func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
+	var cClient http.Client
+	var err error
+	if len(proxy) > 0 {
+		if proxy[0] != nil {
+			proxy[0].AddCount()
+			cClient, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
+			if err != nil {
+				return cClient, err
+			}
+		} else {
+			cClient, _ = client.NewClient(utls.HelloChrome_90)
+		}
+	} else {
+		cClient, _ = client.NewClient(utls.HelloChrome_90)
+	}
+	cookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return cClient, err
+	}
+	cClient.Jar = cookieJar
+	return cClient, err
 }
