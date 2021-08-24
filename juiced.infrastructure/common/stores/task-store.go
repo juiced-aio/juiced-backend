@@ -319,7 +319,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return nil
 		}
 		// Create task
-		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxy, taskStore.EventBus)
+		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxyGroup, taskStore.EventBus, task.PokemonCenterTaskInfo.Email, task.PokemonCenterTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}

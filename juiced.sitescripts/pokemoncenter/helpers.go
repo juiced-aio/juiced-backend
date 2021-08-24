@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
@@ -46,7 +47,7 @@ func dumpMap(space string, m map[string]interface{}) {
 }
 
 //We could of made this task apart of 'task' and pulled details from here but as this will be moved later to security its best to pass these details in.
-func CyberSourceV2(keyId string, card Card) (returnVal string) {
+func CyberSourceV2(keyId string, card entities.Card) (returnVal string) {
 	key := strings.Split(keyId, ".")[1]
 
 	decodedKeyBytes, _ := base64.StdEncoding.DecodeString(key)
@@ -74,11 +75,26 @@ func CyberSourceV2(keyId string, card Card) (returnVal string) {
 	header_.Jwk = *rsa_
 
 	card_ := new(Card)
-	card_.SecurityCode = card.SecurityCode
-	card_.Number = card.Number
-	card_.Type = "001" //visa and 002 = mastercard
-	card_.ExpMonth = card.ExpMonth
-	card_.ExpYear = card.ExpYear
+	card_ = &Card{SecurityCode: card.CVV, Number: card.CardNumber, ExpMonth: card.ExpMonth, ExpYear: card.ExpYear}
+
+	switch card.CardType { // https://developer.cybersource.com/library/documentation/dev_guides/Retail_SO_API/html/Topics/app_card_types.htm
+	case "Visa":
+		card_.Type = "001"
+	case "Mastercard":
+		card_.Type = "002"
+	case "AMEX":
+		card_.Type = "003"
+	case "Discover":
+		card_.Type = "004"
+	case "Diners":
+		card_.Type = "005"
+	case "Diners - Carte Blanche":
+		card_.Type = "006"
+	case "JCB":
+		card_.Type = "007"
+	case "Visa Electron":
+		card_.Type = "033"
+	}
 
 	encryptedObject_ := new(EncryptedObject)
 	encryptedObject_.Context = keyId
@@ -124,11 +140,11 @@ func CyberSourceV2(keyId string, card Card) (returnVal string) {
 			"context": "` + keyId + `",
 			"index": 0,
 			"data":{
-				"securityCode":"260",
-				"number":"4767718212263745",
-				"type":"001",
-				"expirationMonth":"02",
-				"expirationYear":"2026"
+				"securityCode":"` + card_.SecurityCode + `",
+				"number":"` + card_.Number + `",
+				"type":"` + card_.Type + `",
+				"expirationMonth":"` + card_.ExpMonth + `",
+				"expirationYear":"` + card_.ExpYear + `"
 			}
 		}`
 
@@ -184,17 +200,17 @@ func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL st
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprintf("%f", task.CheckoutInfo.Price),
+					Value:  "$" + fmt.Sprintf("%f", task.StockData.Price),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  task.CheckoutInfo.SKU,
+					Value:  task.StockData.SKU,
 					Inline: true,
 				},
 				{
 					Name:  "Product Name:",
-					Value: task.CheckoutInfo.ItemName,
+					Value: task.StockData.ItemName,
 				},
 				{
 					Name:  "Proxy:",

@@ -2,6 +2,7 @@ package pokemoncenter
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
@@ -76,7 +77,10 @@ type PokemonCenterInStockData struct {
 
 type Task struct {
 	Task            base.Task
+	AccountInfo     AccountInfo
+	TaskType        enums.TaskType
 	CheckoutInfo    CheckoutInfo
+	StockData       PokemonCenterInStockData
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
 	RefreshAt       int64
@@ -92,14 +96,15 @@ type CyberSecureInfo struct {
 	JtiToken    string
 }
 
+//Info used when logging in
+type AccountInfo struct {
+	Email    string
+	Password string
+}
+
 //Info used for checkout
 type CheckoutInfo struct {
-	AddToCartForm string
-	ImageURL      string
-	Price         float64
-	ItemName      string
-	SKU           string
-	CheckoutUri   string
+	CheckoutUri string
 }
 
 //Used to Retrieve the GuestAuthId

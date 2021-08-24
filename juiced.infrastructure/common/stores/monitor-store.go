@@ -204,6 +204,25 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 		monitorStore.NeweggMonitors[monitor.GroupID] = &neweggMonitor
 
+	case enums.PokemonCenter:
+		if _, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return nil
+		}
+
+		if queryError != nil {
+			return queryError
+		}
+
+		if len(monitor.PokemonCenterMonitorInfo.Monitors) == 0 {
+			return e.New(errors.NoMonitorsError)
+		}
+
+		pokemonCenterMonitor, err := pokemoncenter.CreatePokemonCenterMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.PokemonCenterMonitorInfo.Monitors)
+		if err != nil {
+			return e.New(errors.CreateMonitorError + err.Error())
+		}
+		monitorStore.PokemonCenterMonitors[monitor.GroupID] = &pokemonCenterMonitor
+
 	case enums.Shopify:
 		if _, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
 			return nil
@@ -285,24 +304,6 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		// Add task to store
 		monitorStore.WalmartMonitors[monitor.GroupID] = &walmartMonitor
 
-	case enums.PokemonCenter:
-		if _, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
-			return nil
-		}
-
-		if queryError != nil {
-			return queryError
-		}
-
-		if len(monitor.PokemonCenterMonitorInfo.Monitors) == 0 {
-			return e.New(errors.NoMonitorsError)
-		}
-
-		pokemonCenterMonitor, err := pokemoncenter.CreatePokemonCenterMonitor(monitor, proxies, monitorStore.EventBus, monitor.PokemonCenterMonitorInfo.Monitors)
-		if err != nil {
-			return e.New(errors.CreateMonitorError + err.Error())
-		}
-		monitorStore.PokemonCenterMonitors[monitor.GroupID] = &pokemonCenterMonitor
 	}
 	monitor.UpdateMonitor = false
 	return nil
@@ -778,11 +779,7 @@ func (monitorStore *MonitorStore) CheckPokemonCenterMonitorStock() {
 					if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok {
 						if ok && pokemonCenterTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(pokemonCenterMonitor.InStock))
-							pokemonCenterTask.CheckoutInfo.AddToCartForm = pokemonCenterMonitor.InStock[randomNumber].AddToCartForm
-							pokemonCenterTask.CheckoutInfo.SKU = pokemonCenterMonitor.InStock[randomNumber].SKU
-							pokemonCenterTask.CheckoutInfo.ItemName = pokemonCenterMonitor.InStock[randomNumber].ItemName
-							pokemonCenterTask.CheckoutInfo.ImageURL = pokemonCenterMonitor.InStock[randomNumber].ImageURL
-							pokemonCenterTask.CheckoutInfo.Price = pokemonCenterMonitor.InStock[randomNumber].Price
+							pokemonCenterTask.StockData = pokemonCenterMonitor.InStock[randomNumber]
 						}
 					}
 				}
@@ -819,11 +816,12 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckNeweggMonitorStock()
+	go monitorStore.CheckPokemonCenterMonitorStock()
 	go monitorStore.CheckShopifyMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
 	go monitorStore.CheckToppsMonitorStock()
 	go monitorStore.CheckWalmartMonitorStock()
-	go monitorStore.CheckPokemonCenterMonitorStock()
+
 }
 
 // GetMonitorStatus returns the status of the given TaskGroup's monitor

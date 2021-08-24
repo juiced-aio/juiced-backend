@@ -20,15 +20,19 @@ import (
 )
 
 // CreatePokemonCenterTask takes a Task entity and turns it into a PokemonCenter Task
-func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string) (Task, error) {
 	pokemonCenterTask := Task{}
 
 	pokemonCenterTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
+		},
+		AccountInfo: AccountInfo{
+			Email:    email,
+			Password: password,
 		},
 	}
 	return pokemonCenterTask, nil
@@ -57,11 +61,18 @@ func (task *Task) RunTask() {
 		task.Task.StopFlag = true
 		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
 	}()
+
+	if task.Task.Task.TaskDelay == 0 {
+		task.Task.Task.TaskDelay = 2000
+	}
+	if task.Task.Task.TaskQty <= 0 {
+		task.Task.Task.TaskQty = 1
+	}
+
 	task.MaxRetry = 5
-	UseAccountLogin := false //this needs to come from the front end user selection somewhere
 	task.RefreshAt = 0
 	//set to 0 so we refresh now
-	go task.RefreshLogin(UseAccountLogin)
+	go task.RefreshLogin()
 	//Refresh login data using login or guest
 
 	//Setup card encryption details for later
@@ -87,14 +98,14 @@ func (task *Task) RunTask() {
 	}
 
 	// 2. Submit email details
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitEmailAddress(UseAccountLogin)); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitEmailAddress()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
 	}
 
 	// 3. Submit address details
-	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitAddressDetails(UseAccountLogin)); !isSuccess || needtostop; {
+	for isSuccess, needtostop := task.RunUntilSuccessful(task.SubmitAddressDetails()); !isSuccess || needtostop; {
 		if needtostop {
 			return
 		}
@@ -125,12 +136,11 @@ func (task *Task) RunTask() {
 
 func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
 	task.PublishEvent(enums.EncryptingCardInfo, enums.TaskUpdate)
-	card := Card{SecurityCode: task.Task.Profile.CreditCard.CVV, Number: task.Task.Profile.CreditCard.CardNumber, ExpMonth: task.Task.Profile.CreditCard.ExpMonth, ExpYear: task.Task.Profile.CreditCard.ExpYear}
 
-	//check card details have been put in
+	/* //check card details have been put in
 	if card.SecurityCode == "" || card.Number == "" || card.ExpYear == "" || card.ExpMonth == "" {
 		return false, enums.CardDetailsMissing
-	}
+	} */
 
 	// Set public key for payment encryption
 	for isSuccess, needtostop := task.RunUntilSuccessful(task.RetrievePublicKey()); !isSuccess || needtostop; {
@@ -142,7 +152,7 @@ func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
 	//set card details ready to encrypt
 
 	// Now we have the public payment key, encrypt using CyberSecure encrpytion
-	task.CyberSecureInfo.PublicToken = CyberSourceV2(task.CyberSecureInfo.PublicKey, card)
+	task.CyberSecureInfo.PublicToken = CyberSourceV2(task.CyberSecureInfo.PublicKey, task.Task.Profile.CreditCard)
 	if task.CyberSecureInfo.PublicToken == "" {
 		return false, enums.EncryptingCardInfoFailure
 	}
@@ -171,7 +181,7 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.CheckoutInfo.AddToCartForm != "" {
+		if task.StockData.AddToCartForm != "" {
 			return false
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -183,16 +193,16 @@ func (task *Task) Login() (bool, string) {
 	loginResponse := LoginResponse{}
 
 	params := url.Values{}
-	params.Add("username", "anthonyreeder123@gmail.com") //needs to come from front end
-	params.Add("password", "pass")                       //needs to come from front end
-	params.Add("grant_type", "password")                 //hardcode
-	params.Add("role", "REGISTERED")                     //hardcode
-	params.Add("scope", "pokemon")                       //hardcode
+	params.Add("username", task.AccountInfo.Email)    //needs to come from front end
+	params.Add("password", task.AccountInfo.Password) //needs to come from front end
+	params.Add("grant_type", "password")              //hardcode
+	params.Add("role", "REGISTERED")                  //hardcode
+	params.Add("scope", "pokemon")                    //hardcode
 
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(LoginEndpoint),
+		URL:    LoginEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader([]byte(params.Encode())).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -227,18 +237,18 @@ func (task *Task) Login() (bool, string) {
 	return false, enums.LoginFailed
 }
 
-func (task *Task) RefreshLogin(useAccountLogin bool) {
+func (task *Task) RefreshLogin() {
 	task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
 
 	defer func() {
 		if recover() != nil {
-			task.RefreshLogin(useAccountLogin)
+			task.RefreshLogin()
 		}
 	}()
 
 	for {
 		if task.RefreshAt == 0 || time.Now().Unix() > task.RefreshAt {
-			if useAccountLogin {
+			if task.TaskType == enums.TaskTypeAccount {
 				for isSuccess, needtostop := task.RunUntilSuccessful(task.Login()); !isSuccess || needtostop; {
 					if needtostop {
 						return
@@ -261,7 +271,7 @@ func (task *Task) AddToCart() (bool, string) {
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
 
 	//Setup request using data passed from 'Instock' data to the tasks 'Checkout data' (Done in monitor-store)
-	addToCartRequest := AddToCartRequest{ProductUri: task.CheckoutInfo.AddToCartForm, Quantity: 1, Configuration: ""}
+	addToCartRequest := AddToCartRequest{ProductUri: task.StockData.AddToCartForm, Quantity: task.Task.Task.TaskQty, Configuration: ""}
 	//Empty Response for the response
 	addToCartResponse := AddToCartResponse{}
 
@@ -275,7 +285,7 @@ func (task *Task) AddToCart() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint),
+		URL:    AddToCartEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader(addToCartRequestBytes).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -288,7 +298,7 @@ func (task *Task) AddToCart() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.CheckoutInfo.SKU)},
+			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.StockData.SKU)},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -317,8 +327,8 @@ func (task *Task) AddToCart() (bool, string) {
 }
 
 // Submit email address
-func (task *Task) SubmitEmailAddress(useAccountLogin bool) (bool, string) {
-	if useAccountLogin {
+func (task *Task) SubmitEmailAddress() (bool, string) {
+	if task.TaskType == enums.TaskTypeAccount {
 		return true, ""
 	}
 	task.PublishEvent(enums.SettingEmailAddress, enums.TaskUpdate)
@@ -334,7 +344,7 @@ func (task *Task) SubmitEmailAddress(useAccountLogin bool) (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(SubmitEmailEndpoint),
+		URL:    SubmitEmailEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader(emailBytes).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -347,7 +357,7 @@ func (task *Task) SubmitEmailAddress(useAccountLogin bool) (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitEmailRefererEndpoint)}, //double check this endpoint
+			{"referer", SubmitEmailRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -403,7 +413,7 @@ func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(SubmitAddressValidateEndpoint),
+		URL:    SubmitAddressValidateEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader(submitAddressRequestBytes).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -416,7 +426,7 @@ func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresValidateRefererEndpoint)}, //double check this endpoint
+			{"referer", SubmitAddresValidateRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -437,8 +447,8 @@ func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 }
 
 // Submit address details
-func (task *Task) SubmitAddressDetails(useAccountLogin bool) (bool, string) {
-	if useAccountLogin {
+func (task *Task) SubmitAddressDetails() (bool, string) {
+	if task.TaskType == enums.TaskTypeAccount {
 		return true, ""
 	}
 
@@ -476,7 +486,7 @@ func (task *Task) SubmitAddressDetails(useAccountLogin bool) (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(SubmitAddressEndpoint),
+		URL:    SubmitAddressEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader(submitAddressRequestBytes).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -489,7 +499,7 @@ func (task *Task) SubmitAddressDetails(useAccountLogin bool) (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitAddresRefererEndpoint)}, //double check this endpoint
+			{"referer", SubmitAddresRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -523,7 +533,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(SubmitPaymentDetailsEndpoint),
+		URL:    SubmitPaymentDetailsEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader(paymentDetailsBytes).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -536,7 +546,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(SubmitPaymentDetailsRefererEndpoint)}, //double check this endpoint
+			{"referer", SubmitPaymentDetailsRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -570,7 +580,7 @@ func (task *Task) Checkout(startTime time.Time) (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(CheckoutEndpoint),
+		URL:    CheckoutEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader(submitAddressRequestBytes).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -583,7 +593,7 @@ func (task *Task) Checkout(startTime time.Time) (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(CheckoutRefererEndpoint)}, //double check this endpoint
+			{"referer", CheckoutRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -602,17 +612,17 @@ func (task *Task) Checkout(startTime time.Time) (bool, string) {
 			return false, enums.GetUserFailure
 		}
 
-		util.ProcessCheckout(util.ProcessCheckoutInfo{
+		util.ProcessCheckout(&util.ProcessCheckoutInfo{
 			BaseTask:     task.Task,
 			Success:      true,
 			Content:      "",
 			Embeds:       task.CreatePokemonCenterEmbed(enums.OrderStatusSuccess, "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=457&height=467"),
 			UserInfo:     user,
-			ItemName:     task.CheckoutInfo.ItemName,
-			Sku:          task.CheckoutInfo.SKU,
+			ItemName:     task.StockData.ItemName,
+			Sku:          task.StockData.SKU,
 			Retailer:     enums.PokemonCenter,
-			Price:        task.CheckoutInfo.Price,
-			Quantity:     1,
+			Price:        task.StockData.Price,
+			Quantity:     task.Task.Task.TaskQty,
 			MsToCheckout: time.Since(startTime).Milliseconds(),
 		})
 		return true, enums.CheckedOut
@@ -628,7 +638,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(PublicPaymentKeyEndpoint),
+		URL:    PublicPaymentKeyEndpoint,
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
@@ -640,7 +650,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(PublicPaymentKeyRefererEndpoint)}, //double check this endpoint
+			{"referer", PublicPaymentKeyRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
@@ -665,7 +675,7 @@ func (task *Task) LoginGuest() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(AuthKeyEndpoint),
+		URL:    AuthKeyEndpoint,
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
@@ -677,7 +687,7 @@ func (task *Task) LoginGuest() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(AuthKeyRefererEndpoint)}, //double check this endpoint
+			{"referer", AuthKeyRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -709,7 +719,7 @@ func (task *Task) RetrieveToken() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(CyberSourceTokenEndpoint),
+		URL:    CyberSourceTokenEndpoint,
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(bytes.NewReader([]byte(task.CyberSecureInfo.PublicToken)).Size())},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -722,7 +732,7 @@ func (task *Task) RetrieveToken() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(CyberSourceTokenRefererEndpoint)}, //double check this endpoint
+			{"referer", CyberSourceTokenRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},

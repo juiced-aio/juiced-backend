@@ -151,7 +151,7 @@ var walmartMonitorInfoAsset = &entities.WalmartMonitorInfo{
 
 var pokemonCenterMonitorAsset = map[string]*pokemoncenter.Monitor{"pokemoncenter_test_monitor": {Monitor: monitorAsset, SKUs: []string{""}}}
 
-var pokemonCenterMonitorInfoAsset = entities.PokemonCenterMonitorInfo{
+var pokemonCenterMonitorInfoAsset = &entities.PokemonCenterMonitorInfo{
 	Monitors: []entities.PokemonCenterSingleMonitorInfo{
 		{
 			SKU:      "",

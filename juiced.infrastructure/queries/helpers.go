@@ -276,6 +276,29 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 			if err != nil {
 				return task, err
 			}
+
+			decryptedEmail, err := common.Aes256Decrypt(tempTaskInfo.Email, enums.UserKey)
+			if err == nil {
+				tempTaskInfo.Email = decryptedEmail
+			} else {
+				encryptedEmail, err = common.Aes256Encrypt(tempTaskInfo.Email, enums.UserKey)
+				if err != nil {
+					return task, err
+				}
+
+			}
+
+			decryptedPassword, err := common.Aes256Decrypt(tempTaskInfo.Password, enums.UserKey)
+			if err == nil {
+				tempTaskInfo.Password = decryptedPassword
+			} else {
+				encryptedPassword, err = common.Aes256Encrypt(tempTaskInfo.Password, enums.UserKey)
+				if err != nil {
+					return task, err
+				}
+
+			}
+
 			task.PokemonCenterTaskInfo = &tempTaskInfo
 		}
 
