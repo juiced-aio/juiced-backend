@@ -1078,6 +1078,9 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 									if updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType != "DO_NOT_UPDATE" {
 										task.PokemonCenterTaskInfo.TaskType = updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType
 									}
+									if updateTasksRequestInfo.PokemonCenterTaskInfo.AddressType != "DO_NOT_UPDATE" {
+										task.PokemonCenterTaskInfo.AddressType = updateTasksRequestInfo.PokemonCenterTaskInfo.AddressType
+									}
 									if singleTask || updateTasksRequestInfo.PokemonCenterTaskInfo.Email != "" {
 										task.PokemonCenterTaskInfo.Email = updateTasksRequestInfo.PokemonCenterTaskInfo.Email
 									}
