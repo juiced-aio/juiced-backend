@@ -109,7 +109,8 @@ var pokemoncenterTaskInfosSchema = `
 		taskGroupID TEXT,
 		email TEXT,
 		password TEXT,
-		taskType TEXT
+		taskType TEXT,
+		addressType TEXT
 	)
 `
 

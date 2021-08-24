@@ -159,6 +159,14 @@ const (
 	PaymentTypeNEW   PaymentType = "NEW"
 )
 
+// AddressType is used to choose which address info to use (stored in account / profile)
+type AddressType = string
+
+const (
+	AddressTypeSAVED AddressType = "SAVED"
+	AddressTypeNEW   AddressType = "NEW"
+)
+
 // CheckoutType is used to choose how the user will receive the item (shipping / pickup)
 type CheckoutType = string
 

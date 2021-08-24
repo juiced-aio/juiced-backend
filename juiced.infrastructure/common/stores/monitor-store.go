@@ -367,6 +367,12 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 		}
 		go monitorStore.NeweggMonitors[monitor.GroupID].RunMonitor()
 
+	case enums.PokemonCenter:
+		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
+			pokemonCenterMonitor.Monitor.StopFlag = false
+		}
+		go monitorStore.PokemonCenterMonitors[monitor.GroupID].RunMonitor()
+
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.StopFlag = false
@@ -390,12 +396,6 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 			walmartMonitor.Monitor.StopFlag = false
 		}
 		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
-
-	case enums.PokemonCenter:
-		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
-			pokemonCenterMonitor.Monitor.StopFlag = false
-		}
-		go monitorStore.PokemonCenterMonitors[monitor.GroupID].RunMonitor()
 	}
 
 	return nil
@@ -440,6 +440,11 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 			neweggMonitor.Monitor.StopFlag = true
 		}
 
+	case enums.PokemonCenter:
+		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
+			pokemonCenterMonitor.Monitor.StopFlag = true
+		}
+
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.StopFlag = true
@@ -459,10 +464,7 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
 			walmartMonitor.Monitor.StopFlag = true
 		}
-	case enums.PokemonCenter:
-		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
-			pokemonCenterMonitor.Monitor.StopFlag = true
-		}
+
 	default:
 		return e.New(errors.InvalidMonitorRetailerError)
 	}
@@ -515,11 +517,18 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 		}
 		return true
 
+	case enums.PokemonCenter:
+		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
+			pokemonCenterMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.Proxy = proxy
 		}
 		return true
+
 	case enums.Target:
 		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
 			targetMonitor.Monitor.Proxy = proxy
@@ -535,12 +544,6 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 	case enums.Walmart:
 		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
 			walmartMonitor.Monitor.Proxy = proxy
-		}
-		return true
-
-	case enums.PokemonCenter:
-		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
-			pokemonCenterMonitor.Monitor.Proxy = proxy
 		}
 		return true
 	}
@@ -794,17 +797,18 @@ var monitorStore *MonitorStore
 // InitMonitorStore initializes the singleton instance of the Store
 func InitMonitorStore(eventBus *events.EventBus) {
 	monitorStore = &MonitorStore{
-		AmazonMonitors:   make(map[string]*amazon.Monitor),
-		BestbuyMonitors:  make(map[string]*bestbuy.Monitor),
-		BoxlunchMonitors: make(map[string]*boxlunch.Monitor),
-		DisneyMonitors:   make(map[string]*disney.Monitor),
-		GamestopMonitors: make(map[string]*gamestop.Monitor),
-		HottopicMonitors: make(map[string]*hottopic.Monitor),
-		ShopifyMonitors:  make(map[string]*shopify.Monitor),
-		NeweggMonitors:   make(map[string]*newegg.Monitor),
-		TargetMonitors:   make(map[string]*target.Monitor),
-		ToppsMonitors:    make(map[string]*topps.Monitor),
-		WalmartMonitors:  make(map[string]*walmart.Monitor),
+		AmazonMonitors:        make(map[string]*amazon.Monitor),
+		BestbuyMonitors:       make(map[string]*bestbuy.Monitor),
+		BoxlunchMonitors:      make(map[string]*boxlunch.Monitor),
+		DisneyMonitors:        make(map[string]*disney.Monitor),
+		GamestopMonitors:      make(map[string]*gamestop.Monitor),
+		HottopicMonitors:      make(map[string]*hottopic.Monitor),
+		ShopifyMonitors:       make(map[string]*shopify.Monitor),
+		NeweggMonitors:        make(map[string]*newegg.Monitor),
+		PokemonCenterMonitors: make(map[string]*pokemoncenter.Monitor),
+		TargetMonitors:        make(map[string]*target.Monitor),
+		ToppsMonitors:         make(map[string]*topps.Monitor),
+		WalmartMonitors:       make(map[string]*walmart.Monitor),
 
 		EventBus: eventBus,
 	}
@@ -842,6 +846,9 @@ func GetMonitorStatus(groupID string) string {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.NeweggMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
+	if monitor, ok := monitorStore.PokemonCenterMonitors[groupID]; ok {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
 	if monitor, ok := monitorStore.ShopifyMonitors[groupID]; ok {

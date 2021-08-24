@@ -774,6 +774,46 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 			taskGroup.NeweggMonitorInfo.Monitors = append(taskGroup.NeweggMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`SELECT * FROM pokemoncenterMonitorInfos WHERE taskGroupID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err := statement.Queryx(taskGroup.GroupID)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		defer rows.Close()
+		for rows.Next() {
+			tempSingleMonitor := entities.PokemonCenterSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.PokemonCenterMonitorInfo.Monitors = append(taskGroup.PokemonCenterMonitorInfo.Monitors, tempSingleMonitor)
+		}
+		statement, err = database.Preparex(`SELECT * FROM pokemoncenterSingleMonitorInfos WHERE monitorID = @p1`)
+		if err != nil {
+			return taskGroup, err
+		}
+
+		rows, err = statement.Queryx(taskGroup.PokemonCenterMonitorInfo.ID)
+		if err != nil {
+			return taskGroup, err
+		}
+		defer rows.Close()
+
+		for rows.Next() {
+			tempSingleMonitor := entities.PokemonCenterSingleMonitorInfo{}
+			err = rows.StructScan(&tempSingleMonitor)
+			if err != nil {
+				return taskGroup, err
+			}
+			taskGroup.PokemonCenterMonitorInfo.Monitors = append(taskGroup.PokemonCenterMonitorInfo.Monitors, tempSingleMonitor)
+		}
+
 	case enums.Shopify:
 		statement, err := database.Preparex(`SELECT * FROM shopifyMonitorInfos WHERE taskGroupID = @p1`)
 		if err != nil {
@@ -933,46 +973,6 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 				return taskGroup, err
 			}
 			taskGroup.WalmartMonitorInfo.Monitors = append(taskGroup.WalmartMonitorInfo.Monitors, tempSingleMonitor)
-		}
-
-	case enums.PokemonCenter:
-		statement, err := database.Preparex(`SELECT * FROM pokemoncenterMonitorInfos WHERE taskGroupID = @p1`)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		rows, err := statement.Queryx(taskGroup.GroupID)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		defer rows.Close()
-		for rows.Next() {
-			tempSingleMonitor := entities.PokemonCenterSingleMonitorInfo{}
-			err = rows.StructScan(&tempSingleMonitor)
-			if err != nil {
-				return taskGroup, err
-			}
-			taskGroup.PokemonCenterMonitorInfo.Monitors = append(taskGroup.PokemonCenterMonitorInfo.Monitors, tempSingleMonitor)
-		}
-		statement, err = database.Preparex(`SELECT * FROM pokemoncenterSingleMonitorInfos WHERE monitorID = @p1`)
-		if err != nil {
-			return taskGroup, err
-		}
-
-		rows, err = statement.Queryx(taskGroup.PokemonCenterMonitorInfo.ID)
-		if err != nil {
-			return taskGroup, err
-		}
-		defer rows.Close()
-
-		for rows.Next() {
-			tempSingleMonitor := entities.PokemonCenterSingleMonitorInfo{}
-			err = rows.StructScan(&tempSingleMonitor)
-			if err != nil {
-				return taskGroup, err
-			}
-			taskGroup.PokemonCenterMonitorInfo.Monitors = append(taskGroup.PokemonCenterMonitorInfo.Monitors, tempSingleMonitor)
 		}
 
 	}

@@ -22,9 +22,7 @@ import (
 const MAX_RETRIES = 5
 
 func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string) (Task, error) {
-	pokemonCenterTask := Task{}
-
-	pokemonCenterTask = Task{
+	return Task{
 		Task: base.Task{
 			Task:       task,
 			Profile:    profile,
@@ -35,8 +33,7 @@ func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, prox
 			Email:    email,
 			Password: password,
 		},
-	}
-	return pokemonCenterTask, nil
+	}, nil
 }
 
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {

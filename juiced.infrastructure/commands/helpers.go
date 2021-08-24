@@ -41,6 +41,7 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+
 	case enums.BestBuy:
 		statement, err := database.Preparex(`INSERT INTO bestbuyMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
@@ -60,30 +61,6 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
 			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
-			if err != nil {
-				return err
-			}
-		}
-
-	case enums.Disney:
-		statement, err := database.Preparex(`INSERT INTO disneyMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
-		if err != nil {
-			return err
-		}
-		taskGroup.DisneyMonitorInfo.ID = monitorID
-		taskGroup.DisneyMonitorInfo.TaskGroupID = taskGroup.GroupID
-		_, err = statement.Exec(taskGroup.DisneyMonitorInfo.ID, taskGroup.DisneyMonitorInfo.TaskGroupID)
-		if err != nil {
-			return err
-		}
-		for _, monitor := range taskGroup.DisneyMonitorInfo.Monitors {
-			statement, err := database.Preparex(`INSERT INTO disneySingleMonitorInfos (monitorID, taskGroupID, pid, size, color, maxPrice) VALUES (?, ?, ?, ?, ?, ?)`)
-			if err != nil {
-				return err
-			}
-			monitor.MonitorID = monitorID
-			monitor.TaskGroupID = taskGroup.GroupID
-			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.PID, monitor.Size, monitor.Color, monitor.MaxPrice)
 			if err != nil {
 				return err
 			}
@@ -113,6 +90,30 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 
+	case enums.Disney:
+		statement, err := database.Preparex(`INSERT INTO disneyMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.DisneyMonitorInfo.ID = monitorID
+		taskGroup.DisneyMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.DisneyMonitorInfo.ID, taskGroup.DisneyMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.DisneyMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO disneySingleMonitorInfos (monitorID, taskGroupID, pid, size, color, maxPrice) VALUES (?, ?, ?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.PID, monitor.Size, monitor.Color, monitor.MaxPrice)
+			if err != nil {
+				return err
+			}
+		}
+
 	case enums.GameStop:
 		statement, err := database.Preparex(`INSERT INTO gamestopMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
@@ -136,6 +137,7 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+
 	case enums.HotTopic:
 		statement, err := database.Preparex(`INSERT INTO hottopicMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
@@ -184,6 +186,30 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`INSERT INTO pokemoncenterMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.PokemonCenterMonitorInfo.ID = monitorID
+		taskGroup.PokemonCenterMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.PokemonCenterMonitorInfo.ID, taskGroup.PokemonCenterMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.PokemonCenterMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO pokemoncenterSingleMonitorInfos (monitorID, taskGroupID, sku, maxPrice) VALUES (?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
+			if err != nil {
+				return err
+			}
+		}
+
 	case enums.Shopify:
 		statement, err := database.Preparex(`INSERT INTO shopifyMonitorInfos (ID, taskGroupID, siteURL, sitePassword) VALUES (?, ?, ?, ?)`)
 		if err != nil {
@@ -207,6 +233,7 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+
 	case enums.Target:
 		statement, err := database.Preparex(`INSERT INTO targetMonitorInfos (ID, taskGroupID, storeID, monitorType) VALUES (?, ?, ?, ?)`)
 		if err != nil {
@@ -254,6 +281,7 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 				return err
 			}
 		}
+
 	case enums.Walmart:
 		statement, err := database.Preparex(`INSERT INTO walmartMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
 		if err != nil {
@@ -273,30 +301,6 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			monitor.MonitorID = monitorID
 			monitor.TaskGroupID = taskGroup.GroupID
 			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.ID, monitor.MaxPrice, monitor.SoldByWalmart, monitor.MonitorType)
-			if err != nil {
-				return err
-			}
-		}
-
-	case enums.PokemonCenter:
-		statement, err := database.Preparex(`INSERT INTO pokemoncenterMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
-		if err != nil {
-			return err
-		}
-		taskGroup.PokemonCenterMonitorInfo.ID = monitorID
-		taskGroup.PokemonCenterMonitorInfo.TaskGroupID = taskGroup.GroupID
-		_, err = statement.Exec(taskGroup.PokemonCenterMonitorInfo.ID, taskGroup.PokemonCenterMonitorInfo.TaskGroupID)
-		if err != nil {
-			return err
-		}
-		for _, monitor := range taskGroup.PokemonCenterMonitorInfo.Monitors {
-			statement, err := database.Preparex(`INSERT INTO pokemoncenterSingleMonitorInfos (monitorID, taskGroupID, sku, maxPrice) VALUES (?, ?, ?, ?)`)
-			if err != nil {
-				return err
-			}
-			monitor.MonitorID = monitorID
-			monitor.TaskGroupID = taskGroup.GroupID
-			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
 			if err != nil {
 				return err
 			}
@@ -501,7 +505,7 @@ func CreateTaskInfos(task entities.Task) error {
 		}
 
 	case enums.PokemonCenter:
-		statement, err := database.Preparex(`INSERT INTO pokemoncenterTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO pokemoncenterTaskInfos (taskID, taskGroupID, email, password, taskType, addressType) VALUES (?, ?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
@@ -516,7 +520,7 @@ func CreateTaskInfos(task entities.Task) error {
 			return err
 		}
 
-		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.PokemonCenterTaskInfo.TaskType)
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.PokemonCenterTaskInfo.TaskType, task.PokemonCenterTaskInfo.AddressType)
 		if err != nil {
 			return err
 		}

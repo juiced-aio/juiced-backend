@@ -19,7 +19,6 @@ import (
 // CreatePokemonCenterMonitor takes a TaskGroup entity and turns it into a pokemoncenter Monitor
 func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.PokemonCenterSingleMonitorInfo) (Monitor, error) {
 	storedPokemonCenterMonitors := make(map[string]entities.PokemonCenterSingleMonitorInfo)
-	pokemonCenterMonitor := Monitor{}
 	skus := []string{}
 
 	for _, monitor := range singleMonitors {
@@ -27,7 +26,7 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 		skus = append(skus, monitor.SKU)
 	}
 
-	pokemonCenterMonitor = Monitor{
+	return Monitor{
 		Monitor: base.Monitor{
 			TaskGroup:  taskGroup,
 			ProxyGroup: proxyGroup,
@@ -36,9 +35,7 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 
 		SKUs:        skus,
 		SKUWithInfo: storedPokemonCenterMonitors,
-	}
-
-	return pokemonCenterMonitor, nil
+	}, nil
 }
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
