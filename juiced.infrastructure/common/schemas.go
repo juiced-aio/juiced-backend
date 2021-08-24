@@ -306,8 +306,8 @@ var bigCartelMonitorInfosSchema = `
 	)
 `
 
-var shopifySingleMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS shopifySingleMonitorInfos (
+var bigCartelSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS bigcartelSingleMonitorInfos (
 		monitorID TEXT,
 		taskGroupID TEXT,
 		variantID TEXT,
@@ -315,8 +315,8 @@ var shopifySingleMonitorInfosSchema = `
 	)
 `
 
-var bigCartelSingleMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS bigcartelSingleMonitorInfos (
+var shopifySingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS shopifySingleMonitorInfos (
 		monitorID TEXT,
 		taskGroupID TEXT,
 		variantID TEXT,

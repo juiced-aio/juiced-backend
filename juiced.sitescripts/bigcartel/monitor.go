@@ -2,14 +2,12 @@ package bigcartel
 
 import (
 	"fmt"
-	"math/rand"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -19,7 +17,7 @@ import (
 	"github.com/anaskhan96/soup"
 )
 
-func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteURL string, singleMonitors []entities.BigCartelSingleMonitorInfo) (Monitor, error) {
+func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, siteURL string, singleMonitors []entities.BigCartelSingleMonitorInfo) (Monitor, error) {
 	storedBigCartelMonitors := make(map[string]entities.BigCartelSingleMonitorInfo) //List of storedsingle monitors
 	bigcartelMonitor := Monitor{}
 	_skus := []string{}
@@ -31,9 +29,9 @@ func CreateBigCartelMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pr
 
 	bigcartelMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		Skus:        _skus, //set the list of skus in monitor struct
 		SKUWithInfo: storedBigCartelMonitors,
@@ -105,8 +103,12 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			// TODO @silent: Re-run this specific monitor
 		}()
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		var proxy *entities.Proxy
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		stockData := monitor.GetStockWithSku(sku) //return instockData struct
@@ -133,7 +135,10 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+					})
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -169,7 +174,6 @@ func (monitor *Monitor) GetStockWithSku(sku string) BigCartelInStockData {
 
 	switch resp.StatusCode {
 	case 200:
-
 		responseBody := soup.HTMLParse(string(body))
 		price := ""
 		skuData := responseBody.Find("div", "class", "remove")

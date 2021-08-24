@@ -267,7 +267,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 
 		// Create task
-		bigCartelTask, err := bigcartel.CreateBigCartelTask(task, profile, proxy, taskStore.EventBus, task.BigCartelTaskInfo.SiteURL)
+		bigCartelTask, err := bigcartel.CreateBigCartelTask(task, profile, proxyGroup, taskStore.EventBus, task.BigCartelTaskInfo.SiteURL)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}

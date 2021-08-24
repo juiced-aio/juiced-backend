@@ -236,7 +236,7 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.NoMonitorsError)
 		}
 
-		bigCatelMonitors, err := bigcartel.CreateBigCartelMonitor(monitor, proxies, monitorStore.EventBus, monitor.BigCartelMonitorInfo.SiteURL, monitor.BigCartelMonitorInfo.Monitors)
+		bigCatelMonitors, err := bigcartel.CreateBigCartelMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.BigCartelMonitorInfo.SiteURL, monitor.BigCartelMonitorInfo.Monitors)
 		if err != nil {
 			return e.New(errors.CreateMonitorError + err.Error())
 		}

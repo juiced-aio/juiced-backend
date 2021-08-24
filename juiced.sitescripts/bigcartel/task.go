@@ -16,24 +16,21 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateBigCartelTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, siteUrl string) (Task, error) {
-	bigcartelTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return bigcartelTask, err
-	}
-	bigcartelTask = Task{
+func CreateBigCartelTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, siteUrl string) (Task, error) {
+	bigcartelTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
-			Client:   client,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		SiteURL: siteUrl,
 	}
+	if proxyGroup != nil {
+		bigcartelTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
 
-	return bigcartelTask, err
+	return bigcartelTask, nil
 }
 
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
@@ -81,6 +78,9 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
 	task.Step = SettingUp
 
@@ -88,6 +88,11 @@ func (task *Task) RunTask() {
 	task.CheckForAdditionalSteps()
 
 	task.Step = WaitingForMonitor
+
+	err := task.Task.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
+	}
 
 	// WaitForMonitor
 	needToStop := task.WaitForMonitor()
@@ -310,7 +315,7 @@ func (task *Task) PaymentInfo(startTime time.Time) (bool, string) {
 		success = false
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Content:      "",
@@ -329,7 +334,7 @@ func (task *Task) PaymentInfo(startTime time.Time) (bool, string) {
 func (task *Task) PaymentMethod() (bool, string) {
 	payload := url.Values{
 		"type":                                  {"card"},
-		"billing_details[name]":                 {task.Task.Profile.BillingAddress.FirstName + task.Task.Profile.BillingAddress.LastName},
+		"billing_details[name]":                 {task.Task.Profile.BillingAddress.FirstName + " " + task.Task.Profile.BillingAddress.LastName},
 		"billing_details[address][line1]":       {task.Task.Profile.BillingAddress.Address1},
 		"billing_details[address][line2]":       {task.Task.Profile.BillingAddress.Address2},
 		"billing_details[address][city]":        {task.Task.Profile.BillingAddress.City},
