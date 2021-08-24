@@ -787,12 +787,12 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 		defer rows.Close()
 		for rows.Next() {
-			tempSingleMonitor := entities.PokemonCenterSingleMonitorInfo{}
-			err = rows.StructScan(&tempSingleMonitor)
+			tempMonitorInfo := entities.PokemonCenterMonitorInfo{}
+			err = rows.StructScan(&tempMonitorInfo)
 			if err != nil {
 				return taskGroup, err
 			}
-			taskGroup.PokemonCenterMonitorInfo.Monitors = append(taskGroup.PokemonCenterMonitorInfo.Monitors, tempSingleMonitor)
+			taskGroup.PokemonCenterMonitorInfo = &tempMonitorInfo
 		}
 		statement, err = database.Preparex(`SELECT * FROM pokemoncenterSingleMonitorInfos WHERE monitorID = @p1`)
 		if err != nil {

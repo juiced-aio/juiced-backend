@@ -417,11 +417,6 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 							}
 
 						case enums.PokemonCenter:
-							maxPrice := -1
-							if len(taskGroup.PokemonCenterMonitorInfo.Monitors) > 0 {
-								maxPrice = taskGroup.PokemonCenterMonitorInfo.Monitors[0].MaxPrice
-							}
-
 							newMonitors := make([]entities.PokemonCenterSingleMonitorInfo, 0)
 							if updateTaskGroupRequestInfo.MonitorInput != "" {
 								skus := strings.Split(updateTaskGroupRequestInfo.MonitorInput, ",")
@@ -1070,7 +1065,6 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 									}
 
 								case enums.HotTopic:
-									// TODO @silent
 
 								case enums.Newegg:
 
