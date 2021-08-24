@@ -1,6 +1,8 @@
 package base
 
 import (
+	"time"
+
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -15,6 +17,8 @@ type Task struct {
 	EventBus   *events.EventBus
 	Client     http.Client
 	Scraper    hawk.Scraper
+	StartTime  time.Time
+	EndTime    time.Time
 	StopFlag   bool
 	ErrorField string
 }

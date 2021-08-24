@@ -65,6 +65,11 @@ func (taskStore *TaskStore) SetStopFlag(retailer enums.Retailer, ID string, flag
 			walmartTask.Task.StopFlag = flag
 		}
 
+	case enums.PokemonCenter:
+		if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[ID]; ok {
+			pokemonCenterTask.Task.StopFlag = flag
+		}
+
 	default:
 		return e.New(errors.InvalidTaskRetailerError)
 

@@ -278,6 +278,29 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 			}
 		}
 
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`INSERT INTO pokemoncenterMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
+		if err != nil {
+			return err
+		}
+		taskGroup.PokemonCenterMonitorInfo.ID = monitorID
+		taskGroup.PokemonCenterMonitorInfo.TaskGroupID = taskGroup.GroupID
+		_, err = statement.Exec(taskGroup.PokemonCenterMonitorInfo.ID, taskGroup.PokemonCenterMonitorInfo.TaskGroupID)
+		if err != nil {
+			return err
+		}
+		for _, monitor := range taskGroup.PokemonCenterMonitorInfo.Monitors {
+			statement, err := database.Preparex(`INSERT INTO pokemoncenterSingleMonitorInfos (monitorID, taskGroupID, sku, maxPrice) VALUES (?, ?, ?, ?)`)
+			if err != nil {
+				return err
+			}
+			monitor.MonitorID = monitorID
+			monitor.TaskGroupID = taskGroup.GroupID
+			_, err = statement.Exec(monitor.MonitorID, monitor.TaskGroupID, monitor.SKU, monitor.MaxPrice)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -308,6 +331,9 @@ func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 	case enums.Newegg:
 		monitorInfoSchema = "neweggMonitorInfos"
 		singleMonitorInfoSchema = "neweggSingleMonitorInfos"
+	case enums.PokemonCenter:
+		monitorInfoSchema = "pokemoncenterMonitorInfos"
+		singleMonitorInfoSchema = "pokemoncenterSingleMonitorInfos"
 	case enums.Shopify:
 		monitorInfoSchema = "shopifyMonitorInfos"
 		singleMonitorInfoSchema = "shopifySingleMonitorInfos"
@@ -319,6 +345,7 @@ func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 		singleMonitorInfoSchema = "toppsSingleMonitorInfos"
 	case enums.Walmart:
 		monitorInfoSchema = "walmartMonitorInfos"
+
 	}
 
 	database := common.GetDatabase()
@@ -473,6 +500,27 @@ func CreateTaskInfos(task entities.Task) error {
 			return err
 		}
 
+	case enums.PokemonCenter:
+		statement, err := database.Preparex(`INSERT INTO pokemoncenterTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
+		if err != nil {
+			return err
+		}
+
+		encryptedEmail, err := common.Aes256Encrypt(task.PokemonCenterTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.PokemonCenterTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.PokemonCenterTaskInfo.TaskType)
+		if err != nil {
+			return err
+		}
+
 	case enums.Shopify:
 		statement, err := database.Preparex(`INSERT INTO shopifyTaskInfos (taskID, taskGroupID, couponCode, siteURL, sitePassword, shopifyRetailer) VALUES (?, ?, ?, ?, ?, ?)`)
 		if err != nil {
@@ -567,6 +615,8 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 		taskInfoSchema = "hottopicTaskInfos"
 	case enums.Newegg:
 		taskInfoSchema = "neweggTaskInfos"
+	case enums.PokemonCenter:
+		taskInfoSchema = "pokemoncenterTaskInfos"
 	case enums.Shopify:
 		taskInfoSchema = "shopifyTaskInfos"
 	case enums.Target:
@@ -575,6 +625,7 @@ func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 		taskInfoSchema = "toppsTaskInfos"
 	case enums.Walmart:
 		taskInfoSchema = "walmartTaskInfos"
+
 	}
 	if taskInfoSchema == "" {
 		return nil
