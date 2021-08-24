@@ -6,10 +6,35 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
-	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
+
+type TaskInfo struct {
+	Task       *entities.Task
+	Profile    entities.Profile
+	Proxy      *entities.Proxy
+	ProxyGroup *entities.ProxyGroup
+	EventBus   *events.EventBus
+	StopFlag   bool
+	StartTime  time.Time
+	EndTime    time.Time
+	Client     http.Client
+	Scraper    hawk.Scraper
+	ErrorField string
+}
+
+type MonitorInfo struct {
+	TaskGroup  *entities.TaskGroup
+	Proxy      *entities.Proxy
+	ProxyGroup *entities.ProxyGroup
+	EventBus   *events.EventBus
+	Client     http.Client
+	Scraper    hawk.Scraper
+	StopFlag   bool
+	ErrorField string
+}
 
 type ErrorType = string
 
@@ -93,7 +118,7 @@ type SensorResponse struct {
 
 // All info needed for ProcessCheckout
 type ProcessCheckoutInfo struct {
-	BaseTask     base.Task
+	TaskInfo     *TaskInfo
 	Success      bool
 	Status       enums.OrderStatus
 	Content      string

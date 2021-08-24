@@ -27,7 +27,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
-	"backend.juicedbot.io/juiced.sitescripts/base"
 )
 
 // Adds base headers to the request
@@ -471,21 +470,21 @@ func ProcessCheckout(pci *ProcessCheckoutInfo) {
 	}
 	if pci.Success {
 		go sec.LogCheckout(pci.ItemName, pci.Sku, pci.Retailer, int(pci.Price), pci.Quantity, pci.UserInfo)
-		go SendCheckout(&pci.BaseTask, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
+		go SendCheckout(pci.TaskInfo, pci.ItemName, pci.ImageURL, pci.Sku, int(pci.Price), pci.Quantity, pci.MsToCheckout)
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
 }
 
 // Logs the checkout
-func SendCheckout(task *base.Task, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
+func SendCheckout(taskInfo *TaskInfo, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
 	commands.CreateCheckout(entities.Checkout{
 		ItemName:     itemName,
 		ImageURL:     imageURL,
 		SKU:          sku,
 		Price:        price,
 		Quantity:     quantity,
-		Retailer:     task.Task.TaskRetailer,
-		ProfileName:  task.Profile.Name,
+		Retailer:     taskInfo.Task.TaskRetailer,
+		ProfileName:  taskInfo.Profile.Name,
 		MsToCheckout: msToCheckout,
 		Time:         time.Now().Unix(),
 	})
@@ -686,4 +685,91 @@ func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
 	}
 	cClient.Jar = cookieJar
 	return cClient, err
+}
+
+func (taskInfo *TaskInfo) UpdateProxy(proxy *entities.Proxy) error {
+	if taskInfo == nil {
+		return errors.New("task info nil pointer")
+	}
+	taskInfo.Proxy.RemoveCount()
+	if proxy != nil {
+		err := client.UpdateProxy(&taskInfo.Client, proxy)
+		if err != nil {
+			return err
+		}
+		taskInfo.Proxy = proxy
+	}
+
+	return nil
+}
+
+func (monitorInfo *MonitorInfo) UpdateProxy(proxy *entities.Proxy) error {
+	if monitorInfo == nil {
+		return errors.New("monitor info nil pointer")
+	}
+	monitorInfo.Proxy.RemoveCount()
+	if proxy != nil {
+		err := client.UpdateProxy(&monitorInfo.Client, proxy)
+		if err != nil {
+			return err
+		}
+		monitorInfo.Proxy = proxy
+	}
+
+	return nil
+}
+
+// CreateClient creates an HTTP client
+func (taskInfo *TaskInfo) CreateClient(proxy ...*entities.Proxy) error {
+	var err error
+	if taskInfo == nil {
+		return errors.New("task info nil pointer")
+	}
+	taskInfo.Proxy.RemoveCount()
+	if len(proxy) > 0 {
+		if proxy[0] != nil {
+			proxy[0].AddCount()
+			taskInfo.Client, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
+			if err != nil {
+				return err
+			}
+		} else {
+			taskInfo.Client, _ = client.NewClient(utls.HelloChrome_90)
+		}
+	} else {
+		taskInfo.Client, _ = client.NewClient(utls.HelloChrome_90)
+	}
+	cookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return err
+	}
+	taskInfo.Client.Jar = cookieJar
+	return err
+}
+
+func (monitorInfo *MonitorInfo) CreateClient(proxy ...*entities.Proxy) error {
+	var err error
+	if monitorInfo == nil {
+		return errors.New("monitor info nil pointer")
+	}
+	monitorInfo.Proxy.RemoveCount()
+	if len(proxy) > 0 {
+		if proxy[0] != nil {
+			proxy[0].AddCount()
+			monitorInfo.Client, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
+			if err != nil {
+				return err
+			}
+		} else {
+			monitorInfo.Client, _ = client.NewClient(utls.HelloChrome_90)
+		}
+	} else {
+		monitorInfo.Client, _ = client.NewClient(utls.HelloChrome_90)
+	}
+	cookieJar, err := cookiejar.New(nil)
+	if err != nil {
+		return err
+	}
+	monitorInfo.Client.Jar = cookieJar
+	return err
 }

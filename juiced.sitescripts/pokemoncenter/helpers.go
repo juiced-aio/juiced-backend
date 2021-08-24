@@ -221,7 +221,7 @@ func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL st
 				},
 				{
 					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+					Value: "||" + " " + util.ProxyCleaner(task.TaskInfo.Proxy) + " " + "||",
 				},
 			},
 			Footer: sec.DiscordFooter{
@@ -270,14 +270,14 @@ func (task *Task) RunUntilSuccessful(fn func() (bool, string), maxRetries int) (
 	for success, status = task.RunUntilSuccessfulHelper(fn, attempt); !success; {
 		needToStop := task.CheckForStop()
 		if needToStop || attempt > maxRetries {
-			task.Task.StopFlag = true
+			task.TaskInfo.StopFlag = true
 			return false, ""
 		}
 		if attempt >= 0 {
 			attempt++
 		}
 
-		time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		time.Sleep(time.Duration(task.TaskInfo.Task.TaskDelay) * time.Millisecond)
 	}
 
 	return true, status

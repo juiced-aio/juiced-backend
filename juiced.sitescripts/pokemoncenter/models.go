@@ -3,7 +3,7 @@ package pokemoncenter
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.sitescripts/base"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // Endpoints
@@ -46,9 +46,8 @@ const (
 	AddToCartQuantityError = "expected quantity of %d but found %d"
 )
 
-// Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
+	MonitorInfo     *util.MonitorInfo
 	SKUsSentToTask  []string
 	RunningMonitors []string
 	OutOfStockSKUs  []string
@@ -78,7 +77,22 @@ type MonitorResponse struct {
 	}
 }
 
-//Populated when item comes into stock, then populates checkout info
+type Task struct {
+	TaskInfo        *util.TaskInfo
+	Input           TaskInput
+	StockData       PokemonCenterInStockData
+	CyberSecureInfo CyberSecureInfo
+	AccessToken     string
+	RefreshAt       int64
+	CheckoutUri     string
+}
+
+type TaskInput struct {
+	Email    string
+	Password string
+	TaskType enums.TaskType
+}
+
 type PokemonCenterInStockData struct {
 	SKU           string
 	Price         float64
@@ -87,34 +101,11 @@ type PokemonCenterInStockData struct {
 	ImageURL      string
 }
 
-type Task struct {
-	Task            base.Task
-	AccountInfo     AccountInfo
-	TaskType        enums.TaskType
-	CheckoutInfo    CheckoutInfo
-	StockData       PokemonCenterInStockData
-	CyberSecureInfo CyberSecureInfo
-	AccessToken     string
-	RefreshAt       int64
-}
-
-//Info used for payment encryption
 type CyberSecureInfo struct {
 	PublicKey   string
 	PublicToken string
 	Privatekey  string
 	JtiToken    string
-}
-
-//Info used when logging in
-type AccountInfo struct {
-	Email    string
-	Password string
-}
-
-//Info used for checkout
-type CheckoutInfo struct {
-	CheckoutUri string
 }
 
 //Used to Retrieve the GuestAuthId

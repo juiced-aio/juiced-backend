@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 
 	"flag"
 	"net/http"
@@ -81,10 +80,10 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Println("Error reading message from frontend: " + err.Error())
 			}
-			if incomingMessage.EventType == "WalmartEncryptionEvent" {
-				taskStore := stores.GetTaskStore()
-				taskStore.SetWalmartCardDetails(incomingMessage.TaskID, incomingMessage.CardDetails)
-			}
+			// if incomingMessage.EventType == "WalmartEncryptionEvent" {
+			// 	taskStore := stores.GetTaskStore()
+			// 	taskStore.SetWalmartCardDetails(incomingMessage.TaskID, incomingMessage.CardDetails)
+			// }
 		}
 		// err = conn.WriteMessage(mt, message)
 		// if err != nil {

@@ -12,40 +12,19 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 const MAX_RETRIES = 5
 
-func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string) (Task, error) {
-	pokemonCenterTask := Task{}
-
-	pokemonCenterTask = Task{
-		Task: base.Task{
-			Task:       task,
-			Profile:    profile,
-			ProxyGroup: proxyGroup,
-			EventBus:   eventBus,
-		},
-		AccountInfo: AccountInfo{
-			Email:    email,
-			Password: password,
-		},
-	}
-	return pokemonCenterTask, nil
-}
-
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	task.TaskInfo.Task.SetTaskStatus(status)
+	task.TaskInfo.EventBus.PublishTaskEvent(status, eventType, nil, task.TaskInfo.Task.ID)
 }
 
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
+	if task.TaskInfo.StopFlag {
 		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
 		return true
 	}
@@ -59,18 +38,18 @@ func (task *Task) RunTask() {
 		} else {
 			task.PublishEvent(enums.TaskIdle, enums.TaskStop)
 		}
-		task.Task.StopFlag = true
+		task.TaskInfo.StopFlag = true
 	}()
 
-	if task.Task.Task.TaskDelay == 0 {
-		task.Task.Task.TaskDelay = 2000
+	if task.TaskInfo.Task.TaskDelay == 0 {
+		task.TaskInfo.Task.TaskDelay = 2000
 	}
-	if task.Task.Task.TaskQty <= 0 {
-		task.Task.Task.TaskQty = 1
+	if task.TaskInfo.Task.TaskQty <= 0 {
+		task.TaskInfo.Task.TaskQty = 1
 	}
 
 	// 1. Login/LoginGuest
-	if task.AccountInfo.Email != "" && task.AccountInfo.Password != "" {
+	if task.Input.TaskType == enums.TaskTypeAccount && task.Input.Email != "" && task.Input.Password != "" {
 		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
 		if success, _ := task.RunUntilSuccessful(task.Login, MAX_RETRIES); !success {
 			return
@@ -99,7 +78,7 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	task.Task.StartTime = time.Now()
+	task.TaskInfo.StartTime = time.Now()
 
 	// 5. AddToCart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
@@ -108,7 +87,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 6. Submit email address
-	if task.TaskType == enums.TaskTypeGuest {
+	if task.Input.TaskType == enums.TaskTypeGuest {
 		task.PublishEvent(enums.SettingEmailAddress, enums.TaskUpdate)
 		if success, _ := task.RunUntilSuccessful(task.SubmitEmailAddress, MAX_RETRIES); !success {
 			return
@@ -132,7 +111,7 @@ func (task *Task) RunTask() {
 	success, status := task.RunUntilSuccessful(task.Checkout, MAX_RETRIES)
 
 	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
+		TaskInfo:     task.TaskInfo,
 		Success:      success,
 		Status:       status,
 		Embeds:       task.CreatePokemonCenterEmbed(status, task.StockData.ImageURL),
@@ -142,29 +121,29 @@ func (task *Task) RunTask() {
 		Sku:          task.StockData.SKU,
 		Retailer:     enums.PokemonCenter,
 		Price:        task.StockData.Price,
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(task.Task.StartTime).Milliseconds(),
+		Quantity:     task.TaskInfo.Task.TaskQty,
+		MsToCheckout: time.Since(task.TaskInfo.StartTime).Milliseconds(),
 	})
 
-	task.Task.EndTime = time.Now()
+	task.TaskInfo.EndTime = time.Now()
 
-	log.Println("STARTED AT: " + task.Task.StartTime.String())
-	log.Println("  ENDED AT: " + task.Task.EndTime.String())
-	log.Println("TIME TO CHECK OUT: ", task.Task.EndTime.Sub(task.Task.StartTime).Milliseconds())
+	log.Println("STARTED AT: " + task.TaskInfo.StartTime.String())
+	log.Println("  ENDED AT: " + task.TaskInfo.EndTime.String())
+	log.Println("TIME TO CHECK OUT: ", task.TaskInfo.EndTime.Sub(task.TaskInfo.StartTime).Milliseconds())
 }
 
 func (task *Task) Login() (bool, string) {
 	loginResponse := LoginResponse{}
 
 	params := url.Values{}
-	params.Add("username", task.AccountInfo.Email)
-	params.Add("password", task.AccountInfo.Password)
+	params.Add("username", task.Input.Email)
+	params.Add("password", task.Input.Password)
 	params.Add("grant_type", "password")
 	params.Add("role", "REGISTERED")
 	params.Add("scope", "pokemon")
 
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    LoginEndpoint,
 		RawHeaders: [][2]string{
@@ -203,7 +182,7 @@ func (task *Task) Login() (bool, string) {
 
 func (task *Task) LoginGuest() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "GET",
 		URL:    AuthKeyEndpoint,
 		RawHeaders: [][2]string{
@@ -251,7 +230,7 @@ func (task *Task) RefreshLogin() {
 
 	for {
 		if task.RefreshAt == 0 || time.Now().Unix() > task.RefreshAt {
-			if task.TaskType == enums.TaskTypeAccount {
+			if task.Input.TaskType == enums.TaskTypeAccount {
 				if success, _ := task.RunUntilSuccessful(task.Login, MAX_RETRIES); !success {
 					return
 				}
@@ -275,7 +254,7 @@ func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
 	}
 
 	// 2. Encrypt using CyberSourceV2 encryption
-	task.CyberSecureInfo.PublicToken, err = CyberSourceV2(task.CyberSecureInfo.PublicKey, task.Task.Profile.CreditCard)
+	task.CyberSecureInfo.PublicToken, err = CyberSourceV2(task.CyberSecureInfo.PublicKey, task.TaskInfo.Profile.CreditCard)
 	if task.CyberSecureInfo.PublicToken == "" || err != nil {
 		errorMessage := CyberSourceEncryptionError
 		if err != nil {
@@ -306,7 +285,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 	paymentKeyResponse := PaymentKeyResponse{}
 
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "GET",
 		URL:    PublicPaymentKeyEndpoint,
 		RawHeaders: [][2]string{
@@ -342,7 +321,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 
 func (task *Task) RetrieveToken() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    CyberSourceTokenEndpoint,
 		RawHeaders: [][2]string{
@@ -396,7 +375,7 @@ func (task *Task) WaitForMonitor() bool {
 func (task *Task) AddToCart() (bool, string) {
 	addToCartRequest := AddToCartRequest{
 		ProductUri:    task.StockData.AddToCartForm,
-		Quantity:      task.Task.Task.TaskQty,
+		Quantity:      task.TaskInfo.Task.TaskQty,
 		Configuration: "",
 	}
 	addToCartResponse := AddToCartResponse{}
@@ -407,7 +386,7 @@ func (task *Task) AddToCart() (bool, string) {
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    AddToCartEndpoint,
 		RawHeaders: [][2]string{
@@ -437,8 +416,8 @@ func (task *Task) AddToCart() (bool, string) {
 	switch resp.StatusCode {
 	case 200:
 		if addToCartResponse.Type == "carts.line-item" {
-			if addToCartResponse.Quantity != task.Task.Task.TaskQty {
-				return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, task.Task.Task.TaskQty, addToCartResponse.Quantity))
+			if addToCartResponse.Quantity != task.TaskInfo.Task.TaskQty {
+				return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, task.TaskInfo.Task.TaskQty, addToCartResponse.Quantity))
 			} else {
 				return true, enums.AddingToCartSuccess
 			}
@@ -450,7 +429,7 @@ func (task *Task) AddToCart() (bool, string) {
 
 func (task *Task) SubmitEmailAddress() (bool, string) {
 	emailRequest := EmailRequest{
-		Email: task.Task.Profile.Email,
+		Email: task.TaskInfo.Profile.Email,
 	}
 
 	emailBytes, err := json.Marshal(emailRequest)
@@ -458,7 +437,7 @@ func (task *Task) SubmitEmailAddress() (bool, string) {
 		return false, fmt.Sprintf(enums.SettingEmailAddressFailure, err.Error())
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    SubmitEmailEndpoint,
 		RawHeaders: [][2]string{
@@ -493,32 +472,32 @@ func (task *Task) SubmitEmailAddress() (bool, string) {
 }
 
 func (task *Task) SubmitAddressDetails() (bool, string) {
-	if task.TaskType == enums.TaskTypeAccount {
+	if task.Input.TaskType == enums.TaskTypeAccount {
 		return true, ""
 	}
 
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
-			FamilyName:      task.Task.Profile.BillingAddress.LastName,
-			GivenName:       task.Task.Profile.BillingAddress.FirstName,
-			StreetAddress:   task.Task.Profile.BillingAddress.Address1,
-			ExtendedAddress: task.Task.Profile.BillingAddress.Address2,
-			Locality:        task.Task.Profile.BillingAddress.City,
-			Region:          task.Task.Profile.BillingAddress.StateCode,
-			PostalCode:      task.Task.Profile.BillingAddress.ZipCode,
-			CountryName:     task.Task.Profile.BillingAddress.CountryCode,
-			PhoneNumber:     task.Task.Profile.PhoneNumber,
+			FamilyName:      task.TaskInfo.Profile.BillingAddress.LastName,
+			GivenName:       task.TaskInfo.Profile.BillingAddress.FirstName,
+			StreetAddress:   task.TaskInfo.Profile.BillingAddress.Address1,
+			ExtendedAddress: task.TaskInfo.Profile.BillingAddress.Address2,
+			Locality:        task.TaskInfo.Profile.BillingAddress.City,
+			Region:          task.TaskInfo.Profile.BillingAddress.StateCode,
+			PostalCode:      task.TaskInfo.Profile.BillingAddress.ZipCode,
+			CountryName:     task.TaskInfo.Profile.BillingAddress.CountryCode,
+			PhoneNumber:     task.TaskInfo.Profile.PhoneNumber,
 		},
 		Shipping: Address{
-			FamilyName:      task.Task.Profile.ShippingAddress.LastName,
-			GivenName:       task.Task.Profile.ShippingAddress.FirstName,
-			StreetAddress:   task.Task.Profile.ShippingAddress.Address1,
-			ExtendedAddress: task.Task.Profile.ShippingAddress.Address2,
-			Locality:        task.Task.Profile.ShippingAddress.City,
-			Region:          task.Task.Profile.ShippingAddress.StateCode,
-			PostalCode:      task.Task.Profile.ShippingAddress.ZipCode,
-			CountryName:     task.Task.Profile.ShippingAddress.CountryCode,
-			PhoneNumber:     task.Task.Profile.PhoneNumber,
+			FamilyName:      task.TaskInfo.Profile.ShippingAddress.LastName,
+			GivenName:       task.TaskInfo.Profile.ShippingAddress.FirstName,
+			StreetAddress:   task.TaskInfo.Profile.ShippingAddress.Address1,
+			ExtendedAddress: task.TaskInfo.Profile.ShippingAddress.Address2,
+			Locality:        task.TaskInfo.Profile.ShippingAddress.City,
+			Region:          task.TaskInfo.Profile.ShippingAddress.StateCode,
+			PostalCode:      task.TaskInfo.Profile.ShippingAddress.ZipCode,
+			CountryName:     task.TaskInfo.Profile.ShippingAddress.CountryCode,
+			PhoneNumber:     task.TaskInfo.Profile.PhoneNumber,
 		},
 	}
 
@@ -527,7 +506,7 @@ func (task *Task) SubmitAddressDetails() (bool, string) {
 		return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    SubmitAddressEndpoint,
 		RawHeaders: [][2]string{
@@ -563,7 +542,7 @@ func (task *Task) SubmitAddressDetails() (bool, string) {
 
 func (task *Task) SubmitPaymentDetails() (bool, string) {
 	submitPaymentRequest := SubmitPaymentRequest{
-		PaymentDisplay: fmt.Sprintf("%s %s/%s", task.Task.Profile.CreditCard.CardType, task.Task.Profile.CreditCard.ExpMonth, task.Task.Profile.CreditCard.ExpYear),
+		PaymentDisplay: fmt.Sprintf("%s %s/%s", task.TaskInfo.Profile.CreditCard.CardType, task.TaskInfo.Profile.CreditCard.ExpMonth, task.TaskInfo.Profile.CreditCard.ExpYear),
 		PaymentKey:     task.CyberSecureInfo.PublicKey,
 		PaymentToken:   task.CyberSecureInfo.JtiToken,
 	}
@@ -574,7 +553,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 		return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    SubmitPaymentDetailsEndpoint,
 		RawHeaders: [][2]string{
@@ -603,7 +582,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
-		task.CheckoutInfo.CheckoutUri = submitPaymentResponse.Self.Uri
+		task.CheckoutUri = submitPaymentResponse.Self.Uri
 		return true, enums.SettingBillingInfoSuccess
 	}
 
@@ -611,14 +590,14 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 }
 
 func (task *Task) Checkout() (bool, string) {
-	checkoutDetailsRequest := CheckoutDetailsRequest{PurchaseFrom: strings.Replace(task.CheckoutInfo.CheckoutUri, "paymentmethods", "purchases", 1) + "/form"}
+	checkoutDetailsRequest := CheckoutDetailsRequest{PurchaseFrom: strings.Replace(task.CheckoutUri, "paymentmethods", "purchases", 1) + "/form"}
 
 	submitAddressRequestBytes, err := json.Marshal(checkoutDetailsRequest)
 	if err != nil {
 		return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    CheckoutEndpoint,
 		RawHeaders: [][2]string{
@@ -660,26 +639,26 @@ func (task *Task) Checkout() (bool, string) {
 func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
-			FamilyName:      task.Task.Profile.BillingAddress.LastName,
-			GivenName:       task.Task.Profile.BillingAddress.FirstName,
-			StreetAddress:   task.Task.Profile.BillingAddress.Address1,
-			ExtendedAddress: task.Task.Profile.BillingAddress.Address2,
-			Locality:        task.Task.Profile.BillingAddress.City,
-			Region:          task.Task.Profile.BillingAddress.StateCode,
-			PostalCode:      task.Task.Profile.BillingAddress.ZipCode,
-			CountryName:     "US",
-			PhoneNumber:     task.Task.Profile.PhoneNumber,
+			FamilyName:      task.TaskInfo.Profile.BillingAddress.LastName,
+			GivenName:       task.TaskInfo.Profile.BillingAddress.FirstName,
+			StreetAddress:   task.TaskInfo.Profile.BillingAddress.Address1,
+			ExtendedAddress: task.TaskInfo.Profile.BillingAddress.Address2,
+			Locality:        task.TaskInfo.Profile.BillingAddress.City,
+			Region:          task.TaskInfo.Profile.BillingAddress.StateCode,
+			PostalCode:      task.TaskInfo.Profile.BillingAddress.ZipCode,
+			CountryName:     task.TaskInfo.Profile.BillingAddress.CountryCode,
+			PhoneNumber:     task.TaskInfo.Profile.PhoneNumber,
 		},
 		Shipping: Address{
-			FamilyName:      task.Task.Profile.ShippingAddress.LastName,
-			GivenName:       task.Task.Profile.ShippingAddress.FirstName,
-			StreetAddress:   task.Task.Profile.ShippingAddress.Address1,
-			ExtendedAddress: task.Task.Profile.ShippingAddress.Address2,
-			Locality:        task.Task.Profile.ShippingAddress.City,
-			Region:          task.Task.Profile.ShippingAddress.StateCode,
-			PostalCode:      task.Task.Profile.ShippingAddress.ZipCode,
-			CountryName:     "US",
-			PhoneNumber:     task.Task.Profile.PhoneNumber,
+			FamilyName:      task.TaskInfo.Profile.ShippingAddress.LastName,
+			GivenName:       task.TaskInfo.Profile.ShippingAddress.FirstName,
+			StreetAddress:   task.TaskInfo.Profile.ShippingAddress.Address1,
+			ExtendedAddress: task.TaskInfo.Profile.ShippingAddress.Address2,
+			Locality:        task.TaskInfo.Profile.ShippingAddress.City,
+			Region:          task.TaskInfo.Profile.ShippingAddress.StateCode,
+			PostalCode:      task.TaskInfo.Profile.ShippingAddress.ZipCode,
+			CountryName:     task.TaskInfo.Profile.ShippingAddress.CountryCode,
+			PhoneNumber:     task.TaskInfo.Profile.PhoneNumber,
 		},
 	}
 
@@ -689,7 +668,7 @@ func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 		log.Fatal("Marshal payload failed with error " + err.Error())
 	}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
+		Client: task.TaskInfo.Client,
 		Method: "POST",
 		URL:    SubmitAddressValidateEndpoint,
 		RawHeaders: [][2]string{

@@ -11,13 +11,12 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 )
 
 // CreatePokemonCenterMonitor takes a TaskGroup entity and turns it into a pokemoncenter Monitor
-func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.PokemonCenterSingleMonitorInfo) (Monitor, error) {
+func CreatePokemonCenterMonitor(singleMonitors []entities.PokemonCenterSingleMonitorInfo) (Monitor, error) {
 	storedPokemonCenterMonitors := make(map[string]entities.PokemonCenterSingleMonitorInfo)
 	pokemonCenterMonitor := Monitor{}
 	skus := []string{}
@@ -28,12 +27,6 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 	}
 
 	pokemonCenterMonitor = Monitor{
-		Monitor: base.Monitor{
-			TaskGroup:  taskGroup,
-			ProxyGroup: proxyGroup,
-			EventBus:   eventBus,
-		},
-
 		SKUs:        skus,
 		SKUWithInfo: storedPokemonCenterMonitors,
 	}
@@ -43,13 +36,13 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 
 // PublishEvent wraps the EventBus's PublishMonitorEvent function
 func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
-	monitor.Monitor.TaskGroup.SetMonitorStatus(status)
-	monitor.Monitor.EventBus.PublishMonitorEvent(status, eventType, data, monitor.Monitor.TaskGroup.GroupID)
+	monitor.MonitorInfo.TaskGroup.SetMonitorStatus(status)
+	monitor.MonitorInfo.EventBus.PublishMonitorEvent(status, eventType, data, monitor.MonitorInfo.TaskGroup.GroupID)
 }
 
 //This checks if we want to stop
 func (monitor *Monitor) CheckForStop() bool {
-	if monitor.Monitor.StopFlag {
+	if monitor.MonitorInfo.StopFlag {
 		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
 		return true
 	}
@@ -61,21 +54,21 @@ func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
 		if recover() != nil {
-			monitor.Monitor.StopFlag = true
+			monitor.MonitorInfo.StopFlag = true
 			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
 		}
 	}()
 
-	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
+	if monitor.MonitorInfo.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
 	}
 
-	if monitor.Monitor.Client.Transport == nil {
+	if monitor.MonitorInfo.Client.Transport == nil {
 		monitorClient, err := util.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
+		monitor.MonitorInfo.Client = monitorClient
 
 	}
 
@@ -107,10 +100,10 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			// TODO @silent: Re-run this specific monitor
 		}()
 
-		if monitor.Monitor.ProxyGroup != nil {
-			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-				proxy := util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-				monitor.Monitor.UpdateProxy(proxy)
+		if monitor.MonitorInfo.ProxyGroup != nil {
+			if len(monitor.MonitorInfo.ProxyGroup.Proxies) > 0 {
+				proxy := util.RandomLeastUsedProxy(monitor.MonitorInfo.ProxyGroup.Proxies)
+				monitor.MonitorInfo.UpdateProxy(proxy)
 			}
 		}
 
@@ -146,7 +139,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 					break
 				}
 			}
-			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			time.Sleep(time.Duration(monitor.MonitorInfo.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(sku)
 		}
 	}
@@ -156,7 +149,7 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 	stockData := PokemonCenterInStockData{}
 	monitorResponse := MonitorResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
-		Client: monitor.Monitor.Client,
+		Client: monitor.MonitorInfo.Client,
 		Method: "GET",
 		URL:    fmt.Sprintf(MonitorEndpoint, sku),
 		RawHeaders: [][2]string{
