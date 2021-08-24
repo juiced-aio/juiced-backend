@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -56,7 +57,12 @@ func (task *Task) RunTask() {
 		if r := recover(); r != nil {
 			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail)
 		} else {
-			task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+			if !strings.Contains(taskInfo.Task.TaskStatus, enums.TaskIdle) &&
+				!strings.Contains(taskInfo.Task.TaskStatus, enums.CheckedOut) &&
+				!strings.Contains(taskInfo.Task.TaskStatus, enums.CardDeclined) &&
+				!strings.Contains(taskInfo.Task.TaskStatus, enums.CheckoutFailed) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+			}
 		}
 		taskInfo.StopFlag = true
 	}()
@@ -77,6 +83,11 @@ func (task *Task) RunTask() {
 	var success bool
 	var status enums.TaskStatus
 	for _, function := range taskFunctions {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+
 		if function.StatusBegin != "" {
 			task.PublishEvent(function.StatusBegin, enums.TaskUpdate)
 		}
