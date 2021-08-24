@@ -220,8 +220,8 @@ func (monitor *Monitor) GetItemStock(itemURL string) ToppsInStockData {
 		return stockData
 	}
 
-	monitor.RunningMonitors = append(monitor.RunningMonitors, item)
-	return monitor.ParseInfos(item, body)
+	monitor.RunningMonitors = append(monitor.RunningMonitors, itemURL)
+	return monitor.ParseInfos(itemURL, body)
 }
 
 // Parsing the body from the response to fill the ToppsInStockData struct
@@ -242,11 +242,6 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 	}
 	stockData.ProductName = elem.Text()
 
-	elem = doc.Find("div", "class", "product-add-form")
-	if elem.Error != nil {
-		return stockData
-	}
-
 	elem = doc.Find("span", "class", "price")
 	if elem.Error != nil {
 		return stockData
@@ -258,6 +253,19 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 		return stockData
 	}
 	stockData.Price = price
+
+	elem = doc.Find("button", "id", "product-addtocart-button")
+	if elem.Error != nil {
+		return stockData
+	}
+	if elem.Find("span").Text() != "Add to Cart" {
+		return stockData
+	}
+
+	elem = doc.Find("div", "class", "product-add-form")
+	if elem.Error != nil {
+		return stockData
+	}
 
 	elems := elem.FindAll("input")
 	for i := range elems {
@@ -293,16 +301,6 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 	if len(options) != 0 {
 		stockData.Price += options[len(options)-1].Price
 		stockData.OptionID += options[len(options)-1].ID
-	} else {
-		return ToppsInStockData{}
-	}
-
-	elem = doc.Find("button", "id", "product-addtocart-button")
-	if elem.Error != nil {
-		return stockData
-	}
-	if elem.Find("span").Text() != "Add to Cart" {
-		return stockData
 	}
 
 	elem = elem.Find("form")
@@ -313,8 +311,11 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 
 	stockData.ItemURL = BaseEndpoint + "/" + item
 
-	if float64(monitor.ItemWithInfo[item].MaxPrice) > price || monitor.ItemWithInfo[item].MaxPrice == -1 {
-		return stockData
+	if !(float64(monitor.ItemWithInfo[item].MaxPrice) > price || monitor.ItemWithInfo[item].MaxPrice == -1) {
+		stockData.AddURL = ""
+		stockData.SKU = ""
+		stockData.FormKey = ""
 	}
-	return ToppsInStockData{}
+
+	return stockData
 }

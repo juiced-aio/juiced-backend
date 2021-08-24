@@ -723,21 +723,27 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Data:               data,
 		ResponseBodyStruct: &placeOrderResponse,
 	})
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		fmt.Println(err)
 		return false, status
 	}
 
 	var success bool
 
-	// I do not know what successfully placing an order returns
-	switch placeOrderResponse.Message {
-	case "Your payment could not be taken. Please try again or use a different payment method. Do Not Honor":
-		status = enums.OrderStatusDeclined
-	default:
+	switch resp.StatusCode {
+	case 200:
 		status = enums.OrderStatusSuccess
 		success = true
+	case 400:
+		switch placeOrderResponse.Message {
+		case "Your payment could not be taken. Please try again or use a different payment method. Do Not Honor":
+			status = enums.OrderStatusDeclined
+		default:
+			status = enums.OrderStatusSuccess
+			success = true
+		}
 	}
+	// I do not know what successfully placing an order returns
 
 	if success || status == enums.OrderStatusDeclined {
 		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
