@@ -612,13 +612,15 @@ func (task *Task) Checkout(startTime time.Time) (bool, string) {
 			return false, enums.GetUserFailure
 		}
 
-		util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 			BaseTask:     task.Task,
 			Success:      true,
+			Status:       enums.OrderStatusSuccess,
 			Content:      "",
-			Embeds:       task.CreatePokemonCenterEmbed(enums.OrderStatusSuccess, "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=457&height=467"),
+			Embeds:       task.CreatePokemonCenterEmbed(enums.OrderStatusSuccess, task.StockData.ImageURL),
 			UserInfo:     user,
 			ItemName:     task.StockData.ItemName,
+			ImageURL:     task.StockData.ImageURL,
 			Sku:          task.StockData.SKU,
 			Retailer:     enums.PokemonCenter,
 			Price:        task.StockData.Price,
