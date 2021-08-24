@@ -23,6 +23,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/stealth"
 	cmap "github.com/orcaman/concurrent-map"
 )
@@ -37,23 +38,23 @@ import (
 var TargetAccountStore = cmap.New()
 
 // CreateTargetTask takes a Task entity and turns it into a Target Task
-func CreateTargetTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, checkoutType enums.CheckoutType, email, password string, paymentType enums.PaymentType) (Task, error) {
-	targetTask := Task{}
-
-	targetTask = Task{
+func CreateTargetTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string, paymentType enums.PaymentType) (Task, error) {
+	targetTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
-		CheckoutType: checkoutType,
 		AccountInfo: AccountInfo{
 			Email:          email,
 			Password:       password,
 			PaymentType:    paymentType,
 			DefaultCardCVV: profile.CreditCard.CVV,
 		},
+	}
+	if proxyGroup != nil {
+		targetTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return targetTask, nil
 }
@@ -97,12 +98,14 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Setup task
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
@@ -245,7 +248,7 @@ func (task *Task) Setup() bool {
 					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
 						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
 					}
-					time.Sleep(1 * time.Millisecond)
+					time.Sleep(common.MS_TO_WAIT)
 				}
 			} else {
 				inMap = false
@@ -291,7 +294,8 @@ func (task *Task) Setup() bool {
 // TODO @silent: Handle stop flag within Login function
 func (task *Task) Login() bool {
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			log.Println(r)
 			TargetAccountStore.Remove(task.AccountInfo.Email)
 		}
 	}()
@@ -303,7 +307,10 @@ func (task *Task) Login() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	proxyCleaned := ""
+	if task.Task.Proxy != nil {
+		proxyCleaned = common.ProxyCleaner(*task.Task.Proxy)
+	}
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 
@@ -355,7 +362,7 @@ func (task *Task) Login() bool {
 	go func() {
 		// Wait until either the StopFlag is set to true or the BrowserComplete flag is set to true
 		for !task.Task.StopFlag && !task.BrowserComplete {
-			time.Sleep(10 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 		// If the StopFlag being set to true is the one that caused us to break out of that for loop, then the browser is still running, so call cancel()
 		if task.Task.StopFlag {
@@ -374,14 +381,16 @@ func (task *Task) Login() bool {
 	}
 
 	page := stealth.MustPage(browserWithCancel)
-
+	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
 	page.MustNavigate(LoginEndpoint).MustWaitLoad()
 	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
 		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
 		TargetAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+
 	usernameBox := page.MustElement("#username").MustWaitVisible()
+	usernameBox.MustTap()
 	for i := range task.AccountInfo.Email {
 		usernameBox.Input(string(task.AccountInfo.Email[i]))
 		time.Sleep(125 * time.Millisecond)
@@ -389,13 +398,22 @@ func (task *Task) Login() bool {
 
 	time.Sleep(1 * time.Second / 2)
 	passwordBox := page.MustElement("#password").MustWaitVisible()
+	passwordBox.MustTap()
 	for i := range task.AccountInfo.Password {
 		passwordBox.Input(string(task.AccountInfo.Password[i]))
 		time.Sleep(125 * time.Millisecond)
 	}
 	time.Sleep(1 * time.Second / 2)
 
-	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
+	checkbox, err := page.ElementX(`//*[contains(@class, 'nds-checkbox')]`)
+	if err != nil {
+		checkbox, err = page.ElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`)
+		if err != nil {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
+			return false
+		}
+	}
+	checkbox.MustWaitVisible().MustClick()
 	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
 
 	time.Sleep(1 * time.Second / 2)
@@ -413,23 +431,7 @@ func (task *Task) Login() bool {
 	page.MustElement("#accountNav-signIn").MustWaitVisible().MustClick()
 	page.MustWaitLoad()
 
-	startTimeout := time.Now().Unix()
 	browserCookies, _ := page.Cookies([]string{BaseEndpoint})
-	for validCookie := false; !validCookie; {
-		for _, cookie := range browserCookies {
-			if cookie.Name == "accessToken" {
-				claims := &LoginJWT{}
-				new(jwt.Parser).ParseUnverified(cookie.Value, claims)
-				if claims.Eid == task.AccountInfo.Email {
-					validCookie = true
-				}
-			}
-		}
-		if time.Now().Unix()-startTimeout > 30 {
-			TargetAccountStore.Remove(task.AccountInfo.Email)
-			return false
-		}
-	}
 
 	for _, cookie := range browserCookies {
 		httpCookie := &http.Cookie{
@@ -557,7 +559,7 @@ func (task *Task) WaitForMonitor() bool {
 			task.TCIN = task.InStockData.TCIN
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -855,16 +857,18 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 		}
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
 		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		ImageURL:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath,
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,
 		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,
-		Quantity:     1,
+		Quantity:     task.Task.Task.TaskQty,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 

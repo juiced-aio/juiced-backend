@@ -1,13 +1,9 @@
 package target
 
 import (
-	"fmt"
-	"math/rand"
-
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -18,7 +14,7 @@ import (
 )
 
 // CreateTargetMonitor takes a TaskGroup entity and turns it into a Target Monitor
-func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, monitor *entities.TargetMonitorInfo) (Monitor, error) {
+func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, monitor *entities.TargetMonitorInfo) (Monitor, error) {
 	storedTargetMonitors := make(map[string]entities.TargetSingleMonitorInfo)
 	targetMonitor := Monitor{}
 	tcins := []string{}
@@ -29,9 +25,9 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 
 	targetMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		TCINs:            tcins,
 		StoreID:          monitor.StoreID,
@@ -81,15 +77,19 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
 
 	}
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
 	}
 
 	stockData := TargetStockData{}
@@ -156,7 +156,6 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 
 	getTCINStockRequest := map[string]string{}
 	if monitor.StoreID != "" {
-		fmt.Println(monitor.StoreID)
 		getTCINStockRequest = GetTCINStockRequestToMap(GetTCINStockRequest{
 			Key:                      "ff457966e64d5e877fdbad070f276d18ecec4a01",
 			TCINs:                    strings.Join(monitor.TCINs, ","),
@@ -170,7 +169,7 @@ func (monitor *Monitor) GetTCINStock() TargetStockData {
 
 	getTCINStockResponse := GetTCINStockResponse{}
 
-	params := util.CreateParams(getTCINStockRequest)
+	params := common.CreateParams(getTCINStockRequest)
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client:             monitor.Monitor.Client,
 		Method:             "GET",
@@ -249,7 +248,7 @@ func (monitor *Monitor) GetTCINInfo(sku string) (string, string, bool) {
 	if monitor.StoreID == "" {
 		storeID = "199"
 	}
-	params := util.CreateParams(map[string]string{
+	params := common.CreateParams(map[string]string{
 		"key":                             "ff457966e64d5e877fdbad070f276d18ecec4a01",
 		"tcin":                            sku,
 		"store_id":                        storeID,

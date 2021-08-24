@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/EDDYCJY/fake-useragent v0.2.0 // indirect
+	github.com/Lazarus/lz-string-go v0.0.0-20210604111459-ed7cd5a66c48
 	github.com/PuerkitoBio/goquery v1.6.1 // indirect
 	github.com/Titanium-ctrl/utls v0.0.0-20210220142115-7c6ee6812971
 	github.com/anaskhan96/soup v1.2.4

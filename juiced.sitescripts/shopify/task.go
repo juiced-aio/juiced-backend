@@ -19,19 +19,15 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL, sitePassword, email, password string) (Task, error) {
+func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, couponCode, siteURL, sitePassword, email, password string) (Task, error) {
 	shopifyTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return shopifyTask, err
-	}
+
 	shopifyTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
-			Client:   client,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -41,8 +37,10 @@ func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy enti
 		SiteURL:      siteURL,
 		SitePassword: sitePassword,
 	}
-
-	return shopifyTask, err
+	if proxyGroup != nil {
+		shopifyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
+	return shopifyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
@@ -82,6 +80,14 @@ func (task *Task) RunTask() {
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
+	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
+
+	err := task.Task.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
 	}
 
 	task.Step = SettingUp
@@ -329,7 +335,7 @@ func (task *Task) WaitForMonitor() bool {
 			return true
 		}
 		if task.InStockData.VariantID != "" {
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 			return false
 		}
 		task.VariantID = task.InStockData.VariantID
@@ -337,7 +343,7 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart(vid string) bool {
-	paramsString := util.CreateParams(map[string]string{
+	paramsString := common.CreateParams(map[string]string{
 		"form_type": "product",
 		"utf8":      "✓",
 		"id":        vid,
@@ -448,7 +454,7 @@ func (task *Task) Checkout() bool {
 }
 
 func (task *Task) HandleQueue() bool {
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"authenticity_token": task.TaskInfo.AuthToken,
 		// Empty for now
 		"g-recaptcha-response": "",
@@ -546,7 +552,7 @@ func (task *Task) HandleQueue() bool {
 }
 
 func (task *Task) SetShippingInfo() bool {
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                                      "patch",
 		"authenticity_token":                           task.TaskInfo.AuthToken,
 		"previous_step":                                "contact_information",
@@ -636,7 +642,7 @@ func (task *Task) SetShippingRate() bool {
 
 	task.TaskInfo.ShippingRate = shippingRateUnderPrice[prices[0]].Source + "-" + shippingRateUnderPrice[prices[0]].Code + "-" + shippingRateUnderPrice[prices[0]].Price
 
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                     "patch",
 		"authenticity_token":          task.TaskInfo.AuthToken,
 		"previous_step":               "shipping_method",
@@ -749,7 +755,7 @@ func (task *Task) GetCreditID() bool {
 
 func (task *Task) SetPaymentInfo() bool {
 	totalFloat, _ := strconv.ParseFloat(task.TaskInfo.OrderTotal, 64)
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                             "patch",
 		"authenticity_token":                  task.TaskInfo.AuthToken,
 		`checkout[reduction_code]`:            task.CouponCode,
@@ -834,12 +840,14 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		}
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
 		ItemName:     task.TaskInfo.Name,
+		ImageURL:     task.TaskInfo.Image,
 		Sku:          task.VariantID,
 		Retailer:     enums.Shopify,
 		Price:        float64(task.TaskInfo.Price),

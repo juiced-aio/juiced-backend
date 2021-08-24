@@ -16,14 +16,17 @@ import (
 )
 
 // CreateBoxlunch takes a Task entity and turns it into a Boxlunch Task
-func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus) (Task, error) {
 	boxLunchTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
+	}
+	if proxyGroup != nil {
+		boxLunchTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return boxLunchTask, nil
 }
@@ -56,12 +59,14 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
 	// 1. WaitForMonitor
@@ -212,7 +217,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.StockData.PID != "" {
 			return false
 		}
-		time.Sleep(25 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -470,12 +475,14 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateBoxlunchEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
 		Sku:          task.StockData.PID,
 		Retailer:     enums.BoxLunch,
 		Price:        float64(task.StockData.Price),

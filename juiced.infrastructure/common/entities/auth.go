@@ -24,3 +24,5 @@ func ParseUserInfo(userInfo *UserInfo, data []byte) error {
 	err := json.Unmarshal(data, &userInfo)
 	return err
 }
+
+var UserInfo_ UserInfo

@@ -19,14 +19,17 @@ import (
 )
 
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
-func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus) (Task, error) {
 	walmartTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
+	}
+	if proxyGroup != nil {
+		walmartTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
 	}
 	return walmartTask, nil
 }
@@ -36,12 +39,9 @@ func (task *Task) RefreshPX3() {
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
-		if r := recover(); r != nil {
-			task.RefreshPX3()
-		}
 	}()
 
-	cancellationToken := util.CancellationToken{Cancel: false}
+	cancellationToken := &util.CancellationToken{Cancel: false}
 	go func() {
 		for {
 			select {
@@ -54,24 +54,36 @@ func (task *Task) RefreshPX3() {
 					return
 				}
 			}
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 	}()
 
+	retry := true
+	for retry {
+		retry = task.RefreshPX3Helper(cancellationToken)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (task *Task) RefreshPX3Helper(cancellationToken *util.CancellationToken) bool {
 	for {
+		if cancellationToken.Cancel {
+			return false
+		}
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, cancellationToken)
 			if cancelled {
-				return
+				return false
 			}
 
 			if err != nil {
 				log.Println("Error setting px cookie for task: " + err.Error())
-				panic(err)
+				return true
 			}
 			task.PXValues = pxValues
 			task.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -114,12 +126,14 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	task.PublishEvent(enums.SettingUp, enums.TaskStart)
 	go task.RefreshPX3()
@@ -128,7 +142,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		time.Sleep(25 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 
 	setup := false
@@ -308,7 +322,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.StockData.OfferID != "" && task.StockData.SKU != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -334,7 +348,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 					return
 				}
 			}
-			time.Sleep(25 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 		}
 	}()
 
@@ -725,6 +739,7 @@ func (task *Task) WaitForEncryptedPaymentInfo() bool {
 		if task.CardInfo.EncryptedPan != "" {
 			return false
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -984,12 +999,14 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		quantity = task.StockData.MaxQty
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
+		Status:       status,
 		Content:      "",
 		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
 		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
 		Sku:          task.StockData.SKU,
 		Retailer:     enums.Walmart,
 		Price:        task.StockData.Price,

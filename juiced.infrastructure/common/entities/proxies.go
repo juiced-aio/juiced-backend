@@ -28,6 +28,7 @@ type Proxy struct {
 	Port         string `json:"port" db:"port"`
 	Username     string `json:"username" db:"username"`
 	Password     string `json:"password" db:"password"`
+	Count        int
 }
 
 // SetID updates the Proxy's ID
@@ -35,12 +36,26 @@ func (proxy *Proxy) SetID(ID string) {
 	proxy.ID = ID
 }
 
+// RemoveCount subtracts one from count
+func (proxy *Proxy) RemoveCount() {
+	if proxy != nil {
+		proxy.Count--
+	}
+}
+
+// AddCount adds one to count
+func (proxy *Proxy) AddCount() {
+	if proxy != nil {
+		proxy.Count++
+	}
+}
+
 // ProxyGroup is a class that holds a list of proxies
 type ProxyGroup struct {
-	GroupID      string  `json:"groupID" db:"groupID"`
-	Name         string  `json:"name" db:"name"`
-	Proxies      []Proxy `json:"proxies"`
-	CreationDate int64   `json:"creationDate" db:"creationDate"`
+	GroupID      string   `json:"groupID" db:"groupID"`
+	Name         string   `json:"name" db:"name"`
+	Proxies      []*Proxy `json:"proxies"`
+	CreationDate int64    `json:"creationDate" db:"creationDate"`
 }
 
 // SetName updates the ProxyGroup's Name
