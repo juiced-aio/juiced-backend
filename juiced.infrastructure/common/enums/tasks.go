@@ -33,7 +33,7 @@ type TaskStatus = string
 // Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
 const (
 	TaskIdle   TaskStatus = "Idle"
-	TaskFailed TaskStatus = "Fatal error: %s"
+	TaskFailed TaskStatus = "FAIL: %s"
 
 	SettingUp        TaskStatus = "Setting up task"
 	SettingUpSuccess TaskStatus = "Set up task"
