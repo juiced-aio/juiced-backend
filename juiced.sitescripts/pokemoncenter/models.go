@@ -12,6 +12,9 @@ const (
 
 	MonitorEndpoint = "https://www.pokemoncenter.com/product/%s"
 
+	DatadomeEndpoint          = "https://geo.captcha-delivery.com/captcha/?"
+	DatadomeChallengeEndpoint = "https://geo.captcha-delivery.com/captcha/check?"
+
 	AddToCartEndpoint                   = "https://www.pokemoncenter.com/tpci-ecommweb-api/cart?type=product&format=zoom.nodatalinks"
 	AddToCartRefererEndpoint            = "https://www.pokemoncenter.com/product/%s"
 	SubmitAddressEndpoint               = "https://www.pokemoncenter.com/tpci-ecommweb-api/address?format=zoom.nodatalinks"
@@ -96,6 +99,15 @@ type Task struct {
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
 	RefreshAt       int64
+}
+
+type DatadomeInfo struct {
+	InitialCID string `json:"cid"`
+	CID        string `json:"-"`
+	Hash       string `json:"hsh"`
+	T          string `json:"t"`
+	S          int    `json:"s"`
+	Host       string `json:"host"`
 }
 
 //Info used for payment encryption

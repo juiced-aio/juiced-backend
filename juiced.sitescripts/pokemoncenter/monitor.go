@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -152,7 +154,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 	stockData := PokemonCenterInStockData{}
 	monitorResponse := MonitorResponse{}
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
 		URL:    fmt.Sprintf(MonitorEndpoint, sku),
@@ -175,6 +177,9 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		monitor.HandleDatadome(body)
+		return stockData
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
 
@@ -208,5 +213,66 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 		}
 	default:
 		return stockData
+	}
+}
+
+func (monitor Monitor) HandleDatadome(body string) {
+	status := monitor.Monitor.TaskGroup.MonitorStatus
+	monitor.PublishEvent(enums.WaitingForCaptchaMonitor, enums.MonitorUpdate, nil)
+	quit := make(chan bool)
+	defer func() {
+		quit <- true
+	}()
+
+	cancellationToken := util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := monitor.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(common.MS_TO_WAIT)
+		}
+	}()
+
+	datadomeStr, err := util.FindInString(body, "<script>var dd=", "}")
+	if err != nil {
+		return
+	}
+	datadomeStr += "}"
+	datadomeStr = strings.ReplaceAll(datadomeStr, "'", "\"")
+
+	datadomeInfo := DatadomeInfo{}
+	err = json.Unmarshal([]byte(datadomeStr), &datadomeInfo)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	}
+
+	cookies := monitor.Monitor.Client.Jar.Cookies(BaseURL)
+	for _, cookie := range cookies {
+		if cookie.Name == "datadome" {
+			datadomeInfo.CID = cookie.Value
+		}
+	}
+
+	if datadomeInfo.CID == "" {
+		return
+	}
+
+	err = SetDatadomeCookie(datadomeInfo, monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+	if err != nil {
+		log.Println(err.Error())
+		return
+	} else {
+		monitor.PublishEvent(status, enums.MonitorUpdate, nil)
+		log.Println("Cookie updated.")
+		return
 	}
 }

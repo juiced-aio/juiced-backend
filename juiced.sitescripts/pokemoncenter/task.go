@@ -72,6 +72,10 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskQty = 1
 	}
 
+	for {
+		time.Sleep(1 * time.Second)
+	}
+
 	// 1. Login/LoginGuest
 	if task.AccountInfo.Email != "" && task.AccountInfo.Password != "" {
 		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate, 10)
