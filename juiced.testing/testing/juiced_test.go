@@ -15,19 +15,39 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	ws "backend.juicedbot.io/juiced.ws"
+	"github.com/denisbrodbeck/machineid"
 )
 
 func TestMain(m *testing.M) {
 	os.Setenv("JUICED_MODE", "DEV")
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		os.Exit(0)
+	}
+
+	sec.HWID = hwid
+
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
 
 	// Start the websocket server
 	go ws.StartWebsocketServer(eventBus)
 
-	err := common.InitDatabase()
+	err = common.InitDatabase()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	_, userInfo, err := queries.GetUserInfo()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	enums.UserKey, _, err = sec.GetEncryptionKey(userInfo)
 	if err != nil {
 		log.Println(err)
 		return
@@ -36,6 +56,7 @@ func TestMain(m *testing.M) {
 	go stores.InitTaskStore(eventBus)
 	stores.InitMonitorStore(eventBus)
 	stores.InitProxyStore()
+
 	stores.GetProxyStore().AddProxyGroup(MainProxyGroup)
 	captcha.InitCaptchaStore(eventBus)
 	err = captcha.InitAycd()
@@ -168,6 +189,32 @@ func TestTarget(t *testing.T) {
 	}
 	MainTaskGroup.MonitorRetailer = enums.Target
 	MainTask.TaskRetailer = enums.Target
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	select {}
+}
+
+func TestTopps(t *testing.T) {
+	MainTask.ToppsTaskInfo = &entities.ToppsTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+		Email:       "andersonrector@gmail.com",
+		Password:    "Fixilini1973",
+		TaskType:    enums.TaskTypeAccount,
+	}
+
+	MainTaskGroup.ToppsMonitorInfo = &entities.ToppsMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.ToppsSingleMonitorInfo{{
+			MonitorID:   MainMonitorID,
+			TaskGroupID: MainTaskGroupID,
+			Item:        "https://www.topps.com/cards-collectibles/topps-now/travis-shaw-2021-mlb-topps-now-reg-card-694.html",
+			MaxPrice:    -1,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.Topps
+	MainTask.TaskRetailer = enums.Topps
 	MainTaskGroup.MonitorStatus = enums.MonitorIdle
 	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
 	select {}
