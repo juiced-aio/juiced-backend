@@ -8,6 +8,7 @@ import (
 	"log"
 	"math/rand"
 	"net/url"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -268,18 +269,18 @@ func (task *Task) Setup() bool {
 		// Refresh login in background
 		go task.RefreshLogin()
 
-	}
+		clearedCart := false
+		for !clearedCart {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return true
+			}
+			clearedCart = task.ClearCart()
+			if !clearedCart {
+				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+			}
+		}
 
-	clearedCart := false
-	for !clearedCart {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return true
-		}
-		clearedCart = task.ClearCart()
-		if !clearedCart {
-			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		}
 	}
 
 	return false
@@ -290,7 +291,7 @@ func (task *Task) Setup() bool {
 func (task *Task) Login() bool {
 	defer func() {
 		if r := recover(); r != nil {
-			log.Println(r)
+			log.Println(string(debug.Stack()))
 			TargetAccountStore.Remove(task.AccountInfo.Email)
 		}
 	}()
@@ -382,7 +383,13 @@ func (task *Task) Login() bool {
 
 	page := stealth.MustPage(browserWithCancel)
 	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
-	page.MustNavigate(LoginEndpoint).MustWaitLoad()
+	loginPage := page.MustNavigate(LoginEndpoint)
+	if loginPage != nil {
+		loginPage.MustWaitLoad()
+	} else {
+		TargetAccountStore.Remove(task.AccountInfo.Email)
+		return false
+	}
 	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
 		task.PublishEvent("Bad Proxy", enums.TaskFail, 0)
 		TargetAccountStore.Remove(task.AccountInfo.Email)
