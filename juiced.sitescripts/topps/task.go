@@ -316,8 +316,9 @@ func (task *Task) Login() bool {
 		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseEndpoint+"/", proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseLoginEndpoint+"/", proxy)
 		time.Sleep(common.MS_TO_WAIT)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
@@ -361,7 +362,7 @@ func (task *Task) Login() bool {
 
 		Data: []byte(payload),
 	})
-	if resp.StatusCode != 302 || err != nil {
+	if resp.StatusCode != 200 || err != nil {
 		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
