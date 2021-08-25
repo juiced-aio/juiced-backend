@@ -163,13 +163,14 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
 			{"referer", BaseEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
+			{"cache-control", "max-age=0"},
 		},
 	})
 	if err != nil {
