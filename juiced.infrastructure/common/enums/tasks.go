@@ -15,6 +15,7 @@ const (
 	OutOfPriceRange           MonitorStatus = "Out of price range"
 	SendingProductInfoToTasks MonitorStatus = "Sending to tasks"
 	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
+	WaitingForCaptchaMonitor  MonitorStatus = "Waiting for Captcha"
 )
 
 type MonitorEventType = string

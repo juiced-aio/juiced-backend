@@ -5,11 +5,16 @@ import (
 	"crypto/rsa"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"log"
+	"net/url"
 	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
@@ -31,6 +36,124 @@ func AddPokemonCenterHeaders(request *http.Request, referer ...string) {
 	if len(referer) != 0 {
 		request.Header.Set("Referer", referer[0])
 	}
+}
+
+func SetDatadomeCookie(datadomeInfo DatadomeInfo, proxy *entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
+	params := common.CreateParams(map[string]string{
+		"initialCid": datadomeInfo.InitialCID,
+		"hash":       datadomeInfo.Hash,
+		"cid":        datadomeInfo.CID,
+		"t":          datadomeInfo.T,
+		"referer":    "https://www.pokemoncenter.com/",
+		"s":          fmt.Sprint(datadomeInfo.S),
+	})
+	proxy_ := entities.Proxy{}
+	if proxy != nil {
+		proxy_ = *proxy
+	}
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.PokemonCenter, DatadomeEndpoint+params, "", 0, proxy_)
+	if err != nil {
+		return err
+	}
+	for token == nil {
+		if cancellationToken.Cancel {
+			return nil
+		}
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.PokemonCenter, DatadomeEndpoint+params, proxy_)
+		time.Sleep(1 * time.Second / 10)
+	}
+
+	tokenInfo, ok := token.(entities.ReCaptchaToken)
+	if !ok {
+		return errors.New("token is not ReCaptchaToken")
+	}
+
+	params = common.CreateParams(map[string]string{
+		"icid":                 datadomeInfo.InitialCID,
+		"hash":                 datadomeInfo.Hash,
+		"cid":                  datadomeInfo.CID,
+		"t":                    datadomeInfo.T,
+		"referer":              "https://www.pokemoncenter.com/",
+		"s":                    fmt.Sprint(datadomeInfo.S),
+		"parent_url":           "https://www.pokemoncenter.com",
+		"ua":                   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
+		"ccid":                 "null",
+		"x-forwarded-for":      "",
+		"captchaChallenge":     "",
+		"g-recaptcha-response": tokenInfo.Token,
+	})
+
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: *client,
+		Method: "GET",
+		URL:    DatadomeChallengeEndpoint + params,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", BaseEndpoint},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != 200 {
+		return errors.New("not 200: " + fmt.Sprint(resp.StatusCode))
+	}
+
+	type DatadomeCookie struct {
+		Cookie string `json:"cookie"`
+	}
+
+	cookie := DatadomeCookie{}
+
+	err = json.Unmarshal([]byte(body), &cookie)
+	if err != nil {
+		return err
+	}
+
+	if !strings.Contains(cookie.Cookie, "datadome=") ||
+		!strings.Contains(cookie.Cookie, "; ") {
+		return errors.New("bad cookie: " + cookie.Cookie)
+	}
+	datadomeCookieValue, err := util.FindInString(cookie.Cookie, "datadome=", "; ")
+	if err != nil {
+		return err
+	}
+
+	datadomeCookie := &http.Cookie{
+		Name:     "datadome",
+		Value:    datadomeCookieValue,
+		Path:     "/",
+		Domain:   ".pokemoncenter.com",
+		MaxAge:   31536000,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	u, err := url.Parse("https://www.pokemomcenter.com/") // This should never error, but just to be safe let's handle the error
+	if err != nil {
+		log.Println("Error parsing https://www.pokemomcenter.com/ to set Datadome cookie: " + err.Error())
+		return err
+	}
+	oldCookies := client.Jar.Cookies(u)
+	newCookies := []*http.Cookie{}
+	for _, oldCookie := range oldCookies {
+		if oldCookie.Name != "datadome" {
+			newCookies = append(newCookies, oldCookie)
+		}
+	}
+	newCookies = append(newCookies, datadomeCookie)
+	log.Println(newCookies)
+	client.Jar.SetCookies(u, newCookies)
+	return nil
 }
 
 func dumpMap(space string, m map[string]interface{}) {
