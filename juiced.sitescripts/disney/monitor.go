@@ -415,7 +415,10 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 			}
 		}
 
+		// Filling PID now and VID just incase the ProductType is not standard but still has no variants like this product for some reason https://www.shopdisney.com/elsa-costume-wig-for-kids-frozen-2-428423206036.html?isProductSearch=0&plpPosition=9&guestFacing=Halloween%2520Shop-Costume%2520Accessories
 		stockData = DisneyInStockData{
+			PID:           productInfo.ID,
+			VID:           productInfo.ID,
 			Price:         int(price),
 			ProductName:   productInfo.ProductName,
 			ItemURL:       BaseEndpoint + productInfo.ProductURL,
