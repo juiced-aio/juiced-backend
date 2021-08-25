@@ -81,6 +81,9 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
 	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
@@ -837,7 +840,7 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		}
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Status:       status,

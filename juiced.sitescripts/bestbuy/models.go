@@ -52,6 +52,7 @@ type BestbuyInStockData struct {
 	ProductName string
 	ImageURL    string
 	Price       int
+	MaxQuantity int
 }
 
 var DefaultRawHeaders = [][2]string{

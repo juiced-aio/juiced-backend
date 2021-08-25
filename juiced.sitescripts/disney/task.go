@@ -80,6 +80,9 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
 	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
@@ -406,12 +409,20 @@ func (task *Task) Login() bool {
 		Password:   task.AccountInfo.Password,
 	}
 
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, *task.Task.Proxy)
+	proxy := entities.Proxy{}
+	if task.Task.Proxy != nil {
+		proxy = *task.Task.Proxy
+	}
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, proxy)
 	if err != nil {
 		return false
 	}
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, *task.Task.Proxy)
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return false
+		}
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, proxy)
 		time.Sleep(1 * time.Second / 10)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
@@ -929,7 +940,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool, enums.OrderStatus
 		success = true
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Status:       status,

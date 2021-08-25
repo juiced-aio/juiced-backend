@@ -98,6 +98,9 @@ func (task *Task) RunTask() {
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty == 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
 	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
@@ -291,7 +294,8 @@ func (task *Task) Setup() bool {
 // TODO @silent: Handle stop flag within Login function
 func (task *Task) Login() bool {
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			log.Println(r)
 			TargetAccountStore.Remove(task.AccountInfo.Email)
 		}
 	}()
@@ -303,7 +307,10 @@ func (task *Task) Login() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(*task.Task.Proxy)
+	proxyCleaned := ""
+	if task.Task.Proxy != nil {
+		proxyCleaned = common.ProxyCleaner(*task.Task.Proxy)
+	}
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 
@@ -381,7 +388,9 @@ func (task *Task) Login() bool {
 		TargetAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+
 	usernameBox := page.MustElement("#username").MustWaitVisible()
+	usernameBox.MustTap()
 	for i := range task.AccountInfo.Email {
 		usernameBox.Input(string(task.AccountInfo.Email[i]))
 		time.Sleep(125 * time.Millisecond)
@@ -389,13 +398,22 @@ func (task *Task) Login() bool {
 
 	time.Sleep(1 * time.Second / 2)
 	passwordBox := page.MustElement("#password").MustWaitVisible()
+	passwordBox.MustTap()
 	for i := range task.AccountInfo.Password {
 		passwordBox.Input(string(task.AccountInfo.Password[i]))
 		time.Sleep(125 * time.Millisecond)
 	}
 	time.Sleep(1 * time.Second / 2)
 
-	page.MustElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`).MustWaitVisible().MustClick()
+	checkbox, err := page.ElementX(`//*[contains(@class, 'nds-checkbox')]`)
+	if err != nil {
+		checkbox, err = page.ElementX(`//*[contains(@class, 'sc-hMqMXs ysAUA')]`)
+		if err != nil {
+			TargetAccountStore.Remove(task.AccountInfo.Email)
+			return false
+		}
+	}
+	checkbox.MustWaitVisible().MustClick()
 	page.MustElement("#login").MustWaitVisible().MustClick().MustWaitLoad()
 
 	time.Sleep(1 * time.Second / 2)
@@ -413,23 +431,7 @@ func (task *Task) Login() bool {
 	page.MustElement("#accountNav-signIn").MustWaitVisible().MustClick()
 	page.MustWaitLoad()
 
-	startTimeout := time.Now().Unix()
 	browserCookies, _ := page.Cookies([]string{BaseEndpoint})
-	for validCookie := false; !validCookie; {
-		for _, cookie := range browserCookies {
-			if cookie.Name == "accessToken" {
-				claims := &LoginJWT{}
-				new(jwt.Parser).ParseUnverified(cookie.Value, claims)
-				if claims.Eid == task.AccountInfo.Email {
-					validCookie = true
-				}
-			}
-		}
-		if time.Now().Unix()-startTimeout > 30 {
-			TargetAccountStore.Remove(task.AccountInfo.Email)
-			return false
-		}
-	}
 
 	for _, cookie := range browserCookies {
 		httpCookie := &http.Cookie{
@@ -855,7 +857,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 		}
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      success,
 		Status:       status,
@@ -866,7 +868,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus, bool
 		Sku:          task.TCIN,
 		Retailer:     enums.Target,
 		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,
-		Quantity:     1,
+		Quantity:     task.Task.Task.TaskQty,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
