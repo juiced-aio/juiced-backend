@@ -58,15 +58,15 @@ func CreateTargetTask(task *entities.Task, profile entities.Profile, proxyGroup 
 var baseURL, _ = url.Parse(BaseEndpoint)
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
 	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
 	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -86,9 +86,9 @@ func (task *Task) RunTask() {
 	defer func() {
 		if recover() != nil {
 			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
 
 	if task.Task.Task.TaskDelay == 0 {
@@ -104,7 +104,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 1. Setup task
-	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	task.PublishEvent(enums.SettingUp, enums.TaskStart, 10)
 	setup := task.Setup()
 	if setup {
 		return
@@ -115,14 +115,14 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
 	// 2. WaitForMonitor
 	needToStop = task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	// 3. AddtoCart
 	addedToCart := false
 	for !addedToCart {
@@ -136,7 +136,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 40)
 	startTime := time.Now()
 	// 4. GetCartInfo
 	gotCartInfo := false
@@ -151,7 +151,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	// 5. SetShippingInfo
 	if task.AccountInfo.ShippingType == enums.ShippingTypeNEW {
 		setShippingInfo := false
@@ -167,7 +167,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
 	doNotRetry := false
@@ -182,7 +182,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 7. PlaceOrder
 	placedOrder := false
 	dontRetry := false
@@ -210,11 +210,11 @@ func (task *Task) RunTask() {
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
 	}
 
 }
@@ -241,7 +241,7 @@ func (task *Task) Setup() bool {
 					break
 				} else {
 					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
-						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate, 15)
 					}
 					time.Sleep(common.MS_TO_WAIT)
 				}
@@ -252,7 +252,7 @@ func (task *Task) Setup() bool {
 		}
 	} else {
 		// Login
-		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate, 15)
 		loggedIn := false
 		for !loggedIn {
 			needToStop := task.CheckForStop()
@@ -304,7 +304,7 @@ func (task *Task) Login() bool {
 
 	fileInfos, err := ioutil.ReadDir(launcher.DefaultBrowserDir)
 	if len(fileInfos) == 0 || err != nil {
-		task.PublishEvent("Possibly downloading browser. Please wait patiently", enums.TaskUpdate)
+		task.PublishEvent("Possibly downloading browser. Please wait patiently", enums.TaskUpdate, 15)
 	}
 
 	proxyCleaned := ""
@@ -384,7 +384,7 @@ func (task *Task) Login() bool {
 	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
 	page.MustNavigate(LoginEndpoint).MustWaitLoad()
 	if strings.Contains(page.MustHTML(), "accessDenied-CheckVPN") {
-		task.PublishEvent("Bad Proxy", enums.TaskUpdate)
+		task.PublishEvent("Bad Proxy", enums.TaskFail, 0)
 		TargetAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
@@ -418,10 +418,10 @@ func (task *Task) Login() bool {
 
 	time.Sleep(1 * time.Second / 2)
 	if strings.Contains(page.MustHTML(), "That password is incorrect.") {
-		task.PublishEvent("Incorrect password", enums.TaskUpdate)
+		task.PublishEvent("Incorrect password", enums.TaskFail, 0)
 		return false
 	} else if strings.Contains(page.MustHTML(), "Your account is locked") {
-		task.PublishEvent("Account is locked", enums.TaskUpdate)
+		task.PublishEvent("Account is locked", enums.TaskFail, 0)
 		return false
 	}
 	page.MustElement("#account").MustWaitLoad()

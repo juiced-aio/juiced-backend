@@ -352,14 +352,19 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 					// Add task to store (if it already exists, this will return true)
 					err = taskStore.AddTaskToStore(&task)
 					if err == nil {
+						taskPtr := taskStore.GetTask(task.TaskRetailer, taskID)
+						if taskPtr != nil {
+							task = *taskPtr
+						}
 						// Setting the stop flag to false before running the task
 						taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
 
 						// If the Task is already running, then we're all set already
-						if strings.Contains(task.TaskStatus, enums.TaskIdle) ||
-							strings.Contains(task.TaskStatus, enums.TaskFailed) ||
-							strings.Contains(task.TaskStatus, enums.CheckedOut) ||
-							strings.Contains(task.TaskStatus, enums.CheckoutFailed) {
+						if strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 							// Otherwise, start the Task
 							taskStore.RunTask(task.TaskRetailer, task.ID)
 						}
@@ -428,11 +433,14 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 		return err
 	}
 
+	task = taskStore.GetTask(task.TaskRetailer, task.ID)
+
 	// If the Task is already running, then we're all set already
-	if !strings.Contains(task.TaskStatus, enums.TaskIdle) &&
-		!strings.Contains(task.TaskStatus, enums.TaskFailed) &&
-		!strings.Contains(task.TaskStatus, enums.CheckedOut) &&
-		!strings.Contains(task.TaskStatus, enums.CheckoutFailed) {
+	if !strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 		return nil
 	}
 

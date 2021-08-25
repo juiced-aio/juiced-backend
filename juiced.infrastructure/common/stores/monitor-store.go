@@ -3,6 +3,7 @@ package stores
 import (
 	e "errors"
 	"math/rand"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -317,8 +318,10 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 		return err
 	}
 
+	monitor = monitorStore.GetMonitor(monitor.MonitorRetailer, monitor.GroupID)
+
 	// If the Monitor is already running, then we're all set already
-	if monitor.MonitorStatus != enums.MonitorIdle {
+	if !strings.Contains(monitor.MonitorStatus, enums.MonitorIdle) {
 		return nil
 	}
 
@@ -550,8 +553,6 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 	return false
 }
 
-// TODO: Test the efficiency of these functions.
-// It's technically O(n^2), but most users won't have more than 5-10 task groups running at once, tops.
 func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 	for {
 		for monitorID, amazonMonitor := range monitorStore.AmazonMonitors {
@@ -591,6 +592,24 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 	}
 }
 
+func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
+	for {
+		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
+			if len(boxlunchMonitor.InStock) > 0 {
+				taskGroup := boxlunchMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
+						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
+							boxlunchTask.StockData = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))]
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
 func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 	for {
 		for monitorID, disneyMonitor := range monitorStore.DisneyMonitors {
@@ -601,24 +620,6 @@ func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 						if ok && disneyTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(disneyMonitor.InStock))
 							disneyTask.StockData = disneyMonitor.InStock[randomNumber]
-						}
-					}
-				}
-			}
-		}
-		time.Sleep(common.MS_TO_WAIT)
-	}
-}
-
-func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
-	for {
-		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
-			if len(boxlunchMonitor.InStock) > 0 {
-				taskGroup := boxlunchMonitor.Monitor.TaskGroup
-				for _, taskID := range taskGroup.TaskIDs {
-					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
-						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
-							boxlunchTask.StockData = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))]
 						}
 					}
 				}
@@ -679,7 +680,26 @@ func (monitorStore *MonitorStore) CheckNeweggMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (monitorStore *MonitorStore) CheckPokemonCenterMonitorStock() {
+	for {
+		for monitorID, pokemonCenterMonitor := range monitorStore.PokemonCenterMonitors {
+			if len(pokemonCenterMonitor.InStock) > 0 {
+				taskGroup := pokemonCenterMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok {
+						if ok && pokemonCenterTask.Task.Task.TaskGroupID == monitorID {
+							randomNumber := rand.Intn(len(pokemonCenterMonitor.InStock))
+							pokemonCenterTask.StockData = pokemonCenterMonitor.InStock[randomNumber]
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -773,25 +793,6 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 	}
 }
 
-func (monitorStore *MonitorStore) CheckPokemonCenterMonitorStock() {
-	for {
-		for monitorID, pokemonCenterMonitor := range monitorStore.PokemonCenterMonitors {
-			if len(pokemonCenterMonitor.InStock) > 0 {
-				taskGroup := pokemonCenterMonitor.Monitor.TaskGroup
-				for _, taskID := range taskGroup.TaskIDs {
-					if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok {
-						if ok && pokemonCenterTask.Task.Task.TaskGroupID == monitorID {
-							randomNumber := rand.Intn(len(pokemonCenterMonitor.InStock))
-							pokemonCenterTask.StockData = pokemonCenterMonitor.InStock[randomNumber]
-						}
-					}
-				}
-			}
-		}
-		time.Sleep(1 * time.Second / 100)
-	}
-}
-
 var monitorStore *MonitorStore
 
 // InitMonitorStore initializes the singleton instance of the Store
@@ -865,6 +866,80 @@ func GetMonitorStatus(groupID string) string {
 	}
 
 	return ""
+}
+
+func (monitorStore *MonitorStore) CheckMonitorTasksRunning() {
+	for _, amazonMonitor := range monitorStore.AmazonMonitors {
+		if !taskStore.TasksRunning(amazonMonitor.Monitor.TaskGroup.TaskIDs, amazonMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(amazonMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, bestbuyMonitor := range monitorStore.BestbuyMonitors {
+		if !taskStore.TasksRunning(bestbuyMonitor.Monitor.TaskGroup.TaskIDs, bestbuyMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(bestbuyMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
+		if !taskStore.TasksRunning(boxlunchMonitor.Monitor.TaskGroup.TaskIDs, boxlunchMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(boxlunchMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, disneyMonitor := range monitorStore.DisneyMonitors {
+		if !taskStore.TasksRunning(disneyMonitor.Monitor.TaskGroup.TaskIDs, disneyMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(disneyMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, gamestopMonitor := range monitorStore.GamestopMonitors {
+		if !taskStore.TasksRunning(gamestopMonitor.Monitor.TaskGroup.TaskIDs, gamestopMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(gamestopMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, hottopicMonitor := range monitorStore.HottopicMonitors {
+		if !taskStore.TasksRunning(hottopicMonitor.Monitor.TaskGroup.TaskIDs, hottopicMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(hottopicMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, neweggMonitor := range monitorStore.NeweggMonitors {
+		if !taskStore.TasksRunning(neweggMonitor.Monitor.TaskGroup.TaskIDs, neweggMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(neweggMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, pokemonCenterMonitor := range monitorStore.PokemonCenterMonitors {
+		if !taskStore.TasksRunning(pokemonCenterMonitor.Monitor.TaskGroup.TaskIDs, enums.PokemonCenter) {
+			monitorStore.StopMonitor(pokemonCenterMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, shopifyMonitor := range monitorStore.ShopifyMonitors {
+		if !taskStore.TasksRunning(shopifyMonitor.Monitor.TaskGroup.TaskIDs, shopifyMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(shopifyMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, targetMonitor := range monitorStore.TargetMonitors {
+		if !taskStore.TasksRunning(targetMonitor.Monitor.TaskGroup.TaskIDs, targetMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(targetMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, toppsMonitor := range monitorStore.ToppsMonitors {
+		if !taskStore.TasksRunning(toppsMonitor.Monitor.TaskGroup.TaskIDs, toppsMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(toppsMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, walmartMonitor := range monitorStore.WalmartMonitors {
+		if !taskStore.TasksRunning(walmartMonitor.Monitor.TaskGroup.TaskIDs, walmartMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(walmartMonitor.Monitor.TaskGroup)
+		}
+	}
 }
 
 // GetMonitorStore returns the singleton instance of the EventBus

@@ -32,15 +32,15 @@ func CreateBoxlunchTask(task *entities.Task, profile entities.Profile, proxyGrou
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
 	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
 	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -51,9 +51,9 @@ func (task *Task) RunTask() {
 	defer func() {
 		if recover() != nil {
 			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
 
 	if task.Task.Task.TaskDelay == 0 {
@@ -68,7 +68,7 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskStart, 20)
 	// 1. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
@@ -76,7 +76,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 2. AddToCart
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	addedToCart := false
 	for !addedToCart {
 		needToStop := task.CheckForStop()
@@ -92,7 +92,7 @@ func (task *Task) RunTask() {
 	startTime := time.Now()
 
 	// 3. GetCheckout
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 50)
 	gotCheckout := false
 	for !gotCheckout {
 		needToStop := task.CheckForStop()
@@ -106,7 +106,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 4. ProceedToCheckout
-	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate, 55)
 	proceededToCheckout := false
 	for !proceededToCheckout {
 		needToStop := task.CheckForStop()
@@ -120,7 +120,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 5. GuestCheckout
-	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate, 60)
 	gotGuestCheckout := false
 	for !gotGuestCheckout {
 		needToStop := task.CheckForStop()
@@ -134,7 +134,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 6. SubmitShipping
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 65)
 	submittedShipping := false
 	for !submittedShipping {
 		needToStop := task.CheckForStop()
@@ -148,7 +148,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 7. UseOrigAddress
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	usedOrigAddress := false
 	for !usedOrigAddress {
 		needToStop := task.CheckForStop()
@@ -162,7 +162,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 8. SubmitPaymentInfo
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 80)
 	submittedPayment := false
 	doNotRetry := false
 	for !submittedPayment {
@@ -177,7 +177,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 9. SubmitOrder
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	submittedOrder := false
 	status := enums.OrderStatusFailed
 	for !submittedOrder {
@@ -201,9 +201,9 @@ func (task *Task) RunTask() {
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	if status == enums.OrderStatusSuccess {
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
 	} else {
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
 	}
 }
 

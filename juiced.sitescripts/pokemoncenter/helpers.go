@@ -262,14 +262,24 @@ func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL st
 func (task *Task) RunUntilSuccessful(fn func() (bool, string), maxRetries int) (bool, string) {
 	attempt := 1
 	if maxRetries == -1 {
-		attempt = -1
+		attempt = -2
 	}
 
 	var success bool
 	var status string
-	for success, status = task.RunUntilSuccessfulHelper(fn, attempt); !success; {
+	for !success {
+		success, status = task.RunUntilSuccessfulHelper(fn, attempt)
 		needToStop := task.CheckForStop()
-		if needToStop || attempt > maxRetries {
+		if needToStop {
+			if task.Task.Task.TaskStatus != "Idle" {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
+			return false, ""
+		}
+		if attempt >= maxRetries {
+			if task.Task.Task.TaskStatus != "Idle" {
+				task.PublishEvent(fmt.Sprintf(enums.TaskFailed, status), enums.TaskFail, 0)
+			}
 			task.Task.StopFlag = true
 			return false, ""
 		}
@@ -288,19 +298,19 @@ func (task *Task) RunUntilSuccessfulHelper(fn func() (bool, string), attempt int
 
 	if !success {
 		if attempt > 0 {
-			if status != "" {
-				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), enums.TaskUpdate)
+			if status != "" && !task.Task.StopFlag && task.Task.Task.TaskStatus != "Idle" {
+				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), enums.TaskUpdate, -1)
 			}
 		} else {
-			if status != "" {
-				task.PublishEvent(fmt.Sprint("(Retrying) ", status), enums.TaskUpdate)
+			if status != "" && !task.Task.StopFlag && task.Task.Task.TaskStatus != "Idle" && task.Task.Task.TaskStatus != fmt.Sprint("(Retrying) ", status) {
+				task.PublishEvent(fmt.Sprint("(Retrying) ", status), enums.TaskUpdate, -1)
 			}
 		}
 		return false, status
 	}
 
 	if status != "" {
-		task.PublishEvent(status, enums.TaskUpdate)
+		task.PublishEvent(status, enums.TaskUpdate, -1)
 	}
 	return true, status
 }
