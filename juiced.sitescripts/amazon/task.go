@@ -278,7 +278,7 @@ func (task *Task) browserLogin() bool {
 
 	u := launcher_.
 		Set(flags.Flag("headless")).
-		// Delete(flags.Flag("--headless")).
+		Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
 		Set(flags.Flag("disable-background-networking")).
