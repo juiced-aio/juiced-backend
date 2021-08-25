@@ -27,19 +27,22 @@ func CreateNeweggTask(task *entities.Task, profile entities.Profile, proxyGroup 
 			EventBus:   eventBus,
 		},
 	}
+	if proxyGroup != nil {
+		neweggTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
 	return neweggTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
 	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
 	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -63,15 +66,15 @@ func (task *Task) RunTask() {
 	defer func() {
 		if recover() != nil {
 			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
-	if task.Task.Task.TaskQty == 0 {
+	if task.Task.Task.TaskQty <= 0 {
 		task.Task.Task.TaskQty = 1
 	}
 
@@ -80,7 +83,7 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	task.PublishEvent(enums.SettingUp, enums.TaskStart, 5)
 	// 1. BecomeGuest
 	becameGuest := false
 	for !becameGuest {
@@ -95,14 +98,14 @@ func (task *Task) RunTask() {
 	}
 
 	// 2. WaitForMonitor
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 15)
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
 	// 3. AddTocart
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	addedToCart := false
 	for !addedToCart {
 		needToStop := task.CheckForStop()
@@ -118,7 +121,7 @@ func (task *Task) RunTask() {
 	startTime := time.Now()
 
 	// 4. ProceedToCheckout
-	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate, 50)
 	preparedCheckout := false
 	for !preparedCheckout {
 		needToStop := task.CheckForStop()
@@ -132,7 +135,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 5. Checkout
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 60)
 	gotCheckout := false
 	for !gotCheckout {
 		needToStop := task.CheckForStop()
@@ -146,7 +149,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 6. SubmitShippingInfo
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	submittedShipping := false
 	for !submittedShipping {
 		needToStop := task.CheckForStop()
@@ -160,7 +163,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 7. GetPaymentToken
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
 	gotPaymentToken := false
 	for !gotPaymentToken {
 		needToStop := task.CheckForStop()
@@ -187,7 +190,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 9. InitOrder
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 85)
 	initiatedOrder := false
 	for !initiatedOrder {
 		needToStop := task.CheckForStop()
@@ -202,7 +205,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 10. PlaceOrder
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	submittedOrder := false
 	status := enums.OrderStatusFailed
 	for !submittedOrder {
@@ -229,9 +232,9 @@ func (task *Task) RunTask() {
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	if status == enums.OrderStatusSuccess {
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
 	} else {
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
 	}
 
 }
@@ -444,11 +447,15 @@ func (task *Task) Checkout() bool {
 }
 
 func (task *Task) SubmitShippingInfo() bool {
+	countryCode := task.Task.Profile.ShippingAddress.CountryCode
+	if countryCode == "US" {
+		countryCode += "A"
+	}
 	submitShippingInfoRequest := SubmitShippingInfoRequest{
 		Detailinfo: Detailinfo{
 			Contactwith:       task.Task.Profile.ShippingAddress.FirstName + " " + task.Task.Profile.ShippingAddress.LastName,
 			Phone:             task.Task.Profile.PhoneNumber,
-			Country:           task.Task.Profile.ShippingAddress.CountryCode,
+			Country:           countryCode,
 			State:             task.Task.Profile.ShippingAddress.StateCode,
 			City:              task.Task.Profile.ShippingAddress.City,
 			Address1:          task.Task.Profile.ShippingAddress.Address1,
@@ -746,20 +753,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	status = enums.OrderStatusSuccess
 	success := true
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.Newegg,
-		Price:        float64(task.StockData.Price),
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ProductName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.SKU,
+			Retailer:     enums.Newegg,
+			Price:        float64(task.StockData.Price),
+			Quantity:     task.Task.Task.TaskQty,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	task.TaskInfo.VBVToken = placeOrderResponse.Vbvdata.Jwttoken
 	task.TaskInfo.CardBin = placeOrderResponse.Vbvdata.Cardbin

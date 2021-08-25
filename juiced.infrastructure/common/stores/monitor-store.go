@@ -3,6 +3,7 @@ package stores
 import (
 	e "errors"
 	"math/rand"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -18,6 +19,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/newegg"
+	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/topps"
@@ -27,18 +29,19 @@ import (
 
 // MonitorStore stores information about running Monitors
 type MonitorStore struct {
-	AmazonMonitors   map[string]*amazon.Monitor
-	BestbuyMonitors  map[string]*bestbuy.Monitor
-	BoxlunchMonitors map[string]*boxlunch.Monitor
-	DisneyMonitors   map[string]*disney.Monitor
-	GamestopMonitors map[string]*gamestop.Monitor
-	HottopicMonitors map[string]*hottopic.Monitor
-	NeweggMonitors   map[string]*newegg.Monitor
-	ShopifyMonitors  map[string]*shopify.Monitor
-	TargetMonitors   map[string]*target.Monitor
-	ToppsMonitors    map[string]*topps.Monitor
-	WalmartMonitors  map[string]*walmart.Monitor
-	EventBus         *events.EventBus
+	AmazonMonitors        map[string]*amazon.Monitor
+	BestbuyMonitors       map[string]*bestbuy.Monitor
+	BoxlunchMonitors      map[string]*boxlunch.Monitor
+	DisneyMonitors        map[string]*disney.Monitor
+	GamestopMonitors      map[string]*gamestop.Monitor
+	HottopicMonitors      map[string]*hottopic.Monitor
+	NeweggMonitors        map[string]*newegg.Monitor
+	PokemonCenterMonitors map[string]*pokemoncenter.Monitor
+	ShopifyMonitors       map[string]*shopify.Monitor
+	TargetMonitors        map[string]*target.Monitor
+	ToppsMonitors         map[string]*topps.Monitor
+	WalmartMonitors       map[string]*walmart.Monitor
+	EventBus              *events.EventBus
 }
 
 // AddMonitorToStore adds the Monitor to the Store and returns true if successful
@@ -201,6 +204,25 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 			return e.New(errors.CreateMonitorError + err.Error())
 		}
 		monitorStore.NeweggMonitors[monitor.GroupID] = &neweggMonitor
+
+	case enums.PokemonCenter:
+		if _, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
+			return nil
+		}
+
+		if queryError != nil {
+			return queryError
+		}
+
+		if len(monitor.PokemonCenterMonitorInfo.Monitors) == 0 {
+			return e.New(errors.NoMonitorsError)
+		}
+
+		pokemonCenterMonitor, err := pokemoncenter.CreatePokemonCenterMonitor(monitor, proxyGroup, monitorStore.EventBus, monitor.PokemonCenterMonitorInfo.Monitors)
+		if err != nil {
+			return e.New(errors.CreateMonitorError + err.Error())
+		}
+		monitorStore.PokemonCenterMonitors[monitor.GroupID] = &pokemonCenterMonitor
 
 	case enums.Shopify:
 		if _, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
@@ -544,8 +566,10 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 		return err
 	}
 
+	monitor = monitorStore.GetMonitor(monitor.MonitorRetailer, monitor.GroupID)
+
 	// If the Monitor is already running, then we're all set already
-	if monitor.MonitorStatus != enums.MonitorIdle {
+	if !strings.Contains(monitor.MonitorStatus, enums.MonitorIdle) {
 		return nil
 	}
 
@@ -553,70 +577,102 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
-		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+		amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]
+		if ok {
 			amazonMonitor.Monitor.StopFlag = false
+			amazonMonitor.InStock = amazonMonitor.InStock[:0]
+			go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.BestBuy:
-		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+		bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]
+		if ok {
 			bestbuyMonitor.Monitor.StopFlag = false
+			bestbuyMonitor.InStock = bestbuyMonitor.InStock[:0]
+			go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.BoxLunch:
-		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+		boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]
+		if ok {
 			boxlunchMonitor.Monitor.StopFlag = false
+			boxlunchMonitor.InStock = boxlunchMonitor.InStock[:0]
+			go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Disney:
-		if disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok {
+		disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]
+		if ok {
 			disneyMonitor.Monitor.StopFlag = false
+			disneyMonitor.InStock = disneyMonitor.InStock[:0]
+			go monitorStore.DisneyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.DisneyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.GameStop:
-		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+		gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]
+		if ok {
 			gamestopMonitor.Monitor.StopFlag = false
+			gamestopMonitor.InStock = gamestopMonitor.InStock[:0]
+			go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.HotTopic:
-		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+		hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]
+		if ok {
 			hottopicMonitor.Monitor.StopFlag = false
+			hottopicMonitor.InStock = hottopicMonitor.InStock[:0]
+			go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Newegg:
-		if neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok {
+		neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]
+		if ok {
 			neweggMonitor.Monitor.StopFlag = false
+			neweggMonitor.InStock = neweggMonitor.InStock[:0]
+			go monitorStore.NeweggMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.NeweggMonitors[monitor.GroupID].RunMonitor()
+
+	case enums.PokemonCenter:
+		pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]
+		if ok {
+			pokemonCenterMonitor.Monitor.StopFlag = false
+			pokemonCenterMonitor.InStock = pokemonCenterMonitor.InStock[:0]
+			go monitorStore.PokemonCenterMonitors[monitor.GroupID].RunMonitor()
+		}
 
 	case enums.Shopify:
-		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
+		shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]
+		if ok {
 			shopifyMonitor.Monitor.StopFlag = false
+			shopifyMonitor.InStock = shopifyMonitor.InStock[:0]
+			go monitorStore.ShopifyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.ShopifyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Target:
-		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+		targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]
+		if ok {
 			targetMonitor.Monitor.StopFlag = false
+			targetMonitor.InStockForShip = targetMonitor.InStockForShip[:0]
+			targetMonitor.InStockForPickup = targetMonitor.InStockForPickup[:0]
+			go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Topps:
-		if toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok {
+		toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]
+		if ok {
 			toppsMonitor.Monitor.StopFlag = false
+			toppsMonitor.InStock = toppsMonitor.InStock[:0]
+			go monitorStore.ToppsMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.ToppsMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Walmart:
-		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+		walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]
+		if ok {
 			walmartMonitor.Monitor.StopFlag = false
+			walmartMonitor.InStockForShip = walmartMonitor.InStockForShip[:0]
+			go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
+
 	}
 
 	return nil
@@ -735,6 +791,11 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 			neweggMonitor.Monitor.StopFlag = true
 		}
 
+	case enums.PokemonCenter:
+		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
+			pokemonCenterMonitor.Monitor.StopFlag = true
+		}
+
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.StopFlag = true
@@ -757,7 +818,6 @@ func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error
 
 	default:
 		return e.New(errors.InvalidMonitorRetailerError)
-
 	}
 	return nil
 }
@@ -808,11 +868,18 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 		}
 		return true
 
+	case enums.PokemonCenter:
+		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
+			pokemonCenterMonitor.Monitor.Proxy = proxy
+		}
+		return true
+
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
 			shopifyMonitor.Monitor.Proxy = proxy
 		}
 		return true
+
 	case enums.Target:
 		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
 			targetMonitor.Monitor.Proxy = proxy
@@ -830,13 +897,10 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 			walmartMonitor.Monitor.Proxy = proxy
 		}
 		return true
-
 	}
 	return false
 }
 
-// TODO: Test the efficiency of these functions.
-// It's technically O(n^2), but most users won't have more than 5-10 task groups running at once, tops.
 func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 	for {
 		for monitorID, amazonMonitor := range monitorStore.AmazonMonitors {
@@ -875,6 +939,24 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 	}
 }
 
+func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
+	for {
+		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
+			if len(boxlunchMonitor.InStock) > 0 {
+				taskGroup := boxlunchMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
+						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
+							boxlunchTask.StockData = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))]
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
 func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 	for {
 		for monitorID, disneyMonitor := range monitorStore.DisneyMonitors {
@@ -885,24 +967,6 @@ func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 						if ok && disneyTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(disneyMonitor.InStock))
 							disneyTask.StockData = disneyMonitor.InStock[randomNumber]
-						}
-					}
-				}
-			}
-		}
-		time.Sleep(common.MS_TO_WAIT)
-	}
-}
-
-func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
-	for {
-		for monitorID, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
-			if len(boxlunchMonitor.InStock) > 0 {
-				taskGroup := boxlunchMonitor.Monitor.TaskGroup
-				for _, taskID := range taskGroup.TaskIDs {
-					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
-						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
-							boxlunchTask.StockData = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))]
 						}
 					}
 				}
@@ -963,7 +1027,26 @@ func (monitorStore *MonitorStore) CheckNeweggMonitorStock() {
 				}
 			}
 		}
-		time.Sleep(1 * time.Second / 100)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (monitorStore *MonitorStore) CheckPokemonCenterMonitorStock() {
+	for {
+		for monitorID, pokemonCenterMonitor := range monitorStore.PokemonCenterMonitors {
+			if len(pokemonCenterMonitor.InStock) > 0 {
+				taskGroup := pokemonCenterMonitor.Monitor.TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok {
+						if ok && pokemonCenterTask.Task.Task.TaskGroupID == monitorID {
+							randomNumber := rand.Intn(len(pokemonCenterMonitor.InStock))
+							pokemonCenterTask.StockData = pokemonCenterMonitor.InStock[randomNumber]
+						}
+					}
+				}
+			}
+		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -1062,17 +1145,18 @@ var monitorStore *MonitorStore
 // InitMonitorStore initializes the singleton instance of the Store
 func InitMonitorStore(eventBus *events.EventBus) {
 	monitorStore = &MonitorStore{
-		AmazonMonitors:   make(map[string]*amazon.Monitor),
-		BestbuyMonitors:  make(map[string]*bestbuy.Monitor),
-		BoxlunchMonitors: make(map[string]*boxlunch.Monitor),
-		DisneyMonitors:   make(map[string]*disney.Monitor),
-		GamestopMonitors: make(map[string]*gamestop.Monitor),
-		HottopicMonitors: make(map[string]*hottopic.Monitor),
-		ShopifyMonitors:  make(map[string]*shopify.Monitor),
-		NeweggMonitors:   make(map[string]*newegg.Monitor),
-		TargetMonitors:   make(map[string]*target.Monitor),
-		ToppsMonitors:    make(map[string]*topps.Monitor),
-		WalmartMonitors:  make(map[string]*walmart.Monitor),
+		AmazonMonitors:        make(map[string]*amazon.Monitor),
+		BestbuyMonitors:       make(map[string]*bestbuy.Monitor),
+		BoxlunchMonitors:      make(map[string]*boxlunch.Monitor),
+		DisneyMonitors:        make(map[string]*disney.Monitor),
+		GamestopMonitors:      make(map[string]*gamestop.Monitor),
+		HottopicMonitors:      make(map[string]*hottopic.Monitor),
+		ShopifyMonitors:       make(map[string]*shopify.Monitor),
+		NeweggMonitors:        make(map[string]*newegg.Monitor),
+		PokemonCenterMonitors: make(map[string]*pokemoncenter.Monitor),
+		TargetMonitors:        make(map[string]*target.Monitor),
+		ToppsMonitors:         make(map[string]*topps.Monitor),
+		WalmartMonitors:       make(map[string]*walmart.Monitor),
 
 		EventBus: eventBus,
 	}
@@ -1084,10 +1168,12 @@ func InitMonitorStore(eventBus *events.EventBus) {
 	go monitorStore.CheckGameStopMonitorStock()
 	go monitorStore.CheckHotTopicMonitorStock()
 	go monitorStore.CheckNeweggMonitorStock()
+	go monitorStore.CheckPokemonCenterMonitorStock()
 	go monitorStore.CheckShopifyMonitorStock()
 	go monitorStore.CheckTargetMonitorStock()
 	go monitorStore.CheckToppsMonitorStock()
 	go monitorStore.CheckWalmartMonitorStock()
+
 }
 
 // GetMonitorStatus returns the status of the given TaskGroup's monitor
@@ -1110,6 +1196,9 @@ func GetMonitorStatus(groupID string) string {
 	if monitor, ok := monitorStore.NeweggMonitors[groupID]; ok {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
+	if monitor, ok := monitorStore.PokemonCenterMonitors[groupID]; ok {
+		return monitor.Monitor.TaskGroup.MonitorStatus
+	}
 	if monitor, ok := monitorStore.ShopifyMonitors[groupID]; ok {
 		return monitor.Monitor.TaskGroup.MonitorStatus
 	}
@@ -1124,6 +1213,80 @@ func GetMonitorStatus(groupID string) string {
 	}
 
 	return ""
+}
+
+func (monitorStore *MonitorStore) CheckMonitorTasksRunning() {
+	for _, amazonMonitor := range monitorStore.AmazonMonitors {
+		if !taskStore.TasksRunning(amazonMonitor.Monitor.TaskGroup.TaskIDs, amazonMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(amazonMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, bestbuyMonitor := range monitorStore.BestbuyMonitors {
+		if !taskStore.TasksRunning(bestbuyMonitor.Monitor.TaskGroup.TaskIDs, bestbuyMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(bestbuyMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, boxlunchMonitor := range monitorStore.BoxlunchMonitors {
+		if !taskStore.TasksRunning(boxlunchMonitor.Monitor.TaskGroup.TaskIDs, boxlunchMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(boxlunchMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, disneyMonitor := range monitorStore.DisneyMonitors {
+		if !taskStore.TasksRunning(disneyMonitor.Monitor.TaskGroup.TaskIDs, disneyMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(disneyMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, gamestopMonitor := range monitorStore.GamestopMonitors {
+		if !taskStore.TasksRunning(gamestopMonitor.Monitor.TaskGroup.TaskIDs, gamestopMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(gamestopMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, hottopicMonitor := range monitorStore.HottopicMonitors {
+		if !taskStore.TasksRunning(hottopicMonitor.Monitor.TaskGroup.TaskIDs, hottopicMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(hottopicMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, neweggMonitor := range monitorStore.NeweggMonitors {
+		if !taskStore.TasksRunning(neweggMonitor.Monitor.TaskGroup.TaskIDs, neweggMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(neweggMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, pokemonCenterMonitor := range monitorStore.PokemonCenterMonitors {
+		if !taskStore.TasksRunning(pokemonCenterMonitor.Monitor.TaskGroup.TaskIDs, enums.PokemonCenter) {
+			monitorStore.StopMonitor(pokemonCenterMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, shopifyMonitor := range monitorStore.ShopifyMonitors {
+		if !taskStore.TasksRunning(shopifyMonitor.Monitor.TaskGroup.TaskIDs, shopifyMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(shopifyMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, targetMonitor := range monitorStore.TargetMonitors {
+		if !taskStore.TasksRunning(targetMonitor.Monitor.TaskGroup.TaskIDs, targetMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(targetMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, toppsMonitor := range monitorStore.ToppsMonitors {
+		if !taskStore.TasksRunning(toppsMonitor.Monitor.TaskGroup.TaskIDs, toppsMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(toppsMonitor.Monitor.TaskGroup)
+		}
+	}
+
+	for _, walmartMonitor := range monitorStore.WalmartMonitors {
+		if !taskStore.TasksRunning(walmartMonitor.Monitor.TaskGroup.TaskIDs, walmartMonitor.Monitor.TaskGroup.MonitorRetailer) {
+			monitorStore.StopMonitor(walmartMonitor.Monitor.TaskGroup)
+		}
+	}
 }
 
 // GetMonitorStore returns the singleton instance of the EventBus

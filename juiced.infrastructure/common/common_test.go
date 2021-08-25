@@ -4,6 +4,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 func TestRandString(t *testing.T) {
@@ -111,6 +113,46 @@ func TestCreateParams(t *testing.T) {
 			}
 			if !success && !tt.wantErr {
 				t.Errorf("CreateParams() returned wrong key(s) %v", badParams)
+			}
+		})
+	}
+}
+
+func TestValidCardType(t *testing.T) {
+	type args struct {
+		cardNumber []byte
+		retailer   enums.Retailer
+	}
+	tests := []struct {
+		args args
+		want bool
+	}{
+		{
+			args: args{
+				cardNumber: []byte("5859254368973596"),
+				retailer:   enums.Target,
+			},
+			want: true,
+		},
+		{
+			args: args{
+				cardNumber: []byte("6394254368973596"),
+				retailer:   enums.Target,
+			},
+			want: true,
+		},
+		{
+			args: args{
+				cardNumber: []byte("6395254368973596"),
+				retailer:   enums.Target,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			if got := ValidCardType(tt.args.cardNumber, tt.args.retailer); got != tt.want {
+				t.Errorf("ValidCardType() = %v, want %v", got, tt.want)
 			}
 		})
 	}

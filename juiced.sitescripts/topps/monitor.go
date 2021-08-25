@@ -182,7 +182,7 @@ again:
 }
 
 // Gets the items stock
-func (monitor *Monitor) GetItemStock(item string) ToppsInStockData {
+func (monitor *Monitor) GetItemStock(itemURL string) ToppsInStockData {
 	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
 	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
 	currentScraper := account.Scraper
@@ -191,7 +191,7 @@ func (monitor *Monitor) GetItemStock(item string) ToppsInStockData {
 	resp, body, err := util.MakeRequest(&util.Request{
 		Scraper: currentScraper,
 		Method:  "GET",
-		URL:     fmt.Sprintf(MonitorEndpoint, item),
+		URL:     itemURL,
 		RawHeaders: http.RawHeader{
 			{"cache-control", "no-store"},
 			{"pragma", "no-cache"},
@@ -215,7 +215,7 @@ func (monitor *Monitor) GetItemStock(item string) ToppsInStockData {
 		return stockData
 	}
 
-	return monitor.ParseInfos(item, body)
+	return monitor.ParseInfos(itemURL, body)
 }
 
 // Parsing the body from the response to fill the ToppsInStockData struct
@@ -308,7 +308,7 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 		return ToppsInStockData{}
 	}
 
-	stockData.ItemURL = BaseEndpoint + "/" + item
+	stockData.ItemURL = item
 
 	return stockData
 }

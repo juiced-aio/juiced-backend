@@ -2,6 +2,7 @@ package stores
 
 import (
 	e "errors"
+	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -17,6 +18,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/newegg"
+	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/topps"
@@ -30,17 +32,18 @@ import (
 
 // TaskStore stores information about running Tasks
 type TaskStore struct {
-	AmazonTasks   map[string]*amazon.Task
-	BestbuyTasks  map[string]*bestbuy.Task
-	BoxlunchTasks map[string]*boxlunch.Task
-	DisneyTasks   map[string]*disney.Task
-	GamestopTasks map[string]*gamestop.Task
-	HottopicTasks map[string]*hottopic.Task
-	NeweggTasks   map[string]*newegg.Task
-	ShopifyTasks  map[string]*shopify.Task
-	TargetTasks   map[string]*target.Task
-	ToppsTasks    map[string]*topps.Task
-	WalmartTasks  map[string]*walmart.Task
+	AmazonTasks        map[string]*amazon.Task
+	BestbuyTasks       map[string]*bestbuy.Task
+	BoxlunchTasks      map[string]*boxlunch.Task
+	DisneyTasks        map[string]*disney.Task
+	GamestopTasks      map[string]*gamestop.Task
+	HottopicTasks      map[string]*hottopic.Task
+	NeweggTasks        map[string]*newegg.Task
+	PokemonCenterTasks map[string]*pokemoncenter.Task
+	ShopifyTasks       map[string]*shopify.Task
+	TargetTasks        map[string]*target.Task
+	ToppsTasks         map[string]*topps.Task
+	WalmartTasks       map[string]*walmart.Task
 
 	// Future sitescripts will have a field here
 	EventBus *events.EventBus
@@ -209,6 +212,28 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		// Add task to store
 		taskStore.NeweggTasks[task.ID] = &neweggTask
 
+	case enums.PokemonCenter:
+		// Check if task exists in store already
+		if _, ok := taskStore.PokemonCenterTasks[task.ID]; ok {
+			return nil
+		}
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.PokemonCenterTaskInfo.TaskType == emptyString || task.PokemonCenterTaskInfo.AddressType == emptyString || (task.PokemonCenterTaskInfo.TaskType == enums.TaskTypeAccount && (task.PokemonCenterTaskInfo.Email == emptyString || task.PokemonCenterTaskInfo.Password == emptyString)) {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+		// Create task
+		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxyGroup, taskStore.EventBus, task.PokemonCenterTaskInfo.Email, task.PokemonCenterTaskInfo.Password)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.PokemonCenterTasks[task.ID] = &pokemonCenterTask
+
 	case enums.Shopify:
 		// Check if task exists in store already
 		if _, ok := taskStore.ShopifyTasks[task.ID]; ok && !task.UpdateTask {
@@ -218,7 +243,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		if queryError != nil {
 			return queryError
 		}
-
 		// Make sure necessary fields exist
 		emptyString := ""
 		if task.ShopifyTaskInfo.SiteURL == emptyString || task.ShopifyTaskInfo.ShopifyRetailer == emptyString {
@@ -233,7 +257,6 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 				return e.New(errors.MissingTaskFieldsError)
 			}
 		}
-
 		// Create task
 		shopifyTask, err := shopify.CreateShopifyTask(task, profile, proxyGroup, taskStore.EventBus, task.ShopifyTaskInfo.CouponCode, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.SitePassword, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
 		if err != nil {
@@ -589,13 +612,19 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 					// Add task to store (if it already exists, this will return true)
 					err = taskStore.AddTaskToStore(&task)
 					if err == nil {
+						taskPtr := taskStore.GetTask(task.TaskRetailer, taskID)
+						if taskPtr != nil {
+							task = *taskPtr
+						}
 						// Setting the stop flag to false before running the task
 						taskStore.SetStopFlag(task.TaskRetailer, taskID, false)
 
 						// If the Task is already running, then we're all set already
-						if task.TaskStatus == enums.TaskIdle ||
-							task.TaskStatus == enums.CheckedOut ||
-							task.TaskStatus == enums.CheckoutFailed {
+						if strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 							// Otherwise, start the Task
 							taskStore.RunTask(task.TaskRetailer, task.ID)
 						}
@@ -664,10 +693,14 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 		return err
 	}
 
+	task = taskStore.GetTask(task.TaskRetailer, task.ID)
+
 	// If the Task is already running, then we're all set already
-	if task.TaskStatus != enums.TaskIdle &&
-		task.TaskStatus != enums.CheckedOut &&
-		task.TaskStatus != enums.CheckoutFailed {
+	if !strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 		return nil
 	}
 
@@ -680,14 +713,17 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 }
 
 // StopTask sets the stop field for the given Task and returns true if successful
-func (taskStore *TaskStore) StopTask(task *entities.Task) error {
-	return taskStore.SetStopFlag(task.TaskRetailer, task.ID, true)
+func (taskStore *TaskStore) StopTask(task *entities.Task) (bool, error) {
+	if !taskStore.TasksRunning([]string{task.ID}, task.TaskRetailer) {
+		return false, nil
+	}
+	return true, taskStore.SetStopFlag(task.TaskRetailer, task.ID, true)
 }
 
 // TasksRunning checks to see if any tasks in the taskGroup are running, if so it returns true
-func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
-	for _, taskID := range taskGroup.TaskIDs {
-		switch taskGroup.MonitorRetailer {
+func (taskStore *TaskStore) TasksRunning(taskIDs []string, retailer enums.Retailer) bool {
+	for _, taskID := range taskIDs {
+		switch retailer {
 		// Future sitescripts will have a case here
 		case enums.Amazon:
 			if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
@@ -737,13 +773,19 @@ func (taskStore *TaskStore) TasksRunning(taskGroup *entities.TaskGroup) bool {
 				}
 			}
 
+		case enums.PokemonCenter:
+			if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok {
+				if !pokemonCenterTask.Task.StopFlag {
+					return true
+				}
+			}
+
 		case enums.Shopify:
 			if shopifyTask, ok := taskStore.ShopifyTasks[taskID]; ok {
 				if !shopifyTask.Task.StopFlag {
 					return true
 				}
 			}
-			return true
 
 		case enums.Target:
 			if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
@@ -816,6 +858,12 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy *entities
 		}
 		return true
 
+	case enums.PokemonCenter:
+		if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[task.ID]; ok {
+			pokemonCenterTask.Task.Proxy = proxy
+		}
+		return true
+
 	case enums.Shopify:
 		if shopifyTask, ok := taskStore.ShopifyTasks[task.ID]; ok {
 			shopifyTask.Task.Proxy = proxy
@@ -841,6 +889,7 @@ func (taskStore *TaskStore) UpdateTaskProxy(task *entities.Task, proxy *entities
 		return true
 
 	}
+
 	return false
 }
 
@@ -874,6 +923,9 @@ func (taskStore *TaskStore) RunTask(retailer enums.Retailer, taskID string) {
 	case enums.Newegg:
 		go taskStore.NeweggTasks[taskID].RunTask()
 
+	case enums.PokemonCenter:
+		go taskStore.PokemonCenterTasks[taskID].RunTask()
+
 	case enums.Shopify:
 		go taskStore.ShopifyTasks[taskID].RunTask()
 
@@ -894,17 +946,18 @@ var taskStore *TaskStore
 // InitTaskStore initializes the singleton instance of the TaskStore
 func InitTaskStore(eventBus *events.EventBus) {
 	taskStore = &TaskStore{
-		AmazonTasks:   make(map[string]*amazon.Task),
-		BestbuyTasks:  make(map[string]*bestbuy.Task),
-		BoxlunchTasks: make(map[string]*boxlunch.Task),
-		DisneyTasks:   make(map[string]*disney.Task),
-		GamestopTasks: make(map[string]*gamestop.Task),
-		HottopicTasks: make(map[string]*hottopic.Task),
-		NeweggTasks:   make(map[string]*newegg.Task),
-		ShopifyTasks:  make(map[string]*shopify.Task),
-		TargetTasks:   make(map[string]*target.Task),
-		ToppsTasks:    make(map[string]*topps.Task),
-		WalmartTasks:  make(map[string]*walmart.Task),
+		AmazonTasks:        make(map[string]*amazon.Task),
+		BestbuyTasks:       make(map[string]*bestbuy.Task),
+		BoxlunchTasks:      make(map[string]*boxlunch.Task),
+		DisneyTasks:        make(map[string]*disney.Task),
+		GamestopTasks:      make(map[string]*gamestop.Task),
+		HottopicTasks:      make(map[string]*hottopic.Task),
+		NeweggTasks:        make(map[string]*newegg.Task),
+		PokemonCenterTasks: make(map[string]*pokemoncenter.Task),
+		ShopifyTasks:       make(map[string]*shopify.Task),
+		TargetTasks:        make(map[string]*target.Task),
+		ToppsTasks:         make(map[string]*topps.Task),
+		WalmartTasks:       make(map[string]*walmart.Task),
 
 		EventBus: eventBus,
 	}
@@ -930,6 +983,9 @@ func GetTaskStatuses() map[string]string {
 		taskStatuses[taskID] = task.Task.Task.TaskStatus
 	}
 	for taskID, task := range taskStore.NeweggTasks {
+		taskStatuses[taskID] = task.Task.Task.TaskStatus
+	}
+	for taskID, task := range taskStore.PokemonCenterTasks {
 		taskStatuses[taskID] = task.Task.Task.TaskStatus
 	}
 	for taskID, task := range taskStore.ShopifyTasks {

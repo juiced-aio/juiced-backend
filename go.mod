@@ -12,6 +12,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/dsnet/compress v0.0.1
+	github.com/dvsekhvalnov/jose2go v1.5.0
 	github.com/eddycjy/fake-useragent v0.2.0
 	github.com/go-rod/rod v0.99.1
 	github.com/go-rod/stealth v0.4.2
@@ -22,6 +23,7 @@ require (
 	github.com/hugolgst/rich-go v0.0.0-20210525072106-9d45f0e06959
 	github.com/jmoiron/sqlx v1.3.4
 	github.com/kirsle/configdir v0.0.0-20170128060238-e45d2f54772f
+	github.com/lestrrat-go/jwx v1.2.4
 	github.com/mattn/go-sqlite3 v1.14.7
 	github.com/mergermarket/go-pkcs7 v0.0.0-20170926155232-153b18ea13c9
 	github.com/orcaman/concurrent-map v0.0.0-20210501183033-44dafcb38ecc

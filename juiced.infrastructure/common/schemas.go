@@ -51,6 +51,7 @@ var bestbuyTaskInfosSchema = `
 		taskType TEXT
 	)
 `
+
 var boxlunchTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS boxlunchTaskInfos (
 		taskID TEXT,
@@ -99,6 +100,17 @@ var neweggTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS neweggTaskInfos (
 		taskID TEXT,
 		taskGroupID TEXT
+	)
+`
+
+var pokemoncenterTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS pokemoncenterTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT,
+		taskType TEXT,
+		addressType TEXT
 	)
 `
 
@@ -270,6 +282,22 @@ var neweggMonitorInfosSchema = `
 
 var neweggSingleMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS neweggSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		sku TEXT,
+		maxPrice INTEGER
+	)
+`
+
+var pokemoncenterMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS pokemoncenterMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var pokemoncenterSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS pokemoncenterSingleMonitorInfos (
 		monitorID TEXT,
 		taskGroupID TEXT,
 		sku TEXT,
@@ -482,6 +510,7 @@ var schemas = []string{
 	gamestopTaskInfosSchema,
 	hottopicTaskInfosSchema,
 	neweggTaskInfosSchema,
+	pokemoncenterTaskInfosSchema,
 	targetTaskInfosSchema,
 	toppsTaskInfosSchema,
 	walmartTaskInfosSchema,
@@ -506,6 +535,8 @@ var schemas = []string{
 	hottopicSingleMonitorInfosSchema,
 	neweggMonitorInfosSchema,
 	neweggSingleMonitorInfosSchema,
+	pokemoncenterMonitorInfosSchema,
+	pokemoncenterSingleMonitorInfosSchema,
 	shopifyMonitorInfosSchema,
 	shopifySingleMonitorInfosSchema,
 	targetMonitorInfosSchema,

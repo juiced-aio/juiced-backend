@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 
@@ -104,10 +106,6 @@ func ManageEvents(eventBus *events.EventBus) {
 		// if event.EventType == events.MonitorEventType {
 		// 	log.Println("Event info: " + string(event.MonitorEvent.EventType) + ", " + string(event.MonitorEvent.Status))
 		// }
-		// if event.EventType == events.TaskEventType {
-		// 	log.Println("Event info: " + string(event.TaskEvent.EventType) + ", " + string(event.TaskEvent.Status))
-		// }
-		fmt.Println(event)
 		if os.Getenv("JUICED_MODE") == "DEV" {
 			if event.EventType == events.MonitorEventType {
 				log.Println("Event info: " + string(event.MonitorEvent.EventType) + ", " + string(event.MonitorEvent.Status))
@@ -115,6 +113,13 @@ func ManageEvents(eventBus *events.EventBus) {
 			if event.EventType == events.TaskEventType {
 				log.Println("Event info: " + string(event.TaskEvent.EventType) + ", " + string(event.TaskEvent.Status))
 			}
+		}
+		if event.EventType == events.TaskEventType && (strings.Contains(event.TaskEvent.EventType, enums.TaskIdle) ||
+			strings.Contains(event.TaskEvent.EventType, enums.TaskFail) ||
+			strings.Contains(event.TaskEvent.EventType, enums.TaskComplete) ||
+			strings.Contains(event.TaskEvent.EventType, enums.TaskStop)) {
+			monitorStore := stores.GetMonitorStore()
+			monitorStore.CheckMonitorTasksRunning()
 		}
 		for client, connected := range clients {
 			if connected {

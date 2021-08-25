@@ -282,24 +282,26 @@ func GetTask(ID string) (entities.Task, error) {
 func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWithTasks, error) {
 	taskGroupWithTasks := entities.TaskGroupWithTasks{
 		GroupID: taskGroup.GroupID, Name: taskGroup.Name,
-		MonitorProxyGroupID: taskGroup.MonitorProxyGroupID,
-		MonitorRetailer:     taskGroup.MonitorRetailer,
-		MonitorDelay:        taskGroup.MonitorDelay,
-		MonitorStatus:       taskGroup.MonitorStatus,
-		AmazonMonitorInfo:   taskGroup.AmazonMonitorInfo,
-		BestbuyMonitorInfo:  taskGroup.BestbuyMonitorInfo,
-		BoxlunchMonitorInfo: taskGroup.BoxlunchMonitorInfo,
-		DisneyMonitorInfo:   taskGroup.DisneyMonitorInfo,
-		GamestopMonitorInfo: taskGroup.GamestopMonitorInfo,
-		HottopicMonitorInfo: taskGroup.HottopicMonitorInfo,
-		NeweggMonitorInfo:   taskGroup.NeweggMonitorInfo,
-		ShopifyMonitorInfo:  taskGroup.ShopifyMonitorInfo,
-		TargetMonitorInfo:   taskGroup.TargetMonitorInfo,
-		ToppsMonitorInfo:    taskGroup.ToppsMonitorInfo,
-		WalmartMonitorInfo:  taskGroup.WalmartMonitorInfo,
+		MonitorProxyGroupID:      taskGroup.MonitorProxyGroupID,
+		MonitorRetailer:          taskGroup.MonitorRetailer,
+		MonitorDelay:             taskGroup.MonitorDelay,
+		MonitorStatus:            taskGroup.MonitorStatus,
+		AmazonMonitorInfo:        taskGroup.AmazonMonitorInfo,
+		BestbuyMonitorInfo:       taskGroup.BestbuyMonitorInfo,
+		BoxlunchMonitorInfo:      taskGroup.BoxlunchMonitorInfo,
+		DisneyMonitorInfo:        taskGroup.DisneyMonitorInfo,
+		GamestopMonitorInfo:      taskGroup.GamestopMonitorInfo,
+		HottopicMonitorInfo:      taskGroup.HottopicMonitorInfo,
+		NeweggMonitorInfo:        taskGroup.NeweggMonitorInfo,
+		PokemonCenterMonitorInfo: taskGroup.PokemonCenterMonitorInfo,
+		ShopifyMonitorInfo:       taskGroup.ShopifyMonitorInfo,
+		TargetMonitorInfo:        taskGroup.TargetMonitorInfo,
+		ToppsMonitorInfo:         taskGroup.ToppsMonitorInfo,
+		WalmartMonitorInfo:       taskGroup.WalmartMonitorInfo,
 
 		Tasks: []entities.Task{},
 	}
+
 	tasks := []entities.Task{}
 	for i := 0; i < len(taskGroup.TaskIDs); i++ {
 		task, err := GetTask(taskGroup.TaskIDs[i])
