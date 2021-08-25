@@ -95,7 +95,6 @@ func (task *Task) RunTask() {
 		return
 	}
 	task.Task.Scraper = hawk.Init(task.Task.Client, common.HAWK_KEY, false)
-
 	// 1. Setup task
 	task.PublishEvent(enums.SettingUp, enums.TaskStart, 5)
 	setup := task.Setup()
@@ -109,6 +108,7 @@ func (task *Task) RunTask() {
 	if oldAccounts != nil {
 		accounts = append(accounts, oldAccounts.([]Acc)...)
 	}
+
 	AccountPool.Set(task.Task.Task.TaskGroupID, accounts)
 
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
@@ -214,7 +214,7 @@ func (task *Task) RunTask() {
 // Sets the client up by either logging in or waiting for another task to login that is using the same account
 func (task *Task) Setup() bool {
 	if task.TaskType == enums.TaskTypeGuest {
-		return BecomeGuest(task.Task.Scraper)
+		return !BecomeGuest(task.Task.Scraper)
 	}
 	// Bad but quick solution to the multiple logins
 	time.Sleep(time.Duration(rand.Intn(1000)) * time.Millisecond)
@@ -316,8 +316,9 @@ func (task *Task) Login() bool {
 		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
+
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseEndpoint+"/", proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.Topps, BaseLoginEndpoint+"/", proxy)
 		time.Sleep(common.MS_TO_WAIT)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
@@ -361,7 +362,7 @@ func (task *Task) Login() bool {
 
 		Data: []byte(payload),
 	})
-	if resp.StatusCode != 302 || err != nil {
+	if resp.StatusCode != 200 || err != nil {
 		ToppsAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
@@ -506,6 +507,7 @@ func (task *Task) SubmitShippingInfo() bool {
 	if task.TaskType == enums.TaskTypeAccount {
 		currentEndpoint = AccountSubmitShippingInfoEndpoint
 	}
+
 	submitShippingInfoRequest := SubmitShippingInfoRequest{
 		Addressinformation: Addressinformation{
 			ShippingAddress: ShippingAddress{
@@ -617,7 +619,7 @@ func (task *Task) GetCardToken() bool {
 				Creditcard: Creditcard{
 					Number:          task.Task.Profile.CreditCard.CardNumber,
 					Expirationmonth: task.Task.Profile.CreditCard.ExpMonth,
-					Expirationyear:  "20" + task.Task.Profile.CreditCard.ExpYear,
+					Expirationyear:  task.Task.Profile.CreditCard.ExpYear,
 					Cvv:             task.Task.Profile.CreditCard.CVV,
 				},
 				Options: Options{},
@@ -690,7 +692,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			Method: "braintree",
 			AdditionalData: AdditionalData{
 				PaymentMethodNonce: task.TaskInfo.CardToken,
-				AmgdprAgreement:    "{}",
+				AmgdprAgreement:    `{"privacy_checkbox":true}`,
 			},
 		},
 		Email: task.Task.Profile.Email,
@@ -722,20 +724,27 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		Data:               data,
 		ResponseBodyStruct: &placeOrderResponse,
 	})
-	if err != nil || resp.StatusCode != 200 {
+	if err != nil {
 		fmt.Println(err)
 		return false, status
 	}
 
 	var success bool
-	// I do not know what successfully placing an order returns
-	switch placeOrderResponse.Message {
-	case "Your payment could not be taken. Please try again or use a different payment method. Do Not Honor":
-		status = enums.OrderStatusDeclined
-	default:
+
+	switch resp.StatusCode {
+	case 200:
 		status = enums.OrderStatusSuccess
 		success = true
+	case 400:
+		switch placeOrderResponse.Message {
+		case "Your payment could not be taken. Please try again or use a different payment method. Do Not Honor":
+			status = enums.OrderStatusDeclined
+		default:
+			status = enums.OrderStatusSuccess
+			success = true
+		}
 	}
+	// I do not know what successfully placing an order returns
 
 	if success || status == enums.OrderStatusDeclined {
 		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
