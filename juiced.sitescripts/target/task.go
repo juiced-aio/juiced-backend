@@ -497,7 +497,8 @@ func (task *Task) RefreshLogin() {
 
 				new(jwt.Parser).ParseUnverified(string(refreshLoginResponse.AccessToken), claims)
 
-				if err != nil || claims.Eid != task.AccountInfo.Email {
+				// Maybe the problem he was having was the claims.Eid != his task.AccountInfo.Email, shouldn't be an issue removing it, oh this is probably the problem everyone was having
+				if err != nil {
 					success = false
 					break
 				}
@@ -511,8 +512,11 @@ func (task *Task) RefreshLogin() {
 		if !success {
 			loggedIn := false
 			for !loggedIn {
-				task.Login()
-				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+				loggedIn = task.Login()
+
+				if !loggedIn {
+					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+				}
 			}
 		}
 	}
