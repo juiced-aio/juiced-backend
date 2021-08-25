@@ -111,7 +111,7 @@ func (eb *EventBus) PublishMonitorEvent(monitorStatus enums.MonitorStatus, event
 }
 
 // PublishTaskEvent publishes a TaskEvent
-func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, eventType enums.TaskEventType, data interface{}, taskID string) {
+func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, statusPercentage int, eventType enums.TaskEventType, data interface{}, taskID string) {
 	eb.RM.RLock()
 	// Will panic if any channel is closed
 	go func(event Event, channels []EventChannel) {
@@ -124,10 +124,11 @@ func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, eventType enum
 	}(Event{
 		EventType: TaskEventType,
 		TaskEvent: TaskEvent{
-			Status:    taskStatus,
-			EventType: eventType,
-			Data:      data,
-			TaskID:    taskID,
+			Status:           taskStatus,
+			StatusPercentage: statusPercentage,
+			EventType:        eventType,
+			Data:             data,
+			TaskID:           taskID,
 		},
 	}, eb.Subscribers)
 	eb.RM.RUnlock()

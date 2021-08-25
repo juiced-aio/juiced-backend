@@ -15,6 +15,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/newegg"
+	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
 	"backend.juicedbot.io/juiced.sitescripts/topps"
@@ -148,6 +149,17 @@ var walmartMonitorInfoAsset = &entities.WalmartMonitorInfo{
 	},
 }
 
+var pokemonCenterMonitorAsset = map[string]*pokemoncenter.Monitor{"pokemoncenter_test_monitor": {Monitor: monitorAsset, SKUs: []string{""}}}
+
+var pokemonCenterMonitorInfoAsset = &entities.PokemonCenterMonitorInfo{
+	Monitors: []entities.PokemonCenterSingleMonitorInfo{
+		{
+			SKU:      "",
+			MaxPrice: -1,
+		},
+	},
+}
+
 var taskgroupAsset = entities.TaskGroup{
 	GroupID:             "",
 	Name:                "test_taskgroup",
@@ -195,6 +207,7 @@ func TestStartMonitor(t *testing.T) {
 		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"topps_test", enums.Topps, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"walmart_test", enums.Walmart, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"pokemoncenter_test", enums.PokemonCenter, &MonitorStore{}, args{&taskgroupAsset}, nil},
 	}
 
 	for _, tt := range tests {
@@ -233,6 +246,9 @@ func TestStartMonitor(t *testing.T) {
 		case enums.Walmart:
 			tt.monitorStore.WalmartMonitors = walmartMonitorAsset
 			tt.args.monitor.WalmartMonitorInfo = walmartMonitorInfoAsset
+		case enums.PokemonCenter:
+			tt.monitorStore.PokemonCenterMonitors = pokemonCenterMonitorAsset
+			tt.args.monitor.PokemonCenterMonitorInfo = pokemonCenterMonitorInfoAsset
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.monitorStore.StartMonitor(tt.args.monitor); got != tt.want {

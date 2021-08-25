@@ -389,11 +389,14 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]HottopicSizeInfo, 
 		return sizes, colors, stockData, productNameHeader.Error
 	}
 	productName := productNameHeader.Text()
+	stockData.ProductName = productName
+
 	productImage := doc.Find("img", "class", "productdetail__image-active-each")
 	if productImage.Error != nil {
 		return sizes, colors, stockData, productImage.Error
 	}
 	imageURL := productImage.Attrs()["src"]
+	stockData.ImageURL = imageURL
 
 	hasVariations := false
 	// This element will only exist if the product has no size/color variations and the item is in stock
