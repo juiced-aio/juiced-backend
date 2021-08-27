@@ -43,6 +43,7 @@ const (
 	RetrieveCyberSourceTokenError        = "could not retrieve CyberSource token"
 	RetrieveCyberSourcePaymentTokenError = "could not retrieve CyberSource payment token"
 
+	AddToCartBadInputError = "add to cart form value is not a string"
 	AddToCartQuantityError = "expected quantity of %d but found %d"
 )
 
@@ -80,7 +81,6 @@ type MonitorResponse struct {
 type Task struct {
 	TaskInfo        *util.TaskInfo
 	Input           TaskInput
-	AddToCartForm   string
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
 	CheckoutUri     string

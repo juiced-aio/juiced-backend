@@ -334,15 +334,18 @@ func (task *Task) RetrieveJTI() (bool, string) {
 }
 
 func (task *Task) WaitForMonitor() (bool, string) {
-	if task.AddToCartForm != "" {
+	if addToCartForm, ok := task.TaskInfo.StockInfo.SiteSpecific["AddToCartForm"].(string); ok && addToCartForm != "" {
 		return true, ""
 	}
 	return false, ""
 }
 
 func (task *Task) AddToCart() (bool, string) {
+	if _, ok := task.TaskInfo.StockInfo.SiteSpecific["AddToCartForm"].(string); !ok {
+		return false, fmt.Sprintf(enums.AddingToCartFailure, AddToCartBadInputError)
+	}
 	addToCartRequest := AddToCartRequest{
-		ProductUri:    task.AddToCartForm,
+		ProductUri:    task.TaskInfo.StockInfo.SiteSpecific["AddToCartForm"].(string),
 		Quantity:      task.TaskInfo.Task.TaskQty,
 		Configuration: "",
 	}
