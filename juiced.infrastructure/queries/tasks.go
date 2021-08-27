@@ -280,6 +280,7 @@ func GetTask(ID string) (entities.Task, error) {
 
 // ConvertTaskIDsToTasks returns a TaskGroupWithTasks object from a TaskGroup object
 func ConvertTaskIDsToTasks(taskGroup *entities.TaskGroup) (entities.TaskGroupWithTasks, error) {
+	// Let's see if we can abstract this
 	taskGroupWithTasks := entities.TaskGroupWithTasks{
 		GroupID: taskGroup.GroupID, Name: taskGroup.Name,
 		MonitorProxyGroupID: taskGroup.MonitorProxyGroupID,

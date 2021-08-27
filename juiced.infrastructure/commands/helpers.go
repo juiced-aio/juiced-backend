@@ -17,6 +17,7 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 		return errors.New("database not initialized")
 	}
 	monitorID := uuid.New().String()
+	// Let's see if we can abstract this
 	switch taskGroup.MonitorRetailer {
 	case enums.Amazon:
 		statement, err := database.Preparex(`INSERT INTO amazonMonitorInfos (ID, taskGroupID) VALUES (?, ?)`)
@@ -309,6 +310,7 @@ func CreateMonitorInfos(taskGroup entities.TaskGroup) error {
 func DeleteMonitorInfos(groupID string, retailer enums.Retailer) error {
 	var monitorInfoSchema string
 	var singleMonitorInfoSchema string
+	// Let's see if we can abstract this
 	switch retailer {
 	case enums.Amazon:
 		monitorInfoSchema = "amazonMonitorInfos"
@@ -385,6 +387,7 @@ func CreateTaskInfos(task entities.Task) error {
 		return errors.New("database not initialized")
 	}
 
+	// Let's see if we can abstract this
 	switch task.TaskRetailer {
 	case enums.Amazon:
 		statement, err := database.Preparex(`INSERT INTO amazonTaskInfos (taskID, taskGroupID, email, password, loginType) VALUES (?, ?, ?, ?, ?)`)
@@ -600,6 +603,7 @@ func CreateTaskInfos(task entities.Task) error {
 func DeleteTaskInfos(taskID string, retailer enums.Retailer) error {
 	var taskInfoSchema string
 
+	// Let's see if we can abstract this
 	switch retailer {
 	case enums.Amazon:
 		taskInfoSchema = "amazonTaskInfos"

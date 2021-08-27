@@ -19,6 +19,7 @@ func GetTaskInfos(task entities.Task) (entities.Task, error) {
 	var encryptedEmail string
 	var encryptedPassword string
 	var currentTaskInfo string
+	// Let's see if we can abstract this
 	switch task.TaskRetailer {
 	case enums.Amazon:
 		currentTaskInfo = "amazonTaskInfos"
@@ -490,6 +491,7 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 	if database == nil {
 		return taskGroup, errors.New("database not initialized")
 	}
+	// Let's see if we can abstract this
 	switch taskGroup.MonitorRetailer {
 	case enums.Amazon:
 		statement, err := database.Preparex(`SELECT * FROM amazonMonitorInfos WHERE taskGroupID = @p1`)

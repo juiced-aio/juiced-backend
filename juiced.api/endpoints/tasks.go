@@ -215,6 +215,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
+	// Let's see if we can abstract this
 	type AmazonUpdateInfo struct {
 		MonitorType enums.MonitorType `json:"monitorType"`
 	}
@@ -245,6 +246,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		SoldByWalmart bool `json:"soldByWalmart"`
 	}
 
+	// Let's see if we can abstract this
 	type UpdateTaskGroupRequest struct {
 		Name                    string                  `json:"name"`
 		MonitorInput            string                  `json:"input"`
@@ -282,6 +284,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						taskGroup.MonitorDelay = updateTaskGroupRequestInfo.MonitorDelay
 						taskGroup.MonitorProxyGroupID = updateTaskGroupRequestInfo.MonitorProxyGroupID
 						maxPrice := updateTaskGroupRequestInfo.MaxPrice
+						// Let's see if we can abstract this
 						switch taskGroup.MonitorRetailer {
 						case enums.Amazon:
 							newMonitors := make([]entities.AmazonSingleMonitorInfo, 0)
@@ -817,6 +820,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	var newTaskGroup entities.TaskGroup
 	errorsList := make([]string, 0)
 
+	// Let's see if we can abstract this
 	type CreateTaskRequest struct {
 		NumTasksPerProfile    int                             `json:"numTasksPerProfile"`
 		ProfileIDs            []string                        `json:"profileIDs"`
@@ -859,6 +863,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				if createTaskRequestInfo.Delay > 0 {
 					task.TaskDelay = createTaskRequestInfo.Delay
 				}
+				// Let's see if we can abstract this
 				switch createTaskRequestInfo.Retailer {
 				case enums.Amazon:
 					task.AmazonTaskInfo = createTaskRequestInfo.AmazonTaskInfo
@@ -980,6 +985,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	var err error
 	errorsList := make([]string, 0)
 
+	// Let's see if we can abstract this
 	type UpdateTasksRequest struct {
 		TaskIDs               []string                       `json:"taskIDs"`
 		ProfileID             string                         `json:"profileID"`
@@ -1026,6 +1032,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								if updateTasksRequestInfo.Quantity != -1 && updateTasksRequestInfo.Quantity > 0 {
 									task.TaskQty = updateTasksRequestInfo.Quantity
 								}
+								// Let's see if we can abstract this
 								switch taskGroup.MonitorRetailer {
 								case enums.Amazon:
 									if singleTask || updateTasksRequestInfo.AmazonTaskInfo.Email != "" {

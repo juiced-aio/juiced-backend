@@ -46,6 +46,8 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 	var taskInput interface{}
 
 	switch task.TaskRetailer {
+	// Let's see if we can abstract this
+	//		Maybe make TaskInput an interface with a map[interface{}]interface{} and a CheckValidInput function?
 	// Future sitescripts will have a case here
 	// case enums.Amazon:
 	// 	// Check if task exists in store already
