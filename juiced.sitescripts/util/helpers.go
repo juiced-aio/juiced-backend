@@ -164,6 +164,15 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	newBody := strings.ReplaceAll(string(body), "\n", "")
 	newBody = strings.ReplaceAll(newBody, "\t", "")
 
+	/* if response.Header.Get("Content-Encoding") == "br" {
+		r := brotli.NewReader(bytes.NewReader([]byte(newBody)))
+		body, err := ioutil.ReadAll(r)
+		if err != nil {
+			return response, "", err
+		}
+		newBody = string(body)
+	} */
+
 	return response, newBody, nil
 }
 

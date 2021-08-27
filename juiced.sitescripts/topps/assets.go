@@ -10,7 +10,6 @@ var regionMap = make(map[string]RegionID)
 func init() {
 	var regionsParsed Regions
 	json.Unmarshal(RawRegions, &regionsParsed)
-	regionMap := make(map[string]RegionID)
 	for i := range regionsParsed.RegionID {
 		regionMap[regionsParsed.RegionID[i].Label] = regionsParsed.RegionID[i]
 	}

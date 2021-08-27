@@ -166,7 +166,10 @@ again:
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+					})
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -175,10 +178,12 @@ again:
 					break
 				}
 			}
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, item)
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(item)
 		}
 	}
+
 }
 
 // Gets the items stock
@@ -215,6 +220,7 @@ func (monitor *Monitor) GetItemStock(itemURL string) ToppsInStockData {
 		return stockData
 	}
 
+	monitor.RunningMonitors = append(monitor.RunningMonitors, itemURL)
 	return monitor.ParseInfos(itemURL, body)
 }
 
@@ -224,13 +230,17 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 
 	doc := soup.HTMLParse(body)
 
-	elem := doc.Find("button", "id", "product-addtocart-button")
+	elem := doc.Find("img", "class", "gallery-placeholder__image")
 	if elem.Error != nil {
 		return stockData
 	}
-	if elem.Find("span").Text() != "Add to Cart" {
+	stockData.ImageURL = elem.Attrs()["src"]
+
+	elem = doc.Find("title")
+	if elem.Error != nil {
 		return stockData
 	}
+	stockData.ProductName = elem.Text()
 
 	elem = doc.Find("span", "class", "price")
 	if elem.Error != nil {
@@ -244,17 +254,13 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 	}
 	stockData.Price = price
 
-	elem = doc.Find("img", "class", "gallery-placeholder__image")
+	elem = doc.Find("button", "id", "product-addtocart-button")
 	if elem.Error != nil {
 		return stockData
 	}
-	stockData.ImageURL = elem.Attrs()["src"]
-
-	elem = doc.Find("title")
-	if elem.Error != nil {
+	if elem.Find("span").Text() != "Add to Cart" {
 		return stockData
 	}
-	stockData.ProductName = elem.Text()
 
 	elem = doc.Find("div", "class", "product-add-form")
 	if elem.Error != nil {
@@ -276,15 +282,6 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 		return stockData
 	}
 
-	elem = elem.Find("form")
-	if elem.Error != nil {
-		return stockData
-	}
-
-	stockData.AddURL = elem.Attrs()["action"]
-	elems = doc.FindAll("select")
-	fmt.Println(elems[0].Children())
-
 	var options []Option
 	elems = doc.FindAll("select")
 	for i := range elems {
@@ -304,11 +301,21 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 	if len(options) != 0 {
 		stockData.Price += options[len(options)-1].Price
 		stockData.OptionID += options[len(options)-1].ID
-	} else {
-		return ToppsInStockData{}
 	}
 
-	stockData.ItemURL = item
+	elem = elem.Find("form")
+	if elem.Error != nil {
+		return stockData
+	}
+	stockData.AddURL = elem.Attrs()["action"]
+
+	stockData.ItemURL = BaseEndpoint + "/" + item
+
+	if !(float64(monitor.ItemWithInfo[item].MaxPrice) > price || monitor.ItemWithInfo[item].MaxPrice == -1) {
+		stockData.AddURL = ""
+		stockData.SKU = ""
+		stockData.FormKey = ""
+	}
 
 	return stockData
 }
