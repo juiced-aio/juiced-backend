@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/events"
 
 	"flag"
 	"net/http"

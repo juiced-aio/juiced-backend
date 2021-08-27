@@ -11,7 +11,7 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	utls "backend.juicedbot.io/juiced.client/utls"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
 )
 
 type FingerprintResponse struct {

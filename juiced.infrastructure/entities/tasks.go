@@ -17,8 +17,9 @@ type Task struct {
 	Profile      *Profile
 	ProxyGroupID string `json:"proxyGroupID" db:"proxyGroupID"`
 	ProxyGroup   *ProxyGroup
-	Task         BaseTask `json:"taskInfo" db:"taskInfo"`
-	CreationDate int64    `json:"creationDate" db:"creationDate"`
+	TaskInfo     string `json:"taskInfo" db:"taskInfo"` // TaskInfo is Task serialized
+	Task         *BaseTask
+	CreationDate int64 `json:"creationDate" db:"creationDate"`
 }
 
 type CreateTaskRequest struct {

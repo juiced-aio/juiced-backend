@@ -21,11 +21,10 @@ import (
 	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/utls"
-	"backend.juicedbot.io/juiced.infrastructure/commands"
-	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
+	"backend.juicedbot.io/juiced.infrastructure/stores"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 )
 
@@ -179,10 +178,7 @@ func QueueWebhook(success bool, content string, embeds []Embed) {
 func DiscordWebhookQueue() {
 	for {
 		hook := <-hookChan
-		settings, err := queries.GetSettings()
-		if err != nil {
-			return
-		}
+		settings := stores.GetSettings()
 		var webhookURL string
 		if hook.Success {
 			webhookURL = settings.SuccessDiscordWebhook
@@ -279,10 +275,7 @@ func Randomizer(s string) string {
 func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpoint string) error {
 	var ParsedBase, _ = url.Parse(BaseEndpoint)
 
-	_, user, err := queries.GetUserInfo()
-	if err != nil {
-		return err
-	}
+	userInfo := stores.GetUserInfo()
 
 	var abckCookie string
 	var genResponse sec.ExperimentalAkamaiAPIResponse
@@ -317,7 +310,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		}
 	}
 
-	genResponse, _, err = sec.ExperimentalAkamai(location, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36", abckCookie, 0, 0, 0, 0, user)
+	genResponse, _, err := sec.ExperimentalAkamai(location, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36", abckCookie, 0, 0, 0, 0, userInfo)
 	if err != nil {
 		return err
 	}
@@ -367,7 +360,7 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 		}
 	}
 
-	genResponse, _, err = sec.ExperimentalAkamai(location, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36", abckCookie, 1, genResponse.SavedD3, genResponse.SavedStartTS, genResponse.DeviceNum, user)
+	genResponse, _, err = sec.ExperimentalAkamai(location, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36", abckCookie, 1, genResponse.SavedD3, genResponse.SavedStartTS, genResponse.DeviceNum, userInfo)
 	if err != nil {
 		return err
 	}
@@ -459,31 +452,27 @@ func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
 
 // Processes each checkout by sending a webhook and logging the checkout
 func ProcessCheckout(pci *ProcessCheckoutInfo) {
-	_, userInfo, err := queries.GetUserInfo()
-	if err != nil {
-		fmt.Println("Could not get user info")
-		return
-	}
+	userInfo := stores.GetUserInfo()
 	if pci.Status != enums.OrderStatusFailed {
 		go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, userInfo)
 	}
 	if pci.Success {
-		go sec.LogCheckout(pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.SKU, pci.Retailer, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.TaskQty, userInfo)
-		go SendCheckout(pci.TaskInfo, pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.ImageURL, pci.TaskInfo.StockInfo.SKU, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.TaskQty, time.Since(pci.TaskInfo.StartTime).Milliseconds())
+		go sec.LogCheckout(pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.SKU, pci.Retailer, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.Task.Quantity, userInfo)
+		go SendCheckout(pci.TaskInfo, pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.ImageURL, pci.TaskInfo.StockInfo.SKU, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.Task.Quantity, time.Since(pci.TaskInfo.StartTime).Milliseconds())
 	}
 	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
 }
 
 // Logs the checkout
 func SendCheckout(taskInfo *TaskInfo, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
-	commands.CreateCheckout(entities.Checkout{
+	stores.CreateCheckout(entities.Checkout{
 		ItemName:     itemName,
 		ImageURL:     imageURL,
 		SKU:          sku,
 		Price:        price,
 		Quantity:     quantity,
-		Retailer:     taskInfo.Task.TaskRetailer,
-		ProfileName:  taskInfo.Profile.Name,
+		Retailer:     taskInfo.Task.Task.Retailer,
+		ProfileName:  taskInfo.Task.Profile.Name,
 		MsToCheckout: msToCheckout,
 		Time:         time.Now().Unix(),
 	})
@@ -492,10 +481,7 @@ func SendCheckout(taskInfo *TaskInfo, itemName string, imageURL string, sku stri
 func GetPXCookie(site string, proxy *entities.Proxy, cancellationToken *CancellationToken) (string, PXValues, bool, error) {
 	var pxValues PXValues
 
-	_, userInfo, err := queries.GetUserInfo()
-	if err != nil {
-		return "", pxValues, false, err
-	}
+	userInfo := stores.GetUserInfo()
 
 	pxResponse, _, err := sec.PX(site, ProxyCleaner(proxy), userInfo)
 	if err != nil {
@@ -517,14 +503,8 @@ func GetPXCookie(site string, proxy *entities.Proxy, cancellationToken *Cancella
 }
 
 func GetPXCapCookie(site, setID, vid, uuid, token string, proxy *entities.Proxy, cancellationToken *CancellationToken) (string, bool, error) {
-	var px3 string
-
-	_, userInfo, err := queries.GetUserInfo()
-	if err != nil {
-		return px3, false, err
-	}
-
-	px3, _, err = sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
+	userInfo := stores.GetUserInfo()
+	px3, _, err := sec.PXCap(site, ProxyCleaner(proxy), setID, vid, uuid, token, userInfo)
 	if err != nil {
 		return "", false, err
 	}
@@ -668,7 +648,7 @@ func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()
-			cClient, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
+			cClient, err = client.NewClient(utls.HelloChrome_90, util.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return cClient, err
 			}
@@ -728,7 +708,7 @@ func (taskInfo *TaskInfo) CreateClient(proxy ...*entities.Proxy) error {
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()
-			taskInfo.Client, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
+			taskInfo.Client, err = client.NewClient(utls.HelloChrome_90, util.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return err
 			}
@@ -755,7 +735,7 @@ func (monitorInfo *MonitorInfo) CreateClient(proxy ...*entities.Proxy) error {
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()
-			monitorInfo.Client, err = client.NewClient(utls.HelloChrome_90, common.ProxyCleaner(*proxy[0]))
+			monitorInfo.Client, err = client.NewClient(utls.HelloChrome_90, util.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return err
 			}

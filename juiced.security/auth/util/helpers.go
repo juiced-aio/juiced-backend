@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/stores"
 )
 
 var HWID string
@@ -246,7 +246,7 @@ func Refresh(userInfo entities.UserInfo) (entities.UserInfo, RefreshResult, erro
 	userInfo.RefreshToken = refreshResponse.RefreshToken
 	userInfo.ExpiresAt = refreshResponse.ExpiresAt
 
-	err = commands.SetUserInfo(userInfo)
+	err = stores.SetUserInfo(userInfo)
 	if err != nil {
 		return userInfo, SUCCESS_REFRESH_ERROR_SET_USER_INFO, err
 	}

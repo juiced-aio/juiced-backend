@@ -7,17 +7,17 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/captcha"
+	"backend.juicedbot.io/juiced.infrastructure/database"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
+	"backend.juicedbot.io/juiced.infrastructure/events"
 )
 
 func TestMain(m *testing.M) {
 	events.InitEventBus()
 	eventBus := events.GetEventBus()
-	common.InitDatabase()
+	database.InitDatabase()
 	captcha.InitCaptchaStore(eventBus)
 	m.Run()
 }
