@@ -66,3 +66,13 @@ func CreateProfileGroup(profileGroup entities.ProfileGroup) (*entities.ProfileGr
 
 	return profileGroupPtr, err
 }
+
+func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
+	profileGroup, err := GetProfileGroup(groupID)
+	if err != nil {
+		return entities.ProfileGroup{}, err
+	}
+
+	delete(profileGroupStore.ProfileGroups, groupID)
+	return *profileGroup, nil
+}

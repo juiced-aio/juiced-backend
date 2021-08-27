@@ -38,7 +38,9 @@ func GetProfileGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	result := &responses.ProfileGroupResponse{Success: true, Data: []entities.ProfileGroup{profileGroup}, Errors: make([]string, 0)}
+
+	data := []entities.ProfileGroup{profileGroup}
+	result := &responses.ProfileGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProfileGroupResponse{Success: false, Data: []entities.ProfileGroup{}, Errors: errorsList}
@@ -86,6 +88,7 @@ func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
+
 	data := []entities.ProfileGroup{profileGroup}
 	result := &responses.ProfileGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -113,11 +116,8 @@ func RemoveProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroup)
-	if err != nil {
-		errorsList = append(errorsList, errors.GetProfileError+err.Error())
-	}
-	data := []entities.ProfileGroupWithProfiles{newProfileGroupWithProfiles}
+
+	data := []entities.ProfileGroup{profileGroup}
 	result := &responses.ProfileGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
