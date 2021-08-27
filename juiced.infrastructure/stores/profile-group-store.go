@@ -36,15 +36,6 @@ func (e *ProfileGroupNotFoundError) Error() string {
 	return fmt.Sprintf("ProfileGroup with ID %s not found", e.ID)
 }
 
-func GetProfileGroup(groupID string) (*entities.ProfileGroup, error) {
-	profileGroup, ok := profileGroupStore.ProfileGroups[groupID]
-	if !ok {
-		return nil, &ProfileGroupNotFoundError{groupID}
-	}
-
-	return profileGroup, nil
-}
-
 func GetAllProfileGroups() []*entities.ProfileGroup {
 	profileGroups := []*entities.ProfileGroup{}
 
@@ -53,6 +44,15 @@ func GetAllProfileGroups() []*entities.ProfileGroup {
 	}
 
 	return profileGroups
+}
+
+func GetProfileGroup(groupID string) (*entities.ProfileGroup, error) {
+	profileGroup, ok := profileGroupStore.ProfileGroups[groupID]
+	if !ok {
+		return nil, &ProfileGroupNotFoundError{groupID}
+	}
+
+	return profileGroup, nil
 }
 
 func CreateProfileGroup(profileGroup entities.ProfileGroup) (*entities.ProfileGroup, error) {
@@ -67,6 +67,20 @@ func CreateProfileGroup(profileGroup entities.ProfileGroup) (*entities.ProfileGr
 	return profileGroupPtr, err
 }
 
+func UpdateProfileGroup(groupID string, newProfileGroup entities.ProfileGroup) (*entities.ProfileGroup, error) {
+	profileGroup, err := GetProfileGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	profileGroup.Name = newProfileGroup.Name
+	profileGroup.ProfileIDs = newProfileGroup.ProfileIDs
+	profileGroup.ProfileIDsJoined = newProfileGroup.ProfileIDsJoined
+	profileGroup.Profiles = GetProfiles(profileGroup.ProfileIDs)
+
+	return profileGroup, nil
+}
+
 func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	profileGroup, err := GetProfileGroup(groupID)
 	if err != nil {
@@ -74,5 +88,6 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	}
 
 	delete(profileGroupStore.ProfileGroups, groupID)
-	return *profileGroup, nil
+	err = database.RemoveProfileGroup(groupID)
+	return *profileGroup, err
 }
