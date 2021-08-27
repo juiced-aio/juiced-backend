@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
+	"backend.juicedbot.io/juiced.infrastructure/events"
 	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 

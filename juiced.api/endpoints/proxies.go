@@ -3,13 +3,11 @@ package endpoints
 import (
 	"time"
 
+	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
-	"backend.juicedbot.io/juiced.infrastructure/commands"
-	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/errors"
-	"backend.juicedbot.io/juiced.infrastructure/common/stores"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/helpers"
+	"backend.juicedbot.io/juiced.infrastructure/stores"
 
 	"encoding/json"
 	"io/ioutil"
@@ -30,7 +28,7 @@ func GetProxyGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		proxyGroup, err = queries.GetProxyGroup(groupID)
+		proxyGroup, err = stores.GetProxyGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetProxyGroupError+err.Error())
 		}
@@ -50,7 +48,7 @@ func GetAllProxyGroupsEndpoint(response http.ResponseWriter, request *http.Reque
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
-	proxyGroups, err := queries.GetAllProxyGroups()
+	proxyGroups, err := stores.GetAllProxyGroups()
 
 	if err == nil {
 		for i := range proxyGroups {
@@ -86,7 +84,7 @@ func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 			}
 			proxyGroup.CreationDate = time.Now().Unix()
 			proxyGroup.Proxies = proxiesWithGroupID
-			err = commands.CreateProxyGroup(*proxyGroup)
+			err = stores.CreateProxyGroup(*proxyGroup)
 			if err == nil {
 				stores.GetProxyStore().AddProxyGroup(proxyGroup)
 			} else {
@@ -116,7 +114,7 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroups, err := queries.GetTaskGroupsByProxyGroupID(groupID)
+		taskGroups, err := stores.GetTaskGroupsByProxyGroupID(groupID)
 		if err == nil {
 			next := true
 			monitorStore := stores.GetMonitorStore()
@@ -127,7 +125,7 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 				}
 			}
 			if next {
-				tasks, err := queries.GetTasksByProxyGroupID(groupID)
+				tasks, err := stores.GetTasksByProxyGroupID(groupID)
 				if err == nil {
 					next := true
 					taskStore := stores.GetTaskStore()
@@ -139,7 +137,7 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 						}
 					}
 					if next {
-						proxyGroup, err = commands.RemoveProxyGroup(groupID)
+						proxyGroup, err = stores.RemoveProxyGroup(groupID)
 						if err == nil {
 							stores.GetProxyStore().RemoveProxyGroup(groupID)
 						} else {
@@ -184,7 +182,7 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 		if err == nil {
 			err = entities.ParseProxyGroup(&newProxyGroup, body)
 			if err == nil {
-				newProxyGroup, err = commands.UpdateProxyGroup(groupID, newProxyGroup)
+				newProxyGroup, err = stores.UpdateProxyGroup(groupID, newProxyGroup)
 				if err == nil {
 					stores.GetProxyStore().UpdateProxyGroup(groupID, &newProxyGroup)
 				} else {
@@ -218,18 +216,18 @@ func CloneProxyGroupEndpoint(response http.ResponseWriter, request *http.Request
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		proxyGroup, err = queries.GetProxyGroup(groupID)
+		proxyGroup, err = stores.GetProxyGroup(groupID)
 		if err == nil {
 			newGroupID := uuid.New().String()
 			proxyGroup.SetGroupID(newGroupID)
-			proxyGroup.SetName(proxyGroup.Name + " (Copy " + common.RandID(4) + ")")
+			proxyGroup.SetName(proxyGroup.Name + " (Copy " + helpers.RandID(4) + ")")
 			proxyGroup.CreationDate = time.Now().Unix()
 			for i := 0; i < len(proxyGroup.Proxies); i++ {
 				proxy := proxyGroup.Proxies[i]
 				proxy.SetID(uuid.New().String())
 				proxy.ProxyGroupID = newGroupID
 			}
-			err = commands.CreateProxyGroup(proxyGroup)
+			err = stores.CreateProxyGroup(proxyGroup)
 			if err == nil {
 				stores.GetProxyStore().AddProxyGroup(&proxyGroup)
 			} else {

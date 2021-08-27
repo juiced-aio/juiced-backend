@@ -3,10 +3,10 @@ package endpoints
 import (
 	"strconv"
 
+	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/errors"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/stores"
 
 	"encoding/json"
 	"net/http"
@@ -31,10 +31,7 @@ func GetAllCheckoutsEndpoint(response http.ResponseWriter, request *http.Request
 	errorsList := make([]string, 0)
 	checkouts := make([]entities.Checkout, 0)
 	if err == nil {
-		checkouts, err = queries.GetCheckouts(retailer, daysBack)
-		if err != nil {
-			errorsList = append(errorsList, errors.GetAllCheckoutsError+err.Error())
-		}
+		checkouts = stores.GetCheckouts(retailer, daysBack)
 	} else {
 		errorsList = append(errorsList, errors.GetAllCheckoutsError+err.Error())
 	}

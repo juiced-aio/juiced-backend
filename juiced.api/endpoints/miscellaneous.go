@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
-	"backend.juicedbot.io/juiced.infrastructure/common/errors"
 	rpc "backend.juicedbot.io/juiced.rpc"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )

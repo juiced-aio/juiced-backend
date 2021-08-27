@@ -1,6 +1,10 @@
 package stores
 
-type ProfileStore struct{}
+import "backend.juicedbot.io/juiced.infrastructure/entities"
+
+type ProfileStore struct {
+	Profiles []entities.Profile
+}
 
 var profileStore ProfileStore
 

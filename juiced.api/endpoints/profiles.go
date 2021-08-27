@@ -5,13 +5,11 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
-	"backend.juicedbot.io/juiced.infrastructure/commands"
 	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/errors"
-	"backend.juicedbot.io/juiced.infrastructure/common/stores"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/stores"
 
 	"encoding/json"
 	"io/ioutil"
@@ -32,14 +30,14 @@ func GetProfileGroupEndpoint(response http.ResponseWriter, request *http.Request
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		profileGroup, err = queries.GetProfileGroup(groupID)
+		profileGroup, err = stores.GetProfileGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
+	newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
@@ -57,13 +55,13 @@ func GetAllProfileGroupsEndpoint(response http.ResponseWriter, request *http.Req
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
-	profileGroups, err := queries.GetAllProfileGroups()
+	profileGroups, err := stores.GetAllProfileGroups()
 	if err != nil {
 		errorsList = append(errorsList, errors.GetAllProfileGroupsError+err.Error())
 	}
 	data := []entities.ProfileGroupWithProfiles{}
 	for i := 0; i < len(profileGroups); i++ {
-		newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroups[i])
+		newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroups[i])
 		if err != nil {
 			errorsList = append(errorsList, errors.GetProfileError+err.Error())
 		}
@@ -89,7 +87,7 @@ func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 		err = entities.ParseProfileGroup(profileGroup, body)
 		if err == nil {
 			profileGroup.CreationDate = time.Now().Unix()
-			err = commands.CreateProfileGroup(*profileGroup)
+			err = stores.CreateProfileGroup(*profileGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
 			}
@@ -99,7 +97,7 @@ func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(profileGroup)
+	newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(profileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
@@ -123,14 +121,14 @@ func RemoveProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		profileGroup, err = commands.RemoveProfileGroup(groupID)
+		profileGroup, err = stores.RemoveProfileGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.RemoveProfileGroupError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
+	newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
@@ -154,7 +152,7 @@ func UpdateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		profileGroup, err = queries.GetProfileGroup(groupID)
+		profileGroup, err = stores.GetProfileGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
 			if err == nil {
@@ -165,7 +163,7 @@ func UpdateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 				err := json.Unmarshal(body, &name)
 				if err == nil {
 					profileGroup.SetName(name.Name)
-					profileGroup, err = commands.UpdateProfileGroup(groupID, profileGroup)
+					profileGroup, err = stores.UpdateProfileGroup(groupID, profileGroup)
 					if err != nil {
 						errorsList = append(errorsList, errors.UpdateProfileGroupError+err.Error())
 					}
@@ -181,7 +179,7 @@ func UpdateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	profileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
+	profileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
@@ -205,12 +203,12 @@ func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Reque
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		newProfileGroup, err = queries.GetProfileGroup(groupID)
+		newProfileGroup, err = stores.GetProfileGroup(groupID)
 		if err == nil {
 			newProfileGroup.SetGroupID(uuid.New().String())
 			newProfileGroup.SetName(newProfileGroup.Name + " (Copy " + common.RandID(4) + ")")
 			newProfileGroup.CreationDate = time.Now().Unix()
-			err = commands.CreateProfileGroup(newProfileGroup)
+			err = stores.CreateProfileGroup(newProfileGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
 			}
@@ -220,7 +218,7 @@ func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Reque
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&newProfileGroup)
+	newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&newProfileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
@@ -244,7 +242,7 @@ func AddProfilesToGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		profileGroup, err = queries.GetProfileGroup(groupID)
+		profileGroup, err = stores.GetProfileGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
 			if err == nil {
@@ -255,7 +253,7 @@ func AddProfilesToGroupEndpoint(response http.ResponseWriter, request *http.Requ
 				err := json.Unmarshal(body, &profileIDs)
 				if err == nil {
 					profileGroup.AddProfileIDsToGroup(profileIDs.ProfileIDs)
-					profileGroup, err = commands.UpdateProfileGroup(groupID, profileGroup)
+					profileGroup, err = stores.UpdateProfileGroup(groupID, profileGroup)
 					if err != nil {
 						errorsList = append(errorsList, errors.UpdateProfileGroupError+err.Error())
 					}
@@ -271,7 +269,7 @@ func AddProfilesToGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	profileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
+	profileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
@@ -295,7 +293,7 @@ func RemoveProfilesFromGroupEndpoint(response http.ResponseWriter, request *http
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		profileGroup, err = queries.GetProfileGroup(groupID)
+		profileGroup, err = stores.GetProfileGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
 			if err == nil {
@@ -306,7 +304,7 @@ func RemoveProfilesFromGroupEndpoint(response http.ResponseWriter, request *http
 				err := json.Unmarshal(body, &profileIDs)
 				if err == nil {
 					profileGroup.RemoveProfileIDsFromGroup(profileIDs.ProfileIDs)
-					profileGroup, err = commands.UpdateProfileGroup(groupID, profileGroup)
+					profileGroup, err = stores.UpdateProfileGroup(groupID, profileGroup)
 					if err != nil {
 						errorsList = append(errorsList, errors.UpdateProfileGroupError+err.Error())
 					}
@@ -322,7 +320,7 @@ func RemoveProfilesFromGroupEndpoint(response http.ResponseWriter, request *http
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	profileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroup)
+	profileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
@@ -340,7 +338,7 @@ func GetAllProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
-	profiles, err := queries.GetAllProfiles()
+	profiles, err := stores.GetAllProfiles()
 	if err != nil {
 		errorsList = append(errorsList, errors.GetAllProfilesError+err.Error())
 	}
@@ -363,7 +361,7 @@ func GetProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		profile, err = queries.GetProfile(ID)
+		profile, err = stores.GetProfile(ID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetProfileError+err.Error())
 		}
@@ -390,7 +388,7 @@ func CreateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 		err = entities.ParseProfile(profile, body)
 		if err == nil {
 			profile.CreationDate = time.Now().Unix()
-			err = commands.CreateProfile(*profile)
+			err = stores.CreateProfile(*profile)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())
 			}
@@ -418,7 +416,7 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		tasks, err := queries.GetTasksByProfileID(ID)
+		tasks, err := stores.GetTasksByProfileID(ID)
 		if err == nil {
 			next := true
 			taskStore := stores.GetTaskStore()
@@ -430,9 +428,9 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 				}
 			}
 			if next {
-				err = commands.RemoveTasksByProfileID(ID)
+				err = stores.RemoveTasksByProfileID(ID)
 				if err == nil {
-					profile, err = commands.RemoveProfile(ID)
+					profile, err = stores.RemoveProfile(ID)
 					if err != nil {
 						errorsList = append(errorsList, errors.RemoveProfileError+err.Error())
 					}
@@ -472,7 +470,7 @@ func UpdateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 		if err == nil {
 			err = entities.ParseProfile(newProfile, body)
 			if err == nil {
-				profile, err = commands.UpdateProfile(ID, *newProfile)
+				profile, err = stores.UpdateProfile(ID, *newProfile)
 				if err != nil {
 					errorsList = append(errorsList, errors.UpdateProfileError+err.Error())
 				}
@@ -504,7 +502,7 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		profile, err = queries.GetProfile(ID)
+		profile, err = stores.GetProfile(ID)
 		if err == nil {
 			newProfileID := uuid.New().String()
 			profile.SetID(newProfileID)
@@ -519,7 +517,7 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 			creditCard := &profile.CreditCard
 			creditCard.SetID(uuid.New().String())
 			creditCard.ProfileID = newProfileID
-			err = commands.CreateProfile(profile)
+			err = stores.CreateProfile(profile)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())
 			}
@@ -564,7 +562,7 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 			validGroupIDs := []string{}
 			validGroups := []entities.ProfileGroup{}
 			for _, groupID := range importProfilesRequestInfo.GroupIDs {
-				group, err := queries.GetProfileGroup(groupID)
+				group, err := stores.GetProfileGroup(groupID)
 				if err == nil && group.GroupID != "" {
 					validGroups = append(validGroups, group)
 					validGroupIDs = append(validGroupIDs, groupID)
@@ -584,7 +582,7 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 						newProfileIDs := []string{}
 						for _, profile := range profiles.Profiles {
 							// TODO @silent: Validate all fields
-							existingProfile, err := queries.GetProfileByName(profile.Name)
+							existingProfile, err := stores.GetProfileByName(profile.Name)
 							if err != nil || existingProfile.ID == "" || profile.Name == "" {
 								profile.ID = uuid.New().String()
 								profile.ProfileGroupIDs = validGroupIDs
@@ -603,7 +601,7 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 								if cardType != "" {
 									profile.CreditCard.CardType = cardType
 
-									err = commands.CreateProfile(profile)
+									err = stores.CreateProfile(profile)
 									if err == nil {
 										newProfiles = append(newProfiles, profile)
 										newProfileIDs = append(newProfileIDs, profile.ID)
@@ -620,7 +618,7 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 
 						for _, group := range validGroups {
 							group.AddProfileIDsToGroup(newProfileIDs)
-							_, err = commands.UpdateProfileGroup(group.GroupID, group)
+							_, err = stores.UpdateProfileGroup(group.GroupID, group)
 							if err != nil {
 								skippedGroups++
 							}
@@ -645,13 +643,13 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
 
-	profileGroups, err := queries.GetAllProfileGroups()
+	profileGroups, err := stores.GetAllProfileGroups()
 	if err != nil {
 		errorsList = append(errorsList, errors.GetAllProfileGroupsError+err.Error())
 	}
 	data := []entities.ProfileGroupWithProfiles{}
 	for i := 0; i < len(profileGroups); i++ {
-		newProfileGroupWithProfiles, err := queries.ConvertProfileIDsToProfiles(&profileGroups[i])
+		newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroups[i])
 		if err != nil {
 			errorsList = append(errorsList, errors.GetProfileError+err.Error())
 		}

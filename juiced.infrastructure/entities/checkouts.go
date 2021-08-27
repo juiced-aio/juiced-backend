@@ -1,7 +1,7 @@
 package entities
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 )
 
 // Checkout contains all the info that is stored in the local db

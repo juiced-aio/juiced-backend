@@ -1,11 +1,16 @@
 package helpers
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/rand"
 	"regexp"
 	"time"
+
+	"github.com/mergermarket/go-pkcs7"
 )
 
 var seededRand *rand.Rand = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -71,4 +76,65 @@ func FindInString(str string, start string, end string) (string, error) {
 	}
 
 	return parsed, nil
+}
+
+func Aes256Encrypt(plaintext string, key string) (string, error) {
+	bKey := []byte(key)
+	bPlaintext, err := pkcs7.Pad([]byte(plaintext), aes.BlockSize)
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(bKey)
+	if err != nil {
+		return "", err
+	}
+	cipherText := make([]byte, aes.BlockSize+len(bPlaintext))
+	bIV := cipherText[:aes.BlockSize]
+	if _, err := rand.Read(bIV); err != nil {
+		return "", err
+	}
+
+	mode := cipher.NewCBCEncrypter(block, bIV)
+	mode.CryptBlocks(cipherText[aes.BlockSize:], bPlaintext)
+	return fmt.Sprintf("%x", cipherText), nil
+}
+
+func Aes256Decrypt(encryptedText string, key string) (string, error) {
+	bKey := []byte(key)
+	cipherText, err := hex.DecodeString(encryptedText)
+	if err != nil {
+		return "", err
+	}
+
+	block, err := aes.NewCipher(bKey)
+	if err != nil {
+		return "", err
+	}
+
+	if len(cipherText) < aes.BlockSize {
+		return "", &CipherTextTooShortError{}
+	}
+	iv := cipherText[:aes.BlockSize]
+	cipherText = cipherText[aes.BlockSize:]
+	if len(cipherText)%aes.BlockSize != 0 {
+		return "", &CipherTextNotMultipleOfBlockSizeError{}
+	}
+
+	mode := cipher.NewCBCDecrypter(block, iv)
+	mode.CryptBlocks(cipherText, cipherText)
+
+	cipherText, err = pkcs7.Unpad(cipherText, aes.BlockSize)
+	return string(cipherText), err
+}
+
+func EncryptValues(key string, values ...string) (encryptedValues []string, _ error) {
+	for _, value := range values {
+		e, err := Aes256Encrypt(value, key)
+		if err != nil {
+			return encryptedValues, err
+		}
+		encryptedValues = append(encryptedValues, e)
+	}
+	return encryptedValues, nil
 }

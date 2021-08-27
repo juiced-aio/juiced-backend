@@ -1,10 +1,15 @@
 package stores
 
-type ProfileGroupStore struct{}
+import "backend.juicedbot.io/juiced.infrastructure/entities"
+
+type ProfileGroupStore struct {
+	ProfileGroups []entities.ProfileGroup
+}
 
 var profileGroupStore ProfileGroupStore
 
 func (store *ProfileGroupStore) Init() error {
-	// TODO
-	return nil
+	var err error
+	store.ProfileGroups, err = database.GetProfileGroups()
+	return err
 }

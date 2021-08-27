@@ -1,7 +1,7 @@
 package responses
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
 )
 
 // SettingsResponse is the response that any /api/settings request receives

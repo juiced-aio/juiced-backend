@@ -6,14 +6,12 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
-	"backend.juicedbot.io/juiced.infrastructure/commands"
-	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/errors"
-	"backend.juicedbot.io/juiced.infrastructure/common/stores"
-	"backend.juicedbot.io/juiced.infrastructure/queries"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
+	"backend.juicedbot.io/juiced.infrastructure/helpers"
+	"backend.juicedbot.io/juiced.infrastructure/stores"
 
 	"encoding/json"
 	"io/ioutil"
@@ -55,14 +53,14 @@ func GetTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroup, err = queries.GetTaskGroup(groupID)
+		taskGroup, err = stores.GetTaskGroup(groupID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
+	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -80,13 +78,13 @@ func GetAllTaskGroupsEndpoint(response http.ResponseWriter, request *http.Reques
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
-	taskGroups, err := queries.GetAllTaskGroups()
+	taskGroups, err := stores.GetAllTaskGroups()
 	if err != nil {
 		errorsList = append(errorsList, errors.GetAllTaskGroupsError+err.Error())
 	}
 	data := []entities.TaskGroupWithTasks{}
 	for i := 0; i < len(taskGroups); i++ {
-		newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroups[i])
+		newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroups[i])
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
@@ -122,7 +120,7 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		err = entities.ParseTaskGroup(taskGroup, body)
 		if err == nil {
 			taskGroup.CreationDate = time.Now().Unix()
-			err = commands.CreateTaskGroup(*taskGroup)
+			err = stores.CreateTaskGroup(*taskGroup)
 			if err != nil {
 				errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
 			}
@@ -132,7 +130,7 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(taskGroup)
+	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -159,14 +157,14 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroup, err = queries.GetTaskGroup(groupID)
+		taskGroup, err = stores.GetTaskGroup(groupID)
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
 			err = monitorStore.StopMonitor(&taskGroup)
 			if err == nil {
 				next := true
 				for _, taskID := range taskGroup.TaskIDs {
-					taskToStop, err := queries.GetTask(taskID)
+					taskToStop, err := stores.GetTask(taskID)
 					if err == nil {
 						taskStore := stores.GetTaskStore()
 						_, err = taskStore.StopTask(&taskToStop)
@@ -181,7 +179,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 					}
 				}
 				if next {
-					taskGroup, err = commands.RemoveTaskGroup(groupID, true)
+					taskGroup, err = stores.RemoveTaskGroup(groupID, true)
 					if err != nil {
 						errorsList = append(errorsList, errors.RemoveTaskGroupError+err.Error())
 					}
@@ -195,7 +193,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
+	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -270,7 +268,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroup, err := queries.GetTaskGroup(groupID)
+		taskGroup, err := stores.GetTaskGroup(groupID)
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
 			err = monitorStore.StopMonitor(&taskGroup)
@@ -514,7 +512,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 
 						}
 
-						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
+						newTaskGroup, err = stores.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
 							newTaskGroup.UpdateMonitor = true
 							err = monitorStore.AddMonitorToStore(&newTaskGroup)
@@ -539,7 +537,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -564,21 +562,21 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 	groupID, ok := params["GroupID"]
 
 	if ok {
-		newTaskGroup, err = queries.GetTaskGroup(groupID)
+		newTaskGroup, err = stores.GetTaskGroup(groupID)
 		if err == nil {
 			newTaskGroup.SetGroupID(uuid.New().String())
-			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + common.RandID(4) + ")")
+			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + helpers.RandID(4) + ")")
 			newTaskGroup.CreationDate = time.Now().Unix()
 			newTaskIDs := make([]string, 0)
 			for _, taskID := range newTaskGroup.TaskIDs {
 				var task entities.Task
-				task, err = queries.GetTask(taskID)
+				task, err = stores.GetTask(taskID)
 				if err != nil {
 					break
 				}
 				task.ID = uuid.New().String()
 				task.TaskGroupID = newTaskGroup.GroupID
-				err = commands.CreateTask(task)
+				err = stores.CreateTask(task)
 				if err != nil {
 					break
 				}
@@ -586,7 +584,7 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 			}
 			if err == nil {
 				newTaskGroup.TaskIDs = newTaskIDs
-				err = commands.CreateTaskGroup(newTaskGroup)
+				err = stores.CreateTaskGroup(newTaskGroup)
 				if err != nil {
 					errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
 				}
@@ -599,7 +597,7 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -624,7 +622,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroupToStart, err = queries.GetTaskGroup(groupID)
+		taskGroupToStart, err = stores.GetTaskGroup(groupID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			warningsList, err = taskStore.StartTaskGroup(&taskGroupToStart)
@@ -638,7 +636,7 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
-	taskGroupToStartWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroupToStart)
+	taskGroupToStartWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroupToStart)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -662,7 +660,7 @@ func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroupToStop, err = queries.GetTaskGroup(groupID)
+		taskGroupToStop, err = stores.GetTaskGroup(groupID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			err = taskStore.StopTaskGroup(&taskGroupToStop)
@@ -676,7 +674,7 @@ func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
-	taskGroupToStopWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroupToStop)
+	taskGroupToStopWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroupToStop)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -705,7 +703,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	if ok {
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
-			newTaskGroup, err = queries.GetTaskGroup(groupID)
+			newTaskGroup, err = stores.GetTaskGroup(groupID)
 			if err == nil {
 				deleteTasksRequestInfo := DeleteTasksRequest{}
 				err = json.Unmarshal(body, &deleteTasksRequestInfo)
@@ -723,11 +721,11 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 						}
 					}
 					newTaskGroup.SetTaskIDs(newTaskIDs)
-					newTaskGroup, err = commands.UpdateTaskGroup(groupID, newTaskGroup)
+					newTaskGroup, err = stores.UpdateTaskGroup(groupID, newTaskGroup)
 					if err == nil {
 						taskStore := stores.GetTaskStore()
 						for i := 0; i < len(deleteTasksRequestInfo.TaskIDs); i++ {
-							task, err := queries.GetTask(deleteTasksRequestInfo.TaskIDs[i])
+							task, err := stores.GetTask(deleteTasksRequestInfo.TaskIDs[i])
 							if err == nil {
 								taskStore.StopTask(&task)
 							} else {
@@ -756,7 +754,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -774,7 +772,7 @@ func GetAllTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
-	tasks, err := queries.GetAllTasks()
+	tasks, err := stores.GetAllTasks()
 	if err != nil {
 		errorsList = append(errorsList, errors.GetAllTasksError+err.Error())
 	}
@@ -797,7 +795,7 @@ func GetTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		task, err = queries.GetTask(ID)
+		task, err = stores.GetTask(ID)
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
@@ -888,7 +886,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 
 				case enums.Shopify:
 					task.ShopifyTaskInfo = createTaskRequestInfo.ShopifyTaskInfo
-					taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
+					taskGroup, err := stores.GetTaskGroup(task.TaskGroupID)
 					if err == nil {
 						task.ShopifyTaskInfo.SitePassword = taskGroup.ShopifyMonitorInfo.SitePassword
 						task.ShopifyTaskInfo.SiteURL = taskGroup.ShopifyMonitorInfo.SiteURL
@@ -912,22 +910,22 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				profileIDs := createTaskRequestInfo.ProfileIDs
 				if createTaskRequestInfo.ProfileGroupID != "" {
 					var profileGroup entities.ProfileGroup
-					profileGroup, err = queries.GetProfileGroup(createTaskRequestInfo.ProfileGroupID)
+					profileGroup, err = stores.GetProfileGroup(createTaskRequestInfo.ProfileGroupID)
 					profileIDs = profileGroup.ProfileIDs
 				}
 
 				if err == nil {
-					oldTaskGroup, err := queries.GetTaskGroup(groupID)
+					oldTaskGroup, err := stores.GetTaskGroup(groupID)
 					if err == nil {
 						for i := 0; i < len(profileIDs); i++ {
-							profile, err := queries.GetProfile(profileIDs[i])
+							profile, err := stores.GetProfile(profileIDs[i])
 							if profile.ID != "" && err == nil {
 								task.SetTaskProfileID(profileIDs[i])
 								var createTaskError error
 								for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
 									task.SetID(uuid.New().String())
 									task.CreationDate = time.Now().Unix()
-									err = commands.CreateTask(*task)
+									err = stores.CreateTask(*task)
 									if err != nil {
 										createTaskError = err
 										break
@@ -941,7 +939,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 						}
 
 						if err == nil {
-							newTaskGroup, err = commands.UpdateTaskGroup(groupID, oldTaskGroup)
+							newTaskGroup, err = stores.UpdateTaskGroup(groupID, oldTaskGroup)
 							if err != nil {
 								errorsList = append(errorsList, errors.AddTaskToGroupError+err.Error())
 							}
@@ -964,7 +962,7 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
-	newTaskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -1008,7 +1006,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		taskGroup, err = queries.GetTaskGroup(groupID)
+		taskGroup, err = stores.GetTaskGroup(groupID)
 		if err == nil {
 			body, err := ioutil.ReadAll(request.Body)
 			if err == nil {
@@ -1017,7 +1015,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 				if err == nil {
 					singleTask := len(updateTasksRequestInfo.TaskIDs) == 1
 					for _, taskID := range updateTasksRequestInfo.TaskIDs {
-						task, err := queries.GetTask(taskID)
+						task, err := stores.GetTask(taskID)
 						if err == nil {
 							taskStore := stores.GetTaskStore()
 							var wasRunning bool
@@ -1131,7 +1129,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 								case enums.Walmart:
 
 								}
-								_, err = commands.UpdateTask(taskID, task)
+								_, err = stores.UpdateTask(taskID, task)
 								if err == nil {
 									task.UpdateTask = true
 									if wasRunning {
@@ -1163,7 +1161,7 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
-	taskGroupWithTasks, err := queries.ConvertTaskIDsToTasks(&taskGroup)
+	taskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
@@ -1188,17 +1186,17 @@ func CloneTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		task, err = queries.GetTask(ID)
+		task, err = stores.GetTask(ID)
 		if err == nil {
 			task.SetID(uuid.New().String())
 			task.CreationDate = time.Now().Unix()
-			err = commands.CreateTask(task)
+			err = stores.CreateTask(task)
 			if err == nil {
 				var taskGroup entities.TaskGroup
-				taskGroup, err = queries.GetTaskGroup(task.TaskGroupID)
+				taskGroup, err = stores.GetTaskGroup(task.TaskGroupID)
 				taskGroup.TaskIDs = append(taskGroup.TaskIDs, task.ID)
 				if err == nil {
-					taskGroup, err = commands.UpdateTaskGroup(taskGroup.GroupID, taskGroup)
+					taskGroup, err = stores.UpdateTaskGroup(taskGroup.GroupID, taskGroup)
 					if err != nil {
 						errorsList = append(errorsList, errors.CreateTaskError+err.Error())
 					}
@@ -1233,7 +1231,7 @@ func StartTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		taskToStart, err = queries.GetTask(ID)
+		taskToStart, err = stores.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			err = taskStore.StartTask(&taskToStart)
@@ -1266,12 +1264,12 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		taskToStop, err = queries.GetTask(ID)
+		taskToStop, err = stores.GetTask(ID)
 		if err == nil {
 			taskStore := stores.GetTaskStore()
 			_, err = taskStore.StopTask(&taskToStop)
 			if err == nil {
-				taskGroup, err = queries.GetTaskGroup(taskToStop.TaskGroupID)
+				taskGroup, err = stores.GetTaskGroup(taskToStop.TaskGroupID)
 				if err == nil {
 					if !taskStore.TasksRunning(taskGroup.TaskIDs, taskGroup.MonitorRetailer) {
 						monitorStore := stores.GetMonitorStore()
