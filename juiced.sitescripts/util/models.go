@@ -60,6 +60,8 @@ type MonitorInfo struct {
 	Scraper    hawk.Scraper
 	StopFlag   bool
 	ErrorField string
+
+	InStock []StockInfo
 }
 
 type ErrorType = string

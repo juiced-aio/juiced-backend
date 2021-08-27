@@ -27,7 +27,6 @@ type RetailTask interface {
 }
 
 func (baseTask *Task) CreateRetailerTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, data interface{}) error {
-
 	var err error
 
 	switch baseTask.Retailer {

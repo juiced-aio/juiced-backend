@@ -15,6 +15,10 @@ import (
 	"github.com/anaskhan96/soup"
 )
 
+func (monitor *Monitor) GetMonitorInfo() *util.MonitorInfo {
+	return monitor.MonitorInfo
+}
+
 // CreatePokemonCenterMonitor takes a TaskGroup entity and turns it into a pokemoncenter Monitor
 func CreatePokemonCenterMonitor(singleMonitors []entities.PokemonCenterSingleMonitorInfo) (Monitor, error) {
 	storedPokemonCenterMonitors := make(map[string]entities.PokemonCenterSingleMonitorInfo)
@@ -115,11 +119,11 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			}
 
 			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
+			for _, monitorStock := range monitor.MonitorInfo.InStock {
 				inSlice = monitorStock.SKU == stockData.SKU
 			}
 			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
+				monitor.MonitorInfo.InStock = append(monitor.MonitorInfo.InStock, stockData)
 				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
 				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
@@ -133,9 +137,9 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
-			for i, monitorStock := range monitor.InStock {
+			for i, monitorStock := range monitor.MonitorInfo.InStock {
 				if monitorStock.SKU == stockData.SKU {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+					monitor.MonitorInfo.InStock = append(monitor.MonitorInfo.InStock[:i], monitor.MonitorInfo.InStock[i+1:]...)
 					break
 				}
 			}

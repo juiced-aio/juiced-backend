@@ -21,7 +21,7 @@ func (baseTask *Task) CreatePokemonCenterTask(task *entities.Task, profile entit
 	return nil
 }
 
-func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.PokemonCenterSingleMonitorInfo) (*pokemoncenter.Monitor, error) {
+func (baseMonitor *Monitor) CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.PokemonCenterSingleMonitorInfo) error {
 	storedPokemonCenterMonitors := make(map[string]entities.PokemonCenterSingleMonitorInfo)
 	skus := []string{}
 
@@ -30,7 +30,7 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 		skus = append(skus, monitor.SKU)
 	}
 
-	return &pokemoncenter.Monitor{
+	baseMonitor.RetailMonitor = &pokemoncenter.Monitor{
 		MonitorInfo: &util.MonitorInfo{
 			TaskGroup:  taskGroup,
 			ProxyGroup: proxyGroup,
@@ -38,5 +38,7 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 		},
 		SKUs:        skus,
 		SKUWithInfo: storedPokemonCenterMonitors,
-	}, nil
+	}
+
+	return nil
 }

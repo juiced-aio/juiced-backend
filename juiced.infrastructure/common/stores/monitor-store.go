@@ -558,17 +558,14 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 func (monitorStore *MonitorStore) CheckMonitorStock() {
 	for {
 		for monitorID, baseMonitor := range monitorStore.Monitors {
-			switch baseMonitor.Retailer {
-			case enums.PokemonCenter:
-				if len(baseMonitor.PokemonCenterMonitor.InStock) > 0 {
-					taskGroup := baseMonitor.PokemonCenterMonitor.MonitorInfo.TaskGroup
-					for _, taskID := range taskGroup.TaskIDs {
-						if baseTask, ok := taskStore.Tasks[taskID]; ok {
-							if ok && baseTask.GetTaskInfo().Task.TaskGroupID == monitorID {
-								randomNumber := rand.Intn(len(baseMonitor.PokemonCenterMonitor.InStock))
-								stockInfo := baseMonitor.PokemonCenterMonitor.InStock[randomNumber]
-								baseTask.FillStockInfo(stockInfo)
-							}
+			if len(baseMonitor.GetMonitorInfo().InStock) > 0 {
+				taskGroup := baseMonitor.GetMonitorInfo().TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if baseTask, ok := taskStore.Tasks[taskID]; ok {
+						if ok && baseTask.GetTaskInfo().Task.TaskGroupID == monitorID {
+							randomNumber := rand.Intn(len(baseMonitor.GetMonitorInfo().InStock))
+							stockInfo := baseMonitor.GetMonitorInfo().InStock[randomNumber]
+							baseTask.FillStockInfo(stockInfo)
 						}
 					}
 				}

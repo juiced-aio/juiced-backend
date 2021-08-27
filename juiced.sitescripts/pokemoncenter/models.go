@@ -53,7 +53,6 @@ type Monitor struct {
 	RunningMonitors []string
 	OutOfStockSKUs  []string
 	SKUs            []string
-	InStock         []util.StockInfo
 	SKUWithInfo     map[string]entities.PokemonCenterSingleMonitorInfo
 }
 
