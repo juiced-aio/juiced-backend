@@ -382,7 +382,11 @@ func (task *Task) Login() bool {
 		return false
 	}
 	for token == nil {
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, BaseEndpoint+"/", task.Task.Proxy)
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return false
+		}
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, BaseEndpoint+"/", proxy)
 		time.Sleep(1 * time.Second / 10)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
