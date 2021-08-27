@@ -329,16 +329,18 @@ func (task *Task) Preload() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+	task.Task.Running = false
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
 		if task.InStockData.VariantID != "" {
-			time.Sleep(common.MS_TO_WAIT)
+			task.VariantID = task.InStockData.VariantID
+			task.Task.Running = true
 			return false
 		}
-		task.VariantID = task.InStockData.VariantID
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 

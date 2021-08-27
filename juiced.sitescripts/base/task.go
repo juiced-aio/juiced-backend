@@ -19,6 +19,7 @@ type Task struct {
 	Scraper    hawk.Scraper
 	StartTime  time.Time
 	EndTime    time.Time
+	Running    bool
 	StopFlag   bool
 	ErrorField string
 }

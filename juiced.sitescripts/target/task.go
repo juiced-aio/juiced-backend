@@ -560,6 +560,7 @@ func (task *Task) ClearCart() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+	task.Task.Running = false
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -568,6 +569,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.InStockData.TCIN != "" {
 			task.TCINType = task.InStockData.TCINType
 			task.TCIN = task.InStockData.TCIN
+			task.Task.Running = true
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
