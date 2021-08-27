@@ -2,10 +2,13 @@ package queries
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 )
 
 // GetSettings returns the settings object from the database
@@ -53,6 +56,57 @@ func GetAccounts() ([]entities.Account, error) {
 		if err != nil {
 			return accounts, err
 		}
+
+		var encryptedEmail string
+		var encryptedPassword string
+		decryptedEmail, err := common.Aes256Decrypt(account.Email, enums.UserKey)
+		if err == nil {
+			account.Email = decryptedEmail
+		} else {
+			encryptedEmail, err = common.Aes256Encrypt(account.Email, enums.UserKey)
+			if err != nil {
+				return accounts, err
+			}
+		}
+
+		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		if err == nil {
+			account.Password = decryptedPassword
+		} else {
+			encryptedPassword, err = common.Aes256Encrypt(account.Password, enums.UserKey)
+			if err != nil {
+				return accounts, err
+			}
+		}
+
+		if encryptedEmail != "" {
+			go func() {
+				for {
+					_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET email = "%v" WHERE ID = "%v"`, encryptedEmail, account.ID))
+					if err != nil {
+						time.Sleep(1 * time.Second)
+						continue
+					} else {
+						break
+					}
+				}
+			}()
+		}
+
+		if encryptedPassword != "" {
+			go func() {
+				for {
+					_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET password = "%v" WHERE ID = "%v"`, encryptedPassword, account.ID))
+					if err != nil {
+						time.Sleep(1 * time.Second)
+						continue
+					} else {
+						break
+					}
+				}
+			}()
+		}
+
 		accounts = append(accounts, account)
 	}
 
@@ -87,6 +141,57 @@ func GetAccount(ID string) (entities.Account, error) {
 		if err != nil {
 			return account, err
 		}
+
+		var encryptedEmail string
+		var encryptedPassword string
+		decryptedEmail, err := common.Aes256Decrypt(account.Email, enums.UserKey)
+		if err == nil {
+			account.Email = decryptedEmail
+		} else {
+			encryptedEmail, err = common.Aes256Encrypt(account.Email, enums.UserKey)
+			if err != nil {
+				return account, err
+			}
+		}
+
+		decryptedPassword, err := common.Aes256Decrypt(account.Password, enums.UserKey)
+		if err == nil {
+			account.Password = decryptedPassword
+		} else {
+			encryptedPassword, err = common.Aes256Encrypt(account.Password, enums.UserKey)
+			if err != nil {
+				return account, err
+			}
+		}
+
+		if encryptedEmail != "" {
+			go func() {
+				for {
+					_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET email = "%v" WHERE ID = "%v"`, encryptedEmail, account.ID))
+					if err != nil {
+						time.Sleep(1 * time.Second)
+						continue
+					} else {
+						break
+					}
+				}
+			}()
+		}
+
+		if encryptedPassword != "" {
+			go func() {
+				for {
+					_, err = database.Exec(fmt.Sprintf(`UPDATE accounts SET password = "%v" WHERE ID = "%v"`, encryptedPassword, account.ID))
+					if err != nil {
+						time.Sleep(1 * time.Second)
+						continue
+					} else {
+						break
+					}
+				}
+			}()
+		}
+
 	}
 
 	return account, nil

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"testing"
 
 	"backend.juicedbot.io/juiced.client/http"
 	utls "backend.juicedbot.io/juiced.client/utls"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 )
 
 type FingerprintResponse struct {
@@ -28,7 +30,7 @@ const Chrome90ID = "8466c4390d4bc355"
 
 //, "http://localhost:8888"
 //, "http://209.127.191.180:9279"
-var client, _ = NewClient(utls.HelloChrome_90, "http://localhost:8888") // cannot throw an error because there is no proxy
+var client, _ = NewClient(utls.HelloChrome_83) // cannot throw an error because there is no proxy
 
 func TestClient_ID(t *testing.T) {
 	os.Setenv("JUICED_MODE", "DEV")
@@ -57,7 +59,7 @@ func TestClient_HTTP2(t *testing.T) {
 	os.Setenv("JUICED_MODE", "DEV")
 	//https://http2.golang.org/serverpush
 
-	req, _ := http.NewRequest("GET", "https://www.google.com", nil)
+	req, _ := http.NewRequest("GET", "https://ezdiscord.xyz/fingerprint", nil)
 
 	req.RawHeader = [][2]string{
 		//{"content-length", "5"},
@@ -69,17 +71,16 @@ func TestClient_HTTP2(t *testing.T) {
 		{"eee", "e IS ee"},
 		{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
 	}
-
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	/* 	body, err := readAndClose(resp.Body)
-	   	if err != nil {
-	   		t.Fatal("err")
-	   	}
-	   	fmt.Println(string(body)) */
+	body, err := readAndClose(resp.Body)
+	if err != nil {
+		t.Fatal("err")
+	}
+	log.Fatal(string(body))
 	fmt.Println(resp.Status)
 	resp.Body.Close()
 	if resp.ProtoMajor != 2 || resp.ProtoMinor != 0 {
@@ -96,7 +97,7 @@ func TestProxy(t *testing.T) {
 
 	fmt.Println(resp)
 
-	UpdateProxy(&client, "http://localhost:8888")
+	UpdateProxy(&client, &entities.Proxy{Host: "localhost", Port: "8888"})
 	resp, err = client.Get("https://www.google.com")
 	if err != nil {
 		t.Fatal(err)

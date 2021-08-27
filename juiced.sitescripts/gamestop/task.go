@@ -18,15 +18,15 @@ import (
 )
 
 // CreateGamestopTask takes a Task entity and turns it into a Gamestop Task
-func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
+func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, taskType enums.TaskType, email, password string) (Task, error) {
 	gamestopTask := Task{}
 
 	gamestopTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -34,19 +34,22 @@ func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxy ent
 		},
 		TaskType: taskType,
 	}
+	if proxyGroup != nil {
+		gamestopTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
 	return gamestopTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
 	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
 	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -66,20 +69,22 @@ func (task *Task) RunTask() {
 	defer func() {
 		if recover() != nil {
 			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty <= 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -90,10 +95,10 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
-			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart, 10)
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
-			task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			task.PublishEvent(enums.SettingUp, enums.TaskStart, 10)
 			sessionMade = BecomeGuest(&task.Task.Client)
 		}
 
@@ -102,14 +107,14 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
 	// 2. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	// 3. AddToCart
 	addedToCart := false
 	for !addedToCart {
@@ -123,8 +128,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
-
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 60)
 	startTime := time.Now()
 	// 4. Checkout
 	gotCartInfo := false
@@ -139,7 +143,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	// 5. SetShippingInfo
 
 	setShippingInfo := false
@@ -154,7 +158,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
 	doNotRetry := false
@@ -169,7 +173,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 7. PlaceOrder
 	placedOrder := false
 	status := enums.OrderStatusFailed
@@ -196,11 +200,11 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
 	}
 
 }
@@ -215,6 +219,11 @@ func (task *Task) Login() bool {
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+
+	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
+	if err != nil {
+		return false
 	}
 
 	loginResponse := LoginResponse{}
@@ -291,18 +300,23 @@ func (task *Task) WaitForMonitor() bool {
 		if needToStop {
 			return true
 		}
-		if task.CheckoutInfo.SKUInStock != "" {
+		if task.StockData.SKU != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
 // AddToCart adds an item to the cart
 func (task *Task) AddToCart() bool {
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
 	addToCartResponse := AddToCartResponse{}
 	form := url.Values{
-		"pid":            {task.CheckoutInfo.PID},
+		"pid":            {task.StockData.PID},
+		"quantity":       {fmt.Sprint(quantity)},
 		"upsellID":       {""},
 		"purPROID":       {""},
 		"options":        {"[]"},
@@ -314,7 +328,7 @@ func (task *Task) AddToCart() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint, task.CheckoutInfo.SKUInStock),
+		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.SKU),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -327,7 +341,7 @@ func (task *Task) AddToCart() bool {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", task.CheckoutInfo.ProductURL},
+			{"referer", task.StockData.ProductURL},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -586,18 +600,27 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Content:      "",
-		Embeds:       task.CreateGamestopEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.CheckoutInfo.ItemName,
-		Sku:          task.CheckoutInfo.SKUInStock,
-		Retailer:     enums.GameStop,
-		Price:        task.CheckoutInfo.Price,
-		Quantity:     1,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateGamestopEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ItemName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.SKU,
+			Retailer:     enums.GameStop,
+			Price:        task.StockData.Price,
+			Quantity:     quantity,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 

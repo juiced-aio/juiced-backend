@@ -3,7 +3,6 @@ package util
 import (
 	"errors"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
@@ -23,32 +22,8 @@ func TestMain(m *testing.M) {
 	m.Run()
 }
 
-func TestCreateClient(t *testing.T) {
-	type args struct {
-		proxy []entities.Proxy
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{name: "Success W/O Proxy", wantErr: false},
-		{name: "Success W Regular Proxy", args: args{proxy: []entities.Proxy{{Host: "localhost", Port: "3000"}}}, wantErr: false},
-		{name: "Success W User-Pass Proxy", args: args{proxy: []entities.Proxy{{Host: "localhost", Port: "3000", Username: "admin", Password: "password"}}}, wantErr: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := CreateClient(tt.args.proxy...)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CreateClient() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-		})
-	}
-}
-
 func TestMakeRequest(t *testing.T) {
-	client, _ := CreateClient()
+	client := *http.DefaultClient
 	type args struct {
 		requestInfo *Request
 	}
@@ -100,54 +75,6 @@ func TestSendDiscordWebhook(t *testing.T) {
 	}
 }
 
-func TestCreateParams(t *testing.T) {
-	type args struct {
-		paramsLong map[string]string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    string
-		wantErr bool
-	}{
-		{name: "One", args: args{paramsLong: map[string]string{"ONE": "TRUE"}}, want: "ONE=TRUE"},
-		{name: "Two", args: args{paramsLong: map[string]string{"ONE": "TRUE", "TWO": "TRUE"}}, want: "ONE=TRUE&TWO=TRUE"},
-		{name: "Three", args: args{paramsLong: map[string]string{"ONE": "TRUE", "TWO": "TRUE", "THREE": "TRUE"}}, want: "ONE=TRUE&TWO=TRUE&THREE=TRUE"},
-		{name: "Three Bad", args: args{paramsLong: map[string]string{"ONE": "TRUE", "TWO": "TRUE", "THREE": "TRUE"}}, want: "ONE=TRUE&TWO=TRUE&THREE=WRONG", wantErr: true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			success := true
-			params := make(map[string]string)
-			badParams := []string{}
-			got := CreateParams(tt.args.paramsLong)
-			splitted1 := strings.Split(got, "&")
-			for _, split1 := range splitted1 {
-				splitted2 := strings.Split(split1, "=")
-				params[splitted2[0]] = splitted2[1]
-			}
-			wantSplitted1 := strings.Split(tt.want, "&")
-			for _, wantSplit1 := range wantSplitted1 {
-				wantSplitted2 := strings.Split(wantSplit1, "=")
-				param, ok := params[wantSplitted2[0]]
-				if !ok {
-					success = false
-					badParams = append(badParams, wantSplitted2[0])
-					break
-				}
-				if param != wantSplitted2[1] {
-					success = false
-					badParams = append(badParams, wantSplitted2[0])
-					break
-				}
-			}
-			if !success && !tt.wantErr {
-				t.Errorf("CreateParams() returned wrong key(s) %v", badParams)
-			}
-		})
-	}
-}
-
 func TestTernaryOperator(t *testing.T) {
 	type args struct {
 		condition    bool
@@ -173,16 +100,16 @@ func TestTernaryOperator(t *testing.T) {
 
 func TestProxyCleaner(t *testing.T) {
 	type args struct {
-		proxyDirty entities.Proxy
+		proxyDirty *entities.Proxy
 	}
 	tests := []struct {
 		name string
 		args args
 		want string
 	}{
-		{name: "Incorrect Proxy", args: args{proxyDirty: entities.Proxy{}}, want: ""},
-		{name: "User-Pass Proxy", args: args{proxyDirty: entities.Proxy{Host: "randomprovider", Port: "3000", Username: "admin", Password: "password"}}, want: "http://admin:password@randomprovider:3000"},
-		{name: "Regular Proxy", args: args{proxyDirty: entities.Proxy{Host: "randomprovider", Port: "3000"}}, want: "http://randomprovider:3000"},
+		{name: "Incorrect Proxy", args: args{proxyDirty: &entities.Proxy{}}, want: ""},
+		{name: "User-Pass Proxy", args: args{proxyDirty: &entities.Proxy{Host: "randomprovider", Port: "3000", Username: "admin", Password: "password"}}, want: "http://admin:password@randomprovider:3000"},
+		{name: "Regular Proxy", args: args{proxyDirty: &entities.Proxy{Host: "randomprovider", Port: "3000"}}, want: "http://randomprovider:3000"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -223,8 +150,9 @@ func TestFindInString(t *testing.T) {
 }
 
 func TestNewAbck(t *testing.T) {
-	client, _ := CreateClient()
-	bestbuyURL := "https://www.bestbuy.com"
+	//entities.Proxy{Host: "localhost", Port: "8888"}
+	client := *http.DefaultClient
+	bestbuyURL := "https://www.bestbuy.com/"
 	akamaiURL := "https://www.bestbuy.com/Z43Qo-szvQDrezPFUWbI-oosQsM/9YOhShXz9OX1/D3ZjQkgC/EWdSfC5P/DlY"
 	type args struct {
 		abckClient     *http.Client
@@ -254,7 +182,7 @@ func TestGetPXCookie(t *testing.T) {
 	walmartURL := "https://www.walmart.com"
 	type args struct {
 		site  string
-		proxy entities.Proxy
+		proxy *entities.Proxy
 	}
 	tests := []struct {
 		name    string
@@ -277,7 +205,7 @@ func TestGetPXCookie(t *testing.T) {
 
 func TestGetPXCapCookie(t *testing.T) {
 	walmartURL := "https://www.walmart.com"
-	_, pxValues, _, err := GetPXCookie(walmartURL, entities.Proxy{}, &CancellationToken{})
+	_, pxValues, _, err := GetPXCookie(walmartURL, &entities.Proxy{}, &CancellationToken{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -302,14 +230,14 @@ func TestGetPXCapCookie(t *testing.T) {
 		vid   string
 		uuid  string
 		token string
-		proxy entities.Proxy
+		proxy *entities.Proxy
 	}
 	tests := []struct {
 		name    string
 		args    args
 		wantErr bool
 	}{
-		{name: "Success", args: args{site: walmartURL, setID: pxValues.SetID, vid: pxValues.VID, uuid: pxValues.UUID, token: tokenInfo.Token, proxy: entities.Proxy{}}, wantErr: false},
+		{name: "Success", args: args{site: walmartURL, setID: pxValues.SetID, vid: pxValues.VID, uuid: pxValues.UUID, token: tokenInfo.Token, proxy: &entities.Proxy{}}, wantErr: false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -317,6 +245,28 @@ func TestGetPXCapCookie(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("GetPXCapCookie() error = %v, wantErr %v", err, tt.wantErr)
 				return
+			}
+		})
+	}
+}
+
+func TestRandomLeastUsedProxy(t *testing.T) {
+	type args struct {
+		proxies []*entities.Proxy
+	}
+	tests := []struct {
+		args args
+		want *entities.Proxy
+	}{
+		{args{}, &entities.Proxy{}},
+		{args{[]*entities.Proxy{{Count: 1}}}, &entities.Proxy{Count: 1}},
+		{args{[]*entities.Proxy{{Count: 1}, {Count: 2}, {Count: 3}}}, &entities.Proxy{Count: 1}},
+		{args{[]*entities.Proxy{{Count: 1}, {Count: 2}, {Count: 2}, {Count: 2}, {Count: 3}, {Count: 3}, {Count: 3}, {Count: 3}}}, &entities.Proxy{Count: 1}},
+	}
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			if got := RandomLeastUsedProxy(tt.args.proxies); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RandomLeastUsedProxy() = %v, want %v", got, tt.want)
 			}
 		})
 	}

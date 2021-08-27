@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -22,13 +24,13 @@ import (
 )
 
 // CreateBestbuyTask takes a Task entity and turns it into a Bestbuy Task
-func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, taskType enums.TaskType, locationID, email, password string) (Task, error) {
+func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, taskType enums.TaskType, locationID, email, password string) (Task, error) {
 	bestbuyTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -37,19 +39,22 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxy enti
 		TaskType:   taskType,
 		LocationID: locationID,
 	}
+	if proxyGroup != nil {
+		bestbuyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
 	return bestbuyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
 	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
 	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -69,20 +74,22 @@ func (task *Task) RunTask() {
 	defer func() {
 		if recover() != nil {
 			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty <= 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Login / Become a guest
 	sessionMade := false
@@ -93,10 +100,10 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
-			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart, 10)
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
-			task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			task.PublishEvent(enums.SettingUp, enums.TaskStart, 10)
 			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
@@ -105,14 +112,14 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
 	// 2. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	// 3. AddtoCart / Handle a queue
 	addedToCart := false
 	for !addedToCart {
@@ -130,7 +137,7 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 35)
 
 	startTime := time.Now()
 	// 4. Checkout
@@ -146,7 +153,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 60)
 	// 5. SetShippingInfo
 
 	setShippingInfo := false
@@ -161,7 +168,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 75)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
 	doNotRetry := false
@@ -176,7 +183,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 7. PlaceOrder
 	placedOrder := false
 	status := enums.OrderStatusFailed
@@ -202,11 +209,11 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
 	}
 
 }
@@ -398,25 +405,27 @@ func (task *Task) WaitForMonitor() bool {
 		if task.CheckoutInfo.SKUInStock != "" {
 			return false
 		}
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
 // AddToCart adds the item to cart and also handles a queue if there is one
 func (task *Task) AddToCart() bool {
-	var (
-		a2TransactionCode string
-		a2TransactionID   string
-	)
-
 	addToCartRequest := AddToCartRequest{
-		Items: []Items{
-			{Skuid: task.CheckoutInfo.SKUInStock},
-		},
+		Items: []Items{},
 	}
+	quantity := task.Task.Task.TaskQty
+	if task.CheckoutInfo.MaxQuantity != 0 && quantity > task.CheckoutInfo.MaxQuantity {
+		quantity = task.CheckoutInfo.MaxQuantity
+	}
+	for i := 0; i < quantity; i++ {
+		addToCartRequest.Items = append(addToCartRequest.Items, Items{Skuid: task.CheckoutInfo.SKUInStock})
+	}
+
 	data, _ := json.Marshal(addToCartRequest)
 	addToCartResponse := AddToCartResponse{}
 	var handled bool
+
 	for !handled {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -466,103 +475,20 @@ func (task *Task) AddToCart() bool {
 		case 200:
 			handled = true
 		case 400:
-			a2TransactionCode = resp.Header.Get("a2ctransactioncode")
-			a2TransactionID = resp.Header.Get("a2ctransactionreferenceid")
-			times, err := CheckTime(a2TransactionCode)
-			if err != nil {
-				fmt.Println(err.Error())
-				return false
-			}
-			fmt.Println(times)
-			if times < 6 {
-				// @silent: I added these just because, I think the users will like something like this though
-				task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Joining Queue", enums.TaskUpdate)
-				for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
-					if cookie.Name == "_abck" {
-						validator, _ := util.FindInString(cookie.Value, "~", "~")
-						if validator == "-1" {
-							err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
-							if err != nil {
-								return false
-							}
-						}
-					}
-				}
-				fmt.Println("Joining Queue")
-				queueChan := make(chan bool)
-				go func() {
-					time.Sleep(time.Duration(times*60000) * time.Millisecond)
-					queueChan <- true
-				}()
-				go func() {
-					for {
-						queueChan <- false
-						time.Sleep(1 * time.Millisecond)
-					}
-				}()
-				for {
-					qaf := <-queueChan
-					if qaf {
-						break
-					}
-					needToStop := task.CheckForStop()
-					if needToStop {
-						return true
-					}
-				}
-				task.PublishEvent("Queue is up", enums.TaskUpdate)
-				fmt.Println("Out of Queue")
-				addToCartResponse = AddToCartResponse{}
-				resp, _, err := util.MakeRequest(&util.Request{
-					Client: task.Task.Client,
-					Method: "POST",
-					URL:    AddToCartEndpoint,
-					RawHeaders: [][2]string{
-						{"content-length", fmt.Sprint(len(data))},
-						{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-						{"accept", "application/json"},
-						{"a2ctransactioncode", a2TransactionCode},
-						{"a2ctransactionreferenceid", a2TransactionID},
-						{"sec-ch-ua-mobile", "?0"},
-						{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-						{"content-type", "application/json; charset=UTF-8"},
-						{"origin", BaseEndpoint},
-						{"sec-fetch-site", "same-origin"},
-						{"sec-fetch-mode", "cors"},
-						{"sec-fetch-dest", "empty"},
-						{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock)},
-						{"accept-encoding", "gzip, deflate, br"},
-						{"accept-language", "en-US,en;q=0.9"},
-					},
-					Data:               data,
-					ResponseBodyStruct: &addToCartResponse,
-				})
-				ok := util.HandleErrors(err, util.RequestDoError)
-				if !ok {
+			switch addToCartResponse.Errorsummary.Errorcode {
+			case "ITEM_MAX_QUANTITY_EXCEEDED":
+				quantity, err := common.FindInString(addToCartResponse.Errorsummary.Message, "limited to ", " per customer")
+				if err != nil {
 					return false
 				}
-
-				switch resp.StatusCode {
-				case 200:
-					handled = true
-				case 400:
-					switch addToCartResponse.Errorsummary.Errorcode {
-					case "ITEM_MAX_QUANTITY_EXCEEDED":
-						handled = true
-					case "CONSTRAINED_ITEM":
-						fmt.Println("Requeued")
-					}
-
+				task.CheckoutInfo.MaxQuantity, err = strconv.Atoi(quantity)
+				if err != nil {
+					return false
 				}
-			} else {
-				task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Retrying", enums.TaskUpdate)
-				//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
-				if task.TaskType == enums.TaskTypeGuest {
-					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-				} else {
-					time.Sleep(3 * time.Second)
-				}
+			case "CONSTRAINED_ITEM":
+				handled = task.HandleQueue(resp, data)
 			}
+
 		case 500:
 			if task.TaskType == enums.TaskTypeGuest {
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -573,6 +499,115 @@ func (task *Task) AddToCart() bool {
 
 	}
 	return true
+}
+
+func (task *Task) HandleQueue(resp *http.Response, data []byte) (handled bool) {
+	a2TransactionCode := resp.Header.Get("a2ctransactioncode")
+	a2TransactionID := resp.Header.Get("a2ctransactionreferenceid")
+	times, err := CheckTime(a2TransactionCode)
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
+	fmt.Println(times)
+	if times < 6 {
+		// @silent: I added these just because, I think the users will like something like this though
+		task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Joining Queue", enums.TaskUpdate, 40)
+		for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
+			if cookie.Name == "_abck" {
+				validator, _ := util.FindInString(cookie.Value, "~", "~")
+				if validator == "-1" {
+					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					if err != nil {
+						return
+					}
+				}
+			}
+		}
+		fmt.Println("Joining Queue")
+		queueChan := make(chan bool)
+		go func() {
+			time.Sleep(time.Duration(times*60000) * time.Millisecond)
+			queueChan <- true
+		}()
+		go func() {
+			for {
+				queueChan <- false
+				time.Sleep(common.MS_TO_WAIT)
+			}
+		}()
+		for {
+			qaf := <-queueChan
+			if qaf {
+				break
+			}
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return
+			}
+		}
+		task.PublishEvent("Queue is up", enums.TaskUpdate, 45)
+		fmt.Println("Out of Queue")
+		addToCartResponse := AddToCartResponse{}
+		resp, _, err = util.MakeRequest(&util.Request{
+			Client: task.Task.Client,
+			Method: "POST",
+			URL:    AddToCartEndpoint,
+			RawHeaders: [][2]string{
+				{"content-length", fmt.Sprint(len(data))},
+				{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+				{"accept", "application/json"},
+				{"a2ctransactioncode", a2TransactionCode},
+				{"a2ctransactionreferenceid", a2TransactionID},
+				{"sec-ch-ua-mobile", "?0"},
+				{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+				{"content-type", "application/json; charset=UTF-8"},
+				{"origin", BaseEndpoint},
+				{"sec-fetch-site", "same-origin"},
+				{"sec-fetch-mode", "cors"},
+				{"sec-fetch-dest", "empty"},
+				{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock)},
+				{"accept-encoding", "gzip, deflate, br"},
+				{"accept-language", "en-US,en;q=0.9"},
+			},
+			Data:               data,
+			ResponseBodyStruct: &addToCartResponse,
+		})
+		ok := util.HandleErrors(err, util.RequestDoError)
+		if !ok {
+			return
+		}
+
+		switch resp.StatusCode {
+		case 200:
+			handled = true
+		case 400:
+			switch addToCartResponse.Errorsummary.Errorcode {
+			case "ITEM_MAX_QUANTITY_EXCEEDED":
+				quantity, err := common.FindInString(addToCartResponse.Errorsummary.Message, "limited to ", " per customer")
+				if err != nil {
+					return
+				}
+				task.CheckoutInfo.MaxQuantity, err = strconv.Atoi(quantity)
+				if err != nil {
+					return
+				}
+			case "CONSTRAINED_ITEM":
+				return task.HandleQueue(resp, data)
+			}
+		}
+		return
+	} else {
+		task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Retrying", enums.TaskUpdate, 35)
+		//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
+		if task.TaskType == enums.TaskTypeGuest {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		} else {
+			time.Sleep(3 * time.Second)
+		}
+		return task.AddToCart()
+	}
+
 }
 
 // Checkout goes to the checkout page and gets the required information for the rest of the checkout process
@@ -1169,30 +1204,42 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			case "CC_AUTH_FAILURE":
 				fmt.Println("Card declined")
 				status = enums.OrderStatusDeclined
+			case "ITEM_EXCEEDED_ORDER_LIMIT":
+				fmt.Println("Order limit exceeded")
+				status = enums.OrderStatusDeclined
 			default:
-				fmt.Println("Failed to Checkout")
+				fmt.Println("Failed to Checkout", placeOrderResponse)
 				status = enums.OrderStatusFailed
 			}
 		} else {
-			fmt.Println("Failed to Checkout")
+			fmt.Println("Failed to Checkout", placeOrderResponse)
 			status = enums.OrderStatusFailed
 		}
 		success = false
 
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Content:      "",
-		Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.CheckoutInfo.ItemName,
-		Sku:          task.CheckoutInfo.SKUInStock,
-		Retailer:     enums.BestBuy,
-		Price:        float64(task.CheckoutInfo.Price),
-		Quantity:     1,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	quantity := task.Task.Task.TaskQty
+	if task.CheckoutInfo.MaxQuantity != 0 && quantity > task.CheckoutInfo.MaxQuantity {
+		quantity = task.CheckoutInfo.MaxQuantity
+	}
+
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
+			ItemName:     task.CheckoutInfo.ItemName,
+			ImageURL:     task.CheckoutInfo.ImageURL,
+			Sku:          task.CheckoutInfo.SKUInStock,
+			Retailer:     enums.BestBuy,
+			Price:        float64(task.CheckoutInfo.Price),
+			Quantity:     quantity,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }

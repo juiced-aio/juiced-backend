@@ -3,7 +3,6 @@ package disney
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 
@@ -11,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -24,7 +22,7 @@ import (
 )
 
 // CreateDisneyMonitor takes a TaskGroup entity and turns it into a Disney Monitor
-func CreateDisneyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.DisneySingleMonitorInfo) (Monitor, error) {
+func CreateDisneyMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.DisneySingleMonitorInfo) (Monitor, error) {
 	storedDisneyMonitors := make(map[string]entities.DisneySingleMonitorInfo)
 	disneyMonitor := Monitor{}
 
@@ -36,9 +34,9 @@ func CreateDisneyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy
 
 	disneyMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		Pids:        pids,
 		PidWithInfo: storedDisneyMonitors,
@@ -79,14 +77,9 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
-		}
-		monitor.Monitor.Client = monitorClient
-
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
 		}
 	}
 
@@ -112,8 +105,12 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	var stockData DisneyInStockData
 	var err error
 
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
 	}
 
 	sizes, colors, stockData, err = monitor.GetSizeAndColor(pid)
@@ -122,7 +119,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	if needToStop {
 		return
 	}
-
+	fmt.Println(stockData)
 	price := stockData.Price
 	productName := stockData.ProductName
 	itemURL := stockData.ItemURL
@@ -171,6 +168,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 				(noColorsBeforeFilter && noSizesBeforeFilter) {
 				needToStop = monitor.CheckForStop()
 				if needToStop {
+
 					return
 				}
 
@@ -178,6 +176,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 				stockDatas := monitor.GetInStockVariations(pid, sizes, colors)
 				needToStop = monitor.CheckForStop()
 				if needToStop {
+
 					return
 				}
 
@@ -281,6 +280,7 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			}
 		}
 	} else {
+
 		monitor.RunSingleMonitor(pid)
 	}
 }
@@ -300,6 +300,8 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 			{"sec-ch-ua-mobile", "?0"},
 			{"upgrade-insecure-requests", "1"},
 			{"user-agent", browser.Chrome()},
+			{"origin", BaseEndpoint},
+			{"referer", BaseEndpoint + "/"},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "none"},
 			{"sec-fetch-mode", "navigate"},
@@ -318,6 +320,8 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
 		return monitor.GetVariationInfo(body, pid)
+	case 403:
+		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 	default:
@@ -339,8 +343,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 	}
 
 	productInfo := stockResponse.Product
-	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" ||
-		!productInfo.Available || stockResponse.ATCState.IsDisabled || stockResponse.ATCState.IsSoldOut {
+	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" {
 		return sizes, colors, stockData, nil
 	}
 
@@ -356,6 +359,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 			break
 		}
 	}
+
 	if imageURL == "" {
 		for _, image := range productInfo.Images.LargeImages {
 			if image.ImageURL != "" {
@@ -372,52 +376,61 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 			}
 		}
 	}
+	stockData.ImageURL = imageURL
+	stockData.ProductName = productInfo.ProductName
+
 	if imageURL == "" {
 		return sizes, colors, stockData, nil
 	}
 
-	if productInfo.ProductType == "standard" {
-		stockData = DisneyInStockData{
-			PID:             productInfo.ID,
-			VID:             productInfo.ID,
-			ProductName:     productInfo.ProductName,
-			ItemURL:         BaseEndpoint + productInfo.ProductURL,
-			ImageURL:        imageURL,
-			Price:           int(price),
-			OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
-			QuantityLimit:   productInfo.QuantityLimit,
-			IsPreOrder:      productInfo.Availability.IsPreOrder,
-			IsBackOrder:     productInfo.Availability.IsBackOrder,
+	if productInfo.Available || !stockResponse.ATCState.IsDisabled || !stockResponse.ATCState.IsSoldOut {
+		if productInfo.ProductType == "standard" {
+			stockData = DisneyInStockData{
+				PID:             productInfo.ID,
+				VID:             productInfo.ID,
+				ProductName:     productInfo.ProductName,
+				ItemURL:         BaseEndpoint + productInfo.ProductURL,
+				ImageURL:        imageURL,
+				Price:           int(price),
+				OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
+				QuantityLimit:   productInfo.QuantityLimit,
+				IsPreOrder:      productInfo.Availability.IsPreOrder,
+				IsBackOrder:     productInfo.Availability.IsBackOrder,
+			}
+			return sizes, colors, stockData, nil
+		} else {
+			for _, variant := range productInfo.Variants {
+				if variant.Attribute == "size" {
+					for _, size := range variant.Values {
+						if size.Selectable {
+							sizes = append(sizes, size.Value)
+						}
+					}
+				}
+				if variant.Attribute == "color" {
+					for _, color := range variant.Values {
+						if color.Selectable {
+							colors = append(colors, color.Value)
+						}
+					}
+				}
+			}
 		}
-		return sizes, colors, stockData, nil
-	} else {
-		for _, variant := range productInfo.Variants {
-			if variant.Attribute == "size" {
-				for _, size := range variant.Values {
-					if size.Selectable {
-						sizes = append(sizes, size.Value)
-					}
-				}
-			}
-			if variant.Attribute == "color" {
-				for _, color := range variant.Values {
-					if color.Selectable {
-						colors = append(colors, color.Value)
-					}
-				}
-			}
+
+		// Filling PID now and VID just incase the ProductType is not standard but still has no variants like this product for some reason https://www.shopdisney.com/elsa-costume-wig-for-kids-frozen-2-428423206036.html?isProductSearch=0&plpPosition=9&guestFacing=Halloween%2520Shop-Costume%2520Accessories
+		stockData = DisneyInStockData{
+			PID:           productInfo.ID,
+			VID:           productInfo.ID,
+			Price:         int(price),
+			ProductName:   productInfo.ProductName,
+			ItemURL:       BaseEndpoint + productInfo.ProductURL,
+			ImageURL:      imageURL,
+			QuantityLimit: productInfo.QuantityLimit,
+			IsPreOrder:    productInfo.Availability.IsPreOrder,
+			IsBackOrder:   productInfo.Availability.IsBackOrder,
 		}
 	}
 
-	stockData = DisneyInStockData{
-		Price:         int(price),
-		ProductName:   productInfo.ProductName,
-		ItemURL:       BaseEndpoint + productInfo.ProductURL,
-		ImageURL:      imageURL,
-		QuantityLimit: productInfo.QuantityLimit,
-		IsPreOrder:    productInfo.Availability.IsPreOrder,
-		IsBackOrder:   productInfo.Availability.IsBackOrder,
-	}
 	return sizes, colors, stockData, nil
 }
 
@@ -491,6 +504,8 @@ func (monitor *Monitor) GetInStockVariant(pid string, size, color string) Disney
 			stockData.Color = color
 		}
 		return stockData
+	case 403:
+		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
 	default:

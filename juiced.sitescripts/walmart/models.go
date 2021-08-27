@@ -102,7 +102,7 @@ type Items struct {
 	AvailableQuantity    int     `json:"availableQuantity"`
 	USItemID             string  `json:"USItemId"`
 	Seller               Seller  `json:"seller"`
-	MaxItemCountPerOrder int     `json:"maxItemCountPerOrder"`
+	MaxItemCountPerOrder float64 `json:"maxItemCountPerOrder"`
 	Assets               Assets  `json:"assets"`
 }
 

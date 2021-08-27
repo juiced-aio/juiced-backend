@@ -52,6 +52,9 @@ func GetCaptchaStore() *CaptchaStore {
 // RequestCaptchaToken returns a Captcha token from the Store, or requests one if none are available
 func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer, url, action string, minScore float64, proxy entities.Proxy, sitekey ...string) (interface{}, error) {
 	var err error
+	if proxy.Host == "localhost" {
+		proxy = entities.Proxy{}
+	}
 	switch captchaType {
 	case enums.ReCaptchaV2:
 		tokens := captchaStore.ReCaptchaV2Tokens[retailer]
@@ -162,6 +165,9 @@ func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer,
 
 // PollCaptchaTokens returns a Captcha token from the store if one is available
 func PollCaptchaTokens(captchaType enums.CaptchaType, retailer enums.Retailer, url string, proxy entities.Proxy) interface{} {
+	if proxy.Host == "localhost" {
+		proxy = entities.Proxy{}
+	}
 	switch captchaType {
 	case enums.ReCaptchaV2:
 		tokens := captchaStore.ReCaptchaV2Tokens[retailer]

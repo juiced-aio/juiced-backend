@@ -19,19 +19,15 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, couponCode, siteURL, sitePassword, email, password string) (Task, error) {
+func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, couponCode, siteURL, sitePassword, email, password string) (Task, error) {
 	shopifyTask := Task{}
-	client, err := util.CreateClient(proxy)
-	if err != nil {
-		return shopifyTask, err
-	}
+
 	shopifyTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
-			Client:   client,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:    email,
@@ -41,20 +37,22 @@ func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxy enti
 		SiteURL:      siteURL,
 		SitePassword: sitePassword,
 	}
-
-	return shopifyTask, err
+	if proxyGroup != nil {
+		shopifyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	}
+	return shopifyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
 	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
 	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -75,13 +73,21 @@ func (task *Task) RunTask() {
 	defer func() {
 		if recover() != nil {
 			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
+	}
+	if task.Task.Task.TaskQty <= 0 {
+		task.Task.Task.TaskQty = 1
+	}
+
+	err := task.Task.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
 	}
 
 	task.Step = SettingUp
@@ -119,7 +125,7 @@ func (task *Task) RunTask() {
 	task.Step = WaitingForMonitor
 
 	// 1. WaitForMonitor
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
@@ -131,7 +137,7 @@ func (task *Task) RunTask() {
 
 	task.CheckForAdditionalSteps()
 
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	// 2. AddtoCart
 	addedToCart := false
 	for !addedToCart {
@@ -145,7 +151,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 50)
 	// 3. Checkout
 	checkout := false
 	for !addedToCart {
@@ -159,7 +165,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	// 4. SetShipping
 	setShippingInfo := false
 	for !setShippingInfo {
@@ -185,7 +191,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
 	// 5. SetPayment
 	getCreditID := false
 	for !getCreditID {
@@ -211,7 +217,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 6. PlaceOrder
 	processOrder := false
 	var status enums.OrderStatus
@@ -236,11 +242,11 @@ func (task *Task) RunTask() {
 	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
 	}
 
 }
@@ -329,7 +335,7 @@ func (task *Task) WaitForMonitor() bool {
 			return true
 		}
 		if task.InStockData.VariantID != "" {
-			time.Sleep(1 * time.Millisecond)
+			time.Sleep(common.MS_TO_WAIT)
 			return false
 		}
 		task.VariantID = task.InStockData.VariantID
@@ -337,7 +343,7 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart(vid string) bool {
-	paramsString := util.CreateParams(map[string]string{
+	paramsString := common.CreateParams(map[string]string{
 		"form_type": "product",
 		"utf8":      "✓",
 		"id":        vid,
@@ -448,7 +454,7 @@ func (task *Task) Checkout() bool {
 }
 
 func (task *Task) HandleQueue() bool {
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"authenticity_token": task.TaskInfo.AuthToken,
 		// Empty for now
 		"g-recaptcha-response": "",
@@ -546,7 +552,7 @@ func (task *Task) HandleQueue() bool {
 }
 
 func (task *Task) SetShippingInfo() bool {
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                                      "patch",
 		"authenticity_token":                           task.TaskInfo.AuthToken,
 		"previous_step":                                "contact_information",
@@ -636,7 +642,7 @@ func (task *Task) SetShippingRate() bool {
 
 	task.TaskInfo.ShippingRate = shippingRateUnderPrice[prices[0]].Source + "-" + shippingRateUnderPrice[prices[0]].Code + "-" + shippingRateUnderPrice[prices[0]].Price
 
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                     "patch",
 		"authenticity_token":          task.TaskInfo.AuthToken,
 		"previous_step":               "shipping_method",
@@ -749,7 +755,7 @@ func (task *Task) GetCreditID() bool {
 
 func (task *Task) SetPaymentInfo() bool {
 	totalFloat, _ := strconv.ParseFloat(task.TaskInfo.OrderTotal, 64)
-	data := []byte(util.CreateParams(map[string]string{
+	data := []byte(common.CreateParams(map[string]string{
 		"_method":                             "patch",
 		"authenticity_token":                  task.TaskInfo.AuthToken,
 		`checkout[reduction_code]`:            task.CouponCode,
@@ -834,18 +840,22 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		}
 	}
 
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Content:      "",
-		Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
-		ItemName:     task.TaskInfo.Name,
-		Sku:          task.VariantID,
-		Retailer:     enums.Shopify,
-		Price:        float64(task.TaskInfo.Price),
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if success || status == enums.OrderStatusDeclined {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
+			ItemName:     task.TaskInfo.Name,
+			ImageURL:     task.TaskInfo.Image,
+			Sku:          task.VariantID,
+			Retailer:     enums.Shopify,
+			Price:        float64(task.TaskInfo.Price),
+			Quantity:     task.Task.Task.TaskQty,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }

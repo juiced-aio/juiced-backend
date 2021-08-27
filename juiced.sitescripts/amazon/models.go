@@ -42,9 +42,6 @@ type Monitor struct {
 	RunningMonitors []string
 	OutOfStockASINs []string
 	ASINs           []string
-	AccountClient   http.Client
-	AddressID       string
-	SessionID       string
 	InStock         []AmazonInStockData
 	ASINWithInfo    map[string]entities.AmazonSingleMonitorInfo
 }
@@ -52,17 +49,18 @@ type Monitor struct {
 type AmazonInStockData struct {
 	ASIN        string
 	OfferID     string
-	Price       int
+	Price       float64
 	ItemName    string
 	AntiCsrf    string
 	PID         string
 	RID         string
 	ImageURL    string
 	UA          string
+	Client      http.Client
 	MonitorType enums.MonitorType
 }
 
-type AccChan struct {
+type Acc struct {
 	GroupID     string
 	Client      http.Client
 	AccountInfo AccountInfo
@@ -89,7 +87,7 @@ type AddHeadersFunction func(*http.Request, ...string)
 type Task struct {
 	Task            base.Task
 	AccountInfo     AccountInfo
-	TaskInfo        TaskInfo
+	StockData       AmazonInStockData
 	CheckoutInfo    CheckoutInfo
 	BrowserComplete bool
 }

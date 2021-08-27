@@ -80,6 +80,9 @@ func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request)
 				if !newSettings.DarkModeUpdate {
 					newSettings.DarkMode = currentSettings.DarkMode
 				}
+				if !newSettings.UseAnimationsUpdate {
+					newSettings.UseAnimations = currentSettings.UseAnimations
+				}
 				newSettings, err = commands.UpdateSettings(newSettings)
 				if err != nil {
 					errorsList = append(errorsList, errors.UpdateSettingsError+err.Error())

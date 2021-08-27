@@ -3,9 +3,7 @@ package util
 import (
 	"bytes"
 	"crypto/aes"
-	"crypto/cipher"
 	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,11 +14,11 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/commands"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-
-	"github.com/denisbrodbeck/machineid"
-	"github.com/mergermarket/go-pkcs7"
 )
+
+var HWID string
 
 func Authenticate(userInfo entities.UserInfo) (AuthenticationResult, error) {
 	authenticateResponse := AuthenticateResponse{}
@@ -28,11 +26,6 @@ func Authenticate(userInfo entities.UserInfo) (AuthenticationResult, error) {
 
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/a"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/a"
-
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return ERROR_AUTHENTICATE_HWID, err
-	}
 
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
@@ -42,43 +35,43 @@ func Authenticate(userInfo entities.UserInfo) (AuthenticationResult, error) {
 	key := AUTHENTICATION_ENCRYPTION_KEY
 
 	timestamp := time.Now().Unix()
-	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_TIMESTAMP, err
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
 
-	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_HWID, err
 	}
-	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_DEVICE_NAME, err
 	}
 
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[:4], key)
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[:4], key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[4:10], key)
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[4:10], key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_HEADER_C, err
 	}
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[10:15], key)
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[10:15], key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_HEADER_A, err
 	}
-	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[15:19], key)
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[15:19], key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[19:], key)
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[19:], key)
 	if err != nil {
 		return ERROR_AUTHENTICATE_ENCRYPT_HEADER_D, err
 	}
@@ -132,12 +125,12 @@ func DecryptAuthenticateResponse(response EncryptedAuthenticateResponse, timesta
 
 	key := AUTHENTICATION_DECRYPTION_KEY
 
-	success, err := Aes256Decrypt(response.Success, key)
+	success, err := common.Aes256Decrypt(response.Success, key)
 	if err != nil {
 		return authenticateResponse, err
 	}
 
-	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
 	if err != nil {
 		return authenticateResponse, err
 	}
@@ -157,11 +150,6 @@ func Refresh(userInfo entities.UserInfo) (entities.UserInfo, RefreshResult, erro
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/r"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/r"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return userInfo, ERROR_REFRESH_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return userInfo, ERROR_REFRESH_CREATE_IV, err
@@ -170,47 +158,47 @@ func Refresh(userInfo entities.UserInfo) (entities.UserInfo, RefreshResult, erro
 	key := REFRESH_ENCRYPTION_KEY
 
 	timestamp := time.Now().Unix()
-	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_TIMESTAMP, err
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
 
-	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedRefreshToken, err := Aes256Encrypt(userInfo.RefreshToken, key)
+	encryptedRefreshToken, err := common.Aes256Encrypt(userInfo.RefreshToken, key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_REFRESH_TOKEN, err
 	}
-	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_HWID, err
 	}
-	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_DEVICE_NAME, err
 	}
 
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[:3], key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[3:7], key)
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[3:7], key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_HEADER_C, err
 	}
-	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[7:14], key)
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[7:14], key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_HEADER_A, err
 	}
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[14:18], key)
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[14:18], key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[18:], key)
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[18:], key)
 	if err != nil {
 		return userInfo, ERROR_REFRESH_ENCRYPT_HEADER_D, err
 	}
@@ -271,19 +259,19 @@ func DecryptRefreshResponse(response EncryptedRefreshTokenResponse, timestamp in
 
 	key := REFRESH_DECRYPTION_KEY
 
-	success, err := Aes256Decrypt(response.Success, key)
+	success, err := common.Aes256Decrypt(response.Success, key)
 	if err != nil {
 		return refreshResponse, err
 	}
-	activationToken, err := Aes256Decrypt(response.ActivationToken, key)
+	activationToken, err := common.Aes256Decrypt(response.ActivationToken, key)
 	if err != nil {
 		return refreshResponse, err
 	}
-	refreshToken, err := Aes256Decrypt(response.RefreshToken, key)
+	refreshToken, err := common.Aes256Decrypt(response.RefreshToken, key)
 	if err != nil {
 		return refreshResponse, err
 	}
-	activationTokenExpiresAt, err := Aes256Decrypt(response.ExpiresAt, key)
+	activationTokenExpiresAt, err := common.Aes256Decrypt(response.ExpiresAt, key)
 	if err != nil {
 		return refreshResponse, err
 	}
@@ -291,7 +279,7 @@ func DecryptRefreshResponse(response EncryptedRefreshTokenResponse, timestamp in
 	if err != nil {
 		return refreshResponse, err
 	}
-	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
 	if err != nil {
 		return refreshResponse, err
 	}
@@ -314,11 +302,6 @@ func DiscordWebhook(success bool, content string, embeds []DiscordEmbed, userInf
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/dw"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/dw"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return ERROR_DISCORD_WEBHOOK_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return ERROR_DISCORD_WEBHOOK_CREATE_IV, err
@@ -327,74 +310,74 @@ func DiscordWebhook(success bool, content string, embeds []DiscordEmbed, userInf
 	key := DISCORD_WEBHOOK_ENCRYPTION_KEY
 
 	timestamp := time.Now().Unix()
-	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_TIMESTAMP, err
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
 
-	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HWID, err
 	}
-	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_DEVICE_NAME, err
 	}
 
-	encryptedSuccess, err := Aes256Encrypt(strconv.FormatBool(success), key)
+	encryptedSuccess, err := common.Aes256Encrypt(strconv.FormatBool(success), key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_SUCCESS, err
 	}
-	encryptedContent, err := Aes256Encrypt(content, key)
+	encryptedContent, err := common.Aes256Encrypt(content, key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_CONTENT, err
 	}
 
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[:3], key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_A, err
 	}
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[3:5], key)
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[3:5], key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[5:12], key)
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[5:12], key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_C, err
 	}
-	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[12:17], key)
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[12:17], key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[17:], key)
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[17:], key)
 	if err != nil {
 		return ERROR_DISCORD_WEBHOOK_ENCRYPT_HEADER_D, err
 	}
 
 	encryptedEmbeds := make([]Embed, 0)
 	for _, embed := range embeds {
-		encryptedTitle, err := Aes256Encrypt(embed.Title, key)
+		encryptedTitle, err := common.Aes256Encrypt(embed.Title, key)
 		if err != nil {
 			return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_TITLE, err
 		}
 
 		encryptedFields := make([]Field, 0)
 		for _, field := range embed.Fields {
-			encryptedName, err := Aes256Encrypt(field.Name, key)
+			encryptedName, err := common.Aes256Encrypt(field.Name, key)
 			if err != nil {
 				return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_FIELD_NAME, err
 			}
-			encryptedValue, err := Aes256Encrypt(field.Value, key)
+			encryptedValue, err := common.Aes256Encrypt(field.Value, key)
 			if err != nil {
 				return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_FIELD_VALUE, err
 			}
-			encryptedInline, err := Aes256Encrypt(strconv.FormatBool(field.Inline), key)
+			encryptedInline, err := common.Aes256Encrypt(strconv.FormatBool(field.Inline), key)
 			if err != nil {
 				return ERROR_DISCORD_WEBHOOK_ENCRYPT_EMBED_FIELD_INLINE, err
 			}
@@ -465,11 +448,11 @@ func DecryptDiscordWebhookResponse(response EncryptedDiscordWebhookResponse, tim
 
 	key := DISCORD_WEBHOOK_DECRYPTION_KEY
 
-	success, err := Aes256Decrypt(response.Success, key)
+	success, err := common.Aes256Decrypt(response.Success, key)
 	if err != nil {
 		return discordWebhookResponse, err
 	}
-	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
 	if err != nil {
 		return discordWebhookResponse, err
 	}
@@ -490,11 +473,6 @@ func PX(site, proxy string, userInfo entities.UserInfo) (PXAPIResponse, PXResult
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/p"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/p"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return pxAPIResponse, ERROR_PX_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return pxAPIResponse, ERROR_PX_CREATE_IV, err
@@ -503,51 +481,51 @@ func PX(site, proxy string, userInfo entities.UserInfo) (PXAPIResponse, PXResult
 	key := PX_ENCRYPTION_KEY
 
 	timestamp := time.Now().Unix()
-	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_TIMESTAMP, err
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
 
-	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_HWID, err
 	}
-	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedSite, err := Aes256Encrypt(site, key)
+	encryptedSite, err := common.Aes256Encrypt(site, key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedProxy, err := Aes256Encrypt(proxy, key)
+	encryptedProxy, err := common.Aes256Encrypt(proxy, key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_DEVICE_NAME, err
 	}
 
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[:3], key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_HEADER_A, err
 	}
-	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[3:4], key)
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[3:4], key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[4:14], key)
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[4:14], key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[14:16], key)
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[14:16], key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_HEADER_D, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[16:], key)
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[16:], key)
 	if err != nil {
 		return pxAPIResponse, ERROR_PX_ENCRYPT_HEADER_C, err
 	}
@@ -600,32 +578,32 @@ func DecryptPXResponse(response EncryptedPXResponse, timestamp int64) (PXRespons
 
 	key := PX_DECRYPTION_KEY
 
-	success, err := Aes256Decrypt(response.Success, key)
+	success, err := common.Aes256Decrypt(response.Success, key)
 	if err != nil {
 		return pxResponse, err
 	}
-	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
 	if err != nil {
 		return pxResponse, err
 	}
 
-	setID, err := Aes256Decrypt(response.PXAPIResponse.SetID, key)
+	setID, err := common.Aes256Decrypt(response.PXAPIResponse.SetID, key)
 	if err != nil {
 		return pxResponse, err
 	}
-	uuid, err := Aes256Decrypt(response.PXAPIResponse.UUID, key)
+	uuid, err := common.Aes256Decrypt(response.PXAPIResponse.UUID, key)
 	if err != nil {
 		return pxResponse, err
 	}
-	vid, err := Aes256Decrypt(response.PXAPIResponse.VID, key)
+	vid, err := common.Aes256Decrypt(response.PXAPIResponse.VID, key)
 	if err != nil {
 		return pxResponse, err
 	}
-	userAgent, err := Aes256Decrypt(response.PXAPIResponse.UserAgent, key)
+	userAgent, err := common.Aes256Decrypt(response.PXAPIResponse.UserAgent, key)
 	if err != nil {
 		return pxResponse, err
 	}
-	px3, err := Aes256Decrypt(response.PXAPIResponse.PX3, key)
+	px3, err := common.Aes256Decrypt(response.PXAPIResponse.PX3, key)
 	if err != nil {
 		return pxResponse, err
 	}
@@ -652,11 +630,6 @@ func PXCap(site, proxy, setID, vid, uuid, token string, userInfo entities.UserIn
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/pc"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/pc"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return "", ERROR_PX_CAP_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return "", ERROR_PX_CAP_CREATE_IV, err
@@ -665,67 +638,67 @@ func PXCap(site, proxy, setID, vid, uuid, token string, userInfo entities.UserIn
 	key := PXCAP_ENCRYPTION_KEY
 
 	timestamp := time.Now().Unix()
-	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_TIMESTAMP, err
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
 
-	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_HWID, err
 	}
-	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedSite, err := Aes256Encrypt(site, key)
+	encryptedSite, err := common.Aes256Encrypt(site, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedProxy, err := Aes256Encrypt(proxy, key)
+	encryptedProxy, err := common.Aes256Encrypt(proxy, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedSetID, err := Aes256Encrypt(setID, key)
+	encryptedSetID, err := common.Aes256Encrypt(setID, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedUUID, err := Aes256Encrypt(uuid, key)
+	encryptedUUID, err := common.Aes256Encrypt(uuid, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedVID, err := Aes256Encrypt(vid, key)
+	encryptedVID, err := common.Aes256Encrypt(vid, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_DEVICE_NAME, err
 	}
-	encryptedToken, err := Aes256Encrypt(token, key)
+	encryptedToken, err := common.Aes256Encrypt(token, key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_DEVICE_NAME, err
 	}
 
-	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[:3], key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[3:4], key)
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[3:4], key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_HEADER_A, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[4:14], key)
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[4:14], key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_HEADER_D, err
 	}
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[14:19], key)
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[14:19], key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[19:], key)
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[19:], key)
 	if err != nil {
 		return "", ERROR_PX_CAP_ENCRYPT_HEADER_C, err
 	}
@@ -795,15 +768,15 @@ func DecryptPXCapResponse(response EncryptedPXCapResponse, timestamp int64) (PXC
 
 	key := PXCAP_DECRYPTION_KEY
 
-	success, err := Aes256Decrypt(response.Success, key)
+	success, err := common.Aes256Decrypt(response.Success, key)
 	if err != nil {
 		return pxCapResponse, err
 	}
-	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
 	if err != nil {
 		return pxCapResponse, err
 	}
-	px3, err := Aes256Decrypt(response.PX3, key)
+	px3, err := common.Aes256Decrypt(response.PX3, key)
 	if err != nil {
 		return pxCapResponse, err
 	}
@@ -825,11 +798,6 @@ func Akamai(pageURL, skipKact, skipMact, onBlur, onFocus, abck, sensorDataLink, 
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/ak"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/ak"
 
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return akamaiAPIResponse, ERROR_AKAMAI_HWID, err
-	}
-
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_CREATE_IV, err
@@ -838,92 +806,92 @@ func Akamai(pageURL, skipKact, skipMact, onBlur, onFocus, abck, sensorDataLink, 
 	key := AKAMAI_ENCRYPTION_KEY
 
 	timestamp := time.Now().Unix()
-	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_TIMESTAMP, err
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
 
-	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HWID, err
 	}
-	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_DEVICE_NAME, err
 	}
 
-	encryptedPageURL, err := Aes256Encrypt(pageURL, key)
+	encryptedPageURL, err := common.Aes256Encrypt(pageURL, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_PAGE_URL, err
 	}
-	encryptedSkipKact, err := Aes256Encrypt(skipKact, key)
+	encryptedSkipKact, err := common.Aes256Encrypt(skipKact, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_SKIP_KACT, err
 	}
-	encryptedSkipMact, err := Aes256Encrypt(skipMact, key)
+	encryptedSkipMact, err := common.Aes256Encrypt(skipMact, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_SKIP_MACT, err
 	}
-	encryptedOnBlur, err := Aes256Encrypt(onBlur, key)
+	encryptedOnBlur, err := common.Aes256Encrypt(onBlur, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ON_BLUR, err
 	}
-	encryptedOnFocus, err := Aes256Encrypt(onFocus, key)
+	encryptedOnFocus, err := common.Aes256Encrypt(onFocus, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ON_FOCUS, err
 	}
-	encryptedAbck, err := Aes256Encrypt(abck, key)
+	encryptedAbck, err := common.Aes256Encrypt(abck, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ABCK, err
 	}
-	encryptedSensorDataLink, err := Aes256Encrypt(sensorDataLink, key)
+	encryptedSensorDataLink, err := common.Aes256Encrypt(sensorDataLink, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_SENSOR_DATA_LINK, err
 	}
-	encryptedVer, err := Aes256Encrypt(ver, key)
+	encryptedVer, err := common.Aes256Encrypt(ver, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_VER, err
 	}
-	encryptedFirstPost, err := Aes256Encrypt(firstPost, key)
+	encryptedFirstPost, err := common.Aes256Encrypt(firstPost, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_FIRST_POST, err
 	}
-	encryptedPixelID, err := Aes256Encrypt(pixelID, key)
+	encryptedPixelID, err := common.Aes256Encrypt(pixelID, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_PIXEL_ID, err
 	}
-	encryptedPixelG, err := Aes256Encrypt(pixelG, key)
+	encryptedPixelG, err := common.Aes256Encrypt(pixelG, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_PIXEL_G, err
 	}
-	encryptedJSON, err := Aes256Encrypt(json_, key)
+	encryptedJSON, err := common.Aes256Encrypt(json_, key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_JSON, err
 	}
 
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[:3], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[3:7], key)
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[3:7], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_C, err
 	}
-	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[7:14], key)
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[7:14], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[14:18], key)
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[14:18], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_D, err
 	}
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[18:], key)
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[18:], key)
 	if err != nil {
 		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_A, err
 	}
@@ -986,19 +954,19 @@ func DecryptAkamaiResponse(response EncryptedAkamaiResponse, timestamp int64) (A
 
 	key := AKAMAI_DECRYPTION_KEY
 
-	success, err := Aes256Decrypt(response.Success, key)
+	success, err := common.Aes256Decrypt(response.Success, key)
 	if err != nil {
 		return akamaiResponse, err
 	}
-	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
 	if err != nil {
 		return akamaiResponse, err
 	}
-	sensorData, err := Aes256Decrypt(response.AkamaiAPIResponse.SensorData, key)
+	sensorData, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SensorData, key)
 	if err != nil {
 		return akamaiResponse, err
 	}
-	pixel, err := Aes256Decrypt(response.AkamaiAPIResponse.Pixel, key)
+	pixel, err := common.Aes256Decrypt(response.AkamaiAPIResponse.Pixel, key)
 	if err != nil {
 		return akamaiResponse, err
 	}
@@ -1015,17 +983,202 @@ func DecryptAkamaiResponse(response EncryptedAkamaiResponse, timestamp int64) (A
 	return akamaiResponse, nil
 }
 
+func ExperimentalAkamai(baseURL string, userAgent string, cookie string, postIndx int64, savedD3 int64, savedStartTS int64, deviceNum int64, userInfo entities.UserInfo) (ExperimentalAkamaiAPIResponse, AkamaiResult, error) {
+	akamaiAPIResponse := ExperimentalAkamaiAPIResponse{}
+	akamaiResponse := ExperimentalAkamaiResponse{}
+	encryptedAkamaiResponse := EncryptedExperimentalAkamaiResponse{}
+
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/ake"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/ake"
+
+	bIV := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(bIV); err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_CREATE_IV, err
+	}
+
+	key := AKAMAI_ENCRYPTION_KEY
+
+	timestamp := time.Now().Unix()
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_TIMESTAMP, err
+	}
+
+	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
+
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_ACTIVATION_TOKEN, err
+	}
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HWID, err
+	}
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_DEVICE_NAME, err
+	}
+
+	encryptedBaseURL, err := common.Aes256Encrypt(baseURL, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_BASE_URL, err
+	}
+	encryptedUserAgent, err := common.Aes256Encrypt(userAgent, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_USER_AGENT, err
+	}
+	encryptedCookie, err := common.Aes256Encrypt(cookie, key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_COOKIE, err
+	}
+	encryptedPostIndx, err := common.Aes256Encrypt(fmt.Sprint(postIndx), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_POST_INDX, err
+	}
+	encryptedSavedD3, err := common.Aes256Encrypt(fmt.Sprint(savedD3), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_SAVED_D3, err
+	}
+	encryptedSavedStartTS, err := common.Aes256Encrypt(fmt.Sprint(savedStartTS), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_SAVED_START_TS, err
+	}
+	encryptedDeviceNum, err := common.Aes256Encrypt(fmt.Sprint(deviceNum), key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_DEVICE_NUM, err
+	}
+
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[:3], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_B, err
+	}
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[3:7], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_C, err
+	}
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[7:14], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_E, err
+	}
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[14:18], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_D, err
+	}
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[18:], key)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_ENCRYPT_HEADER_A, err
+	}
+
+	akamaiRequest := ExerimentalAkamaiRequest{
+		HWID:            encryptedHWID,
+		DeviceName:      encryptedDeviceName,
+		ActivationToken: encryptedActivationToken,
+		BaseURL:         encryptedBaseURL,
+		UserAgent:       encryptedUserAgent,
+		Cookie:          encryptedCookie,
+		PostIndx:        encryptedPostIndx,
+		SavedD3:         encryptedSavedD3,
+		SavedStartTS:    encryptedSavedStartTS,
+		DeviceNum:       encryptedDeviceNum,
+	}
+
+	data, _ := json.Marshal(akamaiRequest)
+	payload := bytes.NewBuffer(data)
+	request, _ := http.NewRequest("POST", endpoint, payload)
+	request.Header.Add("x-j-w", encryptedTimestamp)
+	request.Header.Add("x-j-a", encryptedHeaderA)
+	request.Header.Add("x-j-b", encryptedHeaderB)
+	request.Header.Add("x-j-c", encryptedHeaderC)
+	request.Header.Add("x-j-d", encryptedHeaderD)
+	request.Header.Add("x-j-e", encryptedHeaderE)
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_REQUEST, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_READ_BODY, err
+	}
+
+	json.Unmarshal(body, &encryptedAkamaiResponse)
+
+	akamaiResponse, err = DecryptExperimentalAkamaiResponse(encryptedAkamaiResponse, timestamp)
+	if err != nil {
+		return akamaiAPIResponse, ERROR_AKAMAI_DECRYPT_RESPONSE, err
+	}
+
+	if !akamaiResponse.Success {
+		return akamaiAPIResponse, ERROR_AKAMAI_FAILED, errors.New(akamaiResponse.ErrorMessage)
+	}
+
+	return akamaiResponse.AkamaiAPIResponse, SUCCESS_AKAMAI, nil
+}
+
+func DecryptExperimentalAkamaiResponse(response EncryptedExperimentalAkamaiResponse, timestamp int64) (ExperimentalAkamaiResponse, error) {
+	akamaiResponse := ExperimentalAkamaiResponse{}
+
+	key := AKAMAI_DECRYPTION_KEY
+
+	success, err := common.Aes256Decrypt(response.Success, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	sensorData, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SensorData, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedD3Str, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SavedD3, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedD3, err := strconv.ParseInt(savedD3Str, 10, 64)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedStartTSStr, err := common.Aes256Decrypt(response.AkamaiAPIResponse.SavedStartTS, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	savedStartTS, err := strconv.ParseInt(savedStartTSStr, 10, 64)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	deviceNumStr, err := common.Aes256Decrypt(response.AkamaiAPIResponse.DeviceNum, key)
+	if err != nil {
+		return akamaiResponse, err
+	}
+	deviceNum, err := strconv.ParseInt(deviceNumStr, 10, 64)
+	if err != nil {
+		return akamaiResponse, err
+	}
+
+	akamaiResponse = ExperimentalAkamaiResponse{
+		Success:      success == "true",
+		ErrorMessage: errorMessage,
+		AkamaiAPIResponse: ExperimentalAkamaiAPIResponse{
+			SensorData:   sensorData,
+			SavedD3:      savedD3,
+			SavedStartTS: savedStartTS,
+			DeviceNum:    deviceNum,
+		},
+	}
+
+	return akamaiResponse, nil
+}
+
 func LogCheckout(itemName, sku, retailer string, price, quantity int, userInfo entities.UserInfo) (LogCheckoutResult, error) {
 	logCheckoutResponse := LogCheckoutResponse{}
 	encryptedLogCheckoutResponse := EncryptedLogCheckoutResponse{}
 
 	endpoint := "https://identity.juicedbot.io/api/v1/juiced/c"
 	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/c"
-
-	hwid, err := machineid.ProtectedID("juiced")
-	if err != nil {
-		return ERROR_LOG_CHECKOUT_HWID, err
-	}
 
 	bIV := make([]byte, aes.BlockSize)
 	if _, err := rand.Read(bIV); err != nil {
@@ -1035,68 +1188,68 @@ func LogCheckout(itemName, sku, retailer string, price, quantity int, userInfo e
 	key := LOG_CHECKOUT_ENCRYPTION_KEY
 
 	timestamp := time.Now().Unix()
-	encryptedTimestamp, err := Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_TIMESTAMP, err
 	}
 
 	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
 
-	encryptedActivationToken, err := Aes256Encrypt(userInfo.ActivationToken, key)
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_ACTIVATION_TOKEN, err
 	}
-	encryptedHWID, err := Aes256Encrypt(hwid, key)
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_HWID, err
 	}
-	encryptedDeviceName, err := Aes256Encrypt(userInfo.DeviceName, key)
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_DEVICE_NAME, err
 	}
 
-	encryptedItemName, err := Aes256Encrypt(itemName, key)
+	encryptedItemName, err := common.Aes256Encrypt(itemName, key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_ITEM_NAME, err
 	}
-	encryptedSKU, err := Aes256Encrypt(sku, key)
+	encryptedSKU, err := common.Aes256Encrypt(sku, key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_SKU, err
 	}
-	encryptedPrice, err := Aes256Encrypt(fmt.Sprint(price), key)
+	encryptedPrice, err := common.Aes256Encrypt(fmt.Sprint(price), key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_PRICE, err
 	}
-	encryptedQuantity, err := Aes256Encrypt(fmt.Sprint(quantity), key)
+	encryptedQuantity, err := common.Aes256Encrypt(fmt.Sprint(quantity), key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_QUANTITY, err
 	}
-	encryptedRetailer, err := Aes256Encrypt(retailer, key)
+	encryptedRetailer, err := common.Aes256Encrypt(retailer, key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_RETAILER, err
 	}
-	encryptedTime, err := Aes256Encrypt(fmt.Sprint(timestamp), key)
+	encryptedTime, err := common.Aes256Encrypt(fmt.Sprint(timestamp), key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_TIME, err
 	}
 
-	encryptedHeaderA, err := Aes256Encrypt(userInfo.LicenseKey[:2], key)
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[:2], key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_A, err
 	}
-	encryptedHeaderE, err := Aes256Encrypt(userInfo.LicenseKey[2:6], key)
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[2:6], key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_E, err
 	}
-	encryptedHeaderB, err := Aes256Encrypt(userInfo.LicenseKey[6:8], key)
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[6:8], key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_B, err
 	}
-	encryptedHeaderD, err := Aes256Encrypt(userInfo.LicenseKey[8:17], key)
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[8:17], key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_D, err
 	}
-	encryptedHeaderC, err := Aes256Encrypt(userInfo.LicenseKey[17:], key)
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[17:], key)
 	if err != nil {
 		return ERROR_LOG_CHECKOUT_ENCRYPT_HEADER_C, err
 	}
@@ -1153,11 +1306,11 @@ func DecryptLogCheckoutResponse(response EncryptedLogCheckoutResponse, timestamp
 
 	key := LOG_CHECKOUT_DECRYPTION_KEY
 
-	success, err := Aes256Decrypt(response.Success, key)
+	success, err := common.Aes256Decrypt(response.Success, key)
 	if err != nil {
 		return logCheckoutResponse, err
 	}
-	errorMessage, err := Aes256Decrypt(response.ErrorMessage, key)
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
 	if err != nil {
 		return logCheckoutResponse, err
 	}
@@ -1168,6 +1321,140 @@ func DecryptLogCheckoutResponse(response EncryptedLogCheckoutResponse, timestamp
 	}
 
 	return logCheckoutResponse, nil
+}
+
+func GetEncryptionKey(userInfo entities.UserInfo) (string, GetEncryptionKeyResult, error) {
+	getEncryptionKeyResponse := GetEncryptionKeyResponse{}
+	encryptedgetEncryptionKeyResponse := EncryptedGetEncryptionKeyResponse{}
+	var encryptionKey string
+	endpoint := "https://identity.juicedbot.io/api/v1/juiced/e"
+	// endpoint := "http://127.0.0.1:5000/api/v1/juiced/e"
+
+	bIV := make([]byte, aes.BlockSize)
+	if _, err := rand.Read(bIV); err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_CREATE_IV, err
+	}
+
+	key := GET_ENCRYPTION_KEY_ENCRYPTION_KEY
+
+	timestamp := time.Now().Unix()
+	encryptedTimestamp, err := common.Aes256Encrypt(userInfo.Email+"|JUICED|"+fmt.Sprint(timestamp), key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_TIMESTAMP, err
+	}
+
+	key = strings.Replace(key, key[:len(fmt.Sprint(timestamp))], fmt.Sprint(timestamp), 1)
+
+	encryptedActivationToken, err := common.Aes256Encrypt(userInfo.ActivationToken, key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_ACTIVATION_TOKEN, err
+	}
+	encryptedHWID, err := common.Aes256Encrypt(HWID, key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HWID, err
+	}
+	encryptedDeviceName, err := common.Aes256Encrypt(userInfo.DeviceName, key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_DEVICE_NAME, err
+	}
+
+	encryptedHeaderB, err := common.Aes256Encrypt(userInfo.LicenseKey[:4], key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_B, err
+	}
+	encryptedHeaderC, err := common.Aes256Encrypt(userInfo.LicenseKey[4:10], key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_C, err
+	}
+	encryptedHeaderA, err := common.Aes256Encrypt(userInfo.LicenseKey[10:15], key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_A, err
+	}
+	encryptedHeaderE, err := common.Aes256Encrypt(userInfo.LicenseKey[15:19], key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_E, err
+	}
+	encryptedHeaderD, err := common.Aes256Encrypt(userInfo.LicenseKey[19:], key)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_ENCRYPT_HEADER_D, err
+	}
+
+	getEncryptionKeyRequest := GetEncryptionKeyRequest{
+		HWID:            encryptedHWID,
+		DeviceName:      encryptedDeviceName,
+		ActivationToken: encryptedActivationToken,
+	}
+
+	data, _ := json.Marshal(getEncryptionKeyRequest)
+	payload := bytes.NewBuffer(data)
+	request, _ := http.NewRequest("POST", endpoint, payload)
+	request.Header.Add("x-j-w", encryptedTimestamp)
+	request.Header.Add("x-j-a", encryptedHeaderA)
+	request.Header.Add("x-j-b", encryptedHeaderB)
+	request.Header.Add("x-j-c", encryptedHeaderC)
+	request.Header.Add("x-j-d", encryptedHeaderD)
+	request.Header.Add("x-j-e", encryptedHeaderE)
+	request.Header.Add("Content-Type", "application/json")
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_REQUEST, err
+	}
+
+	defer response.Body.Close()
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_READ_BODY, err
+	}
+
+	err = json.Unmarshal(body, &encryptedgetEncryptionKeyResponse)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_UNMARSHAL_BODY, err
+	}
+
+	getEncryptionKeyResponse, err = DecryptGetEncryptionKeyResponse(encryptedgetEncryptionKeyResponse, timestamp)
+	if err != nil {
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_DECRYPT_RESPONSE, err
+	}
+
+	encryptionKey = getEncryptionKeyResponse.EncryptionKey
+
+	if !getEncryptionKeyResponse.Success {
+		if getEncryptionKeyResponse.ErrorMessage == "Token expired" {
+			return encryptionKey, ERROR_GET_ENCRYPTION_KEY_TOKEN_EXPIRED, errors.New("token expired")
+		}
+		return encryptionKey, ERROR_GET_ENCRYPTION_KEY_FAILED, errors.New(getEncryptionKeyResponse.ErrorMessage)
+	}
+
+	return encryptionKey, SUCCESS_GET_ENCRYPTION_KEY, nil
+}
+
+func DecryptGetEncryptionKeyResponse(response EncryptedGetEncryptionKeyResponse, timestamp int64) (GetEncryptionKeyResponse, error) {
+	getEncryptionKeyResponse := GetEncryptionKeyResponse{}
+
+	key := GET_ENCRYPTION_KEY_DECRYPTION_KEY
+
+	success, err := common.Aes256Decrypt(response.Success, key)
+	if err != nil {
+		return getEncryptionKeyResponse, err
+	}
+
+	encryptionKey, err := common.Aes256Decrypt(response.EncryptionKey, key)
+	if err != nil {
+		return getEncryptionKeyResponse, err
+	}
+
+	errorMessage, err := common.Aes256Decrypt(response.ErrorMessage, key)
+	if err != nil {
+		return getEncryptionKeyResponse, err
+	}
+
+	getEncryptionKeyResponse = GetEncryptionKeyResponse{
+		Success:       success == "true",
+		EncryptionKey: encryptionKey,
+		ErrorMessage:  errorMessage,
+	}
+
+	return getEncryptionKeyResponse, nil
 }
 
 func Heartbeat(userInfo entities.UserInfo, retries int) (entities.UserInfo, error) {
@@ -1187,54 +1474,4 @@ func Heartbeat(userInfo entities.UserInfo, retries int) (entities.UserInfo, erro
 		return userInfo, errors.New("max retries reached")
 	}
 	return Heartbeat(userInfo, retries+1)
-}
-
-func Aes256Encrypt(plaintext string, key string) (string, error) {
-	bKey := []byte(key)
-	bPlaintext, err := pkcs7.Pad([]byte(plaintext), aes.BlockSize)
-	if err != nil {
-		return "", err
-	}
-
-	block, err := aes.NewCipher(bKey)
-	if err != nil {
-		return "", err
-	}
-	cipherText := make([]byte, aes.BlockSize+len(bPlaintext))
-	bIV := cipherText[:aes.BlockSize]
-	if _, err := rand.Read(bIV); err != nil {
-		return "", err
-	}
-
-	mode := cipher.NewCBCEncrypter(block, bIV)
-	mode.CryptBlocks(cipherText[aes.BlockSize:], bPlaintext)
-	return fmt.Sprintf("%x", cipherText), nil
-}
-
-func Aes256Decrypt(encryptedText string, key string) (string, error) {
-	bKey := []byte(key)
-	cipherText, err := hex.DecodeString(encryptedText)
-	if err != nil {
-		return "", err
-	}
-
-	block, err := aes.NewCipher(bKey)
-	if err != nil {
-		return "", err
-	}
-
-	if len(cipherText) < aes.BlockSize {
-		return "", &CipherTextTooShortError{}
-	}
-	iv := cipherText[:aes.BlockSize]
-	cipherText = cipherText[aes.BlockSize:]
-	if len(cipherText)%aes.BlockSize != 0 {
-		return "", &CipherTextNotMultipleOfBlockSizeError{}
-	}
-
-	mode := cipher.NewCBCDecrypter(block, iv)
-	mode.CryptBlocks(cipherText, cipherText)
-
-	cipherText, err = pkcs7.Unpad(cipherText, aes.BlockSize)
-	return string(cipherText), err
 }

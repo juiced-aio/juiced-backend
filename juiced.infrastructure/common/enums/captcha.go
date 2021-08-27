@@ -29,9 +29,11 @@ const (
 )
 
 var ReCaptchaSitekeys = map[Retailer]ReCaptchaSitekey{
-	Disney:    DisneySiteKey,
-	Walmart:   WalmartSitekey,
-	HotWheels: HotWheelsSitekey,
+	Disney:        DisneySiteKey,
+	HotWheels:     HotWheelsSitekey,
+	Topps:         ToppsSiteKey,
+	Walmart:       WalmartSitekey,
+	PokemonCenter: PokemonCenterSitekey,
 }
 
 type HCaptchaSitekey = string

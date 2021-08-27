@@ -51,6 +51,7 @@ var bestbuyTaskInfosSchema = `
 		taskType TEXT
 	)
 `
+
 var boxlunchTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS boxlunchTaskInfos (
 		taskID TEXT,
@@ -95,6 +96,24 @@ var hotwheelsTaskInfosSchema = `
 	)
 `
 
+var neweggTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS neweggTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var pokemoncenterTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS pokemoncenterTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT,
+		taskType TEXT,
+		addressType TEXT
+	)
+`
+
 var shopifyTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS shopifyTaskInfos (
 		taskID TEXT,
@@ -114,6 +133,16 @@ var targetTaskInfosSchema = `
 		email TEXT,
 		password TEXT,
 		paymentType TEXT
+	)
+`
+
+var toppsTaskInfosSchema = `
+	CREATE TABLE IF NOT EXISTS toppsTaskInfos (
+		taskID TEXT,
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT,
+		taskType TEXT
 	)
 `
 
@@ -224,6 +253,58 @@ var gamestopSingleMonitorInfosSchema = `
 		maxPrice INTEGER
 	)
 `
+
+var hottopicMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var hottopicSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS hottopicSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		pid TEXT,
+		size TEXT,
+		color TEXT,
+		maxPrice INTEGER,
+		monitorType TEXT
+	)
+`
+
+var neweggMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS neweggMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var neweggSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS neweggSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		sku TEXT,
+		maxPrice INTEGER
+	)
+`
+
+var pokemoncenterMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS pokemoncenterMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var pokemoncenterSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS pokemoncenterSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		sku TEXT,
+		maxPrice INTEGER
+	)
+`
+
 var shopifyMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS shopifyMonitorInfos (
 		ID TEXT,
@@ -260,6 +341,22 @@ var targetSingleMonitorInfosSchema = `
 	)
 `
 
+var toppsMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS toppsMonitorInfos (
+		ID TEXT,
+		taskGroupID TEXT
+	)
+`
+
+var toppsSingleMonitorInfosSchema = `
+	CREATE TABLE IF NOT EXISTS toppsSingleMonitorInfos (
+		monitorID TEXT,
+		taskGroupID TEXT,
+		item TEXT,
+		maxPrice INTEGER
+	)
+`
+
 var walmartMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartMonitorInfos (
 		ID TEXT,
@@ -274,25 +371,6 @@ var walmartSingleMonitorInfosSchema = `
 		id TEXT,
 		maxPrice INTEGER,
 		soldByWalmart INTEGER,
-		monitorType TEXT
-	)
-`
-
-var hottopicMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS hottopicMonitorInfos (
-		ID TEXT,
-		taskGroupID TEXT
-	)
-`
-
-var hottopicSingleMonitorInfosSchema = `
-	CREATE TABLE IF NOT EXISTS hottopicSingleMonitorInfos (
-		monitorID TEXT,
-		taskGroupID TEXT,
-		pid TEXT,
-		size TEXT,
-		color TEXT,
-		maxPrice INTEGER,
 		monitorType TEXT
 	)
 `
@@ -382,6 +460,7 @@ var cardsSchema = `
 var checkoutsSchema = `
 	CREATE TABLE IF NOT EXISTS checkouts (
 		itemName TEXT,
+		imageURL TEXT,
 		sku TEXT,
 		price INTEGER,
 		quantity INTEGER,
@@ -402,7 +481,8 @@ var settingsSchema = `
 		capMonsterAPIKey TEXT,
 		aycdAccessToken TEXT,
 		aycdAPIKey TEXT,
-		darkMode INTEGER
+		darkMode INTEGER,
+		useAnimations INTEGER
 	)
 `
 
@@ -427,9 +507,12 @@ var schemas = []string{
 	bestbuyTaskInfosSchema,
 	boxlunchTaskInfosSchema,
 	disneyTaskInfosSchema,
-	hottopicTaskInfosSchema,
 	gamestopTaskInfosSchema,
+	hottopicTaskInfosSchema,
+	neweggTaskInfosSchema,
+	pokemoncenterTaskInfosSchema,
 	targetTaskInfosSchema,
+	toppsTaskInfosSchema,
 	walmartTaskInfosSchema,
 
 	// Shopify
@@ -450,10 +533,16 @@ var schemas = []string{
 	gamestopSingleMonitorInfosSchema,
 	hottopicMonitorInfosSchema,
 	hottopicSingleMonitorInfosSchema,
+	neweggMonitorInfosSchema,
+	neweggSingleMonitorInfosSchema,
+	pokemoncenterMonitorInfosSchema,
+	pokemoncenterSingleMonitorInfosSchema,
 	shopifyMonitorInfosSchema,
 	shopifySingleMonitorInfosSchema,
 	targetMonitorInfosSchema,
 	targetSingleMonitorInfosSchema,
+	toppsMonitorInfosSchema,
+	toppsSingleMonitorInfosSchema,
 	walmartMonitorInfosSchema,
 	walmartSingleMonitorInfosSchema,
 

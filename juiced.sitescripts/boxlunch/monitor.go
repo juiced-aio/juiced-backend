@@ -2,13 +2,11 @@ package boxlunch
 
 import (
 	"fmt"
-	"math/rand"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -20,7 +18,7 @@ import (
 )
 
 // CreateboxlunchMonitor takes a TaskGroup entity and turns it into a boxlunch Monitor
-func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.BoxlunchSingleMonitorInfo) (Monitor, error) {
+func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.BoxlunchSingleMonitorInfo) (Monitor, error) {
 	storedBoxlunchMonitors := make(map[string]entities.BoxlunchSingleMonitorInfo)
 	boxlunchMonitor := Monitor{}
 
@@ -32,9 +30,9 @@ func CreateBoxlunchMonitor(taskGroup *entities.TaskGroup, proxies []entities.Pro
 
 	boxlunchMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		Pids:        pids,
 		PidWithInfo: storedBoxlunchMonitors,
@@ -75,15 +73,11 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
-		}
 	}
 
 	wg := sync.WaitGroup{}
@@ -108,8 +102,12 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	var stockData BoxlunchInStockData
 	var err error
 
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
 	}
 
 	// Case 1: User provides Random size, Random color
@@ -392,11 +390,14 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]BoxlunchSizeInfo, 
 		return sizes, colors, stockData, productNameHeader.Error
 	}
 	productName := productNameHeader.Text()
+	stockData.ProductName = productName
+
 	productImage := doc.Find("img", "class", "productdetail__image-active-each")
 	if productImage.Error != nil {
 		return sizes, colors, stockData, productImage.Error
 	}
 	imageURL := productImage.Attrs()["src"]
+	stockData.ImageURL = imageURL
 
 	hasVariations := false
 	// This element will only exist if the product has no size/color variations and the item is in stock

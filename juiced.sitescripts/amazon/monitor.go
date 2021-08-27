@@ -1,6 +1,7 @@
 package amazon
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"net/url"
@@ -9,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.sitescripts/util"
-
 	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -18,39 +17,38 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
-
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 	browser "github.com/eddycjy/fake-useragent"
+	cmap "github.com/orcaman/concurrent-map"
 )
 
-// Creating a channel to recieve the Amazon account because half of the monitoring is done with the account
-var Accounts = make(chan AccChan)
+// Creating a pool to store amazon accounts that will be used to monitor
+var AccountPool = cmap.New()
 
 // CreateAmazonMonitor takes a TaskGroup entity and turns it into a Amazon Monitor
-func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.AmazonSingleMonitorInfo) (Monitor, error) {
+func CreateAmazonMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.AmazonSingleMonitorInfo) (Monitor, error) {
 	storedAmazonMonitors := make(map[string]entities.AmazonSingleMonitorInfo)
 	amazonMonitor := Monitor{}
 	asins := []string{}
 
+	for _, monitor := range singleMonitors {
+		storedAmazonMonitors[monitor.ASIN] = monitor
+		asins = append(asins, monitor.ASIN)
+	}
+
 	for created := false; !created; {
-		account := <-Accounts
 		// Making sure the accounts group id matches the monitors
-		if account.GroupID != taskGroup.GroupID {
-			continue
-		}
 
 		amazonMonitor = Monitor{
 			Monitor: base.Monitor{
-				TaskGroup: taskGroup,
-				Proxies:   proxies,
-				EventBus:  eventBus,
+				TaskGroup:  taskGroup,
+				ProxyGroup: proxyGroup,
+				EventBus:   eventBus,
 			},
 
-			ASINs:         asins,
-			ASINWithInfo:  storedAmazonMonitors,
-			AccountClient: account.Client,
-			AddressID:     account.AccountInfo.SavedAddressID,
-			SessionID:     account.AccountInfo.SessionID,
+			ASINs:        asins,
+			ASINWithInfo: storedAmazonMonitors,
 		}
 		created = true
 	}
@@ -96,48 +94,7 @@ func (monitor *Monitor) RunMonitor() {
 		return
 	}
 
-	var emptyClients int
-	for _, value := range monitor.ASINWithInfo {
-		if value.Client.Transport == nil {
-			emptyClients++
-		}
-	}
-
 	wg := sync.WaitGroup{}
-	wg.Add(emptyClients)
-	for key, value := range monitor.ASINWithInfo {
-		if value.Client.Transport == nil {
-			monitorClient, err := util.CreateClient()
-			if err != nil {
-				return
-			}
-			if len(monitor.Monitor.Proxies) > 0 {
-				client.UpdateProxy(&monitorClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
-			}
-			newValue := value
-			newValue.Client = monitorClient
-			monitor.ASINWithInfo[key] = newValue
-
-			go func(monitorClient http.Client) {
-				becameGuest := false
-				for !becameGuest {
-					needToStop := monitor.CheckForStop()
-					if needToStop {
-						return
-					}
-					becameGuest = monitor.BecomeGuest(monitorClient)
-					if !becameGuest {
-						time.Sleep(1000 * time.Millisecond)
-					}
-				}
-				wg.Done()
-			}(value.Client)
-		}
-
-	}
-	wg.Wait()
-
-	wg = sync.WaitGroup{}
 	wg.Add(len(monitor.ASINs))
 	for _, asin := range monitor.ASINs {
 		go func(x string) {
@@ -150,9 +107,21 @@ func (monitor *Monitor) RunMonitor() {
 }
 
 func (monitor *Monitor) RunSingleMonitor(asin string) {
+
+again:
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
+	}
+	accounts, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	if accounts != nil {
+		if !(len(accounts.([]Acc)) > 0) {
+			time.Sleep(common.MS_TO_WAIT)
+			goto again
+		}
+	} else {
+		time.Sleep(common.MS_TO_WAIT)
+		goto again
 	}
 
 	if !common.InSlice(monitor.RunningMonitors, asin) {
@@ -169,7 +138,7 @@ func (monitor *Monitor) RunSingleMonitor(asin string) {
 			stockData = monitor.OFIDMonitor(asin)
 		}
 
-		if stockData.ASIN != "" {
+		if stockData.OfferID != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
 				return
@@ -189,7 +158,10 @@ func (monitor *Monitor) RunSingleMonitor(asin string) {
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+						Products: []events.Product{
+							{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+					})
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -198,6 +170,7 @@ func (monitor *Monitor) RunSingleMonitor(asin string) {
 					break
 				}
 			}
+			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, asin)
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(asin)
 		}
@@ -207,17 +180,22 @@ func (monitor *Monitor) RunSingleMonitor(asin string) {
 // A lot of the stuff that I'm doing either seems useless or dumb but Cloudfront is Ai based and the more entropy/randomness you add to every request
 // the better.
 func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
-	var currentClient http.Client
 	stockData := AmazonInStockData{}
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
-	if currentEndpoint == "https://smile.amazon.com" {
-		currentClient = monitor.AccountClient
-	} else {
-		currentClient = monitor.ASINWithInfo[asin].Client
-	}
+	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
+	currentClient := account.Client
+	ua := browser.Chrome()
 
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&currentClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	if monitor.Monitor.ProxyGroup != nil {
+		var proxy *entities.Proxy
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			proxy.AddCount()
+			client.UpdateProxy(&currentClient, proxy)
+			defer proxy.RemoveCount()
+		}
+
 	}
 
 	resp, body, err := util.MakeRequest(&util.Request{
@@ -231,7 +209,7 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
 			{"sec-ch-ua-mobile", "?0"},
 			{"upgrade-insecure-requests", "1"},
-			{"user-agent", browser.Chrome()},
+			{"user-agent", ua},
 			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
 			{"sec-fetch-site", "none"},
 			{"sec-fetch-mode", "navigate"},
@@ -247,7 +225,7 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 
 	switch resp.StatusCode {
 	case 200:
-		stockData = monitor.StockInfo(resp, body, asin)
+		stockData = monitor.StockInfo(ua, resp.Request.URL.String(), body, asin)
 		return stockData
 	case 404:
 		monitor.PublishEvent(enums.UnableToFindProduct, enums.MonitorUpdate, nil)
@@ -263,79 +241,133 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 }
 
 // Scraping the info from the page, since we are rotating between two page types I have to check each value in two different places
-func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) AmazonInStockData {
+func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData {
+	defer func() {
+		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
+	}()
 	stockData := AmazonInStockData{}
 	if strings.Contains(body, "automated access") {
 		fmt.Println("Captcha")
 		return stockData
 	}
 	doc := soup.HTMLParse(body)
-	ua := resp.Request.UserAgent()
+
 	var err error
 	var ofid string
 	var merchantID string
 	var priceStr string
 	var itemName string
+	var imageURL string
 
-	if strings.Contains(resp.Request.URL.String(), "aod") {
-		if doc.Find("input", "name", "offeringID.1").Error != nil {
-			return stockData
+	if strings.Contains(urL, "aod") {
+		item := doc.Find("span", "data-action", "aod-atc-action")
+		if item.Error != nil {
+			item := doc.Find("input", "name", "offeringID.1")
+			if item.Error == nil {
+				ofid = item.Attrs()["value"]
+			}
+		} else {
+			jsonMap := make(map[string]string)
+			err = json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
+			if err == nil {
+				ofid = jsonMap["oid"]
+			}
 		}
-		ofid = doc.Find("input", "name", "offeringID.1").Attrs()["value"]
-		merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
-		priceStr = doc.Find("span", "class", "a-price-whole").Text()
-		itemName = doc.Find("h5", "id", "aod-asin-title-text").Text()
+
+		item = doc.Find("input", "id", "ftSelectMerchant")
+		if item.Error == nil {
+			merchantID = item.Attrs()["value"]
+		}
+
+		item = doc.Find("span", "class", "a-price-whole")
+		if item.Error == nil {
+			priceStr = item.Text()
+		}
+
+		item = doc.Find("h5", "id", "aod-asin-title-text")
+		if item.Error == nil {
+			itemName = item.Text()
+		}
+
+		item = doc.Find("img", "id", "aod-asin-image-id")
+		if item.Error == nil {
+			imageURL = item.Attrs()["src"]
+		}
+
 	} else {
-		if doc.Find("input", "name", "offerListingID").Error == nil {
-			ofid = doc.Find("input", "name", "offerListingID").Attrs()["value"]
+		item := doc.Find("input", "name", "offerListingID")
+		if item.Error == nil {
+			ofid = item.Attrs()["value"]
 		} else {
 			ofid, err = util.FindInString(body, `name="offerListingId" value="`, `"`)
 			if err != nil {
 				return stockData
 			}
 		}
-		if doc.Find("input", "name", "merchantID").Error != nil {
-			return stockData
+
+		item = doc.Find("input", "name", "merchantID")
+		if item.Error == nil {
+			merchantID = item.Attrs()["value"]
+		} else {
+
+			item = doc.Find("input", "id", "ftSelectMerchant")
+			if item.Error == nil {
+				merchantID = item.Attrs()["value"]
+			} else {
+				return stockData
+			}
+
 		}
-		merchantID = doc.Find("input", "name", "merchantID").Attrs()["value"]
-		priceStr = doc.Find("span", "class", "a-price-whole").Text()
-		if doc.Find("div", "id", "comparison_title1").Error == nil {
-			title := doc.Find("div", "id", "comparison_title1").FindAll("span")
+
+		item = doc.Find("div", "data-a-image-name", "immersiveViewMainImage")
+		if item.Error == nil {
+			imageURL = item.Attrs()["data-a-hires"]
+		} else {
+			item := doc.Find("img", "data-a-image-name", "landingImage")
+			if item.Error == nil {
+				imageURL = item.Attrs()["data-a-hires"]
+			}
+		}
+		item = doc.Find("span", "class", "a-price-whole")
+		if item.Error == nil {
+			priceStr = item.Text()
+		}
+
+		item = doc.Find("div", "id", "comparison_title1")
+		if item.Error == nil {
+			title := item.FindAll("span")
 			for _, source := range title {
 				itemName = source.Text()
 			}
 		} else {
-			title := doc.Find("title").Text()
-			itemName, err = util.FindInString(title, "Amazon.com:", ":")
-			if err != nil {
-				itemName, err = util.FindInString(title, "AmazonSmile:", ":")
+			item := doc.Find("title")
+			if item.Error == nil {
+				title := item.Text()
+				itemName, err = util.FindInString(title, "Amazon.com:", ":")
 				if err != nil {
-					return stockData
+					itemName, err = util.FindInString(title, "AmazonSmile:", ":")
+					if err != nil {
+						return stockData
+					}
 				}
 			}
+
 		}
 	}
 
-	if ofid == "" {
-		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return stockData
-	}
-	if merchantID != "ATVPDKIKX0DER" {
-		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return stockData
+	price, _ := strconv.ParseFloat(priceStr, 64)
+	stockData = AmazonInStockData{
+		ASIN:        asin,
+		OfferID:     ofid,
+		Price:       price,
+		ItemName:    itemName,
+		ImageURL:    imageURL,
+		UA:          ua,
+		MonitorType: enums.SlowSKUMonitor,
 	}
 
-	price, _ := strconv.Atoi(priceStr)
-	inBudget := monitor.ASINWithInfo[asin].MaxPrice >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
-	if inBudget {
-		stockData = AmazonInStockData{
-			ASIN:        asin,
-			OfferID:     ofid,
-			Price:       price,
-			ItemName:    itemName,
-			UA:          ua,
-			MonitorType: enums.SlowSKUMonitor,
-		}
+	if merchantID != "ATVPDKIKX0DER" || !(float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1) {
+		stockData.OfferID = ""
 	}
 
 	return stockData
@@ -345,23 +377,33 @@ func (monitor *Monitor) StockInfo(resp *http.Response, body, asin string) Amazon
 // this is also known as OfferID mode.
 func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 	stockData := AmazonInStockData{}
+	pool, _ := AccountPool.Get(monitor.Monitor.TaskGroup.GroupID)
+	account := pool.([]Acc)[rand.Intn(len(pool.([]Acc)))]
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"isAsync":         {"1"},
-		"addressID":       {monitor.AddressID},
+		"addressID":       {account.AccountInfo.SavedAddressID},
 		"asin.1":          {asin},
 		"offerListing.1":  {monitor.ASINWithInfo[asin].OFID},
 		"quantity.1":      {"1"},
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
 
-	if len(monitor.Monitor.Proxies) > 0 {
-		client.UpdateProxy(&monitor.AccountClient, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+	currentClient := account.Client
+
+	if monitor.Monitor.ProxyGroup != nil {
+		var proxy *entities.Proxy
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			client.UpdateProxy(&currentClient, proxy)
+			defer proxy.RemoveCount()
+		}
+
 	}
 
 	ua := browser.Chrome()
 	resp, body, err := util.MakeRequest(&util.Request{
-		Client: monitor.AccountClient,
+		Client: currentClient,
 		Method: "POST",
 		URL:    currentEndpoint + "/checkout/turbo-initiate?ref_=dp_start-bbf_1_glance_buyNow_2-1&referrer=detail&pipelineType=turbo&clientId=retailwebsite&weblab=RCX_CHECKOUT_TURBO_DESKTOP_PRIME_87783&temporaryAddToCart=1",
 		RawHeaders: [][2]string{
@@ -376,7 +418,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			{"x-amz-support-custom-signin", "1"},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
-			{"x-amz-checkout-csrf-token", monitor.SessionID},
+			{"x-amz-checkout-csrf-token", account.AccountInfo.SessionID},
 			{"downlink", "10"},
 			{"ect", "4g"},
 			{"origin", BaseEndpoint},
@@ -422,18 +464,29 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 				imageURL = source.Attrs()["src"]
 			}
 		}
-
-		stockData = AmazonInStockData{
-			ASIN:        asin,
-			OfferID:     monitor.ASINWithInfo[asin].OFID,
-			AntiCsrf:    antiCSRF,
-			PID:         pid,
-			RID:         rid,
-			ImageURL:    imageURL,
-			UA:          ua,
-			MonitorType: enums.FastSKUMonitor,
+		item := doc.Find("span", "class", "a-color-price")
+		var price float64
+		if item.Error == nil {
+			priceStr := strings.ReplaceAll(item.Text(), " ", "")
+			priceStr = strings.ReplaceAll(priceStr, "\n", "")
+			priceStr = strings.ReplaceAll(priceStr, "$", "")
+			price, _ = strconv.ParseFloat(priceStr, 64)
 		}
-
+		inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
+		if inBudget {
+			stockData = AmazonInStockData{
+				ASIN:        asin,
+				OfferID:     monitor.ASINWithInfo[asin].OFID,
+				AntiCsrf:    antiCSRF,
+				PID:         pid,
+				RID:         rid,
+				ImageURL:    imageURL,
+				Price:       price,
+				UA:          ua,
+				Client:      currentClient,
+				MonitorType: enums.FastSKUMonitor,
+			}
+		}
 		return stockData
 	case 503:
 		fmt.Println("Dogs of Amazon (503)")
