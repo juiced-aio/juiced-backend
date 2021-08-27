@@ -317,6 +317,28 @@ func (task *Task) Login() bool {
 		}
 	}
 
+	resp, _, err = util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "OPTIONS",
+		URL:    "https://registerdisney.go.com/jgc/v6/client/DCP-DISNEYSTORE.WEB-PROD/api-key?langPref=en-US",
+		RawHeaders: http.RawHeader{
+			{"accept", `*/*`},
+			{"access-control-request-method", `POST`},
+			{"access-control-request-headers", `cache-control,content-type,conversation-id,correlation-id,expires,pragma`},
+			{"origin", `https://cdn.registerdisney.go.com`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-site", `same-site`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", `https://cdn.registerdisney.go.com/`},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+
 	correlationID := uuid.New().String()
 	conversationId := uuid.New().String()
 	currentTime := time.Now().UTC()
@@ -355,55 +377,6 @@ func (task *Task) Login() bool {
 		return false
 	}
 
-	unid := uuid.New().String()
-	params := common.CreateParams(map[string]string{
-		"action_name":     `api:launch:login`,
-		"anon":            `true`,
-		"appid":           `DTSS-DISNEYID-UI`,
-		"client_id":       `DCP-DISNEYSTORE.WEB-PROD`,
-		"conversation_id": conversationId,
-		"correlation_id":  correlationID,
-		"dapple":          `6a5ddcca`,
-		"info":            `tabId(` + uuid.New().String() + `)`,
-		"os":              `Windows 10`,
-		"process_time":    `10`,
-		"sdk_version":     `Web 2.66.93-ROLLBACK`,
-		"success":         `true`,
-		"swid":            uuid.New().String(),
-		"timestamp":       time.Now().UTC().Format("2006-01-02T15:04:05.000Z"),
-		"unid":            unid,
-	})
-
-	parsedURL, _ := url.Parse("https://log.go.com/log")
-
-	task.Task.Client.Jar.SetCookies(parsedURL, []*http.Cookie{
-		{
-			Name:  "UNID",
-			Value: unid,
-		},
-	})
-	resp, _, err = util.MakeRequest(&util.Request{
-		Client: task.Task.Client,
-		Method: "GET",
-		URL:    "https://log.go.com/log?" + params,
-		RawHeaders: http.RawHeader{
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
-			{"sec-ch-ua-mobile", `?0`},
-			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36`},
-			{"accept", `*/*`},
-			{"origin", BaseEndpoint},
-			{"sec-fetch-site", `cross-site`},
-			{"sec-fetch-mode", `cors`},
-			{"sec-fetch-dest", `empty`},
-			{"referer", BaseEndpoint + "/"},
-			{"accept-encoding", `gzip, deflate, br`},
-			{"accept-language", `en-US,en;q=0.9`},
-		},
-	})
-	if err != nil || resp.StatusCode != 200 {
-		return false
-	}
-
 	loginRequest := LoginRequest{
 		Loginvalue: task.AccountInfo.Email,
 		Password:   task.AccountInfo.Password,
@@ -413,16 +386,13 @@ func (task *Task) Login() bool {
 	if task.Task.Proxy != nil {
 		proxy = *task.Task.Proxy
 	}
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, proxy)
+
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, BaseEndpoint+"/", "login", 0.9, proxy)
 	if err != nil {
 		return false
 	}
 	for token == nil {
-		needToStop := task.CheckForStop()
-		if needToStop {
-			return false
-		}
-		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, proxy)
+		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, BaseEndpoint+"/", proxy)
 		time.Sleep(1 * time.Second / 10)
 	}
 	tokenInfo, ok := token.(entities.ReCaptchaToken)
@@ -440,14 +410,12 @@ func (task *Task) Login() bool {
 		Method: "POST",
 		URL:    FirstLoginEndpoint,
 		RawHeaders: http.RawHeader{
-			{"content-length", fmt.Sprint(len(data))},
-			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
 			{"pragma", `no-cache`},
 			{"correlation-id", correlationID},
 			{"sec-ch-ua-mobile", `?0`},
-			{"authorization", `APIKEY ` + apiKey1},
 			{"content-type", `application/json`},
-			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.164 Safari/537.36`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36`},
 			{"cache-control", `no-cache`},
 			{"conversation-id", conversationId},
 			{"device-id", `null`},
@@ -461,6 +429,8 @@ func (task *Task) Login() bool {
 			{"referer", `https://cdn.registerdisney.go.com/`},
 			{"accept-encoding", `gzip, deflate, br`},
 			{"accept-language", `en-US,en;q=0.9`},
+			{"authorization", `APIKEY ` + apiKey1},
+			{"content-length", fmt.Sprint(len(data))},
 		},
 		Data:               data,
 		ResponseBodyStruct: &loginResponse,
@@ -487,7 +457,7 @@ func (task *Task) Login() bool {
 	jsonBytes, _ := json.Marshal(loginResponse.Data.Token)
 	encryptedJson := base64.StdEncoding.EncodeToString(jsonBytes)
 
-	parsedURL, _ = url.Parse(SecondLoginEndpoint)
+	parsedURL, _ := url.Parse(SecondLoginEndpoint)
 	task.Task.Client.Jar.SetCookies(parsedURL, []*http.Cookie{
 		{
 			Name:  "DCP-DISNEYSTORE.WEB-PROD.api",
