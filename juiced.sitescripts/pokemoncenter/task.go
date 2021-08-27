@@ -17,6 +17,14 @@ import (
 
 const MAX_RETRIES = 5
 
+func (task *Task) GetTaskInfo() *util.TaskInfo {
+	return task.TaskInfo
+}
+
+func (task *Task) FillStockInfo(stockInfo util.StockInfo) {
+	task.TaskInfo.StockInfo = stockInfo
+}
+
 func (task *Task) GetTaskFunctions() []util.TaskFunction {
 	var runTaskFunctions = []util.TaskFunction{}
 

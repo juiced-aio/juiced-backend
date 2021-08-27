@@ -52,7 +52,7 @@ type Monitor struct {
 	RunningMonitors []string
 	OutOfStockSKUs  []string
 	SKUs            []string
-	InStock         []PokemonCenterInStockData
+	InStock         []util.StockInfo
 	SKUWithInfo     map[string]entities.PokemonCenterSingleMonitorInfo
 }
 
@@ -90,11 +90,6 @@ type TaskInput struct {
 	Email    string
 	Password string
 	TaskType enums.TaskType
-}
-
-type PokemonCenterInStockData struct {
-	StockInfo     util.StockInfo
-	AddToCartForm string
 }
 
 type CyberSecureInfo struct {

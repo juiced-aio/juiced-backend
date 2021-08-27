@@ -303,12 +303,13 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 	}
 
-	baseTask, err := base.CreateRetailerTask(task.TaskRetailer, task, profile, proxyGroup, taskStore.EventBus, taskInput)
+	baseTask := &base.Task{Retailer: task.TaskRetailer}
+	err = baseTask.CreateRetailerTask(task, profile, proxyGroup, taskStore.EventBus, taskInput)
 	if err != nil {
 		return e.New(errors.CreateBotTaskError + err.Error())
 	}
 	// Add task to store
-	taskStore.Tasks[task.ID] = &baseTask
+	taskStore.Tasks[task.ID] = baseTask
 	task.UpdateTask = false
 	return nil
 }

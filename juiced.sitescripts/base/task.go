@@ -16,38 +16,30 @@ import (
 )
 
 type Task struct {
-	Retailer          enums.Retailer
-	PokemonCenterTask *pokemoncenter.Task
+	RetailTask
+	Retailer enums.Retailer
 }
 
-func CreateRetailerTask(retailer enums.Retailer, task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, data interface{}) (Task, error) {
-	task_ := Task{
-		Retailer: retailer,
-	}
+type RetailTask interface {
+	GetTaskInfo() *util.TaskInfo
+	FillStockInfo(util.StockInfo)
+	GetTaskFunctions() []util.TaskFunction
+}
+
+func (baseTask *Task) CreateRetailerTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, data interface{}) error {
+
 	var err error
 
-	switch retailer {
+	switch baseTask.Retailer {
 	case enums.PokemonCenter:
 		input, ok := data.(pokemoncenter.TaskInput)
 		if !ok {
-			return task_, errors.New("bad input")
+			return errors.New("bad input")
 		}
-		task_.PokemonCenterTask, err = CreatePokemonCenterTask(task, profile, proxyGroup, eventBus, input)
+		err = baseTask.CreatePokemonCenterTask(task, profile, proxyGroup, eventBus, input)
 	}
 
-	return task_, err
-}
-
-func (task *Task) GetTaskInfo() *util.TaskInfo {
-	switch task.Retailer {
-	case enums.PokemonCenter:
-		if task.PokemonCenterTask == nil {
-			return nil
-		}
-		return task.PokemonCenterTask.TaskInfo
-	}
-
-	return nil
+	return err
 }
 
 func (task *Task) RunTask() {
@@ -74,11 +66,7 @@ func (task *Task) RunTask() {
 		taskInfo.Task.TaskQty = 1
 	}
 
-	var taskFunctions []util.TaskFunction
-	switch task.Retailer {
-	case enums.PokemonCenter:
-		taskFunctions = task.PokemonCenterTask.GetTaskFunctions()
-	}
+	taskFunctions := task.GetTaskFunctions()
 
 	var success bool
 	var status enums.TaskStatus

@@ -25,11 +25,14 @@ type TaskFunction struct {
 	Checkout          bool
 }
 
+type SiteSpecificInfo map[string]interface{}
+
 type StockInfo struct {
-	SKU      string
-	Price    float64
-	ItemName string
-	ImageURL string
+	SKU          string
+	Price        float64
+	ItemName     string
+	ImageURL     string
+	SiteSpecific SiteSpecificInfo
 }
 
 type TaskInfo struct {

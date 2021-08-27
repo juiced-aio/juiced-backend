@@ -7,8 +7,8 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, input pokemoncenter.TaskInput) (*pokemoncenter.Task, error) {
-	return &pokemoncenter.Task{
+func (baseTask *Task) CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, input pokemoncenter.TaskInput) error {
+	baseTask.RetailTask = &pokemoncenter.Task{
 		TaskInfo: &util.TaskInfo{
 			Task:       task,
 			Profile:    profile,
@@ -16,7 +16,9 @@ func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, prox
 			EventBus:   eventBus,
 		},
 		Input: input,
-	}, nil
+	}
+
+	return nil
 }
 
 func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.PokemonCenterSingleMonitorInfo) (*pokemoncenter.Monitor, error) {
