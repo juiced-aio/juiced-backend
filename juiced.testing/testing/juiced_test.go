@@ -140,6 +140,32 @@ func TestBestbuy(t *testing.T) {
 	select {}
 }
 
+func TestDisney(t *testing.T) {
+	MainTask.DisneyTaskInfo = &entities.DisneyTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+		Email:       "",
+		Password:    "",
+		TaskType:    enums.TaskTypeAccount,
+	}
+
+	MainTaskGroup.DisneyMonitorInfo = &entities.DisneyMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.DisneySingleMonitorInfo{{
+			MonitorID:   MainMonitorID,
+			TaskGroupID: MainTaskGroupID,
+			PID:         "461035691418",
+			MaxPrice:    -1,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.Disney
+	MainTask.TaskRetailer = enums.Disney
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	select {}
+}
+
 func TestWalmart(t *testing.T) {
 	MainTask.WalmartTaskInfo = &entities.WalmartTaskInfo{
 		TaskID:      MainTaskID,
@@ -198,8 +224,8 @@ func TestTopps(t *testing.T) {
 	MainTask.ToppsTaskInfo = &entities.ToppsTaskInfo{
 		TaskID:      MainTaskID,
 		TaskGroupID: MainTaskGroupID,
-		Email:       "andersonrector@gmail.com",
-		Password:    "Fixilini1973",
+		Email:       "example@gmail.com",
+		Password:    "examplepass",
 		TaskType:    enums.TaskTypeAccount,
 	}
 
