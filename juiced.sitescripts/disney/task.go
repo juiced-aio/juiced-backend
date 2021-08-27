@@ -386,7 +386,7 @@ func (task *Task) Login() bool {
 	if task.Task.Proxy != nil {
 		proxy = *task.Task.Proxy
 	}
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, SecondLoginEndpoint, "", 0, proxy)
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, BaseEndpoint+"/", "login", 0.9, proxy)
 	if err != nil {
 		return false
 	}
