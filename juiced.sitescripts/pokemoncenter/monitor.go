@@ -15,6 +15,10 @@ import (
 	"github.com/anaskhan96/soup"
 )
 
+func (monitor *Monitor) GetMonitorInfo() *util.MonitorInfo {
+	return monitor.MonitorInfo
+}
+
 // CreatePokemonCenterMonitor takes a TaskGroup entity and turns it into a pokemoncenter Monitor
 func CreatePokemonCenterMonitor(singleMonitors []entities.PokemonCenterSingleMonitorInfo) (Monitor, error) {
 	storedPokemonCenterMonitors := make(map[string]entities.PokemonCenterSingleMonitorInfo)
@@ -108,34 +112,34 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		}
 
 		stockData := monitor.GetSKUStock(sku)
-		if stockData.StockInfo.SKU != "" {
+		if stockData.SKU != "" {
 			needToStop := monitor.CheckForStop()
 			if needToStop {
 				return
 			}
 
 			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.StockInfo.SKU == stockData.StockInfo.SKU
+			for _, monitorStock := range monitor.MonitorInfo.InStock {
+				inSlice = monitorStock.SKU == stockData.SKU
 			}
 			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
+				monitor.MonitorInfo.InStock = append(monitor.MonitorInfo.InStock, stockData)
 				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
 				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
-						{ProductName: stockData.StockInfo.ItemName, ProductImageURL: stockData.StockInfo.ImageURL}},
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
 				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
-						{ProductName: stockData.StockInfo.ItemName, ProductImageURL: stockData.StockInfo.ImageURL}},
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.StockInfo.SKU == stockData.StockInfo.SKU {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+			for i, monitorStock := range monitor.MonitorInfo.InStock {
+				if monitorStock.SKU == stockData.SKU {
+					monitor.MonitorInfo.InStock = append(monitor.MonitorInfo.InStock[:i], monitor.MonitorInfo.InStock[i+1:]...)
 					break
 				}
 			}
@@ -145,8 +149,8 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 	}
 }
 
-func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
-	stockData := PokemonCenterInStockData{}
+func (monitor *Monitor) GetSKUStock(sku string) util.StockInfo {
+	stockData := util.StockInfo{}
 	monitorResponse := MonitorResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.MonitorInfo.Client,
@@ -183,15 +187,15 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 
 		switch monitorResponse.Props.InitialState.Product.Availability {
 		case "AVAILABLE":
-			stockData.StockInfo.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
+			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
 			fmt.Println(monitorResponse.Props.InitialState.Product.ListPrice.Amount)
 			var inBudget bool
-			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.StockInfo.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
+			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
-				stockData.StockInfo.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
-				stockData.StockInfo.SKU = sku
-				stockData.StockInfo.ItemName = monitorResponse.Props.InitialState.Product.Name
-				stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
+				stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+				stockData.SKU = sku
+				stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
+				stockData.SiteSpecific["AddToCartForm"] = monitorResponse.Props.InitialState.Product.AddToCartForm
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
 			}
 			return stockData

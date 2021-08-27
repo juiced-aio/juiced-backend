@@ -34,6 +34,10 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 		}
 	}
 	switch monitor.MonitorRetailer {
+	// Let's see if we can abstract this
+	// 		In order to abstract this, we will have to create some function in the monitor that ensures the input is valid
+	//		E.g. Amazon requires that if monitor.MonitorType == enums.FastSKUMonitor, monitor.OFID must be populated
+
 	// Future sitescripts will have a case here
 	// case enums.Amazon:
 	// 	if _, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok && !monitor.UpdateMonitor {
@@ -555,21 +559,20 @@ func (monitorStore *MonitorStore) UpdateMonitorProxy(monitor *entities.TaskGroup
 // 	}
 // }
 
+// Let's see if we can abstract this
+//		This is effectively abstracted now, but we are going to have to remember to update the Task and Monitor models
+//		in each sitescript to make sure that we make use of the retailer specific fields
 func (monitorStore *MonitorStore) CheckMonitorStock() {
 	for {
 		for monitorID, baseMonitor := range monitorStore.Monitors {
-			switch baseMonitor.Retailer {
-			case enums.PokemonCenter:
-				if len(baseMonitor.PokemonCenterMonitor.InStock) > 0 {
-					taskGroup := baseMonitor.PokemonCenterMonitor.MonitorInfo.TaskGroup
-					for _, taskID := range taskGroup.TaskIDs {
-						if baseTask, ok := taskStore.Tasks[taskID]; ok {
-							if ok && baseTask.PokemonCenterTask.TaskInfo.Task.TaskGroupID == monitorID {
-								randomNumber := rand.Intn(len(baseMonitor.PokemonCenterMonitor.InStock))
-								stockData := baseMonitor.PokemonCenterMonitor.InStock[randomNumber]
-								baseTask.PokemonCenterTask.TaskInfo.StockInfo = stockData.StockInfo
-								baseTask.PokemonCenterTask.AddToCartForm = stockData.AddToCartForm
-							}
+			if len(baseMonitor.GetMonitorInfo().InStock) > 0 {
+				taskGroup := baseMonitor.GetMonitorInfo().TaskGroup
+				for _, taskID := range taskGroup.TaskIDs {
+					if baseTask, ok := taskStore.Tasks[taskID]; ok {
+						if ok && baseTask.GetTaskInfo().Task.TaskGroupID == monitorID {
+							randomNumber := rand.Intn(len(baseMonitor.GetMonitorInfo().InStock))
+							stockInfo := baseMonitor.GetMonitorInfo().InStock[randomNumber]
+							baseTask.FillStockInfo(stockInfo)
 						}
 					}
 				}

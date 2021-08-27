@@ -31,6 +31,7 @@ var tasksSchema = `
 	)
 `
 
+// Let's see if we can abstract this
 var amazonTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS amazonTaskInfos (
 		taskID TEXT,
@@ -166,6 +167,7 @@ var taskGroupsSchema = `
 	)
 `
 
+// Let's see if we can abstract this
 var amazonMonitorInfosSchema = `
 	CREATE TABLE IF NOT EXISTS amazonMonitorInfos (
 		ID TEXT,
@@ -502,6 +504,7 @@ var schemas = []string{
 
 	// Tasks
 	tasksSchema,
+	// Let's see if we can abstract this
 	amazonTaskInfosSchema,
 	bestbuyTaskInfosSchema,
 	boxlunchTaskInfosSchema,
@@ -520,6 +523,7 @@ var schemas = []string{
 
 	// Task Groups/Monitors
 	taskGroupsSchema,
+	// Let's see if we can abstract this
 	amazonMonitorInfosSchema,
 	amazonSingleMonitorInfosSchema,
 	bestbuyMonitorInfosSchema,

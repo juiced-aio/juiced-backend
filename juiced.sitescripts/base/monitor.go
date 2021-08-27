@@ -6,17 +6,21 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
-	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 type Monitor struct {
-	Retailer             enums.Retailer
-	PokemonCenterMonitor *pokemoncenter.Monitor
+	RetailMonitor
+	Retailer enums.Retailer
+}
+
+type RetailMonitor interface {
+	GetMonitorInfo() *util.MonitorInfo
+	RunMonitor()
 }
 
 func CreateRetailerMonitor(retailer enums.Retailer, taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, data interface{}) (Monitor, error) {
-	monitor := Monitor{
+	baseMonitor := Monitor{
 		Retailer: retailer,
 	}
 	var err error
@@ -25,29 +29,14 @@ func CreateRetailerMonitor(retailer enums.Retailer, taskGroup *entities.TaskGrou
 	case enums.PokemonCenter:
 		monitors, ok := data.([]entities.PokemonCenterSingleMonitorInfo)
 		if !ok {
-			return monitor, errors.New("bad input")
+			return baseMonitor, errors.New("bad input")
 		}
-		monitor.PokemonCenterMonitor, err = CreatePokemonCenterMonitor(taskGroup, proxyGroup, eventBus, monitors)
+		err = baseMonitor.CreatePokemonCenterMonitor(taskGroup, proxyGroup, eventBus, monitors)
 	}
 
-	return monitor, err
-}
-
-func (monitor *Monitor) GetMonitorInfo() *util.MonitorInfo {
-	switch monitor.Retailer {
-	case enums.PokemonCenter:
-		if monitor.PokemonCenterMonitor == nil {
-			return nil
-		}
-		return monitor.PokemonCenterMonitor.MonitorInfo
-	}
-
-	return nil
+	return baseMonitor, err
 }
 
 func (monitor *Monitor) RunMonitor() {
-	switch monitor.Retailer {
-	case enums.PokemonCenter:
-		monitor.PokemonCenterMonitor.RunMonitor()
-	}
+	monitor.RetailMonitor.RunMonitor()
 }

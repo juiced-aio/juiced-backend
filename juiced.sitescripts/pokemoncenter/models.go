@@ -43,6 +43,7 @@ const (
 	RetrieveCyberSourceTokenError        = "could not retrieve CyberSource token"
 	RetrieveCyberSourcePaymentTokenError = "could not retrieve CyberSource payment token"
 
+	AddToCartBadInputError = "add to cart form value is not a string"
 	AddToCartQuantityError = "expected quantity of %d but found %d"
 )
 
@@ -52,7 +53,6 @@ type Monitor struct {
 	RunningMonitors []string
 	OutOfStockSKUs  []string
 	SKUs            []string
-	InStock         []PokemonCenterInStockData
 	SKUWithInfo     map[string]entities.PokemonCenterSingleMonitorInfo
 }
 
@@ -80,7 +80,6 @@ type MonitorResponse struct {
 type Task struct {
 	TaskInfo        *util.TaskInfo
 	Input           TaskInput
-	AddToCartForm   string
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string
 	CheckoutUri     string
@@ -90,11 +89,6 @@ type TaskInput struct {
 	Email    string
 	Password string
 	TaskType enums.TaskType
-}
-
-type PokemonCenterInStockData struct {
-	StockInfo     util.StockInfo
-	AddToCartForm string
 }
 
 type CyberSecureInfo struct {

@@ -8,18 +8,19 @@ import (
 
 // Task is a class that holds details about a single bot task
 type Task struct {
-	ID                    string           `json:"ID" db:"ID"`
-	TaskGroupID           string           `json:"taskGroupID" db:"taskGroupID"`
-	TaskProfileID         string           `json:"profileID" db:"profileID"`
-	TaskProxyGroupID      string           `json:"proxyGroupID" db:"proxyGroupID"`
-	TaskRetailer          enums.Retailer   `json:"retailer" db:"retailer"`
-	TaskSize              []string         `json:"size"`
-	TaskSizeJoined        string           `json:"sizeJoined" db:"sizeJoined"`
-	TaskQty               int              `json:"qty" db:"qty"`
-	TaskStatus            enums.TaskStatus `json:"status" db:"status"`
-	TaskDelay             int              `json:"taskDelay" db:"taskDelay"`
-	UpdateTask            bool
-	CreationDate          int64                  `json:"creationDate" db:"creationDate"`
+	ID               string           `json:"ID" db:"ID"`
+	TaskGroupID      string           `json:"taskGroupID" db:"taskGroupID"`
+	TaskProfileID    string           `json:"profileID" db:"profileID"`
+	TaskProxyGroupID string           `json:"proxyGroupID" db:"proxyGroupID"`
+	TaskRetailer     enums.Retailer   `json:"retailer" db:"retailer"`
+	TaskSize         []string         `json:"size"`
+	TaskSizeJoined   string           `json:"sizeJoined" db:"sizeJoined"`
+	TaskQty          int              `json:"qty" db:"qty"`
+	TaskStatus       enums.TaskStatus `json:"status" db:"status"`
+	TaskDelay        int              `json:"taskDelay" db:"taskDelay"`
+	UpdateTask       bool
+	CreationDate     int64 `json:"creationDate" db:"creationDate"`
+	// Let's see if we can abstract this
 	AmazonTaskInfo        *AmazonTaskInfo        `json:"amazonTaskInfo,omitempty"`
 	BestbuyTaskInfo       *BestbuyTaskInfo       `json:"bestbuyTaskInfo,omitempty"`
 	BoxlunchTaskInfo      *BoxlunchTaskInfo      `json:"boxlunchTaskInfo,omitempty"`
@@ -36,6 +37,7 @@ type Task struct {
 
 }
 
+// Let's see if we can abstract this
 type AmazonTaskInfo struct {
 	TaskID      string          `json:"taskID" db:"taskID"`
 	TaskGroupID string          `json:"taskGroupID" db:"taskGroupID"`
@@ -154,13 +156,14 @@ func ParseTask(task *Task, data []byte) error {
 
 // TaskGroupWithTasks is a class that holds a list of Tasks and a Monitor
 type TaskGroupWithTasks struct {
-	GroupID             string               `json:"groupID" db:"groupID"`
-	Name                string               `json:"name" db:"name"`
-	MonitorProxyGroupID string               `json:"proxyGroupID" db:"proxyGroupID"`
-	MonitorRetailer     enums.Retailer       `json:"retailer" db:"retailer"`
-	MonitorDelay        int                  `json:"delay" db:"delay"`
-	MonitorStatus       enums.MonitorStatus  `json:"status" db:"status"`
-	Tasks               []Task               `json:"tasks"`
+	GroupID             string              `json:"groupID" db:"groupID"`
+	Name                string              `json:"name" db:"name"`
+	MonitorProxyGroupID string              `json:"proxyGroupID" db:"proxyGroupID"`
+	MonitorRetailer     enums.Retailer      `json:"retailer" db:"retailer"`
+	MonitorDelay        int                 `json:"delay" db:"delay"`
+	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
+	Tasks               []Task              `json:"tasks"`
+	// Let's see if we can abstract this
 	AmazonMonitorInfo   *AmazonMonitorInfo   `json:"amazonMonitorInfo,omitempty"`
 	BestbuyMonitorInfo  *BestbuyMonitorInfo  `json:"bestbuyMonitorInfo,omitempty"`
 	BoxlunchMonitorInfo *BoxlunchMonitorInfo `json:"boxlunchMonitorInfo,omitempty"`
@@ -183,17 +186,18 @@ func (taskGroup *TaskGroupWithTasks) SetTasks(tasks []Task) {
 
 // TaskGroup is a class that holds a list of TaskIDs and a Monitor
 type TaskGroup struct {
-	GroupID                  string              `json:"groupID" db:"groupID"`
-	Name                     string              `json:"name" db:"name"`
-	MonitorProxyGroupID      string              `json:"proxyGroupID" db:"proxyGroupID"`
-	MonitorRetailer          enums.Retailer      `json:"retailer" db:"retailer"`
-	MonitorInput             string              `json:"input" db:"input"`
-	MonitorDelay             int                 `json:"delay" db:"delay"`
-	MonitorStatus            enums.MonitorStatus `json:"status" db:"status"`
-	TaskIDs                  []string            `json:"taskIDs" db:"taskIDs"`
-	TaskIDsJoined            string              `json:"taskIDsJoined" db:"taskIDsJoined"`
-	UpdateMonitor            bool
-	CreationDate             int64                     `json:"creationDate" db:"creationDate"`
+	GroupID             string              `json:"groupID" db:"groupID"`
+	Name                string              `json:"name" db:"name"`
+	MonitorProxyGroupID string              `json:"proxyGroupID" db:"proxyGroupID"`
+	MonitorRetailer     enums.Retailer      `json:"retailer" db:"retailer"`
+	MonitorInput        string              `json:"input" db:"input"`
+	MonitorDelay        int                 `json:"delay" db:"delay"`
+	MonitorStatus       enums.MonitorStatus `json:"status" db:"status"`
+	TaskIDs             []string            `json:"taskIDs" db:"taskIDs"`
+	TaskIDsJoined       string              `json:"taskIDsJoined" db:"taskIDsJoined"`
+	UpdateMonitor       bool
+	CreationDate        int64 `json:"creationDate" db:"creationDate"`
+	// Let's see if we can abstract this
 	AmazonMonitorInfo        *AmazonMonitorInfo        `json:"amazonMonitorInfo,omitempty"`
 	BestbuyMonitorInfo       *BestbuyMonitorInfo       `json:"bestbuyMonitorInfo,omitempty"`
 	BoxlunchMonitorInfo      *BoxlunchMonitorInfo      `json:"boxlunchMonitorInfo,omitempty"`
@@ -210,6 +214,7 @@ type TaskGroup struct {
 	// Future sitescripts will have a field here
 }
 
+// Let's see if we can abstract this
 type AmazonSingleMonitorInfo struct {
 	MonitorID   string            `json:"monitorID" db:"monitorID"`
 	TaskGroupID string            `json:"taskGroupID" db:"taskGroupID"`

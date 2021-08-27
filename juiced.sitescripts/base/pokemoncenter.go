@@ -7,8 +7,8 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, input pokemoncenter.TaskInput) (*pokemoncenter.Task, error) {
-	return &pokemoncenter.Task{
+func (baseTask *Task) CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, input pokemoncenter.TaskInput) error {
+	baseTask.RetailTask = &pokemoncenter.Task{
 		TaskInfo: &util.TaskInfo{
 			Task:       task,
 			Profile:    profile,
@@ -16,10 +16,12 @@ func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, prox
 			EventBus:   eventBus,
 		},
 		Input: input,
-	}, nil
+	}
+
+	return nil
 }
 
-func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.PokemonCenterSingleMonitorInfo) (*pokemoncenter.Monitor, error) {
+func (baseMonitor *Monitor) CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.PokemonCenterSingleMonitorInfo) error {
 	storedPokemonCenterMonitors := make(map[string]entities.PokemonCenterSingleMonitorInfo)
 	skus := []string{}
 
@@ -28,7 +30,7 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 		skus = append(skus, monitor.SKU)
 	}
 
-	return &pokemoncenter.Monitor{
+	baseMonitor.RetailMonitor = &pokemoncenter.Monitor{
 		MonitorInfo: &util.MonitorInfo{
 			TaskGroup:  taskGroup,
 			ProxyGroup: proxyGroup,
@@ -36,5 +38,7 @@ func CreatePokemonCenterMonitor(taskGroup *entities.TaskGroup, proxyGroup *entit
 		},
 		SKUs:        skus,
 		SKUWithInfo: storedPokemonCenterMonitors,
-	}, nil
+	}
+
+	return nil
 }
