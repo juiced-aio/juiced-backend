@@ -18,22 +18,22 @@ func InitStores() error {
 		return err
 	}
 
-	err = taskGroupStore.Init()
-	if err != nil {
-		return err
-	}
-
 	err = taskStore.Init()
 	if err != nil {
 		return err
 	}
 
-	err = profileGroupStore.Init()
+	err = taskGroupStore.Init()
 	if err != nil {
 		return err
 	}
 
 	err = profileStore.Init()
+	if err != nil {
+		return err
+	}
+
+	err = profileGroupStore.Init()
 	if err != nil {
 		return err
 	}

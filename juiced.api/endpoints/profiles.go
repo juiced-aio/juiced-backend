@@ -24,28 +24,24 @@ func GetProfileGroupEndpoint(response http.ResponseWriter, request *http.Request
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var profileGroup entities.ProfileGroup
-	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		profileGroup, err = stores.GetProfileGroup(groupID)
-		if err != nil {
+		profileGroupPtr, err := stores.GetProfileGroup(groupID)
+		if err == nil {
+			profileGroup = *profileGroupPtr
+		} else {
 			errorsList = append(errorsList, errors.GetProfileGroupError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroup)
-	if err != nil {
-		errorsList = append(errorsList, errors.GetProfileError+err.Error())
-	}
-	data := []entities.ProfileGroupWithProfiles{newProfileGroupWithProfiles}
-	result := &responses.ProfileGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
+	result := &responses.ProfileGroupResponse{Success: true, Data: []entities.ProfileGroup{profileGroup}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.ProfileGroupResponse{Success: false, Data: data, Errors: errorsList}
+		result = &responses.ProfileGroupResponse{Success: false, Data: []entities.ProfileGroup{}, Errors: errorsList}
 	}
 	json.NewEncoder(response).Encode(result)
 }
@@ -54,24 +50,13 @@ func GetProfileGroupEndpoint(response http.ResponseWriter, request *http.Request
 func GetAllProfileGroupsEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	errorsList := make([]string, 0)
-	profileGroups, err := stores.GetAllProfileGroups()
-	if err != nil {
-		errorsList = append(errorsList, errors.GetAllProfileGroupsError+err.Error())
-	}
-	data := []entities.ProfileGroupWithProfiles{}
+	profileGroups := stores.GetAllProfileGroups()
+
+	data := []entities.ProfileGroup{}
 	for i := 0; i < len(profileGroups); i++ {
-		newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroups[i])
-		if err != nil {
-			errorsList = append(errorsList, errors.GetProfileError+err.Error())
-		}
-		data = append(data, newProfileGroupWithProfiles)
+		data = append(data, *profileGroups[i])
 	}
 	result := &responses.ProfileGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
-	if len(errorsList) > 0 {
-		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.ProfileGroupResponse{Success: false, Data: data, Errors: errorsList}
-	}
 	json.NewEncoder(response).Encode(result)
 }
 
@@ -79,16 +64,17 @@ func GetAllProfileGroupsEndpoint(response http.ResponseWriter, request *http.Req
 func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	profileGroup := &entities.ProfileGroup{GroupID: uuid.New().String(), ProfileIDs: []string{}}
+	profileGroup := entities.ProfileGroup{GroupID: uuid.New().String(), ProfileIDs: []string{}}
 	errorsList := make([]string, 0)
 
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
-		err = entities.ParseProfileGroup(profileGroup, body)
+		err = json.Unmarshal(body, &profileGroup)
 		if err == nil {
-			profileGroup.CreationDate = time.Now().Unix()
-			err = stores.CreateProfileGroup(*profileGroup)
-			if err != nil {
+			profileGroupPtr, err := stores.CreateProfileGroup(profileGroup)
+			if err == nil {
+				profileGroup = *profileGroupPtr
+			} else {
 				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
 			}
 		} else {
@@ -97,11 +83,10 @@ func CreateProfileGroupEndpoint(response http.ResponseWriter, request *http.Requ
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(profileGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetProfileError+err.Error())
 	}
-	data := []entities.ProfileGroupWithProfiles{newProfileGroupWithProfiles}
+	data := []entities.ProfileGroup{profileGroup}
 	result := &responses.ProfileGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
