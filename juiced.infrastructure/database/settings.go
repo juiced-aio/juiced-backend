@@ -10,14 +10,12 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/helpers"
 )
 
-// GetSettings returns the settings object from the database
 func GetSettings() (entities.Settings, error) {
 	settings := entities.Settings{}
 	if database == nil {
 		return settings, &DatabaseNotInitializedError{}
 	}
 
-	// Might want to add "WHERE id = 0" to the query
 	rows, err := database.Queryx("SELECT * FROM settings")
 	if err != nil {
 		return settings, err
@@ -34,9 +32,8 @@ func GetSettings() (entities.Settings, error) {
 	return settings, err
 }
 
-// GetAccounts returns a list of accounts from the database
-func GetAccounts() ([]entities.Account, error) {
-	accounts := []entities.Account{}
+func GetAccounts() ([]*entities.Account, error) {
+	accounts := []*entities.Account{}
 	if database == nil {
 		return accounts, &DatabaseNotInitializedError{}
 	}
@@ -104,7 +101,7 @@ func GetAccounts() ([]entities.Account, error) {
 			}()
 		}
 
-		accounts = append(accounts, account)
+		accounts = append(accounts, &account)
 	}
 
 	sort.SliceStable(accounts, func(i, j int) bool {
@@ -114,7 +111,6 @@ func GetAccounts() ([]entities.Account, error) {
 	return accounts, nil
 }
 
-// GetAccount returns an account from the database
 func GetAccount(ID string) (entities.Account, error) {
 	account := entities.Account{}
 	if database == nil {
@@ -193,7 +189,6 @@ func GetAccount(ID string) (entities.Account, error) {
 	return account, nil
 }
 
-// UpdateSettings updates the Settings object in the database
 func UpdateSettings(settings entities.Settings) error {
 	if database == nil {
 		return &DatabaseNotInitializedError{}
@@ -213,7 +208,6 @@ func UpdateSettings(settings entities.Settings) error {
 	return err
 }
 
-// AddAccount adds an Account object to the database
 func AddAccount(account entities.Account) error {
 	if database == nil {
 		return &DatabaseNotInitializedError{}
@@ -239,19 +233,14 @@ func AddAccount(account entities.Account) error {
 	return err
 }
 
-// UpdateAccount updates an Account object in the database
 func UpdateAccount(ID string, newAccount entities.Account) error {
 	err := RemoveAccount(ID)
 	if err != nil {
 		return err
 	}
-
-	err = AddAccount(newAccount)
-
-	return err
+	return AddAccount(newAccount)
 }
 
-// RemoveAccount removes an Account object from the database
 func RemoveAccount(ID string) error {
 	if database == nil {
 		return &DatabaseNotInitializedError{}

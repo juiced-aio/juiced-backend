@@ -114,23 +114,19 @@ func AddAccountEndpoint(response http.ResponseWriter, request *http.Request) {
 
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
-		settings, err = stores.GetSettings()
+		settings = stores.GetSettings()
+		err = json.Unmarshal(body, &newAccount)
 		if err == nil {
-			err = json.Unmarshal(body, &newAccount)
+			newAccount.ID = uuid.New().String()
+			newAccount.CreationDate = time.Now().Unix()
+			err = stores.AddAccount(newAccount)
 			if err == nil {
-				newAccount.ID = uuid.New().String()
-				newAccount.CreationDate = time.Now().Unix()
-				err = stores.AddAccount(newAccount)
-				if err == nil {
-					settings.Accounts = append(settings.Accounts, newAccount)
-				} else {
-					errorsList = append(errorsList, errors.AddAccountError+err.Error())
-				}
+				settings.Accounts = append(settings.Accounts, &newAccount)
 			} else {
-				errorsList = append(errorsList, errors.ParseAccountError+err.Error())
+				errorsList = append(errorsList, errors.AddAccountError+err.Error())
 			}
 		} else {
-			errorsList = append(errorsList, errors.GetSettingsError+err.Error())
+			errorsList = append(errorsList, errors.ParseAccountError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
@@ -156,28 +152,24 @@ func UpdateAccountEndpoint(response http.ResponseWriter, request *http.Request) 
 	if ok {
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
-			settings, err = stores.GetSettings()
+			settings = stores.GetSettings()
+			err = json.Unmarshal(body, &newAccount)
 			if err == nil {
-				err = json.Unmarshal(body, &newAccount)
-				if err == nil {
-					newAccounts := []entities.Account{}
-					for _, account := range settings.Accounts {
-						if account.ID == ID {
-							_, err = stores.UpdateAccount(ID, newAccount)
-							if err != nil {
-								errorsList = append(errorsList, errors.UpdateAccountError+err.Error())
-							}
-							newAccounts = append(newAccounts, newAccount)
-						} else {
-							newAccounts = append(newAccounts, account)
+				newAccounts := []*entities.Account{}
+				for _, account := range settings.Accounts {
+					if account.ID == ID {
+						err = stores.UpdateAccount(ID, newAccount)
+						if err != nil {
+							errorsList = append(errorsList, errors.UpdateAccountError+err.Error())
 						}
+						newAccounts = append(newAccounts, &newAccount)
+					} else {
+						newAccounts = append(newAccounts, account)
 					}
-					settings.Accounts = newAccounts
-				} else {
-					errorsList = append(errorsList, errors.ParseAccountError+err.Error())
 				}
+				settings.Accounts = newAccounts
 			} else {
-				errorsList = append(errorsList, errors.GetSettingsError+err.Error())
+				errorsList = append(errorsList, errors.ParseAccountError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
@@ -206,28 +198,24 @@ func RemoveAccountsEndpoint(response http.ResponseWriter, request *http.Request)
 
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
-		settings, err = stores.GetSettings()
+		settings = stores.GetSettings()
+		deleteAccountsRequestInfo := DeleteAccountsRequest{}
+		err = json.Unmarshal(body, &deleteAccountsRequestInfo)
 		if err == nil {
-			deleteAccountsRequestInfo := DeleteAccountsRequest{}
-			err = json.Unmarshal(body, &deleteAccountsRequestInfo)
-			if err == nil {
-				newAccounts := []entities.Account{}
-				for _, account := range settings.Accounts {
-					if helpers.InSlice(deleteAccountsRequestInfo.AccountIDs, account.ID) {
-						_, err = stores.RemoveAccount(account.ID)
-						if err != nil {
-							errorsList = append(errorsList, errors.RemoveAccountError+err.Error())
-						}
-					} else {
-						newAccounts = append(newAccounts, account)
+			newAccounts := []*entities.Account{}
+			for _, account := range settings.Accounts {
+				if helpers.InSlice(deleteAccountsRequestInfo.AccountIDs, account.ID) {
+					err = stores.RemoveAccount(account.ID)
+					if err != nil {
+						errorsList = append(errorsList, errors.RemoveAccountError+err.Error())
 					}
+				} else {
+					newAccounts = append(newAccounts, account)
 				}
-				settings.Accounts = newAccounts
-			} else {
-				errorsList = append(errorsList, errors.ParseRemoveAccountsRequestError+err.Error())
 			}
+			settings.Accounts = newAccounts
 		} else {
-			errorsList = append(errorsList, errors.GetSettingsError+err.Error())
+			errorsList = append(errorsList, errors.ParseRemoveAccountsRequestError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
