@@ -170,9 +170,9 @@ func TestDisney(t *testing.T) {
 	MainTask.DisneyTaskInfo = &entities.DisneyTaskInfo{
 		TaskID:      MainTaskID,
 		TaskGroupID: MainTaskGroupID,
-		Email:       "",
+		Email:       "@gmail.com",
 		Password:    "",
-		TaskType:    enums.TaskTypeAccount,
+		TaskType:    enums.TaskTypeGuest,
 	}
 
 	MainTaskGroup.DisneyMonitorInfo = &entities.DisneyMonitorInfo{
@@ -181,7 +181,9 @@ func TestDisney(t *testing.T) {
 		Monitors: []entities.DisneySingleMonitorInfo{{
 			MonitorID:   MainMonitorID,
 			TaskGroupID: MainTaskGroupID,
-			PID:         "461035691418",
+			PID:         "7407055825934MS",
+			Size:        "XL",
+			Color:       "",
 			MaxPrice:    -1,
 		}},
 	}
