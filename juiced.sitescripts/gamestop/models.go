@@ -81,6 +81,7 @@ type AccountInfo struct {
 }
 
 type CheckoutInfo struct {
+	CaptchaProtected     bool
 	ShipmentUUID         string
 	OriginalShipmentUUID string
 	CSRF                 string
@@ -136,6 +137,7 @@ type Availability struct {
 
 type Product struct {
 	Availability       Availability `json:"availability"`
+	Available          bool         `json:"available"`
 	ID                 string       `json:"id"`
 	Selectedproducturl string       `json:"selectedProductUrl"`
 	MaxOrderQuantity   int          `json:"maxOrderQuantity"`
@@ -158,8 +160,9 @@ type Gtmdata struct {
 }
 
 type AddToCartResponse struct {
-	Message       string `json:"message"`
-	QuantityTotal int    `json:"quantityTotal"`
+	Message          string `json:"message"`
+	CaptchaProtected bool   `json:"protectedCaptchaCheckEnabled"`
+	QuantityTotal    int    `json:"quantityTotal"`
 }
 
 type AkamaiResponse struct {

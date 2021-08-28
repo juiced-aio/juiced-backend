@@ -520,6 +520,8 @@ func (task *Task) AddToCart() bool {
 				if err != nil {
 					return false
 				}
+
+				return false
 			case "CONSTRAINED_ITEM":
 				handled = task.HandleQueue(resp, data)
 			}
@@ -627,6 +629,8 @@ func (task *Task) HandleQueue(resp *http.Response, data []byte) (handled bool) {
 				if err != nil {
 					return
 				}
+
+				return false
 			case "CONSTRAINED_ITEM":
 				return task.HandleQueue(resp, data)
 			}
