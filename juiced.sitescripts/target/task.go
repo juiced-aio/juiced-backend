@@ -513,7 +513,6 @@ func (task *Task) RefreshLogin() {
 			loggedIn := false
 			for !loggedIn {
 				loggedIn = task.Login()
-
 				if !loggedIn {
 					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 				}
