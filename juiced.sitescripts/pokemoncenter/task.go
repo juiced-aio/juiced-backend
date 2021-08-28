@@ -64,6 +64,7 @@ func (task *Task) RunTask() {
 		}
 		task.Task.StopFlag = true
 	}()
+	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
@@ -394,12 +395,14 @@ func (task *Task) RetrieveToken() (bool, string) {
 }
 
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
 		if task.StockData.AddToCartForm != "" {
+			task.Task.HasStockData = true
 			return false
 		}
 		time.Sleep(time.Millisecond * common.MS_TO_WAIT)
