@@ -163,7 +163,8 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			// If sizes and colors remain, continue
 			if (len(sizes) > 0 && len(colors) > 0) ||
 				(len(sizes) > 0 && noColorsBeforeFilter) || // (Or if there are sizes but no color variants)
-				(len(colors) > 0 && noSizesBeforeFilter) { // (Or if there are colors but no size variants)
+				(len(colors) > 0 && noSizesBeforeFilter) || // (Or if there are colors but no size variants)
+				(noColorsBeforeFilter && noSizesBeforeFilter) {
 				needToStop = monitor.CheckForStop()
 				if needToStop {
 
