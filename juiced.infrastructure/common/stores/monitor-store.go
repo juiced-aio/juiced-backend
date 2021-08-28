@@ -607,8 +607,7 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok && !bestbuyTask.Task.HasStockData {
 						if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(bestbuyMonitor.InStock))
-							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[randomNumber].SKU
-							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[randomNumber].Price
+							bestbuyTask.StockData = bestbuyMonitor.InStock[randomNumber]
 						}
 					}
 				}
