@@ -103,6 +103,9 @@ func (task *Task) RunTask() {
 		case enums.TaskTypeAccount:
 			task.PublishEvent(enums.LoggingIn, enums.TaskStart, 10)
 			sessionMade = task.Login()
+			if sessionMade {
+				task.ClearCart()
+			}
 		case enums.TaskTypeGuest:
 			task.PublishEvent(enums.SettingUp, enums.TaskStart, 10)
 			sessionMade = BecomeGuest(task.Task.Client)
@@ -368,7 +371,7 @@ func (task *Task) Login() bool {
 		fmt.Println(err.Error())
 		return false
 	}
-	fmt.Println(loginResponse)
+
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
@@ -391,6 +394,36 @@ func (task *Task) Login() bool {
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err.Error())
 		return false
+	}
+
+	return true
+}
+
+func (task *Task) ClearCart() bool {
+	var clearCartResponse ClearCartResponse
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client:             task.Task.Client,
+		Method:             "GET",
+		URL:                CartInfoEndpoint,
+		RawHeaders:         DefaultRawHeaders,
+		ResponseBodyStruct: &clearCartResponse,
+	})
+	ok := util.HandleErrors(err, util.RequestDoError)
+	if !ok || resp.StatusCode != 200 {
+		return false
+	}
+
+	for _, lineItem := range clearCartResponse.Cart.Lineitems {
+		resp, _, err := util.MakeRequest(&util.Request{
+			Client:     task.Task.Client,
+			Method:     "DELETE",
+			URL:        BaseEndpoint + fmt.Sprintf("/cart/item/%v", lineItem.ID),
+			RawHeaders: DefaultRawHeaders,
+		})
+		ok := util.HandleErrors(err, util.RequestDoError)
+		if !ok || resp.StatusCode != 200 {
+			return false
+		}
 	}
 
 	return true
@@ -438,7 +471,6 @@ func (task *Task) AddToCart() bool {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
-					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
 					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU), BaseEndpoint, AkamaiEndpoint)
 					if err != nil {
 						return false
@@ -639,14 +671,20 @@ func (task *Task) Checkout() bool {
 		if err != nil {
 			return false
 		}
-		fmt.Println(orderData.Items)
+
+		var itemIDs []string
+		for _, item := range orderData.Items {
+			itemIDs = append(itemIDs, item.ID)
+		}
+
 		if len(orderData.Items) > 0 {
 			task.CheckoutInfo.ID = orderData.ID
-			task.CheckoutInfo.ItemID = orderData.Items[0].ID
+			task.CheckoutInfo.ItemIDs = append(task.CheckoutInfo.ItemIDs, itemIDs...)
 			task.CheckoutInfo.PaymentID = orderData.Payment.ID
 			task.CheckoutInfo.OrderID = orderData.Customerorderid
+			return true
 		}
-		return true
+
 	}
 
 	return false
@@ -668,19 +706,18 @@ func (task *Task) SetShippingInfo() bool {
 	}
 
 	var shipOrPickupRequest ShipOrPickupRequest
-	if task.LocationID == "" {
-		shipOrPickupRequest = ShipOrPickupRequest{
-			{
-				ID: task.CheckoutInfo.ItemID,
+
+	for _, itemID := range task.CheckoutInfo.ItemIDs {
+		if task.LocationID == "" {
+			shipOrPickupRequest = append(shipOrPickupRequest, ShipOrPickup{
+				ID: itemID,
 				Selectedfulfillment: Selectedfulfillment1{
 					Shipping: Shipping1{},
 				},
-			},
-		}
-	} else {
-		shipOrPickupRequest = ShipOrPickupRequest{
-			{
-				ID:                   task.CheckoutInfo.ItemID,
+			})
+		} else {
+			shipOrPickupRequest = append(shipOrPickupRequest, ShipOrPickup{
+				ID:                   itemID,
 				StoreFulfillmentType: "InStore",
 				Type:                 "DEFAULT",
 				Selectedfulfillment: Selectedfulfillment1{
@@ -691,7 +728,7 @@ func (task *Task) SetShippingInfo() bool {
 						IsSTSAvailable:        false,
 					},
 				},
-			},
+			})
 		}
 	}
 
@@ -742,34 +779,35 @@ func (task *Task) SetShippingInfo() bool {
 		Smsnotifynumber: "",
 		Smsoptin:        false,
 		Emailaddress:    task.Task.Profile.Email,
-		Items: []ShipItems{
-			{
-				ID:   task.CheckoutInfo.ItemID,
-				Type: "DEFAULT",
-				Selectedfulfillment: Selectedfulfillment{
-					Shipping: Shipping{
-						Address: ShipAddress{
-							Country:             task.Task.Profile.ShippingAddress.CountryCode,
-							Savetoprofile:       false,
-							Street2:             strings.ToUpper(task.Task.Profile.ShippingAddress.Address2),
-							Useaddressasbilling: false,
-							Middleinitial:       "",
-							Lastname:            task.Task.Profile.ShippingAddress.LastName,
-							Street:              strings.ToUpper(task.Task.Profile.ShippingAddress.Address1),
-							City:                strings.ToUpper(task.Task.Profile.ShippingAddress.City),
-							Override:            false,
-							Zipcode:             task.Task.Profile.ShippingAddress.ZipCode,
-							State:               task.Task.Profile.ShippingAddress.StateCode,
-							Firstname:           task.Task.Profile.ShippingAddress.FirstName,
-							Iswishlistaddress:   false,
-							Dayphonenumber:      task.Task.Profile.PhoneNumber,
-							Type:                "RESIDENTIAL",
-						},
+		Items:           []ShipItems{},
+	}
+	for _, itemID := range task.CheckoutInfo.ItemIDs {
+		setShippingRequest.Items = append(setShippingRequest.Items, ShipItems{
+			ID:   itemID,
+			Type: "DEFAULT",
+			Selectedfulfillment: Selectedfulfillment{
+				Shipping: Shipping{
+					Address: ShipAddress{
+						Country:             task.Task.Profile.ShippingAddress.CountryCode,
+						Savetoprofile:       false,
+						Street2:             task.Task.Profile.ShippingAddress.Address2,
+						Useaddressasbilling: false,
+						Middleinitial:       "",
+						Lastname:            task.Task.Profile.ShippingAddress.LastName,
+						Street:              task.Task.Profile.ShippingAddress.Address1,
+						City:                task.Task.Profile.ShippingAddress.City,
+						Override:            false,
+						Zipcode:             task.Task.Profile.ShippingAddress.ZipCode,
+						State:               task.Task.Profile.ShippingAddress.StateCode,
+						Firstname:           task.Task.Profile.ShippingAddress.FirstName,
+						Iswishlistaddress:   false,
+						Dayphonenumber:      task.Task.Profile.PhoneNumber,
+						Type:                "RESIDENTIAL",
 					},
 				},
-				Giftmessageselected: false,
 			},
-		},
+			Giftmessageselected: false,
+		})
 	}
 	data, err = json.Marshal(setShippingRequest)
 	ok = util.HandleErrors(err, util.RequestMarshalBodyError)

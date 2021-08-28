@@ -20,7 +20,7 @@ const (
 	MonitorEndpoint = "https://www.bestbuy.com/api/3.0/priceBlocks?skus=%v"
 	//{"zipCode":null,"destinationZipCode":null,"showInStore":false,"showOnShelf":false,"additionalStores":null,"items":[{"sku": "6439299"}],"lookupInStoreQuantity":false,"consolidated":false,"locationId":null,"xboxAllAccess":false,"showOnlyOnShelf":false,"onlyBestBuyLocations":false}
 	AddToCartEndpoint            = "https://www.bestbuy.com/cart/api/v1/addToCart"
-	CartInfoEndpoint             = "https://www.bestbuy.com/cart/api/v1/fulfillment/ispu"
+	CartInfoEndpoint             = "https://www.bestbuy.com/cart/json"
 	CheckoutEndpoint             = "https://www.bestbuy.com/checkout/r/fast-track"
 	GetStoreAvailabilityEndpoint = "https://www.bestbuy.com/productfulfillment/com/api/2.0/storeAvailability"
 	BaseShippingEndpoint         = "https://www.bestbuy.com/checkout/r/fulfillment"
@@ -95,10 +95,9 @@ type Task struct {
 	AccountInfo  AccountInfo
 	LocationID   string
 }
-
 type CheckoutInfo struct {
 	ID        string
-	ItemID    string
+	ItemIDs   []string
 	PaymentID string
 	OrderID   string
 	ThreeDsID string
@@ -268,6 +267,18 @@ type LoginResponse struct {
 	Redirecturl    string        `json:"redirectUrl"`
 	Flowoptions    string        `json:"flowOptions"`
 	Missingfields  []interface{} `json:"missingFields"`
+}
+
+type ClearCartResponse struct {
+	Cart Cart `json:"cart"`
+}
+
+type Cart struct {
+	Lineitems []Lineitems `json:"lineItems"`
+}
+
+type Lineitems struct {
+	ID string `json:"id"`
 }
 
 type MonitorRequest struct {
@@ -755,7 +766,9 @@ type ItemsSelectedfulfillment struct {
 	Shipping ItemsShipping `json:"shipping"`
 }
 
-type ShipOrPickupRequest []struct {
+type ShipOrPickupRequest []ShipOrPickup
+
+type ShipOrPickup struct {
 	ID                   string               `json:"id"`
 	StoreFulfillmentType string               `json:"storeFulfillmentType,omitempty"`
 	Type                 string               `json:"type,omitempty"`
