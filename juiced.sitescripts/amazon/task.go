@@ -77,7 +77,7 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
-
+	task.Task.HasStockData = false
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
@@ -547,7 +547,7 @@ func (task *Task) requestsLogin() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
-	task.Task.Running = false
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -555,7 +555,7 @@ func (task *Task) WaitForMonitor() bool {
 		}
 		emptyString := ""
 		if task.StockData.OfferID != emptyString {
-			task.Task.Running = true
+			task.Task.HasStockData = true
 			return false
 		}
 		// I see why now

@@ -122,6 +122,7 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
+	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
@@ -314,14 +315,14 @@ func (task *Task) RunTask() {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
-	task.Task.Running = false
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
 		if task.StockData.OfferID != "" && task.StockData.SKU != "" {
-			task.Task.Running = true
+			task.Task.HasStockData = true
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
