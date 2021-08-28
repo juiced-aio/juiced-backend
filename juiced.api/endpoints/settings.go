@@ -7,8 +7,9 @@ import (
 	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/captcha"
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/helpers"
+	"backend.juicedbot.io/juiced.infrastructure/stores"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 
@@ -21,18 +22,9 @@ import (
 func GetSettingsEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var settings entities.Settings
-	errorsList := make([]string, 0)
 
-	settings, err := stores.GetSettings()
-	if err != nil {
-		errorsList = append(errorsList, errors.GetSettingsError+err.Error())
-	}
+	settings := stores.GetSettings()
 	result := &responses.SettingsResponse{Success: true, Data: settings, Errors: make([]string, 0)}
-	if len(errorsList) > 0 {
-		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.SettingsResponse{Success: false, Data: entities.Settings{}, Errors: errorsList}
-	}
 	json.NewEncoder(response).Encode(result)
 }
 
@@ -45,9 +37,9 @@ func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request)
 
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
-		err = entities.ParseSettings(&newSettings, body)
+		err = json.Unmarshal(body, &newSettings)
 		if err == nil {
-			currentSettings, err := stores.GetSettings()
+			currentSettings := stores.GetSettings()
 			if err == nil {
 				if newSettings.SuccessDiscordWebhook == "-1" {
 					newSettings.SuccessDiscordWebhook = currentSettings.SuccessDiscordWebhook
@@ -81,7 +73,7 @@ func UpdateSettingsEndpoint(response http.ResponseWriter, request *http.Request)
 				if !newSettings.UseAnimationsUpdate {
 					newSettings.UseAnimations = currentSettings.UseAnimations
 				}
-				newSettings, err = stores.UpdateSettings(newSettings)
+				err = stores.UpdateSettings(newSettings)
 				if err != nil {
 					errorsList = append(errorsList, errors.UpdateSettingsError+err.Error())
 				} else {
@@ -221,7 +213,7 @@ func RemoveAccountsEndpoint(response http.ResponseWriter, request *http.Request)
 			if err == nil {
 				newAccounts := []entities.Account{}
 				for _, account := range settings.Accounts {
-					if common.InSlice(deleteAccountsRequestInfo.AccountIDs, account.ID) {
+					if helpers.InSlice(deleteAccountsRequestInfo.AccountIDs, account.ID) {
 						_, err = stores.RemoveAccount(account.ID)
 						if err != nil {
 							errorsList = append(errorsList, errors.RemoveAccountError+err.Error())
