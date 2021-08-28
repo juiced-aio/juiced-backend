@@ -35,6 +35,14 @@ func (e *ProfileNotFoundError) Error() string {
 	return fmt.Sprintf("Profile with ID %s not found", e.ID)
 }
 
+type ProfileNotFoundByNameError struct {
+	Name string
+}
+
+func (e *ProfileNotFoundByNameError) Error() string {
+	return fmt.Sprintf("Profile with name %s not found", e.Name)
+}
+
 func GetAllProfiles() []*entities.Profile {
 	profiles := []*entities.Profile{}
 	for _, profile := range profileStore.Profiles {
@@ -62,6 +70,16 @@ func GetProfile(profileID string) (*entities.Profile, error) {
 	}
 
 	return profile, nil
+}
+
+func GetProfileByName(name string) (*entities.Profile, error) {
+	for _, profile := range profileStore.Profiles {
+		if profile.Name == name {
+			return profile, nil
+		}
+	}
+
+	return nil, &ProfileNotFoundByNameError{name}
 }
 
 func CreateProfile(profile entities.Profile) (*entities.Profile, error) {

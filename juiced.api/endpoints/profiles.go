@@ -482,8 +482,7 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 		profile, err := stores.GetProfile(ID)
 		if err == nil {
 			newProfile := *profile
-			newProfileID := uuid.New().String()
-			newProfile.ID = newProfileID
+			newProfile.ID = uuid.New().String()
 			newProfile.Name = profile.Name + " (Copy " + common.RandID(3) + ")"
 			newProfile.CreationDate = time.Now().Unix()
 			newProfile.ShippingAddress.ID = uuid.New().String()
@@ -534,7 +533,7 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 		err = json.Unmarshal(body, &importProfilesRequestInfo)
 		if err == nil {
 			validGroupIDs := []string{}
-			validGroups := []entities.ProfileGroup{}
+			validGroups := []*entities.ProfileGroup{}
 			for _, groupID := range importProfilesRequestInfo.GroupIDs {
 				group, err := stores.GetProfileGroup(groupID)
 				if err == nil && group.GroupID != "" {
@@ -554,31 +553,29 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 					err = json.Unmarshal(byteValue, &profiles)
 					if err == nil && len(profiles.Profiles) > 0 {
 						newProfileIDs := []string{}
-						for _, profile := range profiles.Profiles {
+						for _, newProfile := range profiles.Profiles {
 							// TODO @silent: Validate all fields
-							existingProfile, err := stores.GetProfileByName(profile.Name)
-							if err != nil || existingProfile.ID == "" || profile.Name == "" {
-								profile.ID = uuid.New().String()
-								profile.ProfileGroupIDs = validGroupIDs
+							existingProfile, err := stores.GetProfileByName(newProfile.Name)
+							if err != nil || existingProfile.ID == "" || existingProfile.Name == "" {
+								newProfile.ID = uuid.New().String()
+								newProfile.ProfileGroupIDs = validGroupIDs
 								if len(validGroupIDs) > 0 {
-									profile.ProfileGroupIDsJoined = strings.Join(validGroupIDs, ",")
+									newProfile.ProfileGroupIDsJoined = strings.Join(validGroupIDs, ",")
 								}
-								profile.CreationDate = time.Now().Unix()
+								newProfile.CreationDate = time.Now().Unix()
 
-								profile.ShippingAddress.ID = uuid.New().String()
-								profile.ShippingAddress.ProfileID = profile.ID
-								profile.BillingAddress.ID = uuid.New().String()
-								profile.BillingAddress.ProfileID = profile.ID
-								profile.CreditCard.ID = uuid.New().String()
-								profile.CreditCard.ProfileID = profile.ID
-								cardType := common.DetectCardType([]byte(profile.CreditCard.CardNumber))
+								newProfile.ShippingAddress.ID = uuid.New().String()
+								newProfile.BillingAddress.ID = uuid.New().String()
+								newProfile.CreditCard.ID = uuid.New().String()
+								cardType := common.DetectCardType([]byte(newProfile.CreditCard.CardNumber))
 								if cardType != "" {
-									profile.CreditCard.CardType = cardType
+									newProfile.CreditCard.CardType = cardType
 
-									err = stores.CreateProfile(profile)
+									newProfilePtr, err := stores.CreateProfile(newProfile)
 									if err == nil {
-										newProfiles = append(newProfiles, profile)
-										newProfileIDs = append(newProfileIDs, profile.ID)
+										newProfile = *newProfilePtr
+										newProfiles = append(newProfiles, newProfile)
+										newProfileIDs = append(newProfileIDs, newProfile.ID)
 									} else {
 										skippedProfiles++
 									}
@@ -592,7 +589,7 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 
 						for _, group := range validGroups {
 							group.AddProfileIDsToGroup(newProfileIDs)
-							_, err = stores.UpdateProfileGroup(group.GroupID, group)
+							_, err = stores.UpdateProfileGroup(group.GroupID, *group)
 							if err != nil {
 								skippedGroups++
 							}
@@ -617,22 +614,19 @@ func ImportProfilesEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
 
-	profileGroups, err := stores.GetAllProfileGroups()
+	profileGroups := stores.GetAllProfileGroups()
 	if err != nil {
 		errorsList = append(errorsList, errors.GetAllProfileGroupsError+err.Error())
 	}
-	data := []entities.ProfileGroupWithProfiles{}
+
+	data := []entities.ProfileGroup{}
 	for i := 0; i < len(profileGroups); i++ {
-		newProfileGroupWithProfiles, err := stores.ConvertProfileIDsToProfiles(&profileGroups[i])
-		if err != nil {
-			errorsList = append(errorsList, errors.GetProfileError+err.Error())
-		}
-		data = append(data, newProfileGroupWithProfiles)
+		data = append(data, *profileGroups[i])
 	}
 	result := &responses.ImportProfileResponse{Success: true, NewProfiles: newProfiles, SkippedProfiles: skippedProfiles, SkippedGroups: skippedGroups, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.ImportProfileResponse{Success: false, NewProfiles: []entities.Profile{}, SkippedProfiles: 0, SkippedGroups: 0, Data: data, Errors: errorsList}
+		result = &responses.ImportProfileResponse{Success: false, NewProfiles: []entities.Profile{}, SkippedProfiles: 0, SkippedGroups: 0, Data: make([]entities.ProfileGroup, 0), Errors: errorsList}
 	}
 	json.NewEncoder(response).Encode(result)
 }
