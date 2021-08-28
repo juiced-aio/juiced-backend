@@ -140,6 +140,32 @@ func TestBestbuy(t *testing.T) {
 	select {}
 }
 
+func TestBoxlunch(t *testing.T) {
+	MainTask.BoxlunchTaskInfo = &entities.BoxlunchTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+	}
+
+	MainTaskGroup.BoxlunchMonitorInfo = &entities.BoxlunchMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.BoxlunchSingleMonitorInfo{{
+			MonitorID:   MainMonitorID,
+			TaskGroupID: MainTaskGroupID,
+			Pid:         "15207013",
+			Size:        "SM",
+			Color:       "WHITE",
+			MaxPrice:    -1,
+			MonitorType: enums.SKUMonitor,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.BoxLunch
+	MainTask.TaskRetailer = enums.BoxLunch
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	select {}
+}
+
 func TestDisney(t *testing.T) {
 	MainTask.DisneyTaskInfo = &entities.DisneyTaskInfo{
 		TaskID:      MainTaskID,
