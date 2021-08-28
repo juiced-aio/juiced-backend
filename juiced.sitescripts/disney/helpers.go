@@ -50,6 +50,14 @@ func RandomString(selection string, length int) (r string) {
 
 // Creates a embed for the DiscordWebhook function
 func (task *Task) CreateDisneyEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	size := task.StockData.Size
+	if size == "" {
+		size = "N/A"
+	}
+	color := task.StockData.Color
+	if color == "" {
+		color = "N/A"
+	}
 	embeds := []sec.DiscordEmbed{
 		{
 			Fields: []sec.DiscordField{
@@ -71,6 +79,14 @@ func (task *Task) CreateDisneyEmbed(status enums.OrderStatus, imageURL string) [
 				{
 					Name:  "Product Name:",
 					Value: task.StockData.ProductName,
+				},
+				{
+					Name:  "Size:",
+					Value: size,
+				},
+				{
+					Name:  "Color:",
+					Value: color,
 				},
 				{
 					Name:  "Task Type:",
