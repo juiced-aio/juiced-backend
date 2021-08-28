@@ -6,7 +6,7 @@ type ProfileGroup struct {
 	Name             string     `json:"name" db:"name"`
 	ProfileIDs       []string   `json:"-"`
 	ProfileIDsJoined string     `json:"-" db:"profileIDsJoined"`
-	CreationDate     int64      `json:"-" db:"creationDate"`
+	CreationDate     int64      `json:"creationDate" db:"creationDate"`
 	Profiles         []*Profile `json:"profiles"`
 }
 

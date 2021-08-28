@@ -1,7 +1,10 @@
 package endpoints
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"time"
 
 	"backend.juicedbot.io/juiced.api/errors"
@@ -9,12 +12,10 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
+	"backend.juicedbot.io/juiced.infrastructure/util"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-
-	"encoding/json"
-	"io/ioutil"
-	"net/http"
 )
 
 // GetSettingsEndpoint handles the GET request at /api/settings

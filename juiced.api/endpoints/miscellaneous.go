@@ -9,8 +9,8 @@ import (
 
 	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
-	"backend.juicedbot.io/juiced.infrastructure/util"
 	rpc "backend.juicedbot.io/juiced.rpc"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 func TestWebhooksEndpoint(response http.ResponseWriter, request *http.Request) {

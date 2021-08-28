@@ -27,7 +27,7 @@ type Proxy struct {
 	Port         string `json:"port" db:"port"`
 	Username     string `json:"username" db:"username"`
 	Password     string `json:"password" db:"password"`
-	Count        int
+	Count        int    `json:"-"`
 }
 
 func (proxy *Proxy) RemoveCount() {
