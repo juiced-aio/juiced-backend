@@ -166,6 +166,32 @@ func TestDisney(t *testing.T) {
 	select {}
 }
 
+func TestGamestop(t *testing.T) {
+	MainTask.GamestopTaskInfo = &entities.GamestopTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+		Email:       "@gmail.com",
+		Password:    "",
+		TaskType:    enums.TaskTypeAccount,
+	}
+
+	MainTaskGroup.GamestopMonitorInfo = &entities.GamestopMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.GamestopSingleMonitorInfo{{
+			MonitorID:   MainMonitorID,
+			TaskGroupID: MainTaskGroupID,
+			SKU:         "11148583",
+			MaxPrice:    -1,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.GameStop
+	MainTask.TaskRetailer = enums.GameStop
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	select {}
+}
+
 func TestWalmart(t *testing.T) {
 	MainTask.WalmartTaskInfo = &entities.WalmartTaskInfo{
 		TaskID:      MainTaskID,
