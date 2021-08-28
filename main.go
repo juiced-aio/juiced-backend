@@ -20,8 +20,8 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
-	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	ws "backend.juicedbot.io/juiced.ws"
 	"github.com/denisbrodbeck/machineid"

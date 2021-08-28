@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"backend.juicedbot.io/juiced.infrastructure/helpers"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
 )
@@ -32,7 +32,7 @@ func InitDatabase() error {
 		if err != nil {
 			fmt.Println(err)
 		}
-		tableName, _ := helpers.FindInString(schema, "EXISTS ", " \\(")
+		tableName, _ := util.FindInString(schema, "EXISTS ", " \\(")
 		missing, extra := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
 		for i := range extra {
 			extraSplit := strings.Split(extra[i], "|")
@@ -70,7 +70,7 @@ func GetDatabase() *sqlx.DB {
 func ParseColumns(schema string) (columnNames []string) {
 	schema = strings.ReplaceAll(schema, "\n", "")
 	schema = strings.ReplaceAll(schema, "\t", "")
-	inside, _ := helpers.FindInString(schema, "\\(", "\\)")
+	inside, _ := util.FindInString(schema, "\\(", "\\)")
 	columns := strings.Split(inside, ",")
 	for _, column := range columns {
 		if strings.Contains(column, " ") {
@@ -82,7 +82,7 @@ func ParseColumns(schema string) (columnNames []string) {
 }
 
 func GetCurrentColumns(schema string) (columnNames []string) {
-	tableName, _ := helpers.FindInString(schema, "EXISTS ", " \\(")
+	tableName, _ := util.FindInString(schema, "EXISTS ", " \\(")
 	rows, _ := database.Queryx("PRAGMA table_info(" + tableName + ");")
 
 	defer rows.Close()

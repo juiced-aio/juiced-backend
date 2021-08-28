@@ -11,25 +11,26 @@ import (
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 const MAX_RETRIES = 5
 
-func (task *Task) GetTaskInfo() *util.TaskInfo {
+func (task *Task) GetTaskInfo() *entities.TaskInfo {
 	return task.TaskInfo
 }
 
-func (task *Task) FillStockInfo(stockInfo util.StockInfo) {
+func (task *Task) FillStockInfo(stockInfo entities.StockInfo) {
 	task.TaskInfo.StockInfo = stockInfo
 }
 
-func (task *Task) GetTaskFunctions() []util.TaskFunction {
-	var runTaskFunctions = []util.TaskFunction{}
+func (task *Task) GetTaskFunctions() []entities.TaskFunction {
+	var runTaskFunctions = []entities.TaskFunction{}
 
 	if task.Input.TaskType == enums.TaskTypeAccount {
-		runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+		runTaskFunctions = append(runTaskFunctions, []entities.TaskFunction{
 			// 1. Login
 			{
 				Function:    task.Login,
@@ -46,7 +47,7 @@ func (task *Task) GetTaskFunctions() []util.TaskFunction {
 			},
 		}...)
 	} else {
-		runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+		runTaskFunctions = append(runTaskFunctions, []entities.TaskFunction{
 			// 1. LoginGuest
 			{
 				Function:    task.LoginGuest,
@@ -64,7 +65,7 @@ func (task *Task) GetTaskFunctions() []util.TaskFunction {
 		}...)
 	}
 
-	runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+	runTaskFunctions = append(runTaskFunctions, []entities.TaskFunction{
 		// 3. EncryptCardDetails
 		// 		3a. RetrievePublicKey
 		{
@@ -107,14 +108,14 @@ func (task *Task) GetTaskFunctions() []util.TaskFunction {
 
 	if task.Input.TaskType == enums.TaskTypeGuest {
 		// 6. SubmitEmailAddress
-		runTaskFunctions = append(runTaskFunctions, util.TaskFunction{
+		runTaskFunctions = append(runTaskFunctions, entities.TaskFunction{
 			Function:    task.SubmitEmailAddress,
 			StatusBegin: enums.SettingEmailAddress,
 			MaxRetries:  MAX_RETRIES,
 		})
 	}
 
-	runTaskFunctions = append(runTaskFunctions, []util.TaskFunction{
+	runTaskFunctions = append(runTaskFunctions, []entities.TaskFunction{
 		// 7. SubmitAddressDetails
 		{
 			Function:    task.SubmitAddressDetails,
@@ -268,7 +269,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 
 func (task *Task) RetrievePrivateKey() (bool, string) {
 	var err error
-	task.CyberSecureInfo.PublicToken, err = CyberSourceV2(task.CyberSecureInfo.PublicKey, task.TaskInfo.Profile.CreditCard)
+	task.CyberSecureInfo.PublicToken, err = CyberSourceV2(task.CyberSecureInfo.PublicKey, *task.TaskInfo.Profile.CreditCard)
 	if task.CyberSecureInfo.PublicToken == "" || err != nil {
 		errorMessage := CyberSourceEncryptionError
 		if err != nil {
@@ -346,7 +347,7 @@ func (task *Task) AddToCart() (bool, string) {
 	}
 	addToCartRequest := AddToCartRequest{
 		ProductUri:    task.TaskInfo.StockInfo.SiteSpecific["AddToCartForm"].(string),
-		Quantity:      task.TaskInfo.Task.TaskQty,
+		Quantity:      task.TaskInfo.Task.Task.Quantity,
 		Configuration: "",
 	}
 	addToCartResponse := AddToCartResponse{}
@@ -387,8 +388,8 @@ func (task *Task) AddToCart() (bool, string) {
 	switch resp.StatusCode {
 	case 200:
 		if addToCartResponse.Type == "carts.line-item" {
-			if addToCartResponse.Quantity != task.TaskInfo.Task.TaskQty {
-				return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, task.TaskInfo.Task.TaskQty, addToCartResponse.Quantity))
+			if addToCartResponse.Quantity != task.TaskInfo.Task.Task.Quantity {
+				return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, task.TaskInfo.Task.Task.Quantity, addToCartResponse.Quantity))
 			} else {
 				return true, enums.AddingToCartSuccess
 			}

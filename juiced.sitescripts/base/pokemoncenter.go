@@ -3,8 +3,8 @@ package base
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
-	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 func (baseTask *Task) CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, input pokemoncenter.TaskInput) error {

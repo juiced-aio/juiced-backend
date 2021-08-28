@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 )
 
 func TestAes256Encrypt(t *testing.T) {
@@ -22,7 +22,7 @@ func TestAes256Encrypt(t *testing.T) {
 	}
 
 	for _, table := range tables {
-		_, err := common.Aes256Encrypt(table.plaintext, table.key)
+		_, err := util.Aes256Encrypt(table.plaintext, table.key)
 		if reflect.TypeOf(err) != table.errorType {
 			t.Errorf("Aes256Encrypt of `%s` with key `%s` was incorrect, got: err = `%s`, want: err = `%s`.", table.plaintext, table.key, reflect.TypeOf(err).String(), table.errorType.String())
 		}
@@ -49,14 +49,14 @@ func TestAes256Decrypt(t *testing.T) {
 		encryptedText := table.encryptedText
 		var err error
 		if table.encryptFirst {
-			encryptedText, err = common.Aes256Encrypt(table.plaintext, table.key)
+			encryptedText, err = util.Aes256Encrypt(table.plaintext, table.key)
 		}
 		if err != nil {
 			// We've already tested Aes256Encrypt, so we should be passing values here that we expect to succeed.
 			// If err != nil at this point, then we have an issue.
 			t.Errorf("Aes256Decrypt failed due to Aes256Encrypt failing: err %s", err.Error())
 		}
-		decryptedText, err := common.Aes256Decrypt(encryptedText, table.key)
+		decryptedText, err := util.Aes256Decrypt(encryptedText, table.key)
 		if reflect.TypeOf(err) != table.errorType || decryptedText != table.plaintext {
 			t.Errorf("Aes256Decrypt of `%s` with key `%s` was incorrect, got: plaintext = `%s` / err = `%s`, want: plaintext = `%s` / err = `%s`.", table.plaintext, table.key, decryptedText, reflect.TypeOf(err).String(), table.plaintext, table.errorType.String())
 		}

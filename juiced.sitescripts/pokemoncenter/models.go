@@ -1,9 +1,8 @@
 package pokemoncenter
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.sitescripts/util"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 )
 
 // Endpoints
@@ -48,7 +47,7 @@ const (
 )
 
 type Monitor struct {
-	MonitorInfo     *util.MonitorInfo
+	MonitorInfo     *entities.MonitorInfo
 	SKUsSentToTask  []string
 	RunningMonitors []string
 	OutOfStockSKUs  []string
@@ -78,7 +77,7 @@ type MonitorResponse struct {
 }
 
 type Task struct {
-	TaskInfo        *util.TaskInfo
+	TaskInfo        *entities.TaskInfo
 	Input           TaskInput
 	CyberSecureInfo CyberSecureInfo
 	AccessToken     string

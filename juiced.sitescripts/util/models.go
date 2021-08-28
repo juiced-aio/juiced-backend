@@ -6,63 +6,8 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	"backend.juicedbot.io/juiced.infrastructure/events"
-	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
-
-type TaskFunction struct {
-	Function          func() (bool, string)
-	StatusBegin       enums.TaskStatus
-	InBackground      bool
-	SpecialFunction   bool
-	RefreshFunction   bool
-	RefreshAt         int64
-	RefreshEvery      int
-	MaxRetries        int
-	MsBetweenRetries  int
-	WaitingForMonitor bool
-	Checkout          bool
-}
-
-type SiteSpecificInfo map[string]interface{}
-
-type StockInfo struct {
-	SKU          string
-	Price        float64
-	ItemName     string
-	ImageURL     string
-	SiteSpecific SiteSpecificInfo
-}
-
-type TaskInfo struct {
-	Task       *entities.Task
-	Profile    entities.Profile
-	Proxy      *entities.Proxy
-	ProxyGroup *entities.ProxyGroup
-	EventBus   *events.EventBus
-	StopFlag   bool
-	StartTime  time.Time
-	EndTime    time.Time
-	Client     http.Client
-	Scraper    hawk.Scraper
-	ErrorField string
-
-	StockInfo StockInfo
-}
-
-type MonitorInfo struct {
-	TaskGroup  *entities.TaskGroup
-	Proxy      *entities.Proxy
-	ProxyGroup *entities.ProxyGroup
-	EventBus   *events.EventBus
-	Client     http.Client
-	Scraper    hawk.Scraper
-	StopFlag   bool
-	ErrorField string
-
-	InStock []StockInfo
-}
 
 type ErrorType = string
 
@@ -150,7 +95,7 @@ type ProcessCheckoutInfo struct {
 	Success  bool
 	Status   enums.OrderStatus
 	Content  string
-	Embeds   []sec.DiscordEmbed
+	Embeds   []entities.DiscordEmbed
 	Retailer string
 }
 

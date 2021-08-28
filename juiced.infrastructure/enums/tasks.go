@@ -53,6 +53,16 @@ const (
 	CheckedOut          TaskStatus = "Checked out!"
 )
 
+type TaskEventType = string
+
+const (
+	TaskStart    TaskEventType = "TaskStart"
+	TaskUpdate   TaskEventType = "TaskUpdate"
+	TaskFail     TaskEventType = "TaskFail"
+	TaskStop     TaskEventType = "TaskStop"
+	TaskComplete TaskEventType = "TaskComplete"
+)
+
 type LoginType = string
 
 const (

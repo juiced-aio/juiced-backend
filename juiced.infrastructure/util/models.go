@@ -1,4 +1,4 @@
-package helpers
+package util
 
 type CipherTextTooShortError struct{}
 

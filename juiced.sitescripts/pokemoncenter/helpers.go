@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	jose "github.com/dvsekhvalnov/jose2go"
 	"github.com/lestrrat-go/jwx/jwk"

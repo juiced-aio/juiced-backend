@@ -1,9 +1,5 @@
 package util
 
-import (
-	"time"
-)
-
 type AuthenticateRequest struct {
 	ActivationToken string `json:"908tqy5VI2"`
 	HWID            string `json:"BN9GSbnV6z"`
@@ -62,28 +58,6 @@ type DiscordWebhookRequest struct {
 type DiscordInformation struct {
 	Content string  `json:"d3ZrADZzcP"`
 	Embeds  []Embed `json:"igBjO6n2bK"`
-}
-type DiscordEmbed struct {
-	Title     string           `json:"title"`
-	Color     int              `json:"color"`
-	Fields    []DiscordField   `json:"fields"`
-	Footer    DiscordFooter    `json:"footer"`
-	Timestamp time.Time        `json:"timestamp"`
-	Thumbnail DiscordThumbnail `json:"thumbnail"`
-}
-
-type DiscordField struct {
-	Name   string `json:"name"`
-	Value  string `json:"value"`
-	Inline bool   `json:"inline,omitempty"`
-}
-type DiscordFooter struct {
-	Text    string `json:"text"`
-	IconURL string `json:"icon_url"`
-}
-
-type DiscordThumbnail struct {
-	URL string `json:"url"`
 }
 
 type Embed struct {

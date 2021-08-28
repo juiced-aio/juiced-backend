@@ -8,14 +8,14 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
-	"backend.juicedbot.io/juiced.infrastructure/common/entities"
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
-	"backend.juicedbot.io/juiced.infrastructure/common/events"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
+	"backend.juicedbot.io/juiced.infrastructure/events"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 )
 
-func (monitor *Monitor) GetMonitorInfo() *util.MonitorInfo {
+func (monitor *Monitor) GetMonitorInfo() *entities.MonitorInfo {
 	return monitor.MonitorInfo
 }
 
@@ -149,8 +149,8 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 	}
 }
 
-func (monitor *Monitor) GetSKUStock(sku string) util.StockInfo {
-	stockData := util.StockInfo{}
+func (monitor *Monitor) GetSKUStock(sku string) entities.StockInfo {
+	stockData := entities.StockInfo{}
 	monitorResponse := MonitorResponse{}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.MonitorInfo.Client,

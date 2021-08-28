@@ -16,15 +16,13 @@ import (
 	"strings"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/http/cookiejar"
-
 	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.client/http/cookiejar"
 	"backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
-	"backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 )
 
@@ -423,21 +421,21 @@ func NewAbck(abckClient *http.Client, location string, BaseEndpoint, AkamaiEndpo
 	return errors.New(resp.Status)
 }
 
-func SecToUtil(secEmbeds []sec.DiscordEmbed) (embeds []Embed) {
-	for _, secEmbed := range secEmbeds {
+func EntitiesToUtil(entitiesEmbeds []entities.DiscordEmbed) (embeds []Embed) {
+	for _, entitiesEmbed := range entitiesEmbeds {
 		tempEmbed := Embed{
-			Title: secEmbed.Title,
-			Color: secEmbed.Color,
+			Title: entitiesEmbed.Title,
+			Color: entitiesEmbed.Color,
 			Footer: Footer{
-				Text:    secEmbed.Footer.Text,
-				IconURL: secEmbed.Footer.IconURL,
+				Text:    entitiesEmbed.Footer.Text,
+				IconURL: entitiesEmbed.Footer.IconURL,
 			},
-			Timestamp: secEmbed.Timestamp,
+			Timestamp: entitiesEmbed.Timestamp,
 			Thumbnail: Thumbnail{
-				URL: secEmbed.Thumbnail.URL,
+				URL: entitiesEmbed.Thumbnail.URL,
 			},
 		}
-		for _, secField := range secEmbed.Fields {
+		for _, secField := range entitiesEmbed.Fields {
 			tempEmbed.Fields = append(tempEmbed.Fields, Field{
 				Name:   secField.Name,
 				Value:  secField.Value,
@@ -460,7 +458,7 @@ func ProcessCheckout(pci *ProcessCheckoutInfo) {
 		go sec.LogCheckout(pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.SKU, pci.Retailer, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.Task.Quantity, userInfo)
 		go SendCheckout(pci.TaskInfo, pci.TaskInfo.StockInfo.ItemName, pci.TaskInfo.StockInfo.ImageURL, pci.TaskInfo.StockInfo.SKU, int(pci.TaskInfo.StockInfo.Price), pci.TaskInfo.Task.Task.Quantity, time.Since(pci.TaskInfo.StartTime).Milliseconds())
 	}
-	QueueWebhook(pci.Success, pci.Content, SecToUtil(pci.Embeds))
+	QueueWebhook(pci.Success, pci.Content, EntitiesToUtil(pci.Embeds))
 }
 
 // Logs the checkout
@@ -648,7 +646,7 @@ func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()
-			cClient, err = client.NewClient(utls.HelloChrome_90, util.ProxyCleaner(*proxy[0]))
+			cClient, err = client.NewClient(utls.HelloChrome_90, entities.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return cClient, err
 			}
@@ -708,7 +706,7 @@ func (taskInfo *TaskInfo) CreateClient(proxy ...*entities.Proxy) error {
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()
-			taskInfo.Client, err = client.NewClient(utls.HelloChrome_90, util.ProxyCleaner(*proxy[0]))
+			taskInfo.Client, err = client.NewClient(utls.HelloChrome_90, entities.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return err
 			}
@@ -735,7 +733,7 @@ func (monitorInfo *MonitorInfo) CreateClient(proxy ...*entities.Proxy) error {
 	if len(proxy) > 0 {
 		if proxy[0] != nil {
 			proxy[0].AddCount()
-			monitorInfo.Client, err = client.NewClient(utls.HelloChrome_90, util.ProxyCleaner(*proxy[0]))
+			monitorInfo.Client, err = client.NewClient(utls.HelloChrome_90, entities.ProxyCleaner(*proxy[0]))
 			if err != nil {
 				return err
 			}

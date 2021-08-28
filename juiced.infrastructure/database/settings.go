@@ -7,7 +7,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	"backend.juicedbot.io/juiced.infrastructure/helpers"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 )
 
 func GetSettings() (entities.Settings, error) {
@@ -53,21 +53,21 @@ func GetAccounts() ([]*entities.Account, error) {
 
 		var encryptedEmail string
 		var encryptedPassword string
-		decryptedEmail, err := helpers.Aes256Decrypt(account.Email, enums.UserKey)
+		decryptedEmail, err := util.Aes256Decrypt(account.Email, enums.UserKey)
 		if err == nil {
 			account.Email = decryptedEmail
 		} else {
-			encryptedEmail, err = helpers.Aes256Encrypt(account.Email, enums.UserKey)
+			encryptedEmail, err = util.Aes256Encrypt(account.Email, enums.UserKey)
 			if err != nil {
 				return accounts, err
 			}
 		}
 
-		decryptedPassword, err := helpers.Aes256Decrypt(account.Password, enums.UserKey)
+		decryptedPassword, err := util.Aes256Decrypt(account.Password, enums.UserKey)
 		if err == nil {
 			account.Password = decryptedPassword
 		} else {
-			encryptedPassword, err = helpers.Aes256Encrypt(account.Password, enums.UserKey)
+			encryptedPassword, err = util.Aes256Encrypt(account.Password, enums.UserKey)
 			if err != nil {
 				return accounts, err
 			}
@@ -136,21 +136,21 @@ func GetAccount(ID string) (entities.Account, error) {
 
 		var encryptedEmail string
 		var encryptedPassword string
-		decryptedEmail, err := helpers.Aes256Decrypt(account.Email, enums.UserKey)
+		decryptedEmail, err := util.Aes256Decrypt(account.Email, enums.UserKey)
 		if err == nil {
 			account.Email = decryptedEmail
 		} else {
-			encryptedEmail, err = helpers.Aes256Encrypt(account.Email, enums.UserKey)
+			encryptedEmail, err = util.Aes256Encrypt(account.Email, enums.UserKey)
 			if err != nil {
 				return account, err
 			}
 		}
 
-		decryptedPassword, err := helpers.Aes256Decrypt(account.Password, enums.UserKey)
+		decryptedPassword, err := util.Aes256Decrypt(account.Password, enums.UserKey)
 		if err == nil {
 			account.Password = decryptedPassword
 		} else {
-			encryptedPassword, err = helpers.Aes256Encrypt(account.Password, enums.UserKey)
+			encryptedPassword, err = util.Aes256Encrypt(account.Password, enums.UserKey)
 			if err != nil {
 				return account, err
 			}
@@ -213,12 +213,12 @@ func AddAccount(account entities.Account) error {
 		return &DatabaseNotInitializedError{}
 	}
 
-	encryptedEmail, err := helpers.Aes256Encrypt(account.Email, enums.UserKey)
+	encryptedEmail, err := util.Aes256Encrypt(account.Email, enums.UserKey)
 	if err != nil {
 		return err
 	}
 
-	encryptedPassword, err := helpers.Aes256Encrypt(account.Password, enums.UserKey)
+	encryptedPassword, err := util.Aes256Encrypt(account.Password, enums.UserKey)
 	if err != nil {
 		return err
 	}

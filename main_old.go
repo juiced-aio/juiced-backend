@@ -21,7 +21,7 @@ package main
 // 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 // 	"backend.juicedbot.io/juiced.infrastructure/queries"
 // 	sec "backend.juicedbot.io/juiced.security/auth/util"
-// 	"backend.juicedbot.io/juiced.sitescripts/util"
+// 	"backend.juicedbot.io/juiced.infrastructure/util"
 
 // 	ws "backend.juicedbot.io/juiced.ws"
 // 	"github.com/denisbrodbeck/machineid"

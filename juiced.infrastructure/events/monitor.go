@@ -1,7 +1,7 @@
 package events
 
 import (
-	"backend.juicedbot.io/juiced.infrastructure/common/enums"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 )
 
 // MonitorEvent is fired whenever a Monitor updates

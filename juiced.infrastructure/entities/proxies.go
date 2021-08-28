@@ -2,6 +2,7 @@ package entities
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 )
@@ -38,5 +39,16 @@ func (proxy *Proxy) RemoveCount() {
 func (proxy *Proxy) AddCount() {
 	if proxy != nil {
 		proxy.Count++
+	}
+}
+
+func ProxyCleaner(proxyDirty Proxy) string {
+	if proxyDirty.Host == "" {
+		return ""
+	}
+	if proxyDirty.Username == "" && proxyDirty.Password == "" {
+		return fmt.Sprintf("http://%s:%s", proxyDirty.Host, proxyDirty.Port)
+	} else {
+		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
 	}
 }

@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
-	"backend.juicedbot.io/juiced.infrastructure/helpers"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 )
 
 // GetAllProfileGroups returns all ProfileGroup objects from the database
@@ -130,7 +130,7 @@ func RemoveProfileGroup(groupID string) error {
 			return err
 		}
 
-		profile.ProfileGroupIDs = helpers.RemoveFromSlice(profile.ProfileGroupIDs, groupID)
+		profile.ProfileGroupIDs = util.RemoveFromSlice(profile.ProfileGroupIDs, groupID)
 
 		err = UpdateProfile(profile.ID, profile)
 		if err != nil {

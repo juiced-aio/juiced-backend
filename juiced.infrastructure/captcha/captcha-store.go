@@ -12,7 +12,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
-	"backend.juicedbot.io/juiced.infrastructure/util"
 	"gitlab.com/aycd-inc/autosolve-clients/autosolve-client-go"
 )
 
@@ -271,7 +270,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 				log.Println("Requesting 2Captcha token")
 				endpoint := "https://2captcha.com/in.php?key=" + settings.TwoCaptchaAPIKey + "&method=userrecaptcha&googlekey=" + sitekey + "&pageurl=" + url
 				if proxy.Host != "" {
-					endpoint += "&proxy=" + util.ProxyCleaner(proxy) + "&proxytype=http"
+					endpoint += "&proxy=" + entities.ProxyCleaner(proxy) + "&proxytype=http"
 				}
 				var token string
 				token, err = TwoCaptchaReq(settings.TwoCaptchaAPIKey, endpoint)
@@ -561,7 +560,7 @@ func RequestHCaptchaToken(sitekey string, url string, proxy entities.Proxy, reta
 			go func() {
 				defer wg.Done()
 
-				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=hcaptcha&sitekey="+sitekey+"&pageurl="+url+"&proxy="+util.ProxyCleaner(proxy)+"&proxytype=http")
+				token, err := TwoCaptchaReq(settings.TwoCaptchaAPIKey, "https://2captcha.com/in.php?key="+settings.TwoCaptchaAPIKey+"&method=hcaptcha&sitekey="+sitekey+"&pageurl="+url+"&proxy="+entities.ProxyCleaner(proxy)+"&proxytype=http")
 				if err != nil {
 					log.Println("Error retrieving HCaptcha from 2Captcha: " + err.Error())
 					if err.Error() == "ERROR_KEY_DOES_NOT_EXIST" || err.Error() == "ERROR_WRONG_USER_KEY" {

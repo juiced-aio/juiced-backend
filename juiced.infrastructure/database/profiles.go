@@ -8,7 +8,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	"backend.juicedbot.io/juiced.infrastructure/helpers"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 )
 
 // GetAllProfiles returns all Profile objects from the database
@@ -34,20 +34,20 @@ func GetAllProfiles() ([]entities.Profile, error) {
 			return profiles, err
 		}
 
-		decryptedEmail, err := helpers.Aes256Decrypt(tempProfile.Email, enums.UserKey)
+		decryptedEmail, err := util.Aes256Decrypt(tempProfile.Email, enums.UserKey)
 		if err == nil {
 			tempProfile.Email = decryptedEmail
 		} else {
-			encryptedEmail, err = helpers.Aes256Encrypt(tempProfile.Email, enums.UserKey)
+			encryptedEmail, err = util.Aes256Encrypt(tempProfile.Email, enums.UserKey)
 			if err != nil {
 				return profiles, err
 			}
 		}
-		decryptedPhoneNumber, err := helpers.Aes256Decrypt(tempProfile.PhoneNumber, enums.UserKey)
+		decryptedPhoneNumber, err := util.Aes256Decrypt(tempProfile.PhoneNumber, enums.UserKey)
 		if err == nil {
 			tempProfile.PhoneNumber = decryptedPhoneNumber
 		} else {
-			encryptedPhoneNumber, err = helpers.Aes256Encrypt(tempProfile.PhoneNumber, enums.UserKey)
+			encryptedPhoneNumber, err = util.Aes256Encrypt(tempProfile.PhoneNumber, enums.UserKey)
 			if err != nil {
 				return profiles, err
 			}
@@ -158,11 +158,11 @@ func CreateProfile(profile entities.Profile) error {
 		return &DatabaseNotInitializedError{}
 	}
 
-	encryptedEmail, err := helpers.Aes256Encrypt(profile.Email, enums.UserKey)
+	encryptedEmail, err := util.Aes256Encrypt(profile.Email, enums.UserKey)
 	if err != nil {
 		return err
 	}
-	encryptedPhoneNumber, err := helpers.Aes256Encrypt(profile.PhoneNumber, enums.UserKey)
+	encryptedPhoneNumber, err := util.Aes256Encrypt(profile.PhoneNumber, enums.UserKey)
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func CreateShippingAddresses(profile entities.Profile) error {
 		return &DatabaseNotInitializedError{}
 	}
 
-	encryptedValues, err := helpers.EncryptValues(enums.UserKey, profile.ShippingAddress.FirstName, profile.ShippingAddress.LastName, profile.ShippingAddress.Address1, profile.ShippingAddress.Address2, profile.ShippingAddress.City, profile.ShippingAddress.ZipCode, profile.ShippingAddress.StateCode, profile.ShippingAddress.CountryCode)
+	encryptedValues, err := util.EncryptValues(enums.UserKey, profile.ShippingAddress.FirstName, profile.ShippingAddress.LastName, profile.ShippingAddress.Address1, profile.ShippingAddress.Address2, profile.ShippingAddress.City, profile.ShippingAddress.ZipCode, profile.ShippingAddress.StateCode, profile.ShippingAddress.CountryCode)
 	if err != nil {
 		return err
 	}
@@ -233,7 +233,7 @@ func CreateBillingAddresses(profile entities.Profile) error {
 		return &DatabaseNotInitializedError{}
 	}
 
-	encryptedValues, err := helpers.EncryptValues(enums.UserKey, profile.BillingAddress.FirstName, profile.BillingAddress.LastName, profile.BillingAddress.Address1, profile.BillingAddress.Address2, profile.BillingAddress.City, profile.BillingAddress.ZipCode, profile.BillingAddress.StateCode, profile.BillingAddress.CountryCode)
+	encryptedValues, err := util.EncryptValues(enums.UserKey, profile.BillingAddress.FirstName, profile.BillingAddress.LastName, profile.BillingAddress.Address1, profile.BillingAddress.Address2, profile.BillingAddress.City, profile.BillingAddress.ZipCode, profile.BillingAddress.StateCode, profile.BillingAddress.CountryCode)
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func CreateCards(profile entities.Profile) error {
 		return &DatabaseNotInitializedError{}
 	}
 
-	encryptedValues, err := helpers.EncryptValues(enums.UserKey, profile.CreditCard.CardholderName, profile.CreditCard.CardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, profile.CreditCard.CVV, profile.CreditCard.CardType)
+	encryptedValues, err := util.EncryptValues(enums.UserKey, profile.CreditCard.CardholderName, profile.CreditCard.CardNumber, profile.CreditCard.ExpMonth, profile.CreditCard.ExpYear, profile.CreditCard.CVV, profile.CreditCard.CardType)
 	if err != nil {
 		return err
 	}
@@ -369,74 +369,74 @@ func GetShippingAddress(profile entities.Profile) (entities.Profile, error) {
 			return profile, err
 		}
 
-		decryptedFirstName, err := helpers.Aes256Decrypt(profile.ShippingAddress.FirstName, enums.UserKey)
+		decryptedFirstName, err := util.Aes256Decrypt(profile.ShippingAddress.FirstName, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.FirstName = decryptedFirstName
 		} else {
-			encryptedFirstName, err = helpers.Aes256Encrypt(profile.ShippingAddress.FirstName, enums.UserKey)
+			encryptedFirstName, err = util.Aes256Encrypt(profile.ShippingAddress.FirstName, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedLastName, err := helpers.Aes256Decrypt(profile.ShippingAddress.LastName, enums.UserKey)
+		decryptedLastName, err := util.Aes256Decrypt(profile.ShippingAddress.LastName, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.LastName = decryptedLastName
 		} else {
-			encryptedLastName, err = helpers.Aes256Encrypt(profile.ShippingAddress.LastName, enums.UserKey)
+			encryptedLastName, err = util.Aes256Encrypt(profile.ShippingAddress.LastName, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedAddress1, err := helpers.Aes256Decrypt(profile.ShippingAddress.Address1, enums.UserKey)
+		decryptedAddress1, err := util.Aes256Decrypt(profile.ShippingAddress.Address1, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.Address1 = decryptedAddress1
 		} else {
-			encryptedAddress1, err = helpers.Aes256Encrypt(profile.ShippingAddress.Address1, enums.UserKey)
+			encryptedAddress1, err = util.Aes256Encrypt(profile.ShippingAddress.Address1, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedAddress2, err := helpers.Aes256Decrypt(profile.ShippingAddress.Address2, enums.UserKey)
+		decryptedAddress2, err := util.Aes256Decrypt(profile.ShippingAddress.Address2, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.Address2 = decryptedAddress2
 		} else {
-			encryptedAddress2, err = helpers.Aes256Encrypt(profile.ShippingAddress.Address2, enums.UserKey)
+			encryptedAddress2, err = util.Aes256Encrypt(profile.ShippingAddress.Address2, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedCity, err := helpers.Aes256Decrypt(profile.ShippingAddress.City, enums.UserKey)
+		decryptedCity, err := util.Aes256Decrypt(profile.ShippingAddress.City, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.City = decryptedCity
 		} else {
-			encryptedCity, err = helpers.Aes256Encrypt(profile.ShippingAddress.City, enums.UserKey)
+			encryptedCity, err = util.Aes256Encrypt(profile.ShippingAddress.City, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedZipCode, err := helpers.Aes256Decrypt(profile.ShippingAddress.ZipCode, enums.UserKey)
+		decryptedZipCode, err := util.Aes256Decrypt(profile.ShippingAddress.ZipCode, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.ZipCode = decryptedZipCode
 		} else {
-			encryptedZipCode, err = helpers.Aes256Encrypt(profile.ShippingAddress.ZipCode, enums.UserKey)
+			encryptedZipCode, err = util.Aes256Encrypt(profile.ShippingAddress.ZipCode, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedStateCode, err := helpers.Aes256Decrypt(profile.ShippingAddress.StateCode, enums.UserKey)
+		decryptedStateCode, err := util.Aes256Decrypt(profile.ShippingAddress.StateCode, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.StateCode = decryptedStateCode
 		} else {
-			encryptedStateCode, err = helpers.Aes256Encrypt(profile.ShippingAddress.StateCode, enums.UserKey)
+			encryptedStateCode, err = util.Aes256Encrypt(profile.ShippingAddress.StateCode, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedCountryCode, err := helpers.Aes256Decrypt(profile.ShippingAddress.CountryCode, enums.UserKey)
+		decryptedCountryCode, err := util.Aes256Decrypt(profile.ShippingAddress.CountryCode, enums.UserKey)
 		if err == nil {
 			profile.ShippingAddress.CountryCode = decryptedCountryCode
 		} else {
-			encryptedCountryCode, err = helpers.Aes256Encrypt(profile.ShippingAddress.CountryCode, enums.UserKey)
+			encryptedCountryCode, err = util.Aes256Encrypt(profile.ShippingAddress.CountryCode, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
@@ -590,74 +590,74 @@ func GetBillingAddress(profile entities.Profile) (entities.Profile, error) {
 			return profile, err
 		}
 
-		decryptedFirstName, err := helpers.Aes256Decrypt(profile.BillingAddress.FirstName, enums.UserKey)
+		decryptedFirstName, err := util.Aes256Decrypt(profile.BillingAddress.FirstName, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.FirstName = decryptedFirstName
 		} else {
-			encryptedFirstName, err = helpers.Aes256Encrypt(profile.BillingAddress.FirstName, enums.UserKey)
+			encryptedFirstName, err = util.Aes256Encrypt(profile.BillingAddress.FirstName, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedLastName, err := helpers.Aes256Decrypt(profile.BillingAddress.LastName, enums.UserKey)
+		decryptedLastName, err := util.Aes256Decrypt(profile.BillingAddress.LastName, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.LastName = decryptedLastName
 		} else {
-			encryptedLastName, err = helpers.Aes256Encrypt(profile.BillingAddress.LastName, enums.UserKey)
+			encryptedLastName, err = util.Aes256Encrypt(profile.BillingAddress.LastName, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedAddress1, err := helpers.Aes256Decrypt(profile.BillingAddress.Address1, enums.UserKey)
+		decryptedAddress1, err := util.Aes256Decrypt(profile.BillingAddress.Address1, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.Address1 = decryptedAddress1
 		} else {
-			encryptedAddress1, err = helpers.Aes256Encrypt(profile.BillingAddress.Address1, enums.UserKey)
+			encryptedAddress1, err = util.Aes256Encrypt(profile.BillingAddress.Address1, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedAddress2, err := helpers.Aes256Decrypt(profile.BillingAddress.Address2, enums.UserKey)
+		decryptedAddress2, err := util.Aes256Decrypt(profile.BillingAddress.Address2, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.Address2 = decryptedAddress2
 		} else {
-			encryptedAddress2, err = helpers.Aes256Encrypt(profile.BillingAddress.Address2, enums.UserKey)
+			encryptedAddress2, err = util.Aes256Encrypt(profile.BillingAddress.Address2, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedCity, err := helpers.Aes256Decrypt(profile.BillingAddress.City, enums.UserKey)
+		decryptedCity, err := util.Aes256Decrypt(profile.BillingAddress.City, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.City = decryptedCity
 		} else {
-			encryptedCity, err = helpers.Aes256Encrypt(profile.BillingAddress.City, enums.UserKey)
+			encryptedCity, err = util.Aes256Encrypt(profile.BillingAddress.City, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedZipCode, err := helpers.Aes256Decrypt(profile.BillingAddress.ZipCode, enums.UserKey)
+		decryptedZipCode, err := util.Aes256Decrypt(profile.BillingAddress.ZipCode, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.ZipCode = decryptedZipCode
 		} else {
-			encryptedZipCode, err = helpers.Aes256Encrypt(profile.BillingAddress.ZipCode, enums.UserKey)
+			encryptedZipCode, err = util.Aes256Encrypt(profile.BillingAddress.ZipCode, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedStateCode, err := helpers.Aes256Decrypt(profile.BillingAddress.StateCode, enums.UserKey)
+		decryptedStateCode, err := util.Aes256Decrypt(profile.BillingAddress.StateCode, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.StateCode = decryptedStateCode
 		} else {
-			encryptedStateCode, err = helpers.Aes256Encrypt(profile.BillingAddress.StateCode, enums.UserKey)
+			encryptedStateCode, err = util.Aes256Encrypt(profile.BillingAddress.StateCode, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedCountryCode, err := helpers.Aes256Decrypt(profile.BillingAddress.CountryCode, enums.UserKey)
+		decryptedCountryCode, err := util.Aes256Decrypt(profile.BillingAddress.CountryCode, enums.UserKey)
 		if err == nil {
 			profile.BillingAddress.CountryCode = decryptedCountryCode
 		} else {
-			encryptedCountryCode, err = helpers.Aes256Encrypt(profile.BillingAddress.CountryCode, enums.UserKey)
+			encryptedCountryCode, err = util.Aes256Encrypt(profile.BillingAddress.CountryCode, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
@@ -809,56 +809,56 @@ func GetCard(profile entities.Profile) (entities.Profile, error) {
 			return profile, err
 		}
 
-		decryptedCardholderName, err := helpers.Aes256Decrypt(profile.CreditCard.CardholderName, enums.UserKey)
+		decryptedCardholderName, err := util.Aes256Decrypt(profile.CreditCard.CardholderName, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.CardholderName = decryptedCardholderName
 		} else {
-			encryptedCardholderName, err = helpers.Aes256Encrypt(profile.CreditCard.CardholderName, enums.UserKey)
+			encryptedCardholderName, err = util.Aes256Encrypt(profile.CreditCard.CardholderName, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedCardNumber, err := helpers.Aes256Decrypt(profile.CreditCard.CardNumber, enums.UserKey)
+		decryptedCardNumber, err := util.Aes256Decrypt(profile.CreditCard.CardNumber, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.CardNumber = decryptedCardNumber
 		} else {
-			encryptedCardNumber, err = helpers.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
+			encryptedCardNumber, err = util.Aes256Encrypt(profile.CreditCard.CardNumber, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedExpMonth, err := helpers.Aes256Decrypt(profile.CreditCard.ExpMonth, enums.UserKey)
+		decryptedExpMonth, err := util.Aes256Decrypt(profile.CreditCard.ExpMonth, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.ExpMonth = decryptedExpMonth
 		} else {
-			encryptedExpMonth, err = helpers.Aes256Encrypt(profile.CreditCard.ExpMonth, enums.UserKey)
+			encryptedExpMonth, err = util.Aes256Encrypt(profile.CreditCard.ExpMonth, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedExpYear, err := helpers.Aes256Decrypt(profile.CreditCard.ExpYear, enums.UserKey)
+		decryptedExpYear, err := util.Aes256Decrypt(profile.CreditCard.ExpYear, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.ExpYear = decryptedExpYear
 		} else {
-			encryptedExpYear, err = helpers.Aes256Encrypt(profile.CreditCard.ExpYear, enums.UserKey)
+			encryptedExpYear, err = util.Aes256Encrypt(profile.CreditCard.ExpYear, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedCVV, err := helpers.Aes256Decrypt(profile.CreditCard.CVV, enums.UserKey)
+		decryptedCVV, err := util.Aes256Decrypt(profile.CreditCard.CVV, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.CVV = decryptedCVV
 		} else {
-			encryptedCVV, err = helpers.Aes256Encrypt(profile.CreditCard.CVV, enums.UserKey)
+			encryptedCVV, err = util.Aes256Encrypt(profile.CreditCard.CVV, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
 		}
-		decryptedCardType, err := helpers.Aes256Decrypt(profile.CreditCard.CardType, enums.UserKey)
+		decryptedCardType, err := util.Aes256Decrypt(profile.CreditCard.CardType, enums.UserKey)
 		if err == nil {
 			profile.CreditCard.CardType = decryptedCardType
 		} else {
-			encryptedCardType, err = helpers.Aes256Encrypt(profile.CreditCard.CardType, enums.UserKey)
+			encryptedCardType, err = util.Aes256Encrypt(profile.CreditCard.CardType, enums.UserKey)
 			if err != nil {
 				return profile, err
 			}
@@ -967,21 +967,21 @@ func GetProfileInfo(profile entities.Profile) (entities.Profile, error) {
 		encryptedPhoneNumber string
 	)
 
-	decryptedEmail, err := helpers.Aes256Decrypt(profile.Email, enums.UserKey)
+	decryptedEmail, err := util.Aes256Decrypt(profile.Email, enums.UserKey)
 	if err == nil {
 		profile.Email = decryptedEmail
 	} else {
-		encryptedEmail, err = helpers.Aes256Encrypt(profile.Email, enums.UserKey)
+		encryptedEmail, err = util.Aes256Encrypt(profile.Email, enums.UserKey)
 		if err != nil {
 			return profile, err
 		}
 	}
 
-	decryptedPhoneNumber, err := helpers.Aes256Decrypt(profile.PhoneNumber, enums.UserKey)
+	decryptedPhoneNumber, err := util.Aes256Decrypt(profile.PhoneNumber, enums.UserKey)
 	if err == nil {
 		profile.PhoneNumber = decryptedPhoneNumber
 	} else {
-		encryptedPhoneNumber, err = helpers.Aes256Encrypt(profile.PhoneNumber, enums.UserKey)
+		encryptedPhoneNumber, err = util.Aes256Encrypt(profile.PhoneNumber, enums.UserKey)
 		if err != nil {
 			return profile, err
 		}

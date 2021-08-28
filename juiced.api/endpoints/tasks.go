@@ -10,7 +10,6 @@ import (
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	"backend.juicedbot.io/juiced.infrastructure/helpers"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
 
 	"encoding/json"
@@ -22,24 +21,24 @@ import (
 )
 
 // UpdateTaskStatuses updates the TaskGroupWithTask's Tasks with the correct statuses from the task store
-func UpdateStatuses(taskGroupWithTasks entities.TaskGroupWithTasks) entities.TaskGroupWithTasks {
+func UpdateStatuses(taskGroup entities.TaskGroup) entities.TaskGroup {
 	taskStatuses := stores.GetTaskStatuses()
 	newTasks := []entities.Task{}
-	for _, task := range taskGroupWithTasks.Tasks {
+	for _, task := range taskGroup.Tasks {
 		status := taskStatuses[task.ID]
 		if status != "" {
 			task.SetTaskStatus(status)
 		}
 		newTasks = append(newTasks, task)
 	}
-	taskGroupWithTasks.SetTasks(newTasks)
+	taskGroup.SetTasks(newTasks)
 
-	monitorStatus := stores.GetMonitorStatus(taskGroupWithTasks.GroupID)
+	monitorStatus := stores.GetMonitorStatus(taskGroup.GroupID)
 	if monitorStatus != "" {
-		taskGroupWithTasks.MonitorStatus = monitorStatus
+		taskGroup.MonitorStatus = monitorStatus
 	}
 
-	return taskGroupWithTasks
+	return taskGroup
 }
 
 // GetTaskGroupEndpoint handles the GET request at /api/task/group/{groupID}
@@ -60,11 +59,11 @@ func GetTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroup)
+	newTaskGroup, err := stores.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
+	data := []entities.TaskGroup{UpdateStatuses(newTaskGroup)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -82,13 +81,13 @@ func GetAllTaskGroupsEndpoint(response http.ResponseWriter, request *http.Reques
 	if err != nil {
 		errorsList = append(errorsList, errors.GetAllTaskGroupsError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{}
+	data := []entities.TaskGroup{}
 	for i := 0; i < len(taskGroups); i++ {
-		newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroups[i])
+		newTaskGroup, err := stores.ConvertTaskIDsToTasks(&taskGroups[i])
 		if err != nil {
 			errorsList = append(errorsList, errors.GetTaskError+err.Error())
 		}
-		data = append(data, UpdateStatuses(newTaskGroupWithTasks))
+		data = append(data, UpdateStatuses(newTaskGroup))
 	}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
@@ -130,11 +129,11 @@ func CreateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(taskGroup)
+	newTaskGroup, err := stores.ConvertTaskIDsToTasks(taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroup{newTaskGroup}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -193,11 +192,11 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroup)
+	newTaskGroup, err := stores.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroup{newTaskGroup}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -537,11 +536,11 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroup, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
+	data := []entities.TaskGroup{UpdateStatuses(newTaskGroup)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -565,7 +564,7 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		newTaskGroup, err = stores.GetTaskGroup(groupID)
 		if err == nil {
 			newTaskGroup.SetGroupID(uuid.New().String())
-			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + helpers.RandID(4) + ")")
+			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + util.RandID(4) + ")")
 			newTaskGroup.CreationDate = time.Now().Unix()
 			newTaskIDs := make([]string, 0)
 			for _, taskID := range newTaskGroup.TaskIDs {
@@ -597,11 +596,11 @@ func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroup, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{newTaskGroupWithTasks}
+	data := []entities.TaskGroup{newTaskGroup}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -641,10 +640,10 @@ func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request)
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupToStartWithTasks)}, Errors: make([]string, 0), Warnings: warningsList}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroup{UpdateStatuses(taskGroupToStartWithTasks)}, Errors: make([]string, 0), Warnings: warningsList}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
+		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroup, 0), Errors: errorsList}
 	}
 	json.NewEncoder(response).Encode(result)
 }
@@ -679,10 +678,10 @@ func StopTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
 
-	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupToStopWithTasks)}, Errors: make([]string, 0)}
+	result := &responses.TaskGroupResponse{Success: true, Data: []entities.TaskGroup{UpdateStatuses(taskGroupToStopWithTasks)}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroupWithTasks, 0), Errors: errorsList}
+		result = &responses.TaskGroupResponse{Success: false, Data: make([]entities.TaskGroup, 0), Errors: errorsList}
 	}
 	json.NewEncoder(response).Encode(result)
 }
@@ -754,11 +753,11 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroup, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
+	data := []entities.TaskGroup{UpdateStatuses(newTaskGroup)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -962,11 +961,11 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
-	newTaskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
+	newTaskGroup, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{UpdateStatuses(newTaskGroupWithTasks)}
+	data := []entities.TaskGroup{UpdateStatuses(newTaskGroup)}
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -1161,11 +1160,11 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
-	taskGroupWithTasks, err := stores.ConvertTaskIDsToTasks(&taskGroup)
+	taskGroup, err := stores.ConvertTaskIDsToTasks(&taskGroup)
 	if err != nil {
 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
 	}
-	data := []entities.TaskGroupWithTasks{UpdateStatuses(taskGroupWithTasks)}
+	data := []entities.TaskGroup{UpdateStatuses(taskGroup)}
 
 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {

@@ -8,7 +8,6 @@ import (
 	"backend.juicedbot.io/juiced.api/responses"
 	"backend.juicedbot.io/juiced.infrastructure/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
-	"backend.juicedbot.io/juiced.infrastructure/helpers"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -204,7 +203,7 @@ func RemoveAccountsEndpoint(response http.ResponseWriter, request *http.Request)
 		if err == nil {
 			newAccounts := []*entities.Account{}
 			for _, account := range settings.Accounts {
-				if helpers.InSlice(deleteAccountsRequestInfo.AccountIDs, account.ID) {
+				if util.InSlice(deleteAccountsRequestInfo.AccountIDs, account.ID) {
 					err = stores.RemoveAccount(account.ID)
 					if err != nil {
 						errorsList = append(errorsList, errors.RemoveAccountError+err.Error())
