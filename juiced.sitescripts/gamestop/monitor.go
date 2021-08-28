@@ -200,7 +200,7 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 	switch resp.StatusCode {
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-		if monitorResponse.Gtmdata.Productinfo.Availability == "Available" || monitorResponse.Product.Availability.ButtonText == "Pre-Order" {
+		if monitorResponse.Gtmdata.Productinfo.Availability == "Available" || (monitorResponse.Product.Availability.ButtonText == "Pre-Order" && monitorResponse.Product.Available) {
 			stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
 			inBudget := monitor.SKUWithInfo[sku].MaxPrice >= int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {

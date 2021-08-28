@@ -22,6 +22,7 @@ type ReCaptchaSitekey = string
 
 const (
 	DisneySiteKey        ReCaptchaSitekey = "6Ldj7vcZAAAAADsLiY-pmZnZawSaQGNVBz6CO1vH"
+	GamestopSiteKey      ReCaptchaSitekey = "6LfW5QQTAAAAAA3dNAQxY-moKXlb6Ok8hhxkEhNz"
 	HotWheelsSitekey     ReCaptchaSitekey = "6LeXJ7oUAAAAAHIpfRvgjs3lcJiO_zMC1LAZWlSz"
 	ToppsSiteKey         ReCaptchaSitekey = "6LeBF1oaAAAAAOE7aQAZOLBjA1AVAYjVc9ulo4xh"
 	WalmartSitekey       ReCaptchaSitekey = "6Lc8-RIaAAAAAPWSm2FVTyBg-Zkz2UjsWWfrkgYN"
@@ -30,6 +31,7 @@ const (
 
 var ReCaptchaSitekeys = map[Retailer]ReCaptchaSitekey{
 	Disney:        DisneySiteKey,
+	GameStop:      GamestopSiteKey,
 	HotWheels:     HotWheelsSitekey,
 	Topps:         ToppsSiteKey,
 	Walmart:       WalmartSitekey,
