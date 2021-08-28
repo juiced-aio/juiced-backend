@@ -50,7 +50,7 @@ func GetCaptchaStore() *CaptchaStore {
 
 // TODO @silent: Instead of passing in all of these variables, create a struct called RequestCaptchaTokenInfo that has all of them (since some are not required for all Captcha types/retailers)
 // RequestCaptchaToken returns a Captcha token from the Store, or requests one if none are available
-func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer, url, action string, minScore float32, proxy entities.Proxy, sitekey ...string) (interface{}, error) {
+func RequestCaptchaToken(captchaType enums.CaptchaType, retailer enums.Retailer, url, action string, minScore float64, proxy entities.Proxy, sitekey ...string) (interface{}, error) {
 	var err error
 	if proxy.Host == "localhost" {
 		proxy = entities.Proxy{}
@@ -404,7 +404,7 @@ func RequestReCaptchaV2Token(sitekey string, url string, proxy entities.Proxy, r
 
 // TODO @silent: Make changes to match v2 function
 // RequestReCaptchaV3Token requests a ReCaptchaV3 token from all available APIs and the frontend
-func RequestReCaptchaV3Token(sitekey, action, url string, minScore float32, proxy entities.Proxy, retailer enums.Retailer) error {
+func RequestReCaptchaV3Token(sitekey, action, url string, minScore float64, proxy entities.Proxy, retailer enums.Retailer) error {
 	settings, err := queries.GetSettings()
 	if err != nil {
 		return err
@@ -450,7 +450,7 @@ func RequestReCaptchaV3Token(sitekey, action, url string, minScore float32, prox
 					SiteKey:  sitekey,
 					Version:  autosolve.ReCaptchaV3,
 					Action:   action,
-					MinScore: minScore,
+					MinScore: float32(minScore),
 					Proxy:    proxyStr,
 					// ProxyRequired: ?, // TODO @silent: Get some more info about this
 				}
@@ -480,13 +480,14 @@ func RequestReCaptchaV3Token(sitekey, action, url string, minScore float32, prox
 		case settings.AntiCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
-
+				enterprise := sitekey == enums.DisneySiteKey
 				antiCaptchaResponse, err := AntiCaptchaReq(settings.AntiCaptchaAPIKey, AntiCaptchaTaskInfo{
 					Type:         "RecaptchaV3TaskProxyless",
 					Websiteurl:   url,
 					Websitekey:   sitekey,
-					MinScore:     0.7,
-					IsEnterprise: false,
+					PageAction:   action,
+					MinScore:     minScore,
+					IsEnterprise: enterprise,
 				})
 				if err != nil {
 					log.Println("Error retrieving ReCaptchaV3 from AntiCaptcha: " + err.Error())
@@ -514,7 +515,8 @@ func RequestReCaptchaV3Token(sitekey, action, url string, minScore float32, prox
 					Type:       "RecaptchaV3TaskProxyless",
 					Websiteurl: url,
 					Websitekey: sitekey,
-					MinScore:   0.7,
+					MinScore:   minScore,
+					PageAction: action,
 				})
 				if err != nil {
 					log.Println("Error retrieving ReCaptchaV3 from CapMonster: " + err.Error())

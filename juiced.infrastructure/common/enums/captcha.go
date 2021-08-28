@@ -21,7 +21,7 @@ const (
 type ReCaptchaSitekey = string
 
 const (
-	DisneySiteKey        ReCaptchaSitekey = "6Le2CasZAAAAAIVarP3wVo8isBezMJODg68gegRg"
+	DisneySiteKey        ReCaptchaSitekey = "6Ldj7vcZAAAAADsLiY-pmZnZawSaQGNVBz6CO1vH"
 	HotWheelsSitekey     ReCaptchaSitekey = "6LeXJ7oUAAAAAHIpfRvgjs3lcJiO_zMC1LAZWlSz"
 	ToppsSiteKey         ReCaptchaSitekey = "6LeBF1oaAAAAAOE7aQAZOLBjA1AVAYjVc9ulo4xh"
 	WalmartSitekey       ReCaptchaSitekey = "6Lc8-RIaAAAAAPWSm2FVTyBg-Zkz2UjsWWfrkgYN"
