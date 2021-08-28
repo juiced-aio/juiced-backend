@@ -160,7 +160,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 				colors = filteredColors
 			}
 
-			fmt.Println(noColorsBeforeFilter, noSizesBeforeFilter, "here")
 			// If sizes and colors remain, continue
 			if (len(sizes) > 0 && len(colors) > 0) ||
 				(len(sizes) > 0 && noColorsBeforeFilter) || // (Or if there are sizes but no color variants)
