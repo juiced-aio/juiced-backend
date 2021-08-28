@@ -386,12 +386,15 @@ func (task *Task) Login() bool {
 	if task.Task.Proxy != nil {
 		proxy = *task.Task.Proxy
 	}
-
 	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV3, enums.Disney, BaseEndpoint+"/", "login", 0.9, proxy)
 	if err != nil {
 		return false
 	}
 	for token == nil {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return false
+		}
 		token = captcha.PollCaptchaTokens(enums.ReCaptchaV3, enums.Disney, BaseEndpoint+"/", proxy)
 		time.Sleep(1 * time.Second / 10)
 	}

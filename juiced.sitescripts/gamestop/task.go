@@ -211,14 +211,18 @@ func (task *Task) RunTask() {
 
 // Logs the main client in
 func (task *Task) Login() bool {
-	_, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
-		URL:        BaseEndpoint,
+		URL:        BaseLoginEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+	csrf, err := util.FindInString(body, `name="csrf_token" value="`, `"`)
+	if err != nil {
+		return false
 	}
 
 	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
@@ -232,6 +236,7 @@ func (task *Task) Login() bool {
 		"loginPassword":      {task.AccountInfo.Password},
 		"loginRememberMe":    {"true"},
 		"userTimezoneOffset": {"420"},
+		"csrf_token":         {csrf},
 	}
 	_, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -328,7 +333,7 @@ func (task *Task) AddToCart() bool {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.SKU),
+		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.PID),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -354,10 +359,9 @@ func (task *Task) AddToCart() bool {
 
 	switch resp.StatusCode {
 	case 200:
-		switch addToCartResponse.Message {
-		case "Added to cart":
+		if addToCartResponse.QuantityTotal > 0 {
 			return true
-		default:
+		} else {
 			return false
 		}
 	case 500:
@@ -586,7 +590,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	case 200:
 		if placeOrderResponse.Error {
 			status = enums.OrderStatusFailed
-			if strings.Contains(placeOrderResponse.Errormessage, "another form of payment") {
+			if strings.Contains(placeOrderResponse.Errormessage, "another form of payment") || strings.Contains(placeOrderResponse.Errormessage, "The payment you submitted is not valid") {
 				fmt.Println("Card Declined")
 				status = enums.OrderStatusDeclined
 				success = false

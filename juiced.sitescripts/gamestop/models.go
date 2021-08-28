@@ -12,6 +12,7 @@ import (
 
 const (
 	BaseEndpoint          = "https://www.gamestop.com"
+	BaseLoginEndpoint     = "https://www.gamestop.com/login"
 	LoginEndpoint         = "https://www.gamestop.com/on/demandware.store/Sites-gamestop-us-Site/default/Account-Login"
 	AccountEndpoint       = "https://www.gamestop.com/account"
 	ProductEndpoint       = "https://www.gamestop.com/products/%s.html"
@@ -157,7 +158,8 @@ type Gtmdata struct {
 }
 
 type AddToCartResponse struct {
-	Message string `json:"message"`
+	Message       string `json:"message"`
+	QuantityTotal int    `json:"quantityTotal"`
 }
 
 type AkamaiResponse struct {

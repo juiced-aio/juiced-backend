@@ -480,14 +480,14 @@ func RequestReCaptchaV3Token(sitekey, action, url string, minScore float64, prox
 		case settings.AntiCaptchaAPIKey:
 			go func() {
 				defer wg.Done()
-
+				enterprise := sitekey == enums.DisneySiteKey
 				antiCaptchaResponse, err := AntiCaptchaReq(settings.AntiCaptchaAPIKey, AntiCaptchaTaskInfo{
 					Type:         "RecaptchaV3TaskProxyless",
 					Websiteurl:   url,
 					Websitekey:   sitekey,
 					PageAction:   action,
 					MinScore:     minScore,
-					IsEnterprise: false,
+					IsEnterprise: enterprise,
 				})
 				if err != nil {
 					log.Println("Error retrieving ReCaptchaV3 from AntiCaptcha: " + err.Error())
