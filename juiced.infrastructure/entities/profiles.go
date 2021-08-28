@@ -66,8 +66,8 @@ type Profile struct {
 	Name                  string   `json:"name" db:"name"`
 	Email                 string   `json:"email" db:"email"`
 	PhoneNumber           string   `json:"phoneNumber" db:"phoneNumber"`
-	ShippingAddress       Address  `json:"shippingAddress"`
-	BillingAddress        Address  `json:"billingAddress"`
-	CreditCard            Card     `json:"creditCard"`
+	ShippingAddress       *Address `json:"shippingAddress"`
+	BillingAddress        *Address `json:"billingAddress"`
+	CreditCard            *Card    `json:"creditCard"`
 	CreationDate          int64    `json:"creationDate" db:"creationDate"`
 }

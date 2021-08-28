@@ -433,20 +433,22 @@ func RemoveProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 func UpdateProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var profile entities.Profile
+	var newProfile entities.Profile
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 
 	if ok {
-		newProfile := &entities.Profile{ID: ID}
+		newProfile = entities.Profile{ID: ID}
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
-			err = entities.ParseProfile(newProfile, body)
+			err = json.Unmarshal(body, &newProfile)
 			if err == nil {
-				profile, err = stores.UpdateProfile(ID, *newProfile)
-				if err != nil {
+				profilePtr, err := stores.UpdateProfile(ID, newProfile)
+				if err == nil {
+					newProfile = *profilePtr
+				} else {
 					errorsList = append(errorsList, errors.UpdateProfileError+err.Error())
 				}
 			} else {
@@ -458,7 +460,8 @@ func UpdateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{profile}, Errors: make([]string, 0)}
+
+	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{newProfile}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProfileResponse{Success: false, Data: make([]entities.Profile, 0), Errors: errorsList}
@@ -470,30 +473,26 @@ func UpdateProfileEndpoint(response http.ResponseWriter, request *http.Request) 
 func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var profile entities.Profile
-	var err error
+	var newProfile entities.Profile
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	ID, ok := params["ID"]
 	if ok {
-		profile, err = stores.GetProfile(ID)
+		profile, err := stores.GetProfile(ID)
 		if err == nil {
+			newProfile := *profile
 			newProfileID := uuid.New().String()
-			profile.SetID(newProfileID)
-			profile.SetName(profile.Name + " (Copy " + common.RandID(3) + ")")
-			profile.CreationDate = time.Now().Unix()
-			shippingAddress := &profile.ShippingAddress
-			shippingAddress.SetID(uuid.New().String())
-			shippingAddress.ProfileID = newProfileID
-			billingAddress := &profile.BillingAddress
-			billingAddress.SetID(uuid.New().String())
-			billingAddress.ProfileID = newProfileID
-			creditCard := &profile.CreditCard
-			creditCard.SetID(uuid.New().String())
-			creditCard.ProfileID = newProfileID
-			err = stores.CreateProfile(profile)
-			if err != nil {
+			newProfile.ID = newProfileID
+			newProfile.Name = profile.Name + " (Copy " + common.RandID(3) + ")"
+			newProfile.CreationDate = time.Now().Unix()
+			newProfile.ShippingAddress.ID = uuid.New().String()
+			newProfile.BillingAddress.ID = uuid.New().String()
+			newProfile.CreditCard.ID = uuid.New().String()
+			newProfilePtr, err := stores.CreateProfile(newProfile)
+			if err == nil {
+				newProfile = *newProfilePtr
+			} else {
 				errorsList = append(errorsList, errors.CreateProfileError+err.Error())
 			}
 		} else {
@@ -502,7 +501,7 @@ func CloneProfileEndpoint(response http.ResponseWriter, request *http.Request) {
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{profile}, Errors: make([]string, 0)}
+	result := &responses.ProfileResponse{Success: true, Data: []entities.Profile{newProfile}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProfileResponse{Success: false, Data: make([]entities.Profile, 0), Errors: errorsList}
