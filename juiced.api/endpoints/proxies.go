@@ -5,8 +5,8 @@ import (
 
 	"backend.juicedbot.io/juiced.api/errors"
 	"backend.juicedbot.io/juiced.api/responses"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
-	"backend.juicedbot.io/juiced.infrastructure/helpers"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
 
 	"encoding/json"
@@ -22,19 +22,21 @@ func GetProxyGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var proxyGroup entities.ProxyGroup
-	var err error
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		proxyGroup, err = stores.GetProxyGroup(groupID)
-		if err != nil {
+		proxyGroupPtr, err := stores.GetProxyGroup(groupID)
+		if err == nil {
+			proxyGroup = *proxyGroupPtr
+		} else {
 			errorsList = append(errorsList, errors.GetProxyGroupError+err.Error())
 		}
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
+
 	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{proxyGroup}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -47,21 +49,13 @@ func GetProxyGroupEndpoint(response http.ResponseWriter, request *http.Request) 
 func GetAllProxyGroupsEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	errorsList := make([]string, 0)
-	proxyGroups, err := stores.GetAllProxyGroups()
+	proxyGroups := stores.GetAllProxyGroups()
 
-	if err == nil {
-		for i := range proxyGroups {
-			stores.GetProxyStore().AddProxyGroup(&proxyGroups[i])
-		}
-	} else {
-		errorsList = append(errorsList, errors.GetAllProxyGroupsError+err.Error())
+	data := []entities.ProxyGroup{}
+	for i := 0; i < len(proxyGroups); i++ {
+		data = append(data, *proxyGroups[i])
 	}
-	result := &responses.ProxyGroupResponse{Success: true, Data: proxyGroups, Errors: make([]string, 0)}
-	if len(errorsList) > 0 {
-		response.WriteHeader(http.StatusBadRequest)
-		result = &responses.ProxyGroupResponse{Success: false, Data: make([]entities.ProxyGroup, 0), Errors: errorsList}
-	}
+	result := &responses.ProxyGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
 	json.NewEncoder(response).Encode(result)
 }
 
@@ -69,24 +63,21 @@ func GetAllProxyGroupsEndpoint(response http.ResponseWriter, request *http.Reque
 func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	proxyGroup := &entities.ProxyGroup{GroupID: uuid.New().String()}
+	proxyGroup := entities.ProxyGroup{GroupID: uuid.New().String()}
 	errorsList := make([]string, 0)
 
 	body, err := ioutil.ReadAll(request.Body)
 	if err == nil {
-		err = entities.ParseProxyGroup(proxyGroup, body)
+		err = json.Unmarshal(body, &proxyGroup)
 		if err == nil {
-			// This should probably be done on the frontend
-			proxiesWithGroupID := []*entities.Proxy{}
 			for _, proxy := range proxyGroup.Proxies {
 				proxy.ProxyGroupID = proxyGroup.GroupID
-				proxiesWithGroupID = append(proxiesWithGroupID, proxy)
 			}
 			proxyGroup.CreationDate = time.Now().Unix()
-			proxyGroup.Proxies = proxiesWithGroupID
-			err = stores.CreateProxyGroup(*proxyGroup)
+
+			proxyGroupPtr, err := stores.CreateProxyGroup(proxyGroup)
 			if err == nil {
-				stores.GetProxyStore().AddProxyGroup(proxyGroup)
+				proxyGroup = *proxyGroupPtr
 			} else {
 				errorsList = append(errorsList, errors.CreateProxyGroupError+err.Error())
 			}
@@ -96,7 +87,8 @@ func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	} else {
 		errorsList = append(errorsList, errors.IOUtilReadAllError+err.Error())
 	}
-	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{*proxyGroup}, Errors: make([]string, 0)}
+
+	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{proxyGroup}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProxyGroupResponse{Success: false, Data: make([]entities.ProxyGroup, 0), Errors: errorsList}
@@ -171,7 +163,6 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	var newProxyGroup entities.ProxyGroup
-
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
@@ -180,11 +171,11 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 		newProxyGroup = entities.ProxyGroup{GroupID: groupID}
 		body, err := ioutil.ReadAll(request.Body)
 		if err == nil {
-			err = entities.ParseProxyGroup(&newProxyGroup, body)
+			err = json.Unmarshal(body, &newProxyGroup)
 			if err == nil {
-				newProxyGroup, err = stores.UpdateProxyGroup(groupID, newProxyGroup)
+				newProxyGroupPtr, err := stores.UpdateProxyGroup(groupID, newProxyGroup)
 				if err == nil {
-					stores.GetProxyStore().UpdateProxyGroup(groupID, &newProxyGroup)
+					newProxyGroup = *newProxyGroupPtr
 				} else {
 					errorsList = append(errorsList, errors.UpdateProxyGroupError+err.Error())
 				}
@@ -197,6 +188,7 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
+
 	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{newProxyGroup}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
@@ -209,29 +201,27 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 func CloneProxyGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 	response.Header().Set("content-type", "application/json")
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	var proxyGroup entities.ProxyGroup
-	var err error
+	var newProxyGroup entities.ProxyGroup
 	errorsList := make([]string, 0)
 
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		proxyGroup, err = stores.GetProxyGroup(groupID)
+		oldProxyGroupPtr, err := stores.GetProxyGroup(groupID)
 		if err == nil {
-			newGroupID := uuid.New().String()
-			proxyGroup.SetGroupID(newGroupID)
-			proxyGroup.SetName(proxyGroup.Name + " (Copy " + helpers.RandID(4) + ")")
-			proxyGroup.CreationDate = time.Now().Unix()
-			for i := 0; i < len(proxyGroup.Proxies); i++ {
-				proxy := proxyGroup.Proxies[i]
-				proxy.SetID(uuid.New().String())
-				proxy.ProxyGroupID = newGroupID
+			newProxyGroup = *oldProxyGroupPtr
+			newProxyGroup.GroupID = uuid.New().String()
+			newProxyGroup.Name = newProxyGroup.Name + " (Copy " + common.RandID(3) + ")"
+			newProxyGroup.CreationDate = time.Now().Unix()
+			for _, proxy := range newProxyGroup.Proxies {
+				proxy.ID = uuid.New().String()
+				proxy.ProxyGroupID = newProxyGroup.GroupID
 			}
-			err = stores.CreateProxyGroup(proxyGroup)
+			newProxyGroupPtr, err := stores.CreateProxyGroup(newProxyGroup)
 			if err == nil {
-				stores.GetProxyStore().AddProxyGroup(&proxyGroup)
+				newProxyGroup = *newProxyGroupPtr
 			} else {
-				errorsList = append(errorsList, errors.CreateProxyGroupError+err.Error())
+				errorsList = append(errorsList, errors.CreateProfileGroupError+err.Error())
 			}
 		} else {
 			errorsList = append(errorsList, errors.GetProxyGroupError+err.Error())
@@ -239,7 +229,7 @@ func CloneProxyGroupEndpoint(response http.ResponseWriter, request *http.Request
 	} else {
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
-	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{proxyGroup}, Errors: make([]string, 0)}
+	result := &responses.ProxyGroupResponse{Success: true, Data: []entities.ProxyGroup{newProxyGroup}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProxyGroupResponse{Success: false, Data: make([]entities.ProxyGroup, 0), Errors: errorsList}

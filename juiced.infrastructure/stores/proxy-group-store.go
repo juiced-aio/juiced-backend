@@ -1,10 +1,89 @@
 package stores
 
-type ProxyGroupStore struct{}
+import (
+	"fmt"
+
+	"backend.juicedbot.io/juiced.infrastructure/database"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"github.com/google/uuid"
+)
+
+type ProxyGroupStore struct {
+	ProxyGroups map[string]*entities.ProxyGroup
+}
 
 var proxyGroupStore ProxyGroupStore
 
 func (store *ProxyGroupStore) Init() error {
-	// TODO
+	proxyGroups, err := database.GetAllProxyGroups()
+	if err != nil {
+		return err
+	}
+
+	for _, proxyGroup := range proxyGroups {
+		store.ProxyGroups[proxyGroup.GroupID] = &proxyGroup
+	}
+
 	return nil
+}
+
+type ProxyGroupNotFoundError struct {
+	ID string
+}
+
+func (e *ProxyGroupNotFoundError) Error() string {
+	return fmt.Sprintf("ProxyGroup with ID %s not found", e.ID)
+}
+
+func GetAllProxyGroups() []*entities.ProxyGroup {
+	proxyGroups := []*entities.ProxyGroup{}
+
+	for _, proxyGroup := range proxyGroupStore.ProxyGroups {
+		proxyGroups = append(proxyGroups, proxyGroup)
+	}
+
+	return proxyGroups
+}
+
+func GetProxyGroup(groupID string) (*entities.ProxyGroup, error) {
+	proxyGroup, ok := proxyGroupStore.ProxyGroups[groupID]
+	if !ok {
+		return nil, &ProxyGroupNotFoundError{groupID}
+	}
+
+	return proxyGroup, nil
+}
+
+func CreateProxyGroup(proxyGroup entities.ProxyGroup) (*entities.ProxyGroup, error) {
+	proxyGroup.GroupID = uuid.New().String()
+
+	err := database.CreateProxyGroup(proxyGroup)
+
+	proxyGroupPtr := &proxyGroup
+	proxyGroupStore.ProxyGroups[proxyGroup.GroupID] = proxyGroupPtr
+
+	return proxyGroupPtr, err
+}
+
+func UpdateProxyGroup(groupID string, newProxyGroup entities.ProxyGroup) (*entities.ProxyGroup, error) {
+	proxyGroup, err := GetProxyGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	proxyGroup.Name = newProxyGroup.Name
+	proxyGroup.Proxies = newProxyGroup.Proxies
+
+	return proxyGroup, nil
+}
+
+func RemoveProxyGroup(groupID string) (entities.ProxyGroup, error) {
+	proxyGroup, err := GetProxyGroup(groupID)
+	if err != nil {
+		return entities.ProxyGroup{}, err
+	}
+
+	delete(proxyGroupStore.ProxyGroups, groupID)
+	err = database.RemoveProxyGroup(groupID)
+	return *proxyGroup, err
 }

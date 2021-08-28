@@ -146,6 +146,5 @@ func UpdateProfileGroup(groupID string, newProfileGroup entities.ProfileGroup) e
 	if err != nil {
 		return err
 	}
-	err = CreateProfileGroup(newProfileGroup)
-	return err
+	return CreateProfileGroup(newProfileGroup)
 }

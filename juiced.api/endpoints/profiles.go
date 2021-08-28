@@ -39,8 +39,7 @@ func GetProfileGroupEndpoint(response http.ResponseWriter, request *http.Request
 		errorsList = append(errorsList, errors.MissingParameterError)
 	}
 
-	data := []entities.ProfileGroup{profileGroup}
-	result := &responses.ProfileGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
+	result := &responses.ProfileGroupResponse{Success: true, Data: []entities.ProfileGroup{profileGroup}, Errors: make([]string, 0)}
 	if len(errorsList) > 0 {
 		response.WriteHeader(http.StatusBadRequest)
 		result = &responses.ProfileGroupResponse{Success: false, Data: []entities.ProfileGroup{}, Errors: errorsList}
@@ -182,13 +181,13 @@ func CloneProfileGroupEndpoint(response http.ResponseWriter, request *http.Reque
 	params := mux.Vars(request)
 	groupID, ok := params["GroupID"]
 	if ok {
-		newProfileGroupPtr, err := stores.GetProfileGroup(groupID)
+		oldProfileGroupPtr, err := stores.GetProfileGroup(groupID)
 		if err == nil {
-			newProfileGroup = *newProfileGroupPtr
+			newProfileGroup = *oldProfileGroupPtr
 			newProfileGroup.GroupID = uuid.New().String()
 			newProfileGroup.Name = newProfileGroup.Name + " (Copy " + common.RandID(3) + ")"
 			newProfileGroup.CreationDate = time.Now().Unix()
-			newProfileGroupPtr, err = stores.CreateProfileGroup(newProfileGroup)
+			newProfileGroupPtr, err := stores.CreateProfileGroup(newProfileGroup)
 			if err == nil {
 				newProfileGroup = *newProfileGroupPtr
 			} else {

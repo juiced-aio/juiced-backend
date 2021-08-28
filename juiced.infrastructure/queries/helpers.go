@@ -980,31 +980,3 @@ func GetMonitorInfos(taskGroup entities.TaskGroup) (entities.TaskGroup, error) {
 
 	return taskGroup, nil
 }
-
-func GetProxies(proxyGroup entities.ProxyGroup) (entities.ProxyGroup, error) {
-	database := common.GetDatabase()
-	if database == nil {
-		return proxyGroup, errors.New("database not initialized")
-	}
-
-	statement, err := database.Preparex(`SELECT * FROM proxys WHERE proxyGroupID = @p1`)
-	if err != nil {
-		return proxyGroup, err
-	}
-	rows, err := statement.Queryx(proxyGroup.GroupID)
-	if err != nil {
-		return proxyGroup, err
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		tempProxy := entities.Proxy{}
-		err = rows.StructScan(&tempProxy)
-		if err != nil {
-			return proxyGroup, err
-		}
-		proxyGroup.Proxies = append(proxyGroup.Proxies, &tempProxy)
-	}
-
-	return proxyGroup, err
-}
