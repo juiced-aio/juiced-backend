@@ -162,7 +162,7 @@ func RemoveTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		taskGroup, err = queries.GetTaskGroup(groupID)
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
-			err = monitorStore.StopMonitor(&taskGroup)
+			_, err = monitorStore.StopMonitor(&taskGroup)
 			if err == nil {
 				next := true
 				for _, taskID := range taskGroup.TaskIDs {
@@ -271,7 +271,7 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 		taskGroup, err := queries.GetTaskGroup(groupID)
 		if err == nil {
 			monitorStore := stores.GetMonitorStore()
-			err = monitorStore.StopMonitor(&taskGroup)
+			wasRunning, err := monitorStore.StopMonitor(&taskGroup)
 			if err == nil {
 				body, err := ioutil.ReadAll(request.Body)
 				if err == nil {
@@ -514,8 +514,14 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
 							newTaskGroup.UpdateMonitor = true
-							err = monitorStore.AddMonitorToStore(&newTaskGroup)
-							if err != nil {
+							if err == nil {
+								if wasRunning {
+									err = monitorStore.StartMonitor(&newTaskGroup)
+									if err != nil {
+										errorsList = append(errorsList, errors.StartTaskError+err.Error())
+									}
+								}
+							} else {
 								errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
 							}
 						} else {
@@ -733,7 +739,7 @@ func RemoveTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 						}
 						if !taskStore.TasksRunning(newTaskGroup.TaskIDs, newTaskGroup.MonitorRetailer) {
 							monitorStore := stores.GetMonitorStore()
-							err = monitorStore.StopMonitor(&newTaskGroup)
+							_, err = monitorStore.StopMonitor(&newTaskGroup)
 							if err != nil {
 								errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 							}
@@ -1270,7 +1276,7 @@ func StopTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				if err == nil {
 					if !taskStore.TasksRunning(taskGroup.TaskIDs, taskGroup.MonitorRetailer) {
 						monitorStore := stores.GetMonitorStore()
-						err = monitorStore.StopMonitor(&taskGroup)
+						_, err = monitorStore.StopMonitor(&taskGroup)
 						if err != nil {
 							errorsList = append(errorsList, errors.StopMonitorError+err.Error())
 						}

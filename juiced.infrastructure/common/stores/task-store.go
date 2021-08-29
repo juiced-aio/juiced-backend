@@ -393,7 +393,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 // StopTaskGroup sets the stop field for the given TaskGroup's Monitor and each Task in the group and returns true if successful
 func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) error {
 	// Stop the task's TaskGroup
-	err := monitorStore.StopMonitor(taskGroup)
+	_, err := monitorStore.StopMonitor(taskGroup)
 	if err != nil {
 		return err
 	}

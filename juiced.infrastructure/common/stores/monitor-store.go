@@ -431,73 +431,110 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 }
 
 // StopMonitor sets the stop field for the given Monitor and returns true if successful
-func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) error {
+func (monitorStore *MonitorStore) StopMonitor(monitor *entities.TaskGroup) (bool, error) {
+	wasRunning := false
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
 		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+			if !amazonMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			amazonMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.BestBuy:
 		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+			if !bestbuyMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			bestbuyMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.BoxLunch:
 		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+			if !boxlunchMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			boxlunchMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Disney:
 		if disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok {
+			if !disneyMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			disneyMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.GameStop:
 		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+			if !gamestopMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			gamestopMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.HotTopic:
 		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+			if !hottopicMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			hottopicMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Newegg:
 		if neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok {
+			if !neweggMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			neweggMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.PokemonCenter:
 		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
+			if !pokemonCenterMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			pokemonCenterMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Shopify:
 		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
+			if !shopifyMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			shopifyMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Target:
 		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+			if !targetMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			targetMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Topps:
 		if toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok {
+			if !toppsMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			toppsMonitor.Monitor.StopFlag = true
 		}
 
 	case enums.Walmart:
 		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+			if !walmartMonitor.Monitor.StopFlag {
+				wasRunning = true
+			}
 			walmartMonitor.Monitor.StopFlag = true
 		}
 
 	default:
-		return e.New(errors.InvalidMonitorRetailerError)
+		return false, e.New(errors.InvalidMonitorRetailerError)
 	}
-	return nil
+	return wasRunning, nil
 }
 
 // UpdateMonitorProxy will update the given monitor with the given proxy and return true if successful
