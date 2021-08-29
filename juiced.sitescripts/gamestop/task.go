@@ -43,8 +43,10 @@ func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxyGrou
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true

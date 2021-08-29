@@ -37,8 +37,10 @@ func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, prox
 }
 
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 func (task *Task) CheckForStop() bool {

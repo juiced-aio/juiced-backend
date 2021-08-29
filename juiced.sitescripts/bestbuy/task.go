@@ -47,8 +47,10 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxyGroup
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
@@ -778,9 +780,7 @@ func (task *Task) SetShippingInfo() bool {
 		Data:              data,
 		RequestBodyStruct: shipOrPickupRequest,
 	})
-	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok || resp.StatusCode != 200 {
 		log.Println(604)
 		log.Println(err.Error())
@@ -857,16 +857,12 @@ func (task *Task) SetShippingInfo() bool {
 		Data:               data,
 		ResponseBodyStruct: &setShippingResponse,
 	})
-	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok {
 		log.Println(604)
 		log.Println(err.Error())
 		return false
 	}
-
-	log.Println(resp.StatusCode)
 
 	if resp.StatusCode != 200 {
 		log.Println(606)
@@ -886,7 +882,6 @@ func (task *Task) SetShippingInfo() bool {
 		}
 	}
 
-	log.Println("request 2")
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -911,14 +906,11 @@ func (task *Task) SetShippingInfo() bool {
 		},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok {
 		log.Println(642)
 		log.Println(err.Error())
 		return false
 	}
-
-	log.Println(resp.StatusCode)
 
 	switch resp.StatusCode {
 	case 200:
