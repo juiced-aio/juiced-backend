@@ -1,0 +1,1 @@
+package staticstores_test
