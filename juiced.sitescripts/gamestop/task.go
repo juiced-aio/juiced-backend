@@ -156,7 +156,6 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	// 5. SetShippingInfo
-
 	setShippingInfo := false
 	for !setShippingInfo {
 		needToStop := task.CheckForStop()
@@ -379,8 +378,13 @@ func (task *Task) AddToCart(token ...string) bool {
 			return true
 		} else {
 			if addToCartResponse.CaptchaProtected {
+				task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate, 30)
 				task.CheckoutInfo.CaptchaProtected = true
-				token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, "atc", 0.8, *task.Task.Proxy)
+				proxy := entities.Proxy{}
+				if task.Task.Proxy != nil {
+					proxy = *task.Task.Proxy
+				}
+				token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, "atc", 0.8, proxy)
 				if err != nil {
 					return false
 				}
@@ -389,13 +393,14 @@ func (task *Task) AddToCart(token ...string) bool {
 					if needToStop {
 						return false
 					}
-					token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, *task.Task.Proxy)
+					token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, proxy)
 					time.Sleep(1 * time.Second / 10)
 				}
 				tokenInfo, ok := token.(entities.ReCaptchaToken)
 				if !ok {
 					return false
 				}
+				task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 				return task.AddToCart(tokenInfo.Token)
 
 			}
@@ -596,7 +601,12 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	}
 
 	if task.CheckoutInfo.CaptchaProtected {
-		token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", "checkout", 0.8, *task.Task.Proxy)
+		task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate, 90)
+		proxy := entities.Proxy{}
+		if task.Task.Proxy != nil {
+			proxy = *task.Task.Proxy
+		}
+		token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", "checkout", 0.8, proxy)
 		if err != nil {
 			return false, status
 		}
@@ -605,7 +615,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			if needToStop {
 				return false, status
 			}
-			token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", *task.Task.Proxy)
+			token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", proxy)
 			time.Sleep(1 * time.Second / 10)
 		}
 		tokenInfo, ok := token.(entities.ReCaptchaToken)
@@ -613,6 +623,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			return false, status
 		}
 		form.Add("g-recaptcha-response", tokenInfo.Token)
+		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{
