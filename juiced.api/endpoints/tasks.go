@@ -1035,126 +1035,138 @@ func UpdateTasksEndpoint(response http.ResponseWriter, request *http.Request) {
 							var wasRunning bool
 							wasRunning, err = taskStore.StopTask(&task)
 							if err == nil {
-								if updateTasksRequestInfo.ProfileID != "DO_NOT_UPDATE" {
-									task.TaskProfileID = updateTasksRequestInfo.ProfileID
-								}
-								if updateTasksRequestInfo.ProxyGroupID != "DO_NOT_UPDATE" {
-									task.TaskProxyGroupID = updateTasksRequestInfo.ProxyGroupID
-								}
-								if updateTasksRequestInfo.Quantity != -1 && updateTasksRequestInfo.Quantity > 0 {
-									task.TaskQty = updateTasksRequestInfo.Quantity
-								}
-								switch taskGroup.MonitorRetailer {
-								case enums.Amazon:
-									if singleTask || updateTasksRequestInfo.AmazonTaskInfo.Email != "" {
-										task.AmazonTaskInfo.Email = updateTasksRequestInfo.AmazonTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.AmazonTaskInfo.Password != "" {
-										task.AmazonTaskInfo.Password = updateTasksRequestInfo.AmazonTaskInfo.Password
-									}
-
-								case enums.BestBuy:
-									if updateTasksRequestInfo.BestbuyTaskInfo.TaskType != "DO_NOT_UPDATE" {
-										task.BestbuyTaskInfo.TaskType = updateTasksRequestInfo.BestbuyTaskInfo.TaskType
-									}
-									if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Email != "" {
-										task.BestbuyTaskInfo.Email = updateTasksRequestInfo.BestbuyTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
-										task.BestbuyTaskInfo.Password = updateTasksRequestInfo.BestbuyTaskInfo.Password
-									}
-								case enums.BoxLunch:
-
-								case enums.Disney:
-									if updateTasksRequestInfo.DisneyTaskInfo.TaskType != "DO_NOT_UPDATE" {
-										task.DisneyTaskInfo.TaskType = updateTasksRequestInfo.DisneyTaskInfo.TaskType
-									}
-									if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Email != "" {
-										task.DisneyTaskInfo.Email = updateTasksRequestInfo.DisneyTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
-										task.DisneyTaskInfo.Password = updateTasksRequestInfo.DisneyTaskInfo.Password
-									}
-
-								case enums.GameStop:
-									if updateTasksRequestInfo.GamestopTaskInfo.TaskType != "DO_NOT_UPDATE" {
-										task.GamestopTaskInfo.TaskType = updateTasksRequestInfo.GamestopTaskInfo.TaskType
-									}
-									if singleTask || updateTasksRequestInfo.GamestopTaskInfo.Email != "" {
-										task.GamestopTaskInfo.Email = updateTasksRequestInfo.GamestopTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.GamestopTaskInfo.Password != "" {
-										task.GamestopTaskInfo.Password = updateTasksRequestInfo.GamestopTaskInfo.Password
-									}
-
-								case enums.HotTopic:
-
-								case enums.Newegg:
-
-								case enums.PokemonCenter:
-									if updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType != "DO_NOT_UPDATE" {
-										task.PokemonCenterTaskInfo.TaskType = updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType
-									}
-									if updateTasksRequestInfo.PokemonCenterTaskInfo.AddressType != "DO_NOT_UPDATE" {
-										task.PokemonCenterTaskInfo.AddressType = updateTasksRequestInfo.PokemonCenterTaskInfo.AddressType
-									}
-									if singleTask || updateTasksRequestInfo.PokemonCenterTaskInfo.Email != "" {
-										task.PokemonCenterTaskInfo.Email = updateTasksRequestInfo.PokemonCenterTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.PokemonCenterTaskInfo.Password != "" {
-										task.PokemonCenterTaskInfo.Password = updateTasksRequestInfo.PokemonCenterTaskInfo.Password
-									}
-
-								case enums.Shopify:
-									if updateTasksRequestInfo.ShopifyTaskInfo.CouponCode != "DO_NOT_UPDATE" {
-										task.ShopifyTaskInfo.CouponCode = updateTasksRequestInfo.ShopifyTaskInfo.CouponCode
-									}
-									if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" {
-										task.ShopifyTaskInfo.HotWheelsTaskInfo.Email = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password != "" {
-										task.ShopifyTaskInfo.HotWheelsTaskInfo.Password = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password
-									}
-
-								case enums.Target:
-									if updateTasksRequestInfo.TargetTaskInfo.CheckoutType != "DO_NOT_UPDATE" {
-										task.TargetTaskInfo.CheckoutType = updateTasksRequestInfo.TargetTaskInfo.CheckoutType
-									}
-									if updateTasksRequestInfo.TargetTaskInfo.PaymentType != "DO_NOT_UPDATE" {
-										task.TargetTaskInfo.PaymentType = updateTasksRequestInfo.TargetTaskInfo.PaymentType
-									}
-									if singleTask || updateTasksRequestInfo.TargetTaskInfo.Email != "" {
-										task.TargetTaskInfo.Email = updateTasksRequestInfo.TargetTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.TargetTaskInfo.Password != "" {
-										task.TargetTaskInfo.Password = updateTasksRequestInfo.TargetTaskInfo.Password
-									}
-
-								case enums.Topps:
-									if updateTasksRequestInfo.ToppsTaskInfo.TaskType != "DO_NOT_UPDATE" {
-										task.ToppsTaskInfo.TaskType = updateTasksRequestInfo.ToppsTaskInfo.TaskType
-									}
-									if singleTask || updateTasksRequestInfo.ToppsTaskInfo.Email != "" {
-										task.ToppsTaskInfo.Email = updateTasksRequestInfo.ToppsTaskInfo.Email
-									}
-									if singleTask || updateTasksRequestInfo.ToppsTaskInfo.Password != "" {
-										task.ToppsTaskInfo.Password = updateTasksRequestInfo.ToppsTaskInfo.Password
-									}
-
-								case enums.Walmart:
-
-								}
-								_, err = commands.UpdateTask(taskID, task)
+								err = taskStore.SetDontPublishEvents(task.TaskRetailer, task.ID, true)
 								if err == nil {
-									task.UpdateTask = true
-									if wasRunning {
-										err = taskStore.StartTask(&task)
-										if err != nil {
-											errorsList = append(errorsList, errors.StartTaskError+err.Error())
+									if updateTasksRequestInfo.ProfileID != "DO_NOT_UPDATE" {
+										task.TaskProfileID = updateTasksRequestInfo.ProfileID
+									}
+									if updateTasksRequestInfo.ProxyGroupID != "DO_NOT_UPDATE" {
+										task.TaskProxyGroupID = updateTasksRequestInfo.ProxyGroupID
+									}
+									if updateTasksRequestInfo.Quantity != -1 && updateTasksRequestInfo.Quantity > 0 {
+										task.TaskQty = updateTasksRequestInfo.Quantity
+									}
+									switch taskGroup.MonitorRetailer {
+									case enums.Amazon:
+										if singleTask || updateTasksRequestInfo.AmazonTaskInfo.Email != "" {
+											task.AmazonTaskInfo.Email = updateTasksRequestInfo.AmazonTaskInfo.Email
 										}
+										if singleTask || updateTasksRequestInfo.AmazonTaskInfo.Password != "" {
+											task.AmazonTaskInfo.Password = updateTasksRequestInfo.AmazonTaskInfo.Password
+										}
+
+									case enums.BestBuy:
+										if updateTasksRequestInfo.BestbuyTaskInfo.TaskType != "DO_NOT_UPDATE" {
+											task.BestbuyTaskInfo.TaskType = updateTasksRequestInfo.BestbuyTaskInfo.TaskType
+										}
+										if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Email != "" {
+											task.BestbuyTaskInfo.Email = updateTasksRequestInfo.BestbuyTaskInfo.Email
+										}
+										if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
+											task.BestbuyTaskInfo.Password = updateTasksRequestInfo.BestbuyTaskInfo.Password
+										}
+									case enums.BoxLunch:
+
+									case enums.Disney:
+										if updateTasksRequestInfo.DisneyTaskInfo.TaskType != "DO_NOT_UPDATE" {
+											task.DisneyTaskInfo.TaskType = updateTasksRequestInfo.DisneyTaskInfo.TaskType
+										}
+										if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Email != "" {
+											task.DisneyTaskInfo.Email = updateTasksRequestInfo.DisneyTaskInfo.Email
+										}
+										if singleTask || updateTasksRequestInfo.BestbuyTaskInfo.Password != "" {
+											task.DisneyTaskInfo.Password = updateTasksRequestInfo.DisneyTaskInfo.Password
+										}
+
+									case enums.GameStop:
+										if updateTasksRequestInfo.GamestopTaskInfo.TaskType != "DO_NOT_UPDATE" {
+											task.GamestopTaskInfo.TaskType = updateTasksRequestInfo.GamestopTaskInfo.TaskType
+										}
+										if singleTask || updateTasksRequestInfo.GamestopTaskInfo.Email != "" {
+											task.GamestopTaskInfo.Email = updateTasksRequestInfo.GamestopTaskInfo.Email
+										}
+										if singleTask || updateTasksRequestInfo.GamestopTaskInfo.Password != "" {
+											task.GamestopTaskInfo.Password = updateTasksRequestInfo.GamestopTaskInfo.Password
+										}
+
+									case enums.HotTopic:
+
+									case enums.Newegg:
+
+									case enums.PokemonCenter:
+										if updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType != "DO_NOT_UPDATE" {
+											task.PokemonCenterTaskInfo.TaskType = updateTasksRequestInfo.PokemonCenterTaskInfo.TaskType
+										}
+										if updateTasksRequestInfo.PokemonCenterTaskInfo.AddressType != "DO_NOT_UPDATE" {
+											task.PokemonCenterTaskInfo.AddressType = updateTasksRequestInfo.PokemonCenterTaskInfo.AddressType
+										}
+										if singleTask || updateTasksRequestInfo.PokemonCenterTaskInfo.Email != "" {
+											task.PokemonCenterTaskInfo.Email = updateTasksRequestInfo.PokemonCenterTaskInfo.Email
+										}
+										if singleTask || updateTasksRequestInfo.PokemonCenterTaskInfo.Password != "" {
+											task.PokemonCenterTaskInfo.Password = updateTasksRequestInfo.PokemonCenterTaskInfo.Password
+										}
+
+									case enums.Shopify:
+										if updateTasksRequestInfo.ShopifyTaskInfo.CouponCode != "DO_NOT_UPDATE" {
+											task.ShopifyTaskInfo.CouponCode = updateTasksRequestInfo.ShopifyTaskInfo.CouponCode
+										}
+										if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email != "" {
+											task.ShopifyTaskInfo.HotWheelsTaskInfo.Email = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Email
+										}
+										if singleTask || updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password != "" {
+											task.ShopifyTaskInfo.HotWheelsTaskInfo.Password = updateTasksRequestInfo.ShopifyTaskInfo.HotWheelsTaskInfo.Password
+										}
+
+									case enums.Target:
+										if updateTasksRequestInfo.TargetTaskInfo.CheckoutType != "DO_NOT_UPDATE" {
+											task.TargetTaskInfo.CheckoutType = updateTasksRequestInfo.TargetTaskInfo.CheckoutType
+										}
+										if updateTasksRequestInfo.TargetTaskInfo.PaymentType != "DO_NOT_UPDATE" {
+											task.TargetTaskInfo.PaymentType = updateTasksRequestInfo.TargetTaskInfo.PaymentType
+										}
+										if singleTask || updateTasksRequestInfo.TargetTaskInfo.Email != "" {
+											task.TargetTaskInfo.Email = updateTasksRequestInfo.TargetTaskInfo.Email
+										}
+										if singleTask || updateTasksRequestInfo.TargetTaskInfo.Password != "" {
+											task.TargetTaskInfo.Password = updateTasksRequestInfo.TargetTaskInfo.Password
+										}
+
+									case enums.Topps:
+										if updateTasksRequestInfo.ToppsTaskInfo.TaskType != "DO_NOT_UPDATE" {
+											task.ToppsTaskInfo.TaskType = updateTasksRequestInfo.ToppsTaskInfo.TaskType
+										}
+										if singleTask || updateTasksRequestInfo.ToppsTaskInfo.Email != "" {
+											task.ToppsTaskInfo.Email = updateTasksRequestInfo.ToppsTaskInfo.Email
+										}
+										if singleTask || updateTasksRequestInfo.ToppsTaskInfo.Password != "" {
+											task.ToppsTaskInfo.Password = updateTasksRequestInfo.ToppsTaskInfo.Password
+										}
+
+									case enums.Walmart:
+
+									}
+									_, err := commands.UpdateTask(taskID, task)
+									if err == nil {
+										task.UpdateTask = true
+										if wasRunning {
+											err = taskStore.StartTask(&task)
+											if err != nil {
+												errorsList = append(errorsList, errors.StartTaskError+err.Error())
+											}
+										} else {
+											if taskStore.GetTask(task.TaskRetailer, task.ID) != nil {
+												err = taskStore.UpdateTask(&task)
+												if err != nil {
+													errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
+												}
+											}
+										}
+									} else {
+										errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
 									}
 								} else {
-									errorsList = append(errorsList, errors.UpdateTaskError+err.Error())
+									errorsList = append(errorsList, errors.StopTaskError+err.Error())
 								}
 							} else {
 								errorsList = append(errorsList, errors.StopTaskError+err.Error())

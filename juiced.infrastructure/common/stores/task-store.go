@@ -417,6 +417,16 @@ func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) error {
 	return nil
 }
 
+func (taskStore *TaskStore) UpdateTask(newTask *entities.Task) error {
+	task := taskStore.GetTask(newTask.TaskRetailer, newTask.ID)
+
+	if task == nil {
+		return e.New("task not found")
+	}
+
+	return taskStore.AddTaskToStore(newTask)
+}
+
 // StartTask runs the RunTask() function for the given Task and returns true if successful
 func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 	if task.TaskRetailer != enums.Amazon {
@@ -457,8 +467,9 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 		return nil
 	}
 
-	// Set the task's StopFlag to true before running the task
+	// Set the task's StopFlag to false before running the task
 	taskStore.SetStopFlag(task.TaskRetailer, task.ID, false)
+	taskStore.SetDontPublishEvents(task.TaskRetailer, task.ID, false)
 
 	// Otherwise, start the Task
 	taskStore.RunTask(task.TaskRetailer, task.ID)

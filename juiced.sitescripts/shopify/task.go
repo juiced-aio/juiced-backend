@@ -39,6 +39,8 @@ func CreateShopifyTask(task *entities.Task, profile entities.Profile, proxyGroup
 	}
 	if proxyGroup != nil {
 		shopifyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		shopifyTask.Task.Proxy = nil
 	}
 	return shopifyTask, nil
 }
@@ -53,7 +55,7 @@ func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEven
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
 		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
@@ -76,7 +78,8 @@ func (task *Task) RunTask() {
 		if r := recover(); r != nil {
 			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
 		} else {
-			if !strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&

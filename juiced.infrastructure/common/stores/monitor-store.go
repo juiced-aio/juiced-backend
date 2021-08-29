@@ -310,14 +310,14 @@ func (monitorStore *MonitorStore) AddMonitorToStore(monitor *entities.TaskGroup)
 	return nil
 }
 
-func (monitorStore *MonitorStore) UpdateMonitor(taskGroup *entities.TaskGroup) error {
-	monitor := monitorStore.GetMonitor(taskGroup.MonitorRetailer, taskGroup.GroupID)
+func (monitorStore *MonitorStore) UpdateMonitor(newMonitor *entities.TaskGroup) error {
+	monitor := monitorStore.GetMonitor(newMonitor.MonitorRetailer, newMonitor.GroupID)
 
 	if monitor == nil {
 		return e.New("task group not found")
 	}
 
-	return monitorStore.AddMonitorToStore(taskGroup)
+	return monitorStore.AddMonitorToStore(newMonitor)
 }
 
 // StartMonitor runs the Run() function for the given Monitor and returns true if successful
