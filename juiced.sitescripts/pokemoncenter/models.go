@@ -82,11 +82,12 @@ type MonitorResponse struct {
 
 //Populated when item comes into stock, then populates checkout info
 type PokemonCenterInStockData struct {
-	SKU           string
-	Price         float64
-	ItemName      string
-	AddToCartForm string
-	ImageURL      string
+	SKU             string
+	Price           float64
+	OutOfPriceRange bool
+	ItemName        string
+	AddToCartForm   string
+	ImageURL        string
 }
 
 type Task struct {

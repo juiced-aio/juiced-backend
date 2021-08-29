@@ -133,10 +133,21 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			})
 		}
 	} else {
-		monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-			Products: []events.Product{
-				{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-		})
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		} else {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		}
 		for i, monitorStock := range monitor.InStock {
 			if monitorStock.SKU == stockData.SKU {
 				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
@@ -191,20 +202,28 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 		case "AVAILABLE":
 			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
 			fmt.Println(monitorResponse.Props.InitialState.Product.ListPrice.Amount)
+			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
+			stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
 			var inBudget bool
 			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
-				stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
 				stockData.SKU = sku
-				stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
-				stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+			} else {
+				stockData.OutOfPriceRange = true
 			}
 			return stockData
 		case "NOT_AVAILABLE":
+			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
 			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 			return stockData
 		default:
+			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
+			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
+			stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
 			fmt.Println(monitorResponse.Props.InitialState.Product.Availability)
 			return stockData
 		}

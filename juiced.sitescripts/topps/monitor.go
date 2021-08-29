@@ -2,6 +2,7 @@ package topps
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -146,6 +147,7 @@ again:
 	}()
 
 	stockData := monitor.GetItemStock(item)
+	log.Println(stockData)
 	if stockData.SKU != "" && stockData.AddURL != "" && stockData.FormKey != "" {
 		needToStop := monitor.CheckForStop()
 		if needToStop {
@@ -164,11 +166,20 @@ again:
 			})
 		}
 	} else {
-		if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-			monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-				Products: []events.Product{
-					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-			})
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		} else {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
 		}
 		for i, monitorStock := range monitor.InStock {
 			if monitorStock.SKU == stockData.SKU {
@@ -286,7 +297,7 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 				fmt.Println(child.Text())
 				tempPrice, _ := strconv.ParseFloat(child.Attrs()["price"], 64)
 				fmt.Println(tempPrice)
-				if float64(monitor.ItemWithInfo[item].MaxPrice) > tempPrice || monitor.ItemWithInfo[item].MaxPrice == -1 {
+				if monitor.ItemWithInfo[item].MaxPrice == -1 || (tempPrice != 0 && float64(monitor.ItemWithInfo[item].MaxPrice) > tempPrice) {
 					options = append(options, Option{child.Attrs()["value"], tempPrice})
 				}
 			}
@@ -310,6 +321,7 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 		stockData.AddURL = ""
 		stockData.SKU = ""
 		stockData.FormKey = ""
+		stockData.OutOfPriceRange = true
 	}
 
 	return stockData
