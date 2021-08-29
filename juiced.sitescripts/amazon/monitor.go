@@ -157,11 +157,20 @@ again:
 			}
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-						Products: []events.Product{
-							{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-					})
+				if stockData.OutOfPriceRange {
+					if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+						monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+						})
+					}
+				} else {
+					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+						monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+						})
+					}
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -372,6 +381,7 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 
 	if price == 0 || err != nil || merchantID != "ATVPDKIKX0DER" || !(float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1) {
 		stockData.OfferID = ""
+		stockData.OutOfPriceRange = true
 	}
 
 	return stockData
@@ -479,6 +489,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 
 		stockData = AmazonInStockData{
 			ASIN:        asin,
+			OfferID:     monitor.ASINWithInfo[asin].OFID,
 			AntiCsrf:    antiCSRF,
 			PID:         pid,
 			RID:         rid,
@@ -490,8 +501,9 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			MonitorType: enums.FastSKUMonitor,
 		}
 		inBudget := err == nil && price != 0 && (float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1)
-		if inBudget {
-			stockData.OfferID = monitor.ASINWithInfo[asin].OFID
+		if !inBudget {
+			stockData.OfferID = ""
+			stockData.OutOfPriceRange = true
 		}
 		return stockData
 	case 503:

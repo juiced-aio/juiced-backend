@@ -47,17 +47,18 @@ type Monitor struct {
 }
 
 type AmazonInStockData struct {
-	ASIN        string
-	OfferID     string
-	Price       float64
-	ItemName    string
-	AntiCsrf    string
-	PID         string
-	RID         string
-	ImageURL    string
-	UA          string
-	Client      http.Client
-	MonitorType enums.MonitorType
+	ASIN            string
+	OfferID         string
+	Price           float64
+	OutOfPriceRange bool
+	ItemName        string
+	AntiCsrf        string
+	PID             string
+	RID             string
+	ImageURL        string
+	UA              string
+	Client          http.Client
+	MonitorType     enums.MonitorType
 }
 
 type Acc struct {
