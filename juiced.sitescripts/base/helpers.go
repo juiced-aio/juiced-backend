@@ -48,10 +48,16 @@ func (task *Task) CreateClient(proxy ...*entities.Proxy) error {
 				return err
 			}
 		} else {
-			task.Client, _ = client.NewClient(utls.HelloChrome_90)
+			task.Client, err = client.NewClient(utls.HelloChrome_90)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
-		task.Client, _ = client.NewClient(utls.HelloChrome_90)
+		task.Client, err = client.NewClient(utls.HelloChrome_90)
+		if err != nil {
+			return err
+		}
 	}
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {
@@ -72,10 +78,16 @@ func (monitor *Monitor) CreateClient(proxy ...*entities.Proxy) error {
 				return err
 			}
 		} else {
-			monitor.Client, _ = client.NewClient(utls.HelloChrome_90)
+			monitor.Client, err = client.NewClient(utls.HelloChrome_90)
+			if err != nil {
+				return err
+			}
 		}
 	} else {
-		monitor.Client, _ = client.NewClient(utls.HelloChrome_90)
+		monitor.Client, err = client.NewClient(utls.HelloChrome_90)
+		if err != nil {
+			return err
+		}
 	}
 	cookieJar, err := cookiejar.New(nil)
 	if err != nil {

@@ -37,19 +37,23 @@ func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxyGrou
 	}
 	if proxyGroup != nil {
 		gamestopTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		gamestopTask.Task.Proxy = nil
 	}
 	return gamestopTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
 		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
@@ -68,12 +72,21 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
+		task.Task.StopFlag = true
 	}()
+	task.StockData = GamestopInStockData{}
 	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
@@ -147,7 +160,6 @@ func (task *Task) RunTask() {
 
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	// 5. SetShippingInfo
-
 	setShippingInfo := false
 	for !setShippingInfo {
 		needToStop := task.CheckForStop()
@@ -202,11 +214,11 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
 		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
 
 }
@@ -370,8 +382,13 @@ func (task *Task) AddToCart(token ...string) bool {
 			return true
 		} else {
 			if addToCartResponse.CaptchaProtected {
+				task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate, 30)
 				task.CheckoutInfo.CaptchaProtected = true
-				token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, "atc", 0.8, *task.Task.Proxy)
+				proxy := entities.Proxy{}
+				if task.Task.Proxy != nil {
+					proxy = *task.Task.Proxy
+				}
+				token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, "atc", 0.8, proxy)
 				if err != nil {
 					return false
 				}
@@ -380,13 +397,14 @@ func (task *Task) AddToCart(token ...string) bool {
 					if needToStop {
 						return false
 					}
-					token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, *task.Task.Proxy)
+					token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, proxy)
 					time.Sleep(1 * time.Second / 10)
 				}
 				tokenInfo, ok := token.(entities.ReCaptchaToken)
 				if !ok {
 					return false
 				}
+				task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 				return task.AddToCart(tokenInfo.Token)
 
 			}
@@ -587,7 +605,12 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	}
 
 	if task.CheckoutInfo.CaptchaProtected {
-		token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", "checkout", 0.8, *task.Task.Proxy)
+		task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate, 90)
+		proxy := entities.Proxy{}
+		if task.Task.Proxy != nil {
+			proxy = *task.Task.Proxy
+		}
+		token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", "checkout", 0.8, proxy)
 		if err != nil {
 			return false, status
 		}
@@ -596,7 +619,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			if needToStop {
 				return false, status
 			}
-			token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", *task.Task.Proxy)
+			token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", proxy)
 			time.Sleep(1 * time.Second / 10)
 		}
 		tokenInfo, ok := token.(entities.ReCaptchaToken)
@@ -604,6 +627,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			return false, status
 		}
 		form.Add("g-recaptcha-response", tokenInfo.Token)
+		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	}
 
 	resp, _, err := util.MakeRequest(&util.Request{

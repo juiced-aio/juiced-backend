@@ -32,13 +32,12 @@ var ParsedBase, _ = url.Parse(BaseEndpoint)
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	InStock         []NeweggInStockData
-	SKUWithInfo     map[string]entities.NeweggSingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	SKUs           []string
+	InStock        []NeweggInStockData
+	SKUWithInfo    map[string]entities.NeweggSingleMonitorInfo
 }
 
 type Task struct {
@@ -48,12 +47,13 @@ type Task struct {
 }
 
 type NeweggInStockData struct {
-	SKU         string
-	ItemNumber  string
-	ImageURL    string
-	ProductName string
-	ItemURL     string
-	Price       float64
+	SKU             string
+	ItemNumber      string
+	ImageURL        string
+	ProductName     string
+	ItemURL         string
+	Price           float64
+	OutOfPriceRange bool
 }
 
 type TaskInfo struct {

@@ -39,11 +39,10 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	RunningMonitors []string
-	Pids            []string
-	InStock         []HottopicInStockData
-	PidWithInfo     map[string]entities.HottopicSingleMonitorInfo
+	Monitor     base.Monitor
+	Pids        []string
+	InStock     []HottopicInStockData
+	PidWithInfo map[string]entities.HottopicSingleMonitorInfo
 }
 
 type HottopicInStockData struct {

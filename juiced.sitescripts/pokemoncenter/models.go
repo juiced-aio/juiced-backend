@@ -51,13 +51,12 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	InStock         []PokemonCenterInStockData
-	SKUWithInfo     map[string]entities.PokemonCenterSingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	SKUs           []string
+	InStock        []PokemonCenterInStockData
+	SKUWithInfo    map[string]entities.PokemonCenterSingleMonitorInfo
 }
 
 type MonitorResponse struct {
@@ -83,11 +82,12 @@ type MonitorResponse struct {
 
 //Populated when item comes into stock, then populates checkout info
 type PokemonCenterInStockData struct {
-	SKU           string
-	Price         float64
-	ItemName      string
-	AddToCartForm string
-	ImageURL      string
+	SKU             string
+	Price           float64
+	OutOfPriceRange bool
+	ItemName        string
+	AddToCartForm   string
+	ImageURL        string
 }
 
 type Task struct {

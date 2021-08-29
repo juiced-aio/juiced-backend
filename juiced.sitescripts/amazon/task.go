@@ -30,13 +30,15 @@ const MAX_RETRIES = 5
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
 		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
@@ -46,13 +48,12 @@ func (task *Task) CheckForStop() bool {
 var AmazonAccountStore = cmap.New()
 
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
-func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
+func CreateAmazonTask(task *entities.Task, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
 	amazonTask := Task{}
 
 	amazonTask = Task{
 		Task: base.Task{
 			Task:       task,
-			Profile:    profile,
 			ProxyGroup: proxyGroup,
 			EventBus:   eventBus,
 		},
@@ -64,6 +65,8 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxyGroup 
 	}
 	if proxyGroup != nil {
 		amazonTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		amazonTask.Task.Proxy = nil
 	}
 	return amazonTask, nil
 }
@@ -71,12 +74,21 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxyGroup 
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
+		task.Task.StopFlag = true
 	}()
+	task.StockData = AmazonInStockData{}
 	task.Task.HasStockData = false
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
@@ -168,11 +180,11 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
 		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
 }
 
@@ -278,7 +290,7 @@ func (task *Task) browserLogin() bool {
 
 	u := launcher_.
 		Set(flags.Flag("headless")).
-		// Delete(flags.Flag("--headless")).
+		Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
 		Set(flags.Flag("disable-background-networking")).
@@ -696,21 +708,21 @@ func (task *Task) PlaceOrder(startTime time.Time, retries int) (bool, enums.Orde
 		orderStatus := resp.Header.Get("x-amz-turbo-checkout-page-type")
 		switch orderStatus {
 		case "thankyou":
-			task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+			task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 			status = enums.OrderStatusSuccess
 			success = true
 		default:
-			task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+			task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 			status = enums.OrderStatusFailed
 			success = false
 		}
 
 	case 503:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	default:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	}

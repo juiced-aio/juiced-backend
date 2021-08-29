@@ -2,6 +2,7 @@ package topps
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"strconv"
 	"strings"
@@ -138,52 +139,58 @@ again:
 		goto again
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, item) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
+	defer func() {
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(item)
+		}
+	}()
 
-		stockData := monitor.GetItemStock(item)
-		if stockData.SKU != "" && stockData.AddURL != "" && stockData.FormKey != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
+	stockData := monitor.GetItemStock(item)
+	log.Println(stockData)
+	if stockData.SKU != "" && stockData.AddURL != "" && stockData.FormKey != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
 
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.SKU == stockData.SKU
-			}
-			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, item)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.SKU == stockData.SKU
+		}
+		if !inSlice {
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
 		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-						Products: []events.Product{
-							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-					})
-				}
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+				})
 			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.SKU == stockData.SKU {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.SKU == stockData.SKU {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
 			}
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, item)
-			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunSingleMonitor(item)
 		}
 	}
 
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(item)
 }
 
 // Gets the items stock
@@ -220,7 +227,6 @@ func (monitor *Monitor) GetItemStock(itemURL string) ToppsInStockData {
 		return stockData
 	}
 
-	monitor.RunningMonitors = append(monitor.RunningMonitors, itemURL)
 	return monitor.ParseInfos(itemURL, body)
 }
 
@@ -291,7 +297,7 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 				fmt.Println(child.Text())
 				tempPrice, _ := strconv.ParseFloat(child.Attrs()["price"], 64)
 				fmt.Println(tempPrice)
-				if float64(monitor.ItemWithInfo[item].MaxPrice) > tempPrice || monitor.ItemWithInfo[item].MaxPrice == -1 {
+				if monitor.ItemWithInfo[item].MaxPrice == -1 || (tempPrice != 0 && float64(monitor.ItemWithInfo[item].MaxPrice) > tempPrice) {
 					options = append(options, Option{child.Attrs()["value"], tempPrice})
 				}
 			}
@@ -315,6 +321,7 @@ func (monitor *Monitor) ParseInfos(item, body string) ToppsInStockData {
 		stockData.AddURL = ""
 		stockData.SKU = ""
 		stockData.FormKey = ""
+		stockData.OutOfPriceRange = true
 	}
 
 	return stockData

@@ -100,55 +100,64 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, sku) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
+	defer func() {
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(sku)
+		}
+	}()
 
-		if monitor.Monitor.ProxyGroup != nil {
-			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-				proxy := util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-				monitor.Monitor.UpdateProxy(proxy)
-			}
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy := util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
+	}
+
+	stockData := monitor.GetSKUStock(sku)
+	if stockData.SKU != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
 		}
 
-		stockData := monitor.GetSKUStock(sku)
-		if stockData.SKU != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.SKU == stockData.SKU
-			}
-			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.SKU == stockData.SKU
+		}
+		if !inSlice {
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
 		} else {
-			if len(monitor.RunningMonitors) > 0 {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
 				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.SKU == stockData.SKU {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.SKU == stockData.SKU {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
 			}
-			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunSingleMonitor(sku)
 		}
 	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(sku)
 }
 
 func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
@@ -182,8 +191,6 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 		monitor.HandleDatadome(body)
 		return stockData
 	case 200:
-		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-
 		//Get response data as this is embedded into the HTML in a script.
 		body, _ := ioutil.ReadAll(resp.Body)
 		responseBody := soup.HTMLParse(string(body))
@@ -195,20 +202,28 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 		case "AVAILABLE":
 			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
 			fmt.Println(monitorResponse.Props.InitialState.Product.ListPrice.Amount)
+			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
+			stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
 			var inBudget bool
 			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
-				stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
 				stockData.SKU = sku
-				stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
-				stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
 				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+			} else {
+				stockData.OutOfPriceRange = true
 			}
 			return stockData
 		case "NOT_AVAILABLE":
+			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
 			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 			return stockData
 		default:
+			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
+			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
+			stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
 			fmt.Println(monitorResponse.Props.InitialState.Product.Availability)
 			return stockData
 		}

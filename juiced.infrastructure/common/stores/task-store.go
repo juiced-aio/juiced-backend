@@ -52,10 +52,14 @@ type TaskStore struct {
 // AddTaskToStore adds the Task to the TaskStore and returns true if successful
 func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 	var queryError error
+	var profile entities.Profile
 	// Get Profile, ProxyGroup for task
-	profile, err := queries.GetProfile(task.TaskProfileID)
-	if err != nil {
-		queryError = err
+	if task.TaskRetailer != enums.Amazon {
+		var err error
+		profile, err = queries.GetProfile(task.TaskProfileID)
+		if err != nil {
+			queryError = err
+		}
 	}
 	var proxyGroup *entities.ProxyGroup
 	if task.TaskProxyGroupID != "" {
@@ -86,7 +90,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		}
 
 		// Create task
-		amazonTask, err := amazon.CreateAmazonTask(task, profile, proxyGroup, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
+		amazonTask, err := amazon.CreateAmazonTask(task, proxyGroup, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -606,9 +610,16 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 		// Get the task
 		task, err := queries.GetTask(taskID)
 		if err == nil {
-			profile, err := queries.GetProfile(task.TaskProfileID)
+			var profile entities.Profile
+			if task.TaskRetailer != enums.Amazon {
+				profile, err = queries.GetProfile(task.TaskProfileID)
+			}
 			if err == nil {
-				if common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
+				validCardType := true
+				if task.TaskRetailer != enums.Amazon {
+					validCardType = common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer)
+				}
+				if validCardType {
 					// Add task to store (if it already exists, this will return true)
 					err = taskStore.AddTaskToStore(&task)
 					if err == nil {
@@ -623,7 +634,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 						if strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) ||
 							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) ||
 							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) ||
-							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) ||
 							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 							// Otherwise, start the Task
 							taskStore.RunTask(task.TaskRetailer, task.ID)
@@ -653,7 +664,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 // StopTaskGroup sets the stop field for the given TaskGroup's Monitor and each Task in the group and returns true if successful
 func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) error {
 	// Stop the task's TaskGroup
-	err := monitorStore.StopMonitor(taskGroup)
+	_, err := monitorStore.StopMonitor(taskGroup)
 	if err != nil {
 		return err
 	}
@@ -666,15 +677,27 @@ func (taskStore *TaskStore) StopTaskGroup(taskGroup *entities.TaskGroup) error {
 	return nil
 }
 
-// StartTask runs the RunTask() function for the given Task and returns true if successful
-func (taskStore *TaskStore) StartTask(task *entities.Task) error {
-	profile, err := queries.GetProfile(task.TaskProfileID)
-	if err != nil {
-		return err
+func (taskStore *TaskStore) UpdateTask(newTask *entities.Task) error {
+	task := taskStore.GetTask(newTask.TaskRetailer, newTask.ID)
+
+	if task == nil {
+		return e.New("task not found")
 	}
 
-	if !common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
-		return e.New(errors.StartTaskInvalidCardError + task.TaskRetailer)
+	return taskStore.AddTaskToStore(newTask)
+}
+
+// StartTask runs the RunTask() function for the given Task and returns true if successful
+func (taskStore *TaskStore) StartTask(task *entities.Task) error {
+	if task.TaskRetailer != enums.Amazon {
+		profile, err := queries.GetProfile(task.TaskProfileID)
+		if err != nil {
+			return err
+		}
+
+		if !common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
+			return e.New(errors.StartTaskInvalidCardError + task.TaskRetailer)
+		}
 	}
 
 	taskGroup, err := queries.GetTaskGroup(task.TaskGroupID)
@@ -699,13 +722,14 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 	if !strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
 		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
 		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
-		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
 		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 		return nil
 	}
 
-	// Set the task's StopFlag to true before running the task
+	// Set the task's StopFlag to false before running the task
 	taskStore.SetStopFlag(task.TaskRetailer, task.ID, false)
+	taskStore.SetDontPublishEvents(task.TaskRetailer, task.ID, false)
 
 	// Otherwise, start the Task
 	taskStore.RunTask(task.TaskRetailer, task.ID)

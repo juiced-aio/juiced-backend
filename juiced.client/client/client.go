@@ -9,12 +9,13 @@ import (
 	"backend.juicedbot.io/juiced.client/http"
 )
 
-func UpdateProxy(client *http.Client, proxy *entities.Proxy) error {
-	if proxy == nil || proxy.Host == "" {
+func UpdateProxy(client *http.Client, newProxy *entities.Proxy) error {
+	if newProxy == nil || newProxy.Host == "" {
+		client.Transport = newRoundTripper(utls.HelloChrome_90, proxy.Direct)
 		return nil
 	}
-	proxy.AddCount()
-	dialer, err := newConnectDialer(common.ProxyCleaner(*proxy))
+	newProxy.AddCount()
+	dialer, err := newConnectDialer(common.ProxyCleaner(*newProxy))
 	if err != nil {
 		return err
 	}

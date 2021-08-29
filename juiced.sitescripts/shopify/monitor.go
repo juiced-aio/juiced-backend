@@ -119,56 +119,53 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, vid) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
-
-		var proxy *entities.Proxy
-		if monitor.Monitor.ProxyGroup != nil {
-			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-				monitor.Monitor.UpdateProxy(proxy)
-			}
-		}
-
-		stockData := monitor.GetVIDstock(vid)
-		if stockData.VariantID != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.VariantID == stockData.VariantID
-			}
-			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, vid)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-				})
-			}
-		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
-				}
-			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.VariantID == stockData.VariantID {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
-			}
-
+	defer func() {
+		if recover() != nil {
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(vid)
 		}
+	}()
+
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
 	}
+
+	stockData := monitor.GetVIDstock(vid)
+	if stockData.VariantID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.VariantID == stockData.VariantID
+		}
+		if !inSlice {
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+			monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.VariantID == stockData.VariantID {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
+			}
+		}
+	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(vid)
 }
 
 // Getting stock by adding to cart

@@ -124,57 +124,63 @@ again:
 		goto again
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, asin) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
-
-		stockData := AmazonInStockData{}
-		switch monitor.ASINWithInfo[asin].MonitorType {
-		case enums.SlowSKUMonitor:
-			stockData = monitor.TurboMonitor(asin)
-		case enums.FastSKUMonitor:
-			stockData = monitor.OFIDMonitor(asin)
-		}
-
-		if stockData.OfferID != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, asin)
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.ASIN == stockData.ASIN
-			}
-			if !inSlice {
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-				})
-				monitor.InStock = append(monitor.InStock, stockData)
-			}
-		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-						Products: []events.Product{
-							{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-					})
-				}
-			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.ASIN == stockData.ASIN {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
-			}
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, asin)
+	defer func() {
+		if recover() != nil {
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(asin)
 		}
+	}()
+
+	stockData := AmazonInStockData{}
+	switch monitor.ASINWithInfo[asin].MonitorType {
+	case enums.SlowSKUMonitor:
+		stockData = monitor.TurboMonitor(asin)
+	case enums.FastSKUMonitor:
+		stockData = monitor.OFIDMonitor(asin)
 	}
+
+	if stockData.OfferID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.ASIN == stockData.ASIN
+		}
+		if !inSlice {
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+			})
+			monitor.InStock = append(monitor.InStock, stockData)
+		}
+	} else {
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		} else {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.ASIN == stockData.ASIN {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
+			}
+		}
+	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(asin)
 }
 
 // A lot of the stuff that I'm doing either seems useless or dumb but Cloudfront is Ai based and the more entropy/randomness you add to every request
@@ -242,9 +248,6 @@ func (monitor *Monitor) TurboMonitor(asin string) AmazonInStockData {
 
 // Scraping the info from the page, since we are rotating between two page types I have to check each value in two different places
 func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData {
-	defer func() {
-		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-	}()
 	stockData := AmazonInStockData{}
 	if strings.Contains(body, "automated access") {
 		fmt.Println("Captcha")
@@ -279,9 +282,9 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 			merchantID = item.Attrs()["value"]
 		}
 
-		item = doc.Find("span", "class", "a-price-whole")
-		if item.Error == nil {
-			priceStr = item.Text()
+		price := doc.Find("span", "class", "a-price-whole")
+		if price.Error == nil {
+			priceStr = price.Text()
 		}
 
 		item = doc.Find("h5", "id", "aod-asin-title-text")
@@ -328,9 +331,13 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 				imageURL = item.Attrs()["data-a-hires"]
 			}
 		}
-		item = doc.Find("span", "class", "a-price-whole")
-		if item.Error == nil {
-			priceStr = item.Text()
+
+		span := doc.Find("span", "id", "tp_price_block_total_price_ww")
+		if span.Error == nil {
+			price := span.Find("span", "class", "a-price-whole")
+			if price.Error == nil {
+				priceStr = price.Text()
+			}
 		}
 
 		item = doc.Find("div", "id", "comparison_title1")
@@ -355,7 +362,7 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 		}
 	}
 
-	price, _ := strconv.ParseFloat(priceStr, 64)
+	price, err := strconv.ParseFloat(priceStr, 64)
 	stockData = AmazonInStockData{
 		ASIN:        asin,
 		OfferID:     ofid,
@@ -366,8 +373,10 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 		MonitorType: enums.SlowSKUMonitor,
 	}
 
-	if merchantID != "ATVPDKIKX0DER" || !(float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1) {
+	inBudget := monitor.ASINWithInfo[asin].MaxPrice == -1 || (err == nil && price != 0 && merchantID == "ATVPDKIKX0DER" && float64(monitor.ASINWithInfo[asin].MaxPrice) >= price)
+	if !inBudget {
 		stockData.OfferID = ""
+		stockData.OutOfPriceRange = true
 	}
 
 	return stockData
@@ -436,7 +445,6 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 	}
 
 	// It is impossible to know if the OfferID actually exists so it's up to the user here when running OfferID mode/Fast mode
-	monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
 	switch resp.StatusCode {
 	case 200:
 		var imageURL string
@@ -470,22 +478,26 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			priceStr := strings.ReplaceAll(item.Text(), " ", "")
 			priceStr = strings.ReplaceAll(priceStr, "\n", "")
 			priceStr = strings.ReplaceAll(priceStr, "$", "")
-			price, _ = strconv.ParseFloat(priceStr, 64)
+			price, err = strconv.ParseFloat(priceStr, 64)
 		}
-		inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
-		if inBudget {
-			stockData = AmazonInStockData{
-				ASIN:        asin,
-				OfferID:     monitor.ASINWithInfo[asin].OFID,
-				AntiCsrf:    antiCSRF,
-				PID:         pid,
-				RID:         rid,
-				ImageURL:    imageURL,
-				Price:       price,
-				UA:          ua,
-				Client:      currentClient,
-				MonitorType: enums.FastSKUMonitor,
-			}
+
+		stockData = AmazonInStockData{
+			ASIN:        asin,
+			OfferID:     monitor.ASINWithInfo[asin].OFID,
+			AntiCsrf:    antiCSRF,
+			PID:         pid,
+			RID:         rid,
+			ItemName:    asin,
+			ImageURL:    imageURL,
+			Price:       price,
+			UA:          ua,
+			Client:      currentClient,
+			MonitorType: enums.FastSKUMonitor,
+		}
+		inBudget := monitor.ASINWithInfo[asin].MaxPrice == -1 || (err == nil && price != 0 && float64(monitor.ASINWithInfo[asin].MaxPrice) >= price)
+		if !inBudget {
+			stockData.OfferID = ""
+			stockData.OutOfPriceRange = true
 		}
 		return stockData
 	case 503:

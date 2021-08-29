@@ -40,12 +40,11 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	IDs             []string
-	RunningMonitors []string
-	InStockForShip  []WalmartInStockData
-	IDWithInfo      map[string]entities.WalmartSingleMonitorInfo
-	PXValues        util.PXValues
+	Monitor        base.Monitor
+	IDs            []string
+	InStockForShip []WalmartInStockData
+	IDWithInfo     map[string]entities.WalmartSingleMonitorInfo
+	PXValues       util.PXValues
 }
 
 type WalmartInStockData struct {

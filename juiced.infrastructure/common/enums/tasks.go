@@ -5,7 +5,9 @@ type MonitorStatus = string
 
 // Idle --> WaitingForProductData --> WaitingForInStock* --> SendingProductInfoToTasks --> WaitingForOutOfStock --> WaitingForInStock --> ...
 const (
-	MonitorIdle               MonitorStatus = "Idle"
+	MonitorIdle   MonitorStatus = "Idle"
+	MonitorFailed MonitorStatus = "FAIL: %s"
+
 	SettingUpMonitor          MonitorStatus = "Setting up"
 	BypassingPXMonitor        MonitorStatus = "Bypassing PX"
 	WaitingForProductData     MonitorStatus = "Searching"
@@ -67,7 +69,7 @@ const (
 	CheckingOut        TaskStatus = "Checking out"
 	CheckingOutSuccess TaskStatus = "Checked out!"
 	CheckingOutFailure TaskStatus = "Error checking out: %s"
-	CardDeclined       TaskStatus = "Error checking out: card declined"
+	CardDeclined       TaskStatus = "Card declined"
 
 	WaitingForLogin     TaskStatus = "Waiting for login cookies"
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
@@ -79,8 +81,6 @@ const (
 	GettingBillingInfo  TaskStatus = "Getting billing info"
 	GettingOrderInfo    TaskStatus = "Getting order info"
 	SettingOrderInfo    TaskStatus = "Setting order info"
-	CheckoutFailed      TaskStatus = "Checkout failed"
-	CheckedOut          TaskStatus = "Checked out!"
 )
 
 type TaskEventType = string
