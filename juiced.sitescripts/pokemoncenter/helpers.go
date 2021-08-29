@@ -8,8 +8,10 @@ import (
 	"fmt"
 	"strings"
 
+	"backend.juicedbot.io/juiced.antibot/datadome"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	jose "github.com/dvsekhvalnov/jose2go"
 	"github.com/lestrrat-go/jwx/jwk"
@@ -28,6 +30,10 @@ func AddPokemonCenterHeaders(request *http.Request, referer ...string) {
 	if len(referer) != 0 {
 		request.Header.Set("Referer", referer[0])
 	}
+}
+
+func HandleDatadome(monitor *entities.BaseMonitor, body string) error {
+	return datadome.HandleDatadome(monitor, enums.PokemonCenter, BaseURL, "https://www.pokemoncenter.com/", "https://www.pokemoncenter.com", ".pokemoncenter.com", body)
 }
 
 func dumpMap(space string, m map[string]interface{}) {

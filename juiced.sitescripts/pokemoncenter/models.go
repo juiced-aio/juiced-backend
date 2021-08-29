@@ -46,13 +46,9 @@ const (
 	AddToCartQuantityError = "expected quantity of %d but found %d"
 )
 
-type Monitor struct {
-	MonitorInfo     *entities.MonitorInfo
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	SKUWithInfo     map[string]entities.PokemonCenterSingleMonitorInfo
+type SKUMonitor struct {
+	Input       entities.MonitorInput
+	BaseMonitor *entities.BaseMonitor
 }
 
 type MonitorResponse struct {

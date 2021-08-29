@@ -11,3 +11,7 @@ type CipherTextNotMultipleOfBlockSizeError struct{}
 func (e *CipherTextNotMultipleOfBlockSizeError) Error() string {
 	return "cipher text not a multiple of the block size"
 }
+
+type CancellationToken struct {
+	Cancel bool
+}

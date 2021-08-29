@@ -1,8 +1,6 @@
 package database
 
-import (
-	"backend.juicedbot.io/juiced.infrastructure/entities"
-)
+import "backend.juicedbot.io/juiced.infrastructure/entities"
 
 // GetCheckouts returns all the checkouts in the given timeframe and retailer
 func GetCheckouts() ([]entities.Checkout, error) {

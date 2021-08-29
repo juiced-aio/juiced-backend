@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/url"
 	"regexp"
 	"time"
 
@@ -76,6 +77,14 @@ func FindInString(str string, start string, end string) (string, error) {
 	}
 
 	return parsed, nil
+}
+
+func CreateParams(paramsLong map[string]string) string {
+	params := url.Values{}
+	for key, value := range paramsLong {
+		params.Add(key, value)
+	}
+	return params.Encode()
 }
 
 func Aes256Encrypt(plaintext string, key string) (string, error) {

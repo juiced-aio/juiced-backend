@@ -22,8 +22,8 @@ func (task *Task) GetTaskInfo() *entities.TaskInfo {
 	return task.TaskInfo
 }
 
-func (task *Task) FillStockInfo(stockInfo entities.StockInfo) {
-	task.TaskInfo.StockInfo = stockInfo
+func (task *Task) FillProductInfo(productInfo entities.ProductInfo) {
+	task.TaskInfo.ProductInfo = productInfo
 }
 
 func (task *Task) GetTaskFunctions() []entities.TaskFunction {
@@ -335,18 +335,18 @@ func (task *Task) RetrieveJTI() (bool, string) {
 }
 
 func (task *Task) WaitForMonitor() (bool, string) {
-	if addToCartForm, ok := task.TaskInfo.StockInfo.SiteSpecific["AddToCartForm"].(string); ok && addToCartForm != "" {
+	if addToCartForm, ok := task.TaskInfo.ProductInfo.SiteSpecific["AddToCartForm"].(string); ok && addToCartForm != "" {
 		return true, ""
 	}
 	return false, ""
 }
 
 func (task *Task) AddToCart() (bool, string) {
-	if _, ok := task.TaskInfo.StockInfo.SiteSpecific["AddToCartForm"].(string); !ok {
+	if _, ok := task.TaskInfo.ProductInfo.SiteSpecific["AddToCartForm"].(string); !ok {
 		return false, fmt.Sprintf(enums.AddingToCartFailure, AddToCartBadInputError)
 	}
 	addToCartRequest := AddToCartRequest{
-		ProductUri:    task.TaskInfo.StockInfo.SiteSpecific["AddToCartForm"].(string),
+		ProductUri:    task.TaskInfo.ProductInfo.SiteSpecific["AddToCartForm"].(string),
 		Quantity:      task.TaskInfo.Task.Task.Quantity,
 		Configuration: "",
 	}
@@ -373,7 +373,7 @@ func (task *Task) AddToCart() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.TaskInfo.StockInfo.SKU)},
+			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.TaskInfo.ProductInfo.SKU)},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},

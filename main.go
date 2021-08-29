@@ -19,8 +19,8 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
+	"backend.juicedbot.io/juiced.infrastructure/staticstores"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
-	"backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 
 	ws "backend.juicedbot.io/juiced.ws"
@@ -73,12 +73,13 @@ func main() {
 		if err != nil {
 			eventBus.PublishCloseEvent()
 		} else {
-			err = stores.InitStores()
-			if err != nil {
+			err1 := staticstores.InitStores()
+			err2 := stores.InitStores()
+			if err1 != nil || err2 != nil {
 				eventBus.PublishCloseEvent()
 			} else {
 				// Get the user's info
-				userInfo := stores.GetUserInfo()
+				userInfo := staticstores.GetUserInfo()
 				if err != nil {
 					eventBus.PublishCloseEvent()
 				} else {
@@ -94,7 +95,7 @@ func main() {
 						err := captcha.InitAycd()
 						if err == nil {
 							log.Println("Initialized AYCD.")
-							settings := stores.GetSettings()
+							settings := staticstores.GetSettings()
 							if err == nil {
 								if settings.AYCDAccessToken != "" && settings.AYCDAPIKey != "" {
 									err = captcha.ConnectToAycd(settings.AYCDAccessToken, settings.AYCDAPIKey)
@@ -110,7 +111,7 @@ func main() {
 							log.Println("Error initializing AYCD: " + err.Error())
 							// TODO @silent: Handle
 						}
-						go util.DiscordWebhookQueue()
+						// go util.DiscordWebhookQueue()
 						go api.StartServer()
 
 						rpc.EnableRPC()

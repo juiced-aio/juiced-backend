@@ -11,7 +11,6 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	utls "backend.juicedbot.io/juiced.client/utls"
-	"backend.juicedbot.io/juiced.infrastructure/entities"
 )
 
 type FingerprintResponse struct {
@@ -97,7 +96,7 @@ func TestProxy(t *testing.T) {
 
 	fmt.Println(resp)
 
-	UpdateProxy(&client, &entities.Proxy{Host: "localhost", Port: "8888"})
+	UpdateProxy(&client, "localhost:8888")
 	resp, err = client.Get("https://www.google.com")
 	if err != nil {
 		t.Fatal(err)

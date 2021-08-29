@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 
 	lz "github.com/Lazarus/lz-string-go"
 )
@@ -82,7 +82,7 @@ func (scraper *Scraper) Solve() (*http.Response, error) {
 				log.Printf("Solving Challenge. (%v/%v)", scraper.SolveRetries, scraper.SolveMaxRetries)
 			}
 			if scraper.SolveRetries == scraper.SolveMaxRetries {
-				return scraper.OriginalRequest, fmt.Errorf("Solving challenge failed after %v retries.", scraper.SolveMaxRetries)
+				return scraper.OriginalRequest, fmt.Errorf("solving challenge failed after %v retries", scraper.SolveMaxRetries)
 			} else {
 				scraper.SolveRetries++
 				errFormat := "Failed to request init script: %v"
@@ -129,7 +129,7 @@ func (scraper *Scraper) ChallengeInitiationPayload() (*http.Response, error) {
 			log.Printf("Fetching payload. (%v/%v)", scraper.InitPayloadRetries, scraper.InitPayloadMaxRetries)
 		}
 		if scraper.InitPayloadRetries == scraper.InitPayloadMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Fetching payload failed after %v retries.", scraper.InitPayloadMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("fetching payload failed after %v retries", scraper.InitPayloadMaxRetries)
 		} else {
 			scraper.InitPayloadRetries++
 
@@ -186,7 +186,7 @@ func (scraper *Scraper) ChallengeInitiationPayload() (*http.Response, error) {
 				scraper.HandleLoopError(errFormat, err)
 				continue
 			}
-			challengePayload, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p1", scraper.ApiDomain)+"?"+common.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
+			challengePayload, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p1", scraper.ApiDomain)+"?"+util.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
 			if err != nil {
 				scraper.HandleLoopError(errFormat, err)
 				continue
@@ -226,19 +226,19 @@ func (scraper *Scraper) InitiateCloudflare() (*http.Response, error) {
 			log.Printf("Initiating challenge. (%v/%v)", scraper.InitChallengeRetries, scraper.InitChallengeMaxRetries)
 		}
 		if scraper.InitChallengeRetries == scraper.InitChallengeMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Initiating challenge failed after %v retries.", scraper.InitChallengeMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("initiating challenge failed after %v retries", scraper.InitChallengeMaxRetries)
 		} else {
 			scraper.InitChallengeRetries++
 
 			if scraper.KeyStrUriSafe == "" {
-				return scraper.OriginalRequest, errors.New("KeyUri cannot be None.")
+				return scraper.OriginalRequest, errors.New("value for KeyUri cannot be None")
 			} else {
 				resultDecoded, err := base64.StdEncoding.DecodeString(scraper.Result)
 				if err != nil {
 					scraper.HandleLoopError(errFormat, err)
 					continue
 				}
-				payload := common.CreateParams(map[string]string{
+				payload := util.CreateParams(map[string]string{
 					scraper.Name: lz.Compress(string(resultDecoded), scraper.KeyStrUriSafe),
 				})
 				if err != nil {
@@ -284,7 +284,7 @@ func (scraper *Scraper) SolvePayload() (*http.Response, error) {
 			log.Printf("Fetching main challenge. (%v/%v)", scraper.FetchingChallengeRetries, scraper.FetchingChallengeMaxRetries)
 		}
 		if scraper.FetchingChallengeRetries == scraper.FetchingChallengeMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Fetching main challenge failed after %v retries.\nThis error is mostlikly related to a wring usage of headers.\nIf this exception occurs on an endpoint which is used to peform a carting or a similiar action note that the solving process shell not work here by cloudflare implementation on sites.\nIf this occurs you need to regen the cookie on a get page request or similiar with resettet headers.\nAfter generation you can assign the headers again and cart again.", scraper.FetchingChallengeMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("fetching main challenge failed after %v retries.\nThis error is mostlikly related to a wring usage of headers.\nIf this exception occurs on an endpoint which is used to peform a carting or a similiar action note that the solving process shell not work here by cloudflare implementation on sites.\nIf this occurs you need to regen the cookie on a get page request or similiar with resettet headers.\nAfter generation you can assign the headers again and cart again", scraper.FetchingChallengeMaxRetries)
 		} else {
 			scraper.FetchingChallengeRetries++
 
@@ -311,7 +311,7 @@ func (scraper *Scraper) SolvePayload() (*http.Response, error) {
 				continue
 			}
 
-			cc, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p2", scraper.ApiDomain)+"?"+common.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
+			cc, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p2", scraper.ApiDomain)+"?"+util.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
 			if err != nil {
 				scraper.HandleLoopError(errFormat, err)
 				continue
@@ -346,7 +346,7 @@ func (scraper *Scraper) SendMainPayload() (*http.Response, error) {
 			log.Printf("Submitting challenge. (%v/%v)", scraper.SubmitChallengeRetries, scraper.SubmitChallengeMaxRetries)
 		}
 		if scraper.SubmitChallengeRetries == scraper.SubmitChallengeMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Submitting challenge failed after %v retries.", scraper.SubmitChallengeMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("submitting challenge failed after %v retries", scraper.SubmitChallengeMaxRetries)
 		} else {
 			scraper.SubmitChallengeRetries++
 
@@ -355,7 +355,7 @@ func (scraper *Scraper) SendMainPayload() (*http.Response, error) {
 				scraper.HandleLoopError(errFormat, err)
 				continue
 			}
-			payload := common.CreateParams(map[string]string{
+			payload := util.CreateParams(map[string]string{
 				scraper.Name: lz.Compress(string(resultDecoded), scraper.KeyStrUriSafe),
 			})
 			if err != nil {
@@ -399,7 +399,7 @@ func (scraper *Scraper) GetChallengeResult() (*http.Response, error) {
 			log.Printf("Fetching challenge result. (%v/%v)", scraper.ChallengeResultRetries, scraper.ChallengeResultMaxRetries)
 		}
 		if scraper.ChallengeResultRetries == scraper.ChallengeResultMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Fetching challenge result failed after %v retries.", scraper.ChallengeResultMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("fetching challenge result failed after %v retries", scraper.ChallengeResultMaxRetries)
 		} else {
 			scraper.ChallengeResultRetries++
 
@@ -416,7 +416,7 @@ func (scraper *Scraper) GetChallengeResult() (*http.Response, error) {
 				scraper.HandleLoopError(errFormat, err)
 				continue
 			}
-			ee, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p3", scraper.ApiDomain)+"?"+common.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
+			ee, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p3", scraper.ApiDomain)+"?"+util.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
 			if err != nil {
 				scraper.HandleLoopError(errFormat, err)
 				continue
@@ -446,7 +446,7 @@ func (scraper *Scraper) HandleFinalApi() (*http.Response, error) {
 	}
 	if scraper.FinalApi.Captcha {
 		if !scraper.Captcha {
-			return scraper.OriginalRequest, errors.New("Cf returned captcha and captcha handling is disabled")
+			return scraper.OriginalRequest, errors.New("cf returned captcha and captcha handling is disabled")
 		} else {
 			return scraper.HandleCaptcha()
 		}
@@ -467,7 +467,7 @@ func (scraper *Scraper) SubmitChallenge() (*http.Response, error) {
 			log.Printf("Submitting final challenge. (%v/%v)", scraper.SubmitFinalChallengeRetries, scraper.SubmitFinalChallengeMaxRetries)
 		}
 		if scraper.SubmitFinalChallengeRetries == scraper.SubmitFinalChallengeMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Submitting final challenge failed after %v retries.", scraper.SubmitFinalChallengeMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("submitting final challenge failed after %v retries", scraper.SubmitFinalChallengeMaxRetries)
 		} else {
 			scraper.SubmitFinalChallengeRetries++
 
@@ -487,7 +487,7 @@ func (scraper *Scraper) SubmitChallenge() (*http.Response, error) {
 			if scraper.Md != "" {
 				payloadMap["md"] = scraper.Md
 			}
-			payload := common.CreateParams(payloadMap)
+			payload := util.CreateParams(payloadMap)
 
 			req, err := http.NewRequest("POST", scraper.RequestURL, bytes.NewBufferString(payload))
 			if err != nil {
@@ -558,7 +558,7 @@ func (scraper *Scraper) HandleRerun() (*http.Response, error) {
 			log.Printf("Handling rerun. (%v/%v)", scraper.RerunRetries, scraper.RerunMaxRetries)
 		}
 		if scraper.RerunRetries == scraper.RerunMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Rerun failed after %v retries.", scraper.RerunMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("rerun failed after %v retries", scraper.RerunMaxRetries)
 		} else {
 			scraper.RerunRetries++
 
@@ -586,7 +586,7 @@ func (scraper *Scraper) HandleRerun() (*http.Response, error) {
 				continue
 			}
 
-			alternative, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p2", scraper.ApiDomain)+"?"+common.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
+			alternative, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/p2", scraper.ApiDomain)+"?"+util.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
 			if err != nil {
 				scraper.HandleLoopError(errFormat, err)
 				continue
@@ -626,7 +626,7 @@ func (scraper *Scraper) HandleCaptcha() (*http.Response, error) {
 			log.Printf("Handling captcha. (%v/%v)", scraper.CaptchaRetries, scraper.CaptchaMaxRetries)
 		}
 		if scraper.CaptchaRetries == scraper.CaptchaMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Handling captcha failed after %v retries.", scraper.CaptchaMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("handling captcha failed after %v retries", scraper.CaptchaMaxRetries)
 		} else {
 			scraper.CaptchaRetries++
 			var token string
@@ -656,7 +656,7 @@ func (scraper *Scraper) HandleCaptcha() (*http.Response, error) {
 				continue
 			}
 
-			ff, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/cap1", scraper.ApiDomain)+"?"+common.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
+			ff, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/cap1", scraper.ApiDomain)+"?"+util.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
 			if err != nil {
 				scraper.HandleLoopError(errFormat, err)
 				continue
@@ -676,7 +676,7 @@ func (scraper *Scraper) HandleCaptcha() (*http.Response, error) {
 				continue
 			}
 
-			payload = []byte(common.CreateParams(map[string]string{
+			payload = []byte(util.CreateParams(map[string]string{
 				scraper.Name: lz.Compress(string(resultDecoded), scraper.KeyStrUriSafe),
 			}))
 
@@ -711,7 +711,7 @@ func (scraper *Scraper) HandleCaptcha() (*http.Response, error) {
 				continue
 			}
 
-			hh, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/cap2", scraper.ApiDomain)+"?"+common.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
+			hh, err := scraper.Client.Post(fmt.Sprintf("https://%v/cf-a/ov1/cap2", scraper.ApiDomain)+"?"+util.CreateParams(scraper.AuthParams), "application/json", bytes.NewBuffer(payload))
 			if err != nil {
 				scraper.HandleLoopError(errFormat, err)
 				continue
@@ -733,7 +733,7 @@ func (scraper *Scraper) HandleCaptcha() (*http.Response, error) {
 				}
 				return scraper.SubmitCaptcha()
 			} else {
-				return scraper.OriginalRequest, errors.New("Captcha was not accepted - most likly wrong token")
+				return scraper.OriginalRequest, errors.New("captcha was not accepted - most likly wrong token")
 			}
 
 		}
@@ -752,7 +752,7 @@ func (scraper *Scraper) SubmitCaptcha() (*http.Response, error) {
 			log.Printf("Submitting captcha challenge. (%v/%v)", scraper.SubmitCaptchaRetries, scraper.SubmitCaptchaMaxRetries)
 		}
 		if scraper.SubmitCaptchaRetries == scraper.SubmitCaptchaMaxRetries {
-			return scraper.OriginalRequest, fmt.Errorf("Submitting captcha challenge failed after %v retries.", scraper.SubmitFinalChallengeMaxRetries)
+			return scraper.OriginalRequest, fmt.Errorf("submitting captcha challenge failed after %v retries", scraper.SubmitFinalChallengeMaxRetries)
 		} else {
 			scraper.SubmitCaptchaRetries++
 
@@ -776,7 +776,7 @@ func (scraper *Scraper) SubmitCaptcha() (*http.Response, error) {
 			// "captchka" Spelling mistake?
 			payloadMap["h-captcha-response"] = "captchka"
 
-			payload := common.CreateParams(payloadMap)
+			payload := util.CreateParams(payloadMap)
 
 			req, err := http.NewRequest("POST", scraper.RequestURL, bytes.NewBufferString(payload))
 			if err != nil {
@@ -851,7 +851,7 @@ func (scraper *Scraper) GetPayloadFromAPI() (*http.Response, error) {
 	if err != nil {
 		return scraper.OriginalRequest, err
 	}
-	resp, err := scraper.Client.Post("https://cf-v2.hwkapi.com/cf-a/fp/p1"+"?"+common.CreateParams(scraper.AuthParams), "application/json", bytes.NewReader(payload))
+	resp, err := scraper.Client.Post("https://cf-v2.hwkapi.com/cf-a/fp/p1"+"?"+util.CreateParams(scraper.AuthParams), "application/json", bytes.NewReader(payload))
 	if err != nil {
 		return scraper.OriginalRequest, err
 	}
@@ -880,7 +880,7 @@ func (scraper *Scraper) SubmitFingerprintChallenge() (*http.Response, error) {
 	if result.StatusCode == 429 {
 		return scraper.OriginalRequest, errors.New("FP DATA declined")
 	} else if result.StatusCode == 404 {
-		return scraper.OriginalRequest, errors.New("Fp ep changed")
+		return scraper.OriginalRequest, errors.New("fp ep changed")
 	}
 
 	return scraper.GetPage()

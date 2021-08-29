@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
@@ -55,7 +56,12 @@ func GetProxyGroup(groupID string) (*entities.ProxyGroup, error) {
 }
 
 func CreateProxyGroup(proxyGroup entities.ProxyGroup) (*entities.ProxyGroup, error) {
-	proxyGroup.GroupID = uuid.New().String()
+	if proxyGroup.GroupID == "" {
+		proxyGroup.GroupID = uuid.New().String()
+	}
+	if proxyGroup.CreationDate == 0 {
+		proxyGroup.CreationDate = time.Now().Unix()
+	}
 
 	err := database.CreateProxyGroup(proxyGroup)
 

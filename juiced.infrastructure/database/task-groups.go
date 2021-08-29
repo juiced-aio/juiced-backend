@@ -26,15 +26,15 @@ func GetAllTaskGroups() ([]entities.TaskGroup, error) {
 		if err != nil {
 			return taskGroups, err
 		}
-		if tempTaskGroup.TaskIDsJoined != "" {
-			tempTaskGroup.TaskIDs = strings.Split(tempTaskGroup.TaskIDsJoined, ",")
+		if tempTaskGroup.TaskIDsSerialized != "" {
+			tempTaskGroup.TaskIDs = strings.Split(tempTaskGroup.TaskIDsSerialized, ",")
 		}
 
-		monitor := entities.BaseMonitor{}
-		if tempTaskGroup.MonitorInfo != "" {
-			err = json.Unmarshal([]byte(tempTaskGroup.MonitorInfo), &monitor)
+		monitors := []*entities.BaseMonitor{}
+		if tempTaskGroup.MonitorsSerialized != "" {
+			err = json.Unmarshal([]byte(tempTaskGroup.MonitorsSerialized), &monitors)
 			if err != nil {
-				tempTaskGroup.Monitor = &monitor
+				tempTaskGroup.Monitors = monitors
 			}
 		}
 
@@ -71,16 +71,72 @@ func GetTaskGroup(groupID string) (entities.TaskGroup, error) {
 			return taskGroup, err
 		}
 	}
-	if taskGroup.TaskIDsJoined != "" {
-		taskGroup.TaskIDs = strings.Split(taskGroup.TaskIDsJoined, ",")
+	if taskGroup.TaskIDsSerialized != "" {
+		taskGroup.TaskIDs = strings.Split(taskGroup.TaskIDsSerialized, ",")
 	}
 
-	monitor := entities.BaseMonitor{}
-	if taskGroup.MonitorInfo != "" {
-		err = json.Unmarshal([]byte(taskGroup.MonitorInfo), &monitor)
+	monitors := []*entities.BaseMonitor{}
+	if taskGroup.MonitorsSerialized != "" {
+		err = json.Unmarshal([]byte(taskGroup.MonitorsSerialized), &monitors)
 		if err != nil {
-			taskGroup.Monitor = &monitor
+			taskGroup.Monitors = monitors
 		}
 	}
 	return taskGroup, nil
+}
+
+func CreateTaskGroup(taskGroup entities.TaskGroup) error {
+	if database == nil {
+		return &DatabaseNotInitializedError{}
+	}
+
+	statement, err := database.Preparex(`INSERT INTO taskGroups (groupID, name, retailer, taskIDsSerialized, monitorsSerialized, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	taskIDsSerialized := strings.Join(taskGroup.TaskIDs, ",")
+
+	monitorsSerialized, err := json.Marshal(taskGroup.Monitors)
+	if err != nil {
+		return err
+	}
+
+	_, err = statement.Exec(taskGroup.GroupID, taskGroup.Name, taskGroup.Retailer, taskIDsSerialized, monitorsSerialized, taskGroup.CreationDate)
+	return err
+}
+
+func RemoveTaskGroup(groupID string, deleteTasks bool) error {
+	taskGroup := entities.TaskGroup{}
+	if database == nil {
+		return &DatabaseNotInitializedError{}
+	}
+
+	if deleteTasks {
+		for _, taskID := range taskGroup.TaskIDs {
+			err := RemoveTask(taskID)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	statement, err := database.Preparex(`DELETE FROM taskGroups WHERE groupID = @p1`)
+	if err != nil {
+		return err
+	}
+	_, err = statement.Exec(groupID)
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) error {
+	err := RemoveTaskGroup(groupID, false)
+	if err != nil {
+		return err
+	}
+	return CreateTaskGroup(newTaskGroup)
 }

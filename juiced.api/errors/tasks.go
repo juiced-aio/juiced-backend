@@ -1,16 +1,9 @@
 package errors
 
-// ParseTaskGroupError is the error encountered when parsing JSON into a TaskGroup returns an error
-const ParseTaskGroupError = "Parsing the JSON into a TaskGroup returned an error: "
-
-// CreateTaskGroupError is the error encountered when inserting a TaskGroup into the DB returns an error
-const CreateTaskGroupError = "Inserting the TaskGroup into the DB returned an error: "
-
-// GetTaskGroupError is the error encountered when retrieving a TaskGroup from the DB returns an error
-const GetTaskGroupError = "Retrieving the TaskGroup with the given ID returned an error: "
-
-// GetAllTaskGroupsError is the error encountered when retrieving all TaskGroups from the DB returns an error
-const GetAllTaskGroupsError = "Retrieving all TaskGroups returned an error: "
+const (
+	GetTaskGroupError    = "Retrieving the TaskGroup with the given ID returned an error: "
+	CreateTaskGroupError = "Creating the TaskGroup returned an error: "
+)
 
 // RemoveTaskGroupError is the error encountered when removing a TaskGroup from the DB returns an error
 const RemoveTaskGroupError = "Removing the TaskGroup with the given ID returned an error: "

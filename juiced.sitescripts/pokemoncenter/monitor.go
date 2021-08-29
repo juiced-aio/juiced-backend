@@ -4,164 +4,38 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"sync"
-	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	"backend.juicedbot.io/juiced.infrastructure/events"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/anaskhan96/soup"
 )
 
-func (monitor *Monitor) GetMonitorInfo() *entities.MonitorInfo {
-	return monitor.MonitorInfo
+func CreateMonitor(input entities.MonitorInput, baseMonitor *entities.BaseMonitor) (entities.Monitor, error) {
+	switch input.MonitorType {
+	case enums.SKUMonitor:
+		return &SKUMonitor{
+			Input:       input,
+			BaseMonitor: baseMonitor,
+		}, nil
+
+	}
+	return nil, &enums.UnsupportedMonitorTypeError{Retailer: enums.PokemonCenter, MonitorType: input.MonitorType}
 }
 
-// CreatePokemonCenterMonitor takes a TaskGroup entity and turns it into a pokemoncenter Monitor
-func CreatePokemonCenterMonitor(singleMonitors []entities.PokemonCenterSingleMonitorInfo) (Monitor, error) {
-	storedPokemonCenterMonitors := make(map[string]entities.PokemonCenterSingleMonitorInfo)
-	pokemonCenterMonitor := Monitor{}
-	skus := []string{}
+func (monitor *SKUMonitor) GetProductInfo() (entities.ProductInfo, error) {
+	productInfo := entities.ProductInfo{}
 
-	for _, monitor := range singleMonitors {
-		storedPokemonCenterMonitors[monitor.SKU] = monitor
-		skus = append(skus, monitor.SKU)
-	}
-
-	pokemonCenterMonitor = Monitor{
-		SKUs:        skus,
-		SKUWithInfo: storedPokemonCenterMonitors,
-	}
-
-	return pokemonCenterMonitor, nil
-}
-
-// PublishEvent wraps the EventBus's PublishMonitorEvent function
-func (monitor *Monitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
-	monitor.MonitorInfo.TaskGroup.SetMonitorStatus(status)
-	monitor.MonitorInfo.EventBus.PublishMonitorEvent(status, eventType, data, monitor.MonitorInfo.TaskGroup.GroupID)
-}
-
-//This checks if we want to stop
-func (monitor *Monitor) CheckForStop() bool {
-	if monitor.MonitorInfo.StopFlag {
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
-		return true
-	}
-	return false
-}
-
-//This is responsible for starting the pokemoncenter Product monitor
-func (monitor *Monitor) RunMonitor() {
-	// If the function panics due to a runtime error, recover from it
-	defer func() {
-		if recover() != nil {
-			monitor.MonitorInfo.StopFlag = true
-			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
-		}
-	}()
-
-	if monitor.MonitorInfo.TaskGroup.MonitorStatus == enums.MonitorIdle {
-		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
-	}
-
-	if monitor.MonitorInfo.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
-		if err != nil {
-			return
-		}
-		monitor.MonitorInfo.Client = monitorClient
-
-	}
-
-	needToStop := monitor.CheckForStop()
-	if needToStop {
-		return
-	}
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(monitor.SKUs))
-	for _, sku := range monitor.SKUs {
-		go func(x string) {
-			monitor.RunSingleMonitor(x)
-			wg.Done()
-		}(sku)
-	}
-	wg.Wait()
-}
-
-func (monitor *Monitor) RunSingleMonitor(sku string) {
-	needToStop := monitor.CheckForStop()
-	if needToStop {
-		return
-	}
-
-	if !common.InSlice(monitor.RunningMonitors, sku) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
-
-		if monitor.MonitorInfo.ProxyGroup != nil {
-			if len(monitor.MonitorInfo.ProxyGroup.Proxies) > 0 {
-				proxy := util.RandomLeastUsedProxy(monitor.MonitorInfo.ProxyGroup.Proxies)
-				monitor.MonitorInfo.UpdateProxy(proxy)
-			}
-		}
-
-		stockData := monitor.GetSKUStock(sku)
-		if stockData.SKU != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-
-			var inSlice bool
-			for _, monitorStock := range monitor.MonitorInfo.InStock {
-				inSlice = monitorStock.SKU == stockData.SKU
-			}
-			if !inSlice {
-				monitor.MonitorInfo.InStock = append(monitor.MonitorInfo.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-				})
-			}
-		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-				})
-			}
-			for i, monitorStock := range monitor.MonitorInfo.InStock {
-				if monitorStock.SKU == stockData.SKU {
-					monitor.MonitorInfo.InStock = append(monitor.MonitorInfo.InStock[:i], monitor.MonitorInfo.InStock[i+1:]...)
-					break
-				}
-			}
-			time.Sleep(time.Duration(monitor.MonitorInfo.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunSingleMonitor(sku)
-		}
-	}
-}
-
-func (monitor *Monitor) GetSKUStock(sku string) entities.StockInfo {
-	stockData := entities.StockInfo{}
-	monitorResponse := MonitorResponse{}
-	resp, _, err := util.MakeRequest(&util.Request{
-		Client: monitor.MonitorInfo.Client,
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: monitor.BaseMonitor.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(MonitorEndpoint, sku),
+		URL:    fmt.Sprintf(MonitorEndpoint, monitor.Input.Input),
 		RawHeaders: [][2]string{
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15"},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
@@ -171,42 +45,43 @@ func (monitor *Monitor) GetSKUStock(sku string) entities.StockInfo {
 		},
 	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return productInfo, err
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadome(monitor.BaseMonitor, body)
+		if err != nil {
+			return productInfo, err
+		}
 	case 200:
-		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
+		monitorResponse := MonitorResponse{}
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return productInfo, err
+		}
 
-		//Get response data as this is embedded into the HTML in a script.
-		body, _ := ioutil.ReadAll(resp.Body)
 		responseBody := soup.HTMLParse(string(body))
 		nextData := responseBody.Find("script", "id", "__NEXT_DATA__")
 		nextDataString := nextData.Pointer.FirstChild.Data
-		json.Unmarshal([]byte(nextDataString), &monitorResponse)
-
-		switch monitorResponse.Props.InitialState.Product.Availability {
-		case "AVAILABLE":
-			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
-			fmt.Println(monitorResponse.Props.InitialState.Product.ListPrice.Amount)
-			var inBudget bool
-			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
-			if inBudget {
-				stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
-				stockData.SKU = sku
-				stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
-				stockData.SiteSpecific["AddToCartForm"] = monitorResponse.Props.InitialState.Product.AddToCartForm
-				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
-			}
-			return stockData
-		case "NOT_AVAILABLE":
-			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
-			return stockData
-		default:
-			fmt.Println(monitorResponse.Props.InitialState.Product.Availability)
-			return stockData
+		err = json.Unmarshal([]byte(nextDataString), &monitorResponse)
+		if err != nil {
+			return productInfo, err
 		}
-	default:
-		return stockData
+
+		productInfo.SKU = monitor.Input.Input
+		productInfo.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
+		productInfo.ItemName = monitorResponse.Props.InitialState.Product.Name
+		productInfo.ItemURL = fmt.Sprintf(MonitorEndpoint, monitor.Input.Input)
+		productInfo.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+
+		if monitorResponse.Props.InitialState.Product.Availability == "AVAILABLE" {
+			productInfo.InStock = true
+		}
+		if int(productInfo.Price) <= monitor.Input.MaxPrice {
+			productInfo.InPriceRange = true
+		}
 	}
+
+	return productInfo, nil
 }

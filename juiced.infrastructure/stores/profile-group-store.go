@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
@@ -56,7 +57,12 @@ func GetProfileGroup(groupID string) (*entities.ProfileGroup, error) {
 }
 
 func CreateProfileGroup(profileGroup entities.ProfileGroup) (*entities.ProfileGroup, error) {
-	profileGroup.GroupID = uuid.New().String()
+	if profileGroup.GroupID == "" {
+		profileGroup.GroupID = uuid.New().String()
+	}
+	if profileGroup.CreationDate == 0 {
+		profileGroup.CreationDate = time.Now().Unix()
+	}
 	profileGroup.Profiles = GetProfiles(profileGroup.ProfileIDs)
 
 	err := database.CreateProfileGroup(profileGroup)

@@ -13,7 +13,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	"backend.juicedbot.io/juiced.infrastructure/stores"
+	"backend.juicedbot.io/juiced.infrastructure/staticstores"
 )
 
 type CaptchaAPIError struct {
@@ -34,19 +34,19 @@ func KeyErrors(settings entities.Settings, keyError KeyError, captchaType enums.
 	switch keyError {
 	case BadTwoCapKeyError:
 		settings.TwoCaptchaAPIKey = ""
-		err := stores.UpdateSettings(settings)
+		err := staticstores.UpdateSettings(settings)
 		if err != nil {
 			return err
 		}
 	case BadAntiCapKeyError:
 		settings.AntiCaptchaAPIKey = ""
-		err := stores.UpdateSettings(settings)
+		err := staticstores.UpdateSettings(settings)
 		if err != nil {
 			return err
 		}
 	case BadCapMonKeyError:
 		settings.CapMonsterAPIKey = ""
-		err := stores.UpdateSettings(settings)
+		err := staticstores.UpdateSettings(settings)
 		if err != nil {
 			return err
 		}

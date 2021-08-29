@@ -31,12 +31,9 @@ var taskGroupsSchema = `
 	CREATE TABLE IF NOT EXISTS taskGroups (
 		groupID TEXT,
 		name TEXT,
-		proxyGroupID TEXT,
 		retailer TEXT,
-		input TEXT,
-		delay INTEGER,
-		status TEXT,
-		taskIDsJoined TEXT,
+		taskIDsSerialized TEXT,
+		monitorsSerialized TEXT,
 		creationDate INTEGER
 	)
 `

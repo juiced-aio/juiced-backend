@@ -1,4 +1,4 @@
-package stores
+package staticstores
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/database"

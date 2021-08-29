@@ -16,7 +16,7 @@ import (
 	"golang.org/x/net/proxy"
 
 	utls "backend.juicedbot.io/juiced.client/utls"
-	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	"github.com/tam7t/hpkp"
 
 	"backend.juicedbot.io/juiced.client/http"
@@ -129,7 +129,7 @@ func (rt *roundTripper) dialTLS(ctx context.Context, network, addr string) (net.
 
 	for _, cert := range conn.ConnectionState().PeerCertificates {
 		certFingerprint := hpkp.Fingerprint(cert)
-		if os.Getenv("JUICED_MODE") != "DEV" && os.Getenv("JUICED_MODE") != "CERTS" && !common.InSlice(currentCerts, certFingerprint) {
+		if os.Getenv("JUICED_MODE") != "DEV" && os.Getenv("JUICED_MODE") != "CERTS" && !util.InSlice(currentCerts, certFingerprint) {
 			conn.Close()
 			return nil, errors.New("bad proxy")
 		}

@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
@@ -94,6 +95,9 @@ func CreateProfile(profile entities.Profile) (*entities.Profile, error) {
 	}
 	if profile.CreditCard.ID == "" {
 		profile.CreditCard.ID = uuid.New().String()
+	}
+	if profile.CreationDate == 0 {
+		profile.CreationDate = time.Now().Unix()
 	}
 
 	profile.ShippingAddress.ProfileID = profile.ID

@@ -1,5 +1,7 @@
 package enums
 
+import "fmt"
+
 // Retailer is a list of possible websites that Tasks and Monitors can run for
 type Retailer = string
 
@@ -30,4 +32,38 @@ const (
 
 var ShopifySiteURLs = map[ShopifyRetailer]string{
 	HotWheels: "https://creations.mattel.com",
+}
+
+var validRetailers = []Retailer{
+	Amazon,
+	BestBuy,
+	BoxLunch,
+	Disney,
+	GameStop,
+	HotTopic,
+	Newegg,
+	PokemonCenter,
+	Target,
+	Topps,
+	Walmart,
+
+	GenericShopify,
+	HotWheels,
+}
+
+type InvalidRetailerError struct {
+	Retailer string
+}
+
+func (e *InvalidRetailerError) Error() string {
+	return fmt.Sprintf("invalid retailer: %s", e.Retailer)
+}
+
+func IsValidRetailer(retailer string) error {
+	for _, validRetailer := range validRetailers {
+		if retailer == validRetailer {
+			return nil
+		}
+	}
+	return &InvalidRetailerError{retailer}
 }

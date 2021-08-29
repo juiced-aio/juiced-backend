@@ -26,16 +26,17 @@ type Task struct {
 }
 
 type BaseTask struct {
-	RetailerTask
-	Retailer string           `json:"retailer"`
-	Quantity int              `json:"quantity"`
-	Status   enums.TaskStatus `json:"status"`
-	DelayMS  int              `json:"delayMS"`
+	Task             RetailerTask           `json:"-"`
+	Retailer         string                 `json:"retailer"`
+	Quantity         int                    `json:"quantity"`
+	Status           enums.TaskStatus       `json:"status"`
+	DelayMS          int                    `json:"delayMS"`
+	SiteSpecificInfo map[string]interface{} `json:"siteSpecificInfo"`
 }
 
 type RetailerTask interface {
 	GetTaskInfo() *TaskInfo
-	FillStockInfo(StockInfo)
+	FillProductInfo(ProductInfo)
 	GetTaskFunctions() []TaskFunction
 }
 
@@ -55,10 +56,13 @@ type TaskFunction struct {
 
 type SiteSpecificInfo map[string]interface{}
 
-type StockInfo struct {
+type ProductInfo struct {
+	InStock      bool
+	InPriceRange bool
 	SKU          string
 	Price        float64
 	ItemName     string
+	ItemURL      string
 	ImageURL     string
 	SiteSpecific SiteSpecificInfo
 }
@@ -72,15 +76,15 @@ type TaskInfo struct {
 	StopFlag   bool
 	StartTime  time.Time
 	EndTime    time.Time
-	Client     http.Client
+	Client     *http.Client
 	Scraper    hawk.Scraper
 	ErrorField string
 
-	StockInfo StockInfo
+	ProductInfo ProductInfo
 }
 
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	taskInfo := task.Task.GetTaskInfo()
+	taskInfo := task.Task.Task.GetTaskInfo()
 	if taskInfo == nil {
 		return
 	}
@@ -89,7 +93,7 @@ func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEven
 }
 
 func (task *Task) CheckForStop() bool {
-	taskInfo := task.Task.GetTaskInfo()
+	taskInfo := task.Task.Task.GetTaskInfo()
 	if taskInfo == nil {
 		return true
 	}
@@ -104,7 +108,7 @@ func (task *Task) CheckForStop() bool {
 // 		Passing in 0 for maxRetries will retry the function indefinitely.
 //		Returns true if the function was successful, false if the function failed (and the task should stop)
 func (task *Task) RunUntilSuccessful(function TaskFunction) (bool, string) {
-	taskInfo := task.Task.GetTaskInfo()
+	taskInfo := task.Task.Task.GetTaskInfo()
 	if taskInfo == nil {
 		return false, ""
 	}
@@ -172,7 +176,7 @@ func (task *Task) RefreshWrapper(function TaskFunction) {
 			}
 			function.RefreshAt = time.Now().Unix() + 1800
 		}
-		time.Sleep(time.Millisecond * common.MS_TO_WAIT)
+		time.Sleep(common.WAIT_TIME)
 	}
 
 }
@@ -215,17 +219,17 @@ func CreateDiscordEmbed(retailer string, status string, taskInfo *TaskInfo) []Di
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprintf("%f", taskInfo.StockInfo.Price),
+					Value:  "$" + fmt.Sprintf("%f", taskInfo.ProductInfo.Price),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  taskInfo.StockInfo.SKU,
+					Value:  taskInfo.ProductInfo.SKU,
 					Inline: true,
 				},
 				{
 					Name:  "Product Name:",
-					Value: taskInfo.StockInfo.ItemName,
+					Value: taskInfo.ProductInfo.ItemName,
 				},
 				{
 					Name:  "Proxy:",
@@ -244,21 +248,21 @@ func CreateDiscordEmbed(retailer string, status string, taskInfo *TaskInfo) []Di
 		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
 		embeds[0].Color = 16742912
 		embeds[0].Thumbnail = DiscordThumbnail{
-			URL: taskInfo.StockInfo.ImageURL,
+			URL: taskInfo.ProductInfo.ImageURL,
 		}
 	}
 	if strings.Contains(status, enums.OrderStatusDeclined) {
 		embeds[0].Title = ":lemon: Card Declined :lemon:"
 		embeds[0].Color = 16766464
 		embeds[0].Thumbnail = DiscordThumbnail{
-			URL: taskInfo.StockInfo.ImageURL,
+			URL: taskInfo.ProductInfo.ImageURL,
 		}
 	}
 	if strings.Contains(status, enums.OrderStatusFailed) {
 		embeds[0].Title = ":apple: Failed to Place Order :apple:"
 		embeds[0].Color = 14495044
 		embeds[0].Thumbnail = DiscordThumbnail{
-			URL: taskInfo.StockInfo.ImageURL,
+			URL: taskInfo.ProductInfo.ImageURL,
 		}
 	}
 
