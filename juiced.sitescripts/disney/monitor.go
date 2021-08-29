@@ -163,7 +163,8 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			// If sizes and colors remain, continue
 			if (len(sizes) > 0 && len(colors) > 0) ||
 				(len(sizes) > 0 && noColorsBeforeFilter) || // (Or if there are sizes but no color variants)
-				(len(colors) > 0 && noSizesBeforeFilter) { // (Or if there are colors but no size variants)
+				(len(colors) > 0 && noSizesBeforeFilter) || // (Or if there are colors but no size variants)
+				(noColorsBeforeFilter && noSizesBeforeFilter) {
 				needToStop = monitor.CheckForStop()
 				if needToStop {
 
@@ -341,8 +342,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 	}
 
 	productInfo := stockResponse.Product
-	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" ||
-		!productInfo.Available || stockResponse.ATCState.IsDisabled || stockResponse.ATCState.IsSoldOut {
+	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" {
 		return sizes, colors, stockData, nil
 	}
 
@@ -358,6 +358,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 			break
 		}
 	}
+
 	if imageURL == "" {
 		for _, image := range productInfo.Images.LargeImages {
 			if image.ImageURL != "" {
@@ -374,52 +375,60 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 			}
 		}
 	}
+	stockData.ImageURL = imageURL
+	stockData.ProductName = productInfo.ProductName
+
 	if imageURL == "" {
 		return sizes, colors, stockData, nil
 	}
 
-	if productInfo.ProductType == "standard" {
-		stockData = DisneyInStockData{
-			PID:             productInfo.ID,
-			VID:             productInfo.ID,
-			ProductName:     productInfo.ProductName,
-			ItemURL:         BaseEndpoint + productInfo.ProductURL,
-			ImageURL:        imageURL,
-			Price:           int(price),
-			OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
-			QuantityLimit:   productInfo.QuantityLimit,
-			IsPreOrder:      productInfo.Availability.IsPreOrder,
-			IsBackOrder:     productInfo.Availability.IsBackOrder,
+	if productInfo.Available || !stockResponse.ATCState.IsDisabled || !stockResponse.ATCState.IsSoldOut {
+		if productInfo.ProductType == "standard" {
+			stockData = DisneyInStockData{
+				PID:             productInfo.ID,
+				VID:             productInfo.ID,
+				ProductName:     productInfo.ProductName,
+				ItemURL:         BaseEndpoint + productInfo.ProductURL,
+				ImageURL:        imageURL,
+				Price:           int(price),
+				OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
+				QuantityLimit:   productInfo.QuantityLimit,
+				IsPreOrder:      productInfo.Availability.IsPreOrder,
+				IsBackOrder:     productInfo.Availability.IsBackOrder,
+			}
+			return sizes, colors, stockData, nil
+		} else {
+			for _, variant := range productInfo.Variants {
+				if variant.Attribute == "size" {
+					for _, size := range variant.Values {
+						if size.Selectable {
+							sizes = append(sizes, size.Value)
+						}
+					}
+				}
+				if variant.Attribute == "color" {
+					for _, color := range variant.Values {
+						if color.Selectable {
+							colors = append(colors, color.Value)
+						}
+					}
+				}
+			}
 		}
-		return sizes, colors, stockData, nil
-	} else {
-		for _, variant := range productInfo.Variants {
-			if variant.Attribute == "size" {
-				for _, size := range variant.Values {
-					if size.Selectable {
-						sizes = append(sizes, size.Value)
-					}
-				}
-			}
-			if variant.Attribute == "color" {
-				for _, color := range variant.Values {
-					if color.Selectable {
-						colors = append(colors, color.Value)
-					}
-				}
-			}
+
+		// Filling VID just incase the ProductType is not standard but still has no variants like this product for some reason https://www.shopdisney.com/elsa-costume-wig-for-kids-frozen-2-428423206036.html?isProductSearch=0&plpPosition=9&guestFacing=Halloween%2520Shop-Costume%2520Accessories
+		stockData = DisneyInStockData{
+			VID:           productInfo.ID,
+			Price:         int(price),
+			ProductName:   productInfo.ProductName,
+			ItemURL:       BaseEndpoint + productInfo.ProductURL,
+			ImageURL:      imageURL,
+			QuantityLimit: productInfo.QuantityLimit,
+			IsPreOrder:    productInfo.Availability.IsPreOrder,
+			IsBackOrder:   productInfo.Availability.IsBackOrder,
 		}
 	}
 
-	stockData = DisneyInStockData{
-		Price:         int(price),
-		ProductName:   productInfo.ProductName,
-		ItemURL:       BaseEndpoint + productInfo.ProductURL,
-		ImageURL:      imageURL,
-		QuantityLimit: productInfo.QuantityLimit,
-		IsPreOrder:    productInfo.Availability.IsPreOrder,
-		IsBackOrder:   productInfo.Availability.IsBackOrder,
-	}
 	return sizes, colors, stockData, nil
 }
 

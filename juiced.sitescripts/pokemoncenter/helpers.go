@@ -48,10 +48,10 @@ func SetDatadomeCookie(datadomeInfo DatadomeInfo, proxy *entities.Proxy, client 
 		"s":          fmt.Sprint(datadomeInfo.S),
 	})
 	proxy_ := entities.Proxy{}
-	if proxy != nil {
+	if proxy != nil && proxy.Host != "localhost" {
 		proxy_ = *proxy
 	}
-	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.PokemonCenter, DatadomeEndpoint+params, "", 0, proxy_)
+	token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.PokemonCenter, DatadomeEndpoint+params, "", .7, proxy_)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func SetDatadomeCookie(datadomeInfo DatadomeInfo, proxy *entities.Proxy, client 
 		"referer":              "https://www.pokemoncenter.com/",
 		"s":                    fmt.Sprint(datadomeInfo.S),
 		"parent_url":           "https://www.pokemoncenter.com",
-		"ua":                   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
+		"ua":                   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36",
 		"ccid":                 "null",
 		"x-forwarded-for":      "",
 		"captchaChallenge":     "",
@@ -138,9 +138,9 @@ func SetDatadomeCookie(datadomeInfo DatadomeInfo, proxy *entities.Proxy, client 
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	}
-	u, err := url.Parse("https://www.pokemomcenter.com/") // This should never error, but just to be safe let's handle the error
+	u, err := url.Parse("https://www.pokemoncenter.com/") // This should never error, but just to be safe let's handle the error
 	if err != nil {
-		log.Println("Error parsing https://www.pokemomcenter.com/ to set Datadome cookie: " + err.Error())
+		log.Println("Error parsing https://www.pokemoncenter.com/ to set Datadome cookie: " + err.Error())
 		return err
 	}
 	oldCookies := client.Jar.Cookies(u)

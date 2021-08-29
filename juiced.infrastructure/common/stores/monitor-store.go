@@ -329,76 +329,102 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
-		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+		amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]
+		if ok {
 			amazonMonitor.Monitor.StopFlag = false
+			amazonMonitor.InStock = amazonMonitor.InStock[:0]
+			go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.BestBuy:
-		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+		bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]
+		if ok {
 			bestbuyMonitor.Monitor.StopFlag = false
+			bestbuyMonitor.InStock = bestbuyMonitor.InStock[:0]
+			go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.BoxLunch:
-		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+		boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]
+		if ok {
 			boxlunchMonitor.Monitor.StopFlag = false
+			boxlunchMonitor.InStock = boxlunchMonitor.InStock[:0]
+			go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Disney:
-		if disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok {
+		disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]
+		if ok {
 			disneyMonitor.Monitor.StopFlag = false
+			disneyMonitor.InStock = disneyMonitor.InStock[:0]
+			go monitorStore.DisneyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.DisneyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.GameStop:
-		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+		gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]
+		if ok {
 			gamestopMonitor.Monitor.StopFlag = false
+			gamestopMonitor.InStock = gamestopMonitor.InStock[:0]
+			go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.HotTopic:
-		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+		hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]
+		if ok {
 			hottopicMonitor.Monitor.StopFlag = false
+			hottopicMonitor.InStock = hottopicMonitor.InStock[:0]
+			go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Newegg:
-		if neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]; ok {
+		neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]
+		if ok {
 			neweggMonitor.Monitor.StopFlag = false
+			neweggMonitor.InStock = neweggMonitor.InStock[:0]
+			go monitorStore.NeweggMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.NeweggMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.PokemonCenter:
-		if pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]; ok {
+		pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]
+		if ok {
 			pokemonCenterMonitor.Monitor.StopFlag = false
+			pokemonCenterMonitor.InStock = pokemonCenterMonitor.InStock[:0]
+			go monitorStore.PokemonCenterMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.PokemonCenterMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Shopify:
-		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
+		shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]
+		if ok {
 			shopifyMonitor.Monitor.StopFlag = false
+			shopifyMonitor.InStock = shopifyMonitor.InStock[:0]
+			go monitorStore.ShopifyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.ShopifyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Target:
-		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+		targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]
+		if ok {
 			targetMonitor.Monitor.StopFlag = false
+			targetMonitor.InStockForShip = targetMonitor.InStockForShip[:0]
+			targetMonitor.InStockForPickup = targetMonitor.InStockForPickup[:0]
+			go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Topps:
-		if toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]; ok {
+		toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]
+		if ok {
 			toppsMonitor.Monitor.StopFlag = false
+			toppsMonitor.InStock = toppsMonitor.InStock[:0]
+			go monitorStore.ToppsMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.ToppsMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Walmart:
-		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+		walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]
+		if ok {
 			walmartMonitor.Monitor.StopFlag = false
+			walmartMonitor.InStockForShip = walmartMonitor.InStockForShip[:0]
+			go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
+
 	}
 
 	return nil
@@ -559,7 +585,7 @@ func (monitorStore *MonitorStore) CheckAmazonMonitorStock() {
 			if len(amazonMonitor.InStock) > 0 {
 				taskGroup := amazonMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok {
+					if amazonTask, ok := taskStore.AmazonTasks[taskID]; ok && !amazonTask.Task.HasStockData {
 						if ok && amazonTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(amazonMonitor.InStock))
 							amazonTask.StockData = amazonMonitor.InStock[randomNumber]
@@ -578,11 +604,10 @@ func (monitorStore *MonitorStore) CheckBestBuyMonitorStock() {
 			if len(bestbuyMonitor.InStock) > 0 {
 				taskGroup := bestbuyMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok {
+					if bestbuyTask, ok := taskStore.BestbuyTasks[taskID]; ok && !bestbuyTask.Task.HasStockData {
 						if ok && bestbuyTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(bestbuyMonitor.InStock))
-							bestbuyTask.CheckoutInfo.SKUInStock = bestbuyMonitor.InStock[randomNumber].SKU
-							bestbuyTask.CheckoutInfo.Price = bestbuyMonitor.InStock[randomNumber].Price
+							bestbuyTask.StockData = bestbuyMonitor.InStock[randomNumber]
 						}
 					}
 				}
@@ -598,7 +623,7 @@ func (monitorStore *MonitorStore) CheckBoxlunchMonitorStock() {
 			if len(boxlunchMonitor.InStock) > 0 {
 				taskGroup := boxlunchMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok {
+					if boxlunchTask, ok := taskStore.BoxlunchTasks[taskID]; ok && !boxlunchTask.Task.HasStockData {
 						if ok && boxlunchTask.Task.Task.TaskGroupID == monitorID {
 							boxlunchTask.StockData = boxlunchMonitor.InStock[rand.Intn(len(boxlunchMonitor.InStock))]
 						}
@@ -616,7 +641,7 @@ func (monitorStore *MonitorStore) CheckDisneyMonitorStock() {
 			if len(disneyMonitor.InStock) > 0 {
 				taskGroup := disneyMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if disneyTask, ok := taskStore.DisneyTasks[taskID]; ok {
+					if disneyTask, ok := taskStore.DisneyTasks[taskID]; ok && !disneyTask.Task.HasStockData {
 						if ok && disneyTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(disneyMonitor.InStock))
 							disneyTask.StockData = disneyMonitor.InStock[randomNumber]
@@ -635,7 +660,7 @@ func (monitorStore *MonitorStore) CheckGameStopMonitorStock() {
 			if len(gamestopMonitor.InStock) > 0 {
 				taskGroup := gamestopMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok {
+					if gamestopTask, ok := taskStore.GamestopTasks[taskID]; ok && !gamestopTask.Task.HasStockData {
 						if ok && gamestopTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(gamestopMonitor.InStock))
 							gamestopTask.StockData = gamestopMonitor.InStock[randomNumber]
@@ -654,7 +679,7 @@ func (monitorStore *MonitorStore) CheckHotTopicMonitorStock() {
 			if len(hottopicMonitor.InStock) > 0 {
 				taskGroup := hottopicMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok {
+					if hottopicTask, ok := taskStore.HottopicTasks[taskID]; ok && !hottopicTask.Task.HasStockData {
 						if ok && hottopicTask.Task.Task.TaskGroupID == monitorID {
 							hottopicTask.StockData = hottopicMonitor.InStock[rand.Intn(len(hottopicMonitor.InStock))]
 						}
@@ -672,7 +697,7 @@ func (monitorStore *MonitorStore) CheckNeweggMonitorStock() {
 			if len(neweggMonitor.InStock) > 0 {
 				taskGroup := neweggMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if neweggTask, ok := taskStore.NeweggTasks[taskID]; ok {
+					if neweggTask, ok := taskStore.NeweggTasks[taskID]; ok && !neweggTask.Task.HasStockData {
 						if ok && neweggTask.Task.Task.TaskGroupID == monitorID {
 							neweggTask.StockData = neweggMonitor.InStock[rand.Intn(len(neweggMonitor.InStock))]
 						}
@@ -690,7 +715,7 @@ func (monitorStore *MonitorStore) CheckPokemonCenterMonitorStock() {
 			if len(pokemonCenterMonitor.InStock) > 0 {
 				taskGroup := pokemonCenterMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok {
+					if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[taskID]; ok && !pokemonCenterTask.Task.HasStockData {
 						if ok && pokemonCenterTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(pokemonCenterMonitor.InStock))
 							pokemonCenterTask.StockData = pokemonCenterMonitor.InStock[randomNumber]
@@ -709,7 +734,7 @@ func (monitorStore *MonitorStore) CheckShopifyMonitorStock() {
 			if len(shopifyMonitor.InStock) > 0 {
 				taskGroup := shopifyMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if shopifyTask, ok := taskStore.ShopifyTasks[taskID]; ok {
+					if shopifyTask, ok := taskStore.ShopifyTasks[taskID]; ok && !shopifyTask.Task.HasStockData {
 						if ok && shopifyTask.Task.Task.TaskGroupID == monitorID {
 							shopifyTask.InStockData = shopifyMonitor.InStock[rand.Intn(len(shopifyMonitor.InStock))]
 						}
@@ -727,7 +752,7 @@ func (monitorStore *MonitorStore) CheckTargetMonitorStock() {
 			if len(targetMonitor.InStockForPickup) > 0 || len(targetMonitor.InStockForShip) > 0 {
 				taskGroup := targetMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if targetTask, ok := taskStore.TargetTasks[taskID]; ok {
+					if targetTask, ok := taskStore.TargetTasks[taskID]; ok && !targetTask.Task.HasStockData {
 						if ok && targetTask.Task.Task.TaskGroupID == monitorID {
 							var inStockForShip []target.SingleStockData
 							var inStockForPickup []target.SingleStockData
@@ -762,7 +787,7 @@ func (monitorStore *MonitorStore) CheckToppsMonitorStock() {
 			if len(toppsMonitor.InStock) > 0 {
 				taskGroup := toppsMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if toppsTask, ok := taskStore.ToppsTasks[taskID]; ok {
+					if toppsTask, ok := taskStore.ToppsTasks[taskID]; ok && !toppsTask.Task.HasStockData {
 						if ok && toppsTask.Task.Task.TaskGroupID == monitorID {
 							toppsTask.StockData = toppsMonitor.InStock[rand.Intn(len(toppsMonitor.InStock))]
 						}
@@ -780,7 +805,7 @@ func (monitorStore *MonitorStore) CheckWalmartMonitorStock() {
 			if len(walmartMonitor.InStockForShip) > 0 {
 				taskGroup := walmartMonitor.Monitor.TaskGroup
 				for _, taskID := range taskGroup.TaskIDs {
-					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok {
+					if walmartTask, ok := taskStore.WalmartTasks[taskID]; ok && !walmartTask.Task.HasStockData {
 						if ok && walmartTask.Task.Task.TaskGroupID == monitorID {
 							randomNumber := rand.Intn(len(walmartMonitor.InStockForShip))
 							walmartTask.StockData = walmartMonitor.InStockForShip[randomNumber]

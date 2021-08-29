@@ -106,17 +106,17 @@ func (task *Task) CreateBestbuyEmbed(status enums.OrderStatus, imageURL string) 
 				},
 				{
 					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.CheckoutInfo.Price),
+					Value:  "$" + fmt.Sprint(task.StockData.Price),
 					Inline: true,
 				},
 				{
 					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.bestbuy.com/site/%v.p?skuId=%v)", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock),
+					Value:  fmt.Sprintf("[%v](https://www.bestbuy.com/site/%v.p?skuId=%v)", task.StockData.SKU, task.StockData.SKU, task.StockData.SKU),
 					Inline: true,
 				},
 				{
 					Name:  "Product Name:",
-					Value: task.CheckoutInfo.ItemName,
+					Value: task.StockData.ProductName,
 				},
 				{
 					Name:  "Task Type:",

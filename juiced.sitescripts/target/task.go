@@ -91,6 +91,7 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
+	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
@@ -497,7 +498,8 @@ func (task *Task) RefreshLogin() {
 
 				new(jwt.Parser).ParseUnverified(string(refreshLoginResponse.AccessToken), claims)
 
-				if err != nil || claims.Eid != task.AccountInfo.Email {
+				// Maybe the problem he was having was the claims.Eid != his task.AccountInfo.Email, shouldn't be an issue removing it, oh this is probably the problem everyone was having
+				if err != nil {
 					success = false
 					break
 				}
@@ -511,8 +513,10 @@ func (task *Task) RefreshLogin() {
 		if !success {
 			loggedIn := false
 			for !loggedIn {
-				task.Login()
-				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+				loggedIn = task.Login()
+				if !loggedIn {
+					time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+				}
 			}
 		}
 	}
@@ -556,6 +560,7 @@ func (task *Task) ClearCart() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -564,6 +569,7 @@ func (task *Task) WaitForMonitor() bool {
 		if task.InStockData.TCIN != "" {
 			task.TCINType = task.InStockData.TCINType
 			task.TCIN = task.InStockData.TCIN
+			task.Task.HasStockData = true
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)

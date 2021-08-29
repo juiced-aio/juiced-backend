@@ -397,6 +397,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 		switch retailer {
 		case enums.Topps:
 		case enums.GameStop:
+		case enums.Newegg:
 		case enums.Walmart:
 		default:
 			return true
@@ -411,6 +412,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 		case enums.BestBuy:
 		case enums.BoxLunch:
 		case enums.HotTopic:
+		case enums.Newegg:
 		case enums.Walmart:
 		default:
 			return true

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -73,6 +74,7 @@ func (task *Task) RunTask() {
 		}
 		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
 	}()
+	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
@@ -211,14 +213,18 @@ func (task *Task) RunTask() {
 
 // Logs the main client in
 func (task *Task) Login() bool {
-	_, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
-		URL:        BaseEndpoint,
+		URL:        BaseLoginEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+	csrf, err := util.FindInString(body, `name="csrf_token" value="`, `"`)
+	if err != nil {
+		return false
 	}
 
 	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
@@ -232,6 +238,7 @@ func (task *Task) Login() bool {
 		"loginPassword":      {task.AccountInfo.Password},
 		"loginRememberMe":    {"true"},
 		"userTimezoneOffset": {"420"},
+		"csrf_token":         {csrf},
 	}
 	_, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -295,12 +302,14 @@ func (task *Task) Login() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
 		if task.StockData.SKU != "" {
+			task.Task.HasStockData = true
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
@@ -308,7 +317,7 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 // AddToCart adds an item to the cart
-func (task *Task) AddToCart() bool {
+func (task *Task) AddToCart(token ...string) bool {
 	quantity := task.Task.Task.TaskQty
 	if quantity > task.StockData.MaxQuantity {
 		quantity = task.StockData.MaxQuantity
@@ -325,10 +334,13 @@ func (task *Task) AddToCart() bool {
 		"pageSpecified":  {"PDP"},
 		"recommTitle":    {""},
 	}
+	if len(token) > 0 {
+		form.Add("g-recaptcha-response", token[0])
+	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.SKU),
+		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.PID),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -354,10 +366,30 @@ func (task *Task) AddToCart() bool {
 
 	switch resp.StatusCode {
 	case 200:
-		switch addToCartResponse.Message {
-		case "Added to cart":
+		if addToCartResponse.QuantityTotal > 0 {
 			return true
-		default:
+		} else {
+			if addToCartResponse.CaptchaProtected {
+				task.CheckoutInfo.CaptchaProtected = true
+				token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, "atc", 0.8, *task.Task.Proxy)
+				if err != nil {
+					return false
+				}
+				for token == nil {
+					needToStop := task.CheckForStop()
+					if needToStop {
+						return false
+					}
+					token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, *task.Task.Proxy)
+					time.Sleep(1 * time.Second / 10)
+				}
+				tokenInfo, ok := token.(entities.ReCaptchaToken)
+				if !ok {
+					return false
+				}
+				return task.AddToCart(tokenInfo.Token)
+
+			}
 			return false
 		}
 	case 500:
@@ -553,6 +585,27 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		"klarnaOrderId":              {""},
 		"accertifyDeviceFingerprint": {""},
 	}
+
+	if task.CheckoutInfo.CaptchaProtected {
+		token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", "checkout", 0.8, *task.Task.Proxy)
+		if err != nil {
+			return false, status
+		}
+		for token == nil {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return false, status
+			}
+			token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", *task.Task.Proxy)
+			time.Sleep(1 * time.Second / 10)
+		}
+		tokenInfo, ok := token.(entities.ReCaptchaToken)
+		if !ok {
+			return false, status
+		}
+		form.Add("g-recaptcha-response", tokenInfo.Token)
+	}
+
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -586,7 +639,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	case 200:
 		if placeOrderResponse.Error {
 			status = enums.OrderStatusFailed
-			if strings.Contains(placeOrderResponse.Errormessage, "another form of payment") {
+			if strings.Contains(placeOrderResponse.Errormessage, "another form of payment") || strings.Contains(placeOrderResponse.Errormessage, "The payment you submitted is not valid") {
 				fmt.Println("Card Declined")
 				status = enums.OrderStatusDeclined
 				success = false
