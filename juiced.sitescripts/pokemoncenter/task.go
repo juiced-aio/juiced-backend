@@ -59,7 +59,7 @@ func (task *Task) RunTask() {
 			if !strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
-				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 			}
@@ -163,9 +163,9 @@ func (task *Task) RunTask() {
 	log.Println("TIME TO CHECK OUT: ", task.Task.EndTime.Sub(task.Task.StartTime).Milliseconds())
 
 	if status == enums.OrderStatusSuccess {
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	} else {
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
 }
 
@@ -664,7 +664,7 @@ func (task *Task) Checkout() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
-		return true, enums.CheckedOut
+		return true, enums.CheckingOutSuccess
 	}
 
 	return false, fmt.Sprintf(enums.CheckingOutFailure, UnknownError)

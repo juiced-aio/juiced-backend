@@ -78,7 +78,7 @@ func (task *Task) RunTask() {
 			if !strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
-				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 			}
@@ -176,11 +176,11 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
 		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
 }
 
@@ -704,21 +704,21 @@ func (task *Task) PlaceOrder(startTime time.Time, retries int) (bool, enums.Orde
 		orderStatus := resp.Header.Get("x-amz-turbo-checkout-page-type")
 		switch orderStatus {
 		case "thankyou":
-			task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+			task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 			status = enums.OrderStatusSuccess
 			success = true
 		default:
-			task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+			task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 			status = enums.OrderStatusFailed
 			success = false
 		}
 
 	case 503:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	default:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	}

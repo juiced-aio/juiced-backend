@@ -374,7 +374,7 @@ func (taskStore *TaskStore) StartTaskGroup(taskGroup *entities.TaskGroup) ([]str
 						if strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) ||
 							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) ||
 							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) ||
-							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) ||
+							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) ||
 							strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 							// Otherwise, start the Task
 							taskStore.RunTask(task.TaskRetailer, task.ID)
@@ -452,7 +452,7 @@ func (taskStore *TaskStore) StartTask(task *entities.Task) error {
 	if !strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
 		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
 		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
-		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
 		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 		return nil
 	}
