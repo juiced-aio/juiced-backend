@@ -36,58 +36,12 @@ type Request struct {
 	RandOpt            string
 }
 
-// // Discord webhook details
-// type DiscordWebhook struct {
-// 	Content interface{} `json:"content"`
-// 	Embeds  []Embed     `json:"embeds"`
-// }
-
-// type HookInfo struct {
-// 	Success bool
-// 	Content string
-// 	Embeds  []Embed
-// }
-
-// type Embed struct {
-// 	Title     string    `json:"title"`
-// 	Color     int       `json:"color"`
-// 	Fields    []Field   `json:"fields"`
-// 	Footer    Footer    `json:"footer"`
-// 	Timestamp time.Time `json:"timestamp"`
-// 	Thumbnail Thumbnail `json:"thumbnail"`
-// }
-
-// type Field struct {
-// 	Name   string `json:"name"`
-// 	Value  string `json:"value"`
-// 	Inline bool   `json:"inline,omitempty"`
-// }
-
-// type Footer struct {
-// 	Text    string `json:"text"`
-// 	IconURL string `json:"icon_url"`
-// }
-
-// type Thumbnail struct {
-// 	URL string `json:"url"`
-// }
-
 // type SensorRequest struct {
 // 	SensorData string `json:"sensor_data"`
 // }
 
 // type SensorResponse struct {
 // 	Success bool `json:"success"`
-// }
-
-// // All info needed for ProcessCheckout
-// type ProcessCheckoutInfo struct {
-// 	TaskInfo *entities.TaskInfo
-// 	Success  bool
-// 	Status   enums.OrderStatus
-// 	Content  string
-// 	Embeds   []entities.DiscordEmbed
-// 	Retailer string
 // }
 
 // type PXValues struct {

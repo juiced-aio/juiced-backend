@@ -14,13 +14,14 @@ import (
 
 	api "backend.juicedbot.io/juiced.api"
 	"backend.juicedbot.io/juiced.infrastructure/captcha"
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/database"
+	"backend.juicedbot.io/juiced.infrastructure/discord"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
 	"backend.juicedbot.io/juiced.infrastructure/staticstores"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 
 	ws "backend.juicedbot.io/juiced.ws"
@@ -111,7 +112,7 @@ func main() {
 							log.Println("Error initializing AYCD: " + err.Error())
 							// TODO @silent: Handle
 						}
-						// go util.DiscordWebhookQueue()
+						go discord.DiscordWebhookQueue()
 						go api.StartServer()
 
 						rpc.EnableRPC()
@@ -157,6 +158,6 @@ func Heartbeat(eventBus *events.EventBus, userInfo entities.UserInfo) {
 			}
 			lastChecked = time.Now()
 		}
-		time.Sleep(common.MS_TO_WAIT)
+		time.Sleep(util.MS_TO_WAIT)
 	}
 }

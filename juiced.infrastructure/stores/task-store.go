@@ -2,9 +2,14 @@ package stores
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
+	"backend.juicedbot.io/juiced.infrastructure/discord"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
+	"backend.juicedbot.io/juiced.security/auth/util"
 )
 
 type TaskStore struct {
@@ -61,4 +66,67 @@ func GetTask(taskID string) (*entities.Task, error) {
 	}
 
 	return task, nil
+}
+
+func RunTask(taskID string) error {
+	// TODO
+
+	return nil
+}
+
+func RunRetailerTask(task *entities.BaseTask) {
+	defer func() {
+		if r := recover(); r != nil {
+			task.StopFlag = true
+			task.PublishEvent(enums.TaskFail, fmt.Sprintf(enums.TaskFailed, r))
+		}
+		task.Running = false
+	}()
+
+	if task.Running {
+		return
+	}
+
+	task.Running = true
+	task.PublishEvent(enums.TaskStart, enums.TaskStarted)
+
+	ranSetupFunctions := task.RunFunctions(task.RetailerTask.GetSetupFunctions())
+	if !ranSetupFunctions {
+		return
+	}
+
+	gotProductInfo := task.WaitForMonitor()
+	if !gotProductInfo {
+		return
+	}
+
+	startTime := time.Now().Unix()
+
+	ranMainFunctions := task.RunFunctions(task.RetailerTask.GetMainFunctions())
+	if !ranMainFunctions {
+		return
+	}
+
+	endTime := time.Now().Unix()
+
+	proxy := ""
+	if task.Proxy != nil {
+		proxy = entities.ProxyCleaner(*task.Proxy)
+	}
+
+	profile := ""
+	if task.Profile != nil {
+		profile = task.Profile.Name
+	}
+
+	util.ProcessCheckout(task, util.ProcessCheckoutInfo{
+		ProductInfo:  task.ProductInfo,
+		Quantity:     task.ActualQuantity,
+		MsToCheckout: endTime - startTime,
+		Success:      strings.Contains(task.Status, enums.CheckedOut),
+		Status:       task.Status,
+		Content:      "",
+		Embeds:       discord.CreateDiscordEmbed(task.Task.Retailer, proxy, profile, task.Status, task.ProductInfo),
+		Retailer:     task.Task.Retailer,
+	})
 }

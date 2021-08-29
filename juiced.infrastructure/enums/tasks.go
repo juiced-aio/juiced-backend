@@ -3,8 +3,9 @@ package enums
 type TaskStatus = string
 
 const (
-	TaskIdle   TaskStatus = "Idle"
-	TaskFailed TaskStatus = "Fatal error: %s"
+	TaskIdle    TaskStatus = "Idle"
+	TaskStarted TaskStatus = "Started"
+	TaskFailed  TaskStatus = "Fatal error: %s"
 
 	SettingUp        TaskStatus = "Setting up task"
 	SettingUpSuccess TaskStatus = "Set up task"

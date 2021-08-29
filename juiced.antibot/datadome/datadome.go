@@ -10,7 +10,6 @@ import (
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/captcha"
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/util"
@@ -38,7 +37,7 @@ func HandleDatadome(monitor *entities.BaseMonitor, retailer enums.Retailer, base
 					return
 				}
 			}
-			time.Sleep(common.MS_TO_WAIT)
+			time.Sleep(util.MS_TO_WAIT)
 		}
 	}()
 

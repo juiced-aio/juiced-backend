@@ -23,9 +23,9 @@ type TaskGroup struct {
 }
 
 type BaseMonitor struct {
-	Monitor *Monitor
+	Monitor *Monitor `json:"-"`
 
-	// Monitor inputs, included in DB serialization
+	// Monitor inputs, included in DB serialization and JSON
 	MonitorInput MonitorInput `json:"monitorInput"`
 
 	// In-memory values, omitted in DB serialization but included in JSON

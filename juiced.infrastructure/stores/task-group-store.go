@@ -112,7 +112,7 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 	return taskGroupPtr, err
 }
 
-func RunTaskGroup(taskGroup *entities.TaskGroup) error {
+func RunTaskGroup(taskGroupID string) error {
 	// TODO
 
 	return nil
@@ -124,6 +124,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 			monitor.StopFlag = true
 			monitor.PublishEvent(enums.MonitorFail, fmt.Sprintf(enums.MonitorFailed, r))
 		}
+		monitor.Running = false
 	}()
 
 	if monitor.Running {

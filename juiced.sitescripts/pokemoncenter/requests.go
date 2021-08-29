@@ -6,6 +6,18 @@ type AddToCartRequest struct {
 	Configuration string `json:"configuration"`
 }
 
+type Address struct {
+	FamilyName      string `json:"familyName"`
+	GivenName       string `json:"givenName"`
+	StreetAddress   string `json:"streetAddress"`
+	ExtendedAddress string `json:"extendedAddress"`
+	Locality        string `json:"locality"`
+	Region          string `json:"region"`
+	PostalCode      string `json:"postalCode"`
+	CountryName     string `json:"countryName"`
+	PhoneNumber     string `json:"phoneNumber"`
+}
+
 type SubmitAddressRequest struct {
 	Shipping Address `json:"shipping"`
 	Billing  Address `json:"billing"`

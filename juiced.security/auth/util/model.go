@@ -1,5 +1,11 @@
 package util
 
+import (
+	"backend.juicedbot.io/juiced.infrastructure/discord"
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
+)
+
 type AuthenticateRequest struct {
 	ActivationToken string `json:"908tqy5VI2"`
 	HWID            string `json:"BN9GSbnV6z"`
@@ -46,7 +52,17 @@ type EncryptedRefreshTokenResponse struct {
 	ErrorMessage    string `json:"bSqF23Iosy"`
 }
 
-// Had to add this due to import cycling
+type ProcessCheckoutInfo struct {
+	ProductInfo  entities.ProductInfo
+	Quantity     int
+	MsToCheckout int64
+	Success      bool
+	Status       enums.OrderStatus
+	Content      string
+	Embeds       []discord.DiscordEmbed
+	Retailer     string
+}
+
 type DiscordWebhookRequest struct {
 	ActivationToken    string             `json:"xBwmRTJarL"`
 	HWID               string             `json:"2wpOd42ZuD"`

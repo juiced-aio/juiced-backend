@@ -1,5 +1,30 @@
 package pokemoncenter
 
+type MonitorResponse struct {
+	Props struct {
+		IsServer     bool
+		InitialState struct {
+			Product struct {
+				AddToCartForm string
+				Availability  string
+				Images        struct {
+					Original string
+				}
+				ListPrice struct {
+					Amount float64
+				}
+				Name string
+			}
+		}
+		InitialProps struct {
+		}
+	}
+}
+
+type AccessToken struct {
+	AccessToken string
+}
+
 type AddToCartResponse struct {
 	Type     string `json:"type"`
 	Quantity int    `json:"quantity"`

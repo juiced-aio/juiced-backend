@@ -2,59 +2,75 @@ package entities
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
 type Task struct {
-	ID           string      `json:"ID" db:"ID"`
-	TaskGroupID  string      `json:"taskGroupID" db:"taskGroupID"`
-	TaskGroup    *TaskGroup  `json:"-"`
-	ProfileID    string      `json:"profileID" db:"profileID"`
-	Profile      *Profile    `json:"-"`
-	ProxyGroupID string      `json:"proxyGroupID" db:"proxyGroupID"`
-	ProxyGroup   *ProxyGroup `json:"-"`
-	TaskInfo     string      `json:"taskInfo" db:"taskInfo"` // TaskInfo is Task serialized
-	Task         *BaseTask   `json:"-"`
-	CreationDate int64       `json:"creationDate" db:"creationDate"`
+	ID             string    `json:"ID" db:"ID"`
+	TaskGroupID    string    `json:"taskGroupID" db:"taskGroupID"`
+	Retailer       string    `json:"retailer" db:"retailer"`
+	TaskSerialized string    `json:"-" db:"taskSerialized"`
+	Task           *BaseTask `json:"task"`
+	CreationDate   int64     `json:"creationDate" db:"creationDate"`
 }
 
 type BaseTask struct {
-	Task             RetailerTask           `json:"-"`
-	Retailer         string                 `json:"retailer"`
+	RetailerTask RetailerTask `json:"-"`
+
+	// Task inputs, included in DB serialization and JSON
+	TaskInput TaskInput `json:"taskInput"`
+
+	// In-memory values, omitted in DB serialization but included in JSON
+	Status         enums.TaskStatus `json:"status"`
+	Running        bool             `json:"running"`
+	ProductInfo    ProductInfo      `json:"productInfo"`
+	ActualQuantity int              `json:"actualQuantity"`
+
+	// In-memory values, omitted in DB serialization and JSON
+	Task       *Task        `json:"-"`
+	TaskGroup  *TaskGroup   `json:"-"`
+	Profile    *Profile     `json:"-"`
+	ProxyGroup *ProxyGroup  `json:"-"`
+	Proxy      *Proxy       `json:"-"`
+	Client     *http.Client `json:"-"`
+	Scraper    hawk.Scraper `json:"-"`
+	StopFlag   bool         `json:"-"`
+}
+
+type TaskInput struct {
+	ProxyGroupID     string                 `json:"proxyGroupID"`
+	ProfileID        string                 `json:"profileID"`
 	Quantity         int                    `json:"quantity"`
-	Status           enums.TaskStatus       `json:"status"`
 	DelayMS          int                    `json:"delayMS"`
 	SiteSpecificInfo map[string]interface{} `json:"siteSpecificInfo"`
 }
 
 type RetailerTask interface {
-	GetTaskInfo() *TaskInfo
-	FillProductInfo(ProductInfo)
-	GetTaskFunctions() []TaskFunction
+	GetSetupFunctions() []TaskFunction
+	GetMainFunctions() []TaskFunction
 }
 
 type TaskFunction struct {
-	Function          func() (bool, string)
-	StatusBegin       enums.TaskStatus
-	InBackground      bool
-	SpecialFunction   bool
-	RefreshFunction   bool
-	RefreshAt         int64
-	RefreshEvery      int
-	MaxRetries        int
-	MsBetweenRetries  int
-	WaitingForMonitor bool
-	Checkout          bool
-}
+	Function         func() (bool, string)
+	StatusBegin      enums.TaskStatus
+	MaxRetries       int
+	MsBetweenRetries int
 
-type SiteSpecificInfo map[string]interface{}
+	CheckoutFunction bool
+
+	SpecialFunction bool
+	InBackground    bool
+
+	RefreshFunction bool
+	RefreshAt       int64
+	RefreshEvery    int
+}
 
 type ProductInfo struct {
 	InStock      bool
@@ -64,83 +80,102 @@ type ProductInfo struct {
 	ItemName     string
 	ItemURL      string
 	ImageURL     string
-	SiteSpecific SiteSpecificInfo
+	SiteSpecific map[string]interface{}
 }
 
-type TaskInfo struct {
-	Task       *Task
-	Profile    *Profile
-	Proxy      *Proxy
-	ProxyGroup *ProxyGroup
-	EventBus   *events.EventBus
-	StopFlag   bool
-	StartTime  time.Time
-	EndTime    time.Time
-	Client     *http.Client
-	Scraper    hawk.Scraper
-	ErrorField string
-
-	ProductInfo ProductInfo
+func (task *BaseTask) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+	task.Status = status
+	events.GetEventBus().PublishTaskEvent(status, eventType, nil, task.Task.ID)
 }
 
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	taskInfo := task.Task.Task.GetTaskInfo()
-	if taskInfo == nil {
-		return
-	}
-	taskInfo.Task.Task.Status = status
-	taskInfo.EventBus.PublishTaskEvent(status, eventType, nil, taskInfo.Task.ID)
-}
-
-func (task *Task) CheckForStop() bool {
-	taskInfo := task.Task.Task.GetTaskInfo()
-	if taskInfo == nil {
-		return true
-	}
-	if taskInfo.StopFlag {
+func (task *BaseTask) CheckForStop() bool {
+	if task.StopFlag {
 		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
 		return true
 	}
 	return false
 }
 
+func (task *BaseTask) WaitForMonitor() bool {
+	for {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return false
+		}
+		monitors := task.TaskGroup.Monitors
+		for _, monitor := range monitors {
+			if monitor.ProductInfo.InStock {
+				task.ProductInfo = monitor.ProductInfo
+				return true
+			}
+		}
+
+		time.Sleep(time.Millisecond * util.MS_TO_WAIT)
+	}
+}
+
+func (task *BaseTask) RunFunctions(functions []TaskFunction) bool {
+	for _, function := range functions {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return false
+		}
+
+		success := task.RunUntilSuccessful(function)
+		if !success {
+			return false
+		}
+	}
+	return true
+}
+
 // RunUntilSuccessful runs a single function until (a) it succeeds, (b) the task needs to stop, or (c) it fails too many times.
 // 		Passing in 0 for maxRetries will retry the function indefinitely.
 //		Returns true if the function was successful, false if the function failed (and the task should stop)
-func (task *Task) RunUntilSuccessful(function TaskFunction) (bool, string) {
-	taskInfo := task.Task.Task.GetTaskInfo()
-	if taskInfo == nil {
-		return false, ""
-	}
-
-	attempt := 1
-	if function.MaxRetries == 0 {
-		attempt = -1
-	}
-
+func (task *BaseTask) RunUntilSuccessful(function TaskFunction) bool {
 	var success bool
-	var status string
-	for success, status = task.RunUntilSuccessfulHelper(function.Function, attempt); !success; {
-		needToStop := task.CheckForStop()
-		if needToStop || attempt > function.MaxRetries {
-			taskInfo.StopFlag = true
-			return false, ""
+	if function.RefreshFunction {
+		go task.RefreshWrapper(function)
+		success = true
+	} else if function.SpecialFunction {
+		if function.InBackground {
+			go function.Function()
+			success = true
+		} else {
+			var status string
+			success, status = function.Function()
+			if success && status != "" {
+				task.PublishEvent(status, enums.TaskUpdate)
+			}
 		}
-		if attempt >= 0 {
-			attempt++
+	} else {
+		attempt := 1
+		if function.MaxRetries == 0 {
+			attempt = -1
 		}
 
-		if function.MsBetweenRetries == 0 {
-			time.Sleep(time.Duration(taskInfo.Task.Task.DelayMS) * time.Millisecond)
-		} else {
-			time.Sleep(time.Duration(function.MsBetweenRetries) * time.Millisecond)
+		for success = task.RunUntilSuccessfulHelper(function.Function, attempt); !success; {
+			needToStop := task.CheckForStop()
+			if needToStop || attempt > function.MaxRetries {
+				task.StopFlag = true
+				return false
+			}
+			if attempt >= 0 {
+				attempt++
+			}
+
+			if function.MsBetweenRetries == 0 {
+				time.Sleep(time.Duration(task.TaskInput.DelayMS) * time.Millisecond)
+			} else {
+				time.Sleep(time.Duration(function.MsBetweenRetries) * time.Millisecond)
+			}
 		}
 	}
 
-	return true, status
+	return success
 }
 
-func (task *Task) RunUntilSuccessfulHelper(fn func() (bool, string), attempt int) (bool, string) {
+func (task *BaseTask) RunUntilSuccessfulHelper(fn func() (bool, string), attempt int) bool {
 	success, status := fn()
 
 	if !success {
@@ -153,16 +188,16 @@ func (task *Task) RunUntilSuccessfulHelper(fn func() (bool, string), attempt int
 				task.PublishEvent(fmt.Sprint("(Retrying) ", status), enums.TaskUpdate)
 			}
 		}
-		return false, status
+		return false
 	}
 
 	if status != "" {
 		task.PublishEvent(status, enums.TaskUpdate)
 	}
-	return true, status
+	return true
 }
 
-func (task *Task) RefreshWrapper(function TaskFunction) {
+func (task *BaseTask) RefreshWrapper(function TaskFunction) {
 	defer func() {
 		if r := recover(); r != nil {
 			task.RefreshWrapper(function)
@@ -171,100 +206,11 @@ func (task *Task) RefreshWrapper(function TaskFunction) {
 
 	for {
 		if function.RefreshAt == 0 || time.Now().Unix() > function.RefreshAt {
-			if success, _ := task.RunUntilSuccessful(function); !success {
+			if success := task.RunUntilSuccessful(function); !success {
 				return
 			}
 			function.RefreshAt = time.Now().Unix() + 1800
 		}
-		time.Sleep(common.WAIT_TIME)
+		time.Sleep(util.WAIT_TIME)
 	}
-
-}
-
-type DiscordEmbed struct {
-	Title     string           `json:"title"`
-	Color     int              `json:"color"`
-	Fields    []DiscordField   `json:"fields"`
-	Footer    DiscordFooter    `json:"footer"`
-	Timestamp time.Time        `json:"timestamp"`
-	Thumbnail DiscordThumbnail `json:"thumbnail"`
-}
-
-type DiscordField struct {
-	Name   string `json:"name"`
-	Value  string `json:"value"`
-	Inline bool   `json:"inline,omitempty"`
-}
-type DiscordFooter struct {
-	Text    string `json:"text"`
-	IconURL string `json:"icon_url"`
-}
-
-type DiscordThumbnail struct {
-	URL string `json:"url"`
-}
-
-func CreateDiscordEmbed(retailer string, status string, taskInfo *TaskInfo) []DiscordEmbed {
-	proxy := Proxy{}
-	if taskInfo.Proxy != nil {
-		proxy = *taskInfo.Proxy
-	}
-	embeds := []DiscordEmbed{
-		{
-			Fields: []DiscordField{
-				{
-					Name:   "Retailer:",
-					Value:  retailer,
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprintf("%f", taskInfo.ProductInfo.Price),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  taskInfo.ProductInfo.SKU,
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: taskInfo.ProductInfo.ItemName,
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + ProxyCleaner(proxy) + " " + "||",
-				},
-			},
-			Footer: DiscordFooter{
-				Text:    "Juiced AIO",
-				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
-			},
-			Timestamp: time.Now(),
-		},
-	}
-
-	if strings.Contains(status, enums.OrderStatusSuccess) {
-		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
-		embeds[0].Color = 16742912
-		embeds[0].Thumbnail = DiscordThumbnail{
-			URL: taskInfo.ProductInfo.ImageURL,
-		}
-	}
-	if strings.Contains(status, enums.OrderStatusDeclined) {
-		embeds[0].Title = ":lemon: Card Declined :lemon:"
-		embeds[0].Color = 16766464
-		embeds[0].Thumbnail = DiscordThumbnail{
-			URL: taskInfo.ProductInfo.ImageURL,
-		}
-	}
-	if strings.Contains(status, enums.OrderStatusFailed) {
-		embeds[0].Title = ":apple: Failed to Place Order :apple:"
-		embeds[0].Color = 14495044
-		embeds[0].Thumbnail = DiscordThumbnail{
-			URL: taskInfo.ProductInfo.ImageURL,
-		}
-	}
-
-	return embeds
 }

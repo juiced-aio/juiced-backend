@@ -1,77 +1,11 @@
 package util
 
-// var hookChan = make(chan HookInfo)
-
-// func QueueWebhook(success bool, content string, embeds []Embed) {
-// 	hookChan <- HookInfo{
-// 		Success: success,
-// 		Content: content,
-// 		Embeds:  embeds,
-// 	}
-// }
-
-// func DiscordWebhookQueue() {
-// 	for {
-// 		hook := <-hookChan
-// 		settings := stores.GetSettings()
-// 		var webhookURL string
-// 		if hook.Success {
-// 			webhookURL = settings.SuccessDiscordWebhook
-// 		} else {
-// 			webhookURL = settings.FailureDiscordWebhook
-// 		}
-// 		if webhookURL != "" {
-// 			SendDiscordWebhook(webhookURL, hook.Embeds)
-// 		}
-// 		time.Sleep(2*time.Second + (time.Second / 2))
-// 	}
-// }
-
-// // SendDiscordWebhook sends checkout information to the Discord Webhook
-// func SendDiscordWebhook(discordWebhook string, embeds []Embed) bool {
-// 	client := http.Client{
-// 		Transport: &http.Transport{},
-// 	}
-// 	response, body, err := MakeRequest(&Request{
-// 		Client: client,
-// 		Method: "POST",
-// 		URL:    discordWebhook,
-// 		AddHeadersFunction: func(request *http.Request, e ...string) {
-// 			request.Header.Set("content-type", "application/json")
-// 		},
-// 		RequestBodyStruct: DiscordWebhook{
-// 			Content: nil,
-// 			Embeds:  embeds,
-// 		},
-// 	})
-// 	if err != nil {
-// 		return false
-// 	}
-
-// 	fmt.Println(string(body))
-// 	return response.StatusCode >= 200 && response.StatusCode < 300
-// }
-
 // // TernaryOperator is a make-shift ternary operator since Golang doesn't have one out of the box
 // func TernaryOperator(condition bool, trueOutcome interface{}, falseOutcome interface{}) interface{} {
 // 	if condition {
 // 		return trueOutcome
 // 	}
 // 	return falseOutcome
-// }
-
-// func ProxyCleaner(proxyDirty *entities.Proxy) string {
-// 	if proxyDirty == nil {
-// 		return ""
-// 	}
-// 	if proxyDirty.Host == "" {
-// 		return ""
-// 	}
-// 	if proxyDirty.Username == "" && proxyDirty.Password == "" {
-// 		return fmt.Sprintf("http://%s:%s", proxyDirty.Host, proxyDirty.Port)
-// 	} else {
-// 		return fmt.Sprintf("http://%s:%s@%s:%s", proxyDirty.Username, proxyDirty.Password, proxyDirty.Host, proxyDirty.Port)
-// 	}
 // }
 
 // func FindInString(str string, start string, end string) (string, error) {
@@ -283,34 +217,6 @@ package util
 
 // 	}
 // 	return
-// }
-
-// // Processes each checkout by sending a webhook and logging the checkout
-// func ProcessCheckout(pci *ProcessCheckoutInfo) {
-// 	userInfo := stores.GetUserInfo()
-// 	if pci.Status != enums.OrderStatusFailed {
-// 		go sec.DiscordWebhook(pci.Success, pci.Content, pci.Embeds, userInfo)
-// 	}
-// 	if pci.Success {
-// 		go sec.LogCheckout(pci.TaskInfo.ProductInfo.ItemName, pci.TaskInfo.ProductInfo.SKU, pci.Retailer, int(pci.TaskInfo.ProductInfo.Price), pci.TaskInfo.Task.Task.Quantity, userInfo)
-// 		go SendCheckout(pci.TaskInfo, pci.TaskInfo.ProductInfo.ItemName, pci.TaskInfo.ProductInfo.ImageURL, pci.TaskInfo.ProductInfo.SKU, int(pci.TaskInfo.ProductInfo.Price), pci.TaskInfo.Task.Task.Quantity, time.Since(pci.TaskInfo.StartTime).Milliseconds())
-// 	}
-// 	QueueWebhook(pci.Success, pci.Content, EntitiesToUtil(pci.Embeds))
-// }
-
-// // Logs the checkout
-// func SendCheckout(taskInfo *TaskInfo, itemName string, imageURL string, sku string, price int, quantity int, msToCheckout int64) {
-// 	stores.CreateCheckout(entities.Checkout{
-// 		ItemName:     itemName,
-// 		ImageURL:     imageURL,
-// 		SKU:          sku,
-// 		Price:        price,
-// 		Quantity:     quantity,
-// 		Retailer:     taskInfo.Task.Task.Retailer,
-// 		ProfileName:  taskInfo.Task.Profile.Name,
-// 		MsToCheckout: msToCheckout,
-// 		Time:         time.Now().Unix(),
-// 	})
 // }
 
 // func GetPXCookie(site string, proxy *entities.Proxy, cancellationToken *CancellationToken) (string, PXValues, bool, error) {

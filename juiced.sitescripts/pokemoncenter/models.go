@@ -51,33 +51,13 @@ type SKUMonitor struct {
 	BaseMonitor *entities.BaseMonitor
 }
 
-type MonitorResponse struct {
-	Props struct {
-		IsServer     bool
-		InitialState struct {
-			Product struct {
-				AddToCartForm string
-				Availability  string
-				Images        struct {
-					Original string
-				}
-				ListPrice struct {
-					Amount float64
-				}
-				Name string
-			}
-		}
-		InitialProps struct {
-		}
-	}
-}
-
 type Task struct {
-	TaskInfo        *entities.TaskInfo
-	Input           TaskInput
-	CyberSecureInfo CyberSecureInfo
-	AccessToken     string
-	CheckoutUri     string
+	Input              entities.TaskInput
+	PokemonCenterInput TaskInput
+	BaseTask           *entities.BaseTask
+	CyberSecureInfo    CyberSecureInfo
+	AccessToken        string
+	CheckoutUri        string
 }
 
 type TaskInput struct {
@@ -91,22 +71,4 @@ type CyberSecureInfo struct {
 	PublicToken string
 	Privatekey  string
 	JtiToken    string
-}
-
-//Used to Retrieve the GuestAuthId
-type AccessToken struct {
-	AccessToken string
-}
-
-//Used in a couple of requests
-type Address struct {
-	FamilyName      string `json:"familyName"`
-	GivenName       string `json:"givenName"`
-	StreetAddress   string `json:"streetAddress"`
-	ExtendedAddress string `json:"extendedAddress"`
-	Locality        string `json:"locality"`
-	Region          string `json:"region"`
-	PostalCode      string `json:"postalCode"`
-	CountryName     string `json:"countryName"`
-	PhoneNumber     string `json:"phoneNumber"`
 }

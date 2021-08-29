@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.infrastructure/discord"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/staticstores"
 	"backend.juicedbot.io/juiced.infrastructure/util"
@@ -295,7 +296,7 @@ func DecryptRefreshResponse(response EncryptedRefreshTokenResponse, timestamp in
 	return refreshResponse, nil
 }
 
-func DiscordWebhook(success bool, content string, embeds []entities.DiscordEmbed, userInfo entities.UserInfo) (DiscordWebhookResult, error) {
+func DiscordWebhook(success bool, content string, embeds []discord.DiscordEmbed, userInfo entities.UserInfo) (DiscordWebhookResult, error) {
 	discordWebhookResponse := DiscordWebhookResponse{}
 	encryptedDiscordWebhookResponse := EncryptedDiscordWebhookResponse{}
 

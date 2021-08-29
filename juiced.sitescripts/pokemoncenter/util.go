@@ -12,15 +12,15 @@ func ValidateMonitorInput(input string, monitorType enums.MonitorType, info map[
 	switch monitorType {
 	case enums.SKUMonitor:
 		if !strings.Contains(input, "-") {
-			return &enums.InvalidSKUError{enums.PokemonCenter, SKU_FORMAT}
+			return &enums.InvalidSKUError{Retailer: enums.PokemonCenter, Format: SKU_FORMAT}
 		}
 		split := strings.Split(input, "-")
 		if len(split) != 2 || len(split[0]) != 3 || len(split[1]) != 5 {
-			return &enums.InvalidSKUError{enums.PokemonCenter, SKU_FORMAT}
+			return &enums.InvalidSKUError{Retailer: enums.PokemonCenter, Format: SKU_FORMAT}
 		}
 
 	default:
-		return &enums.UnsupportedMonitorTypeError{enums.PokemonCenter, monitorType}
+		return &enums.UnsupportedMonitorTypeError{Retailer: enums.PokemonCenter, MonitorType: monitorType}
 	}
 
 	return nil
