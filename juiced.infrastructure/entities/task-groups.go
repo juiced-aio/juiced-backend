@@ -84,7 +84,7 @@ func (monitor *BaseMonitor) UpdateProxy(proxy *Proxy) error {
 		if err != nil {
 			return err
 		}
-		monitor.Proxy.AddCount()
+		proxy.AddCount()
 	}
 
 	monitor.Proxy = proxy
