@@ -146,7 +146,10 @@ func (monitor *Monitor) RunSingleMonitor() {
 		}
 		if len(monitor.RunningMonitors) > 0 {
 			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+				})
 			}
 		}
 		for i, monitorStock := range monitor.InStock {
@@ -195,17 +198,18 @@ func (monitor *Monitor) GetSKUStock() BestbuyInStockData {
 			sku := monitorResponse[i].Sku.Skuid
 			monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
 
+			price := int(monitorResponse[i].Sku.Price.Currentprice)
+			stockData.ProductName = monitorResponse[i].Sku.Names.Short
+			stockData.ImageURL = fmt.Sprintf("https://pisces.bbystatic.com/image2/BestBuy_US/images/products/%v/%v_sd.jpg;canvasHeight=500;canvasWidth=500", sku[:4], sku)
+			stockData.Price = int(monitorResponse[i].Sku.Price.Currentprice)
 			if monitorResponse[i].Sku.Buttonstate.Buttonstate == "ADD_TO_CART" || monitorResponse[i].Sku.Buttonstate.Buttonstate == "PRE_ORDER" {
-				price := int(monitorResponse[i].Sku.Price.Currentprice)
-				stockData.ProductName = monitorResponse[i].Sku.Names.Short
-				stockData.ImageURL = fmt.Sprintf("https://pisces.bbystatic.com/image2/BestBuy_US/images/products/%v/%v_sd.jpg;canvasHeight=500;canvasWidth=500", sku[:4], sku)
-				stockData.Price = int(monitorResponse[i].Sku.Price.Currentprice)
 				if monitor.SKUWithInfo[sku].MaxPrice >= price || monitor.SKUWithInfo[sku].MaxPrice == -1 {
 					stockData.SKU = sku
 					if !common.InSlice(monitor.SKUsSentToTask, sku) {
 						monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
 					}
 				} else {
+					monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 					stockData.OutOfPriceRange = true
 				}
 			} else {
