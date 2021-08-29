@@ -153,8 +153,17 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			}
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+				if stockData.OutOfPriceRange {
+					if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+						monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+						})
+					}
+				} else {
+					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+						monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+					}
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -200,21 +209,23 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 	switch resp.StatusCode {
 	case 200:
 		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
+		stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
+		for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
+			stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])
+		}
+		stockData.ItemName = monitorResponse.Gtmdata.Productinfo.Name
+		stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
+
+		inBudget := monitor.SKUWithInfo[sku].MaxPrice == -1 || (stockData.Price != 0 && monitor.SKUWithInfo[sku].MaxPrice >= int(stockData.Price))
 		if monitorResponse.Gtmdata.Productinfo.Availability == "Available" || (monitorResponse.Product.Availability.ButtonText == "Pre-Order" && monitorResponse.Product.Available) {
-			stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
-			inBudget := monitor.SKUWithInfo[sku].MaxPrice >= int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if inBudget {
-				for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
-					stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])
-				}
+				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
 				stockData.SKU = sku
-				stockData.ItemName = monitorResponse.Gtmdata.Productinfo.Name
 				stockData.PID = monitorResponse.Gtmdata.Productinfo.SKU
 				stockData.MaxQuantity = monitorResponse.Product.MaxOrderQuantity
-				stockData.ProductURL = BaseEndpoint + strings.Split(monitorResponse.Product.Selectedproducturl, "?")[0]
-
-				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
-
+			} else {
+				monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
+				stockData.OutOfPriceRange = true
 			}
 			return stockData
 		} else {

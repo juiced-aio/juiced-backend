@@ -44,13 +44,14 @@ type Monitor struct {
 }
 
 type GamestopInStockData struct {
-	SKU         string
-	Price       float64
-	ItemName    string
-	PID         string
-	ImageURL    string
-	ProductURL  string
-	MaxQuantity int
+	SKU             string
+	Price           float64
+	OutOfPriceRange bool
+	ItemName        string
+	PID             string
+	ImageURL        string
+	ProductURL      string
+	MaxQuantity     int
 }
 
 var DefaultRawHeaders = [][2]string{
