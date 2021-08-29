@@ -162,7 +162,10 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 					}
 				} else {
 					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-						monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+						monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+						})
 					}
 				}
 			}
