@@ -379,7 +379,8 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 		MonitorType: enums.SlowSKUMonitor,
 	}
 
-	if price == 0 || err != nil || merchantID != "ATVPDKIKX0DER" || !(float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1) {
+	inBudget := monitor.ASINWithInfo[asin].MaxPrice == -1 || (err == nil && price != 0 && merchantID == "ATVPDKIKX0DER" && float64(monitor.ASINWithInfo[asin].MaxPrice) >= price)
+	if !inBudget {
 		stockData.OfferID = ""
 		stockData.OutOfPriceRange = true
 	}
@@ -500,7 +501,7 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			Client:      currentClient,
 			MonitorType: enums.FastSKUMonitor,
 		}
-		inBudget := err == nil && price != 0 && (float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1)
+		inBudget := monitor.ASINWithInfo[asin].MaxPrice == -1 || (err == nil && price != 0 && float64(monitor.ASINWithInfo[asin].MaxPrice) >= price)
 		if !inBudget {
 			stockData.OfferID = ""
 			stockData.OutOfPriceRange = true
