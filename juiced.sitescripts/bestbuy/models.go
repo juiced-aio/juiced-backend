@@ -48,11 +48,12 @@ type Monitor struct {
 }
 
 type BestbuyInStockData struct {
-	SKU         string
-	ProductName string
-	ImageURL    string
-	Price       int
-	MaxQuantity int
+	SKU             string
+	OutOfPriceRange bool
+	ProductName     string
+	ImageURL        string
+	Price           int
+	MaxQuantity     int
 }
 
 var DefaultRawHeaders = [][2]string{
