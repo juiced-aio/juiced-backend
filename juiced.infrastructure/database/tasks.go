@@ -27,9 +27,9 @@ func GetAllTasks() ([]entities.Task, error) {
 		}
 
 		baseTask := entities.BaseTask{}
-		if tempTask.TaskInfo != "" {
-			err = json.Unmarshal([]byte(tempTask.TaskInfo), &baseTask)
-			if err != nil {
+		if tempTask.TaskSerialized != "" {
+			err = json.Unmarshal([]byte(tempTask.TaskSerialized), &baseTask)
+			if err == nil {
 				tempTask.Task = &baseTask
 			}
 		}
@@ -69,9 +69,9 @@ func GetTask(ID string) (entities.Task, error) {
 	}
 
 	baseTask := entities.BaseTask{}
-	if task.TaskInfo != "" {
-		err = json.Unmarshal([]byte(task.TaskInfo), &task)
-		if err != nil {
+	if task.TaskSerialized != "" {
+		err = json.Unmarshal([]byte(task.TaskSerialized), &baseTask)
+		if err == nil {
 			task.Task = &baseTask
 		}
 	}
@@ -84,17 +84,17 @@ func CreateTask(task entities.Task) error {
 		return &DatabaseNotInitializedError{}
 	}
 
-	statement, err := database.Preparex(`INSERT INTO tasks (ID, taskGroupID, profileID, proxyGroupID, taskInfo, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO tasks (ID, taskGroupID, retailer, taskSerialized, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}
 
-	taskInfo, err := json.Marshal(task.Task)
+	taskSerialized, err := json.Marshal(task.Task)
 	if err != nil {
 		return err
 	}
 
-	_, err = statement.Exec(task.ID, task.TaskGroupID, task.Profile, task.ProxyGroup, taskInfo, task.CreationDate)
+	_, err = statement.Exec(task.ID, task.TaskGroupID, task.Retailer, taskSerialized, task.CreationDate)
 	return err
 }
 

@@ -20,9 +20,8 @@ var tasksSchema = `
 	CREATE TABLE IF NOT EXISTS tasks (
 		ID TEXT,
 		taskGroupID TEXT,
-		profileID TEXT,
-		proxyGroupID TEXT,
-		taskInfo TEXT,
+		retailer TEXT,
+		taskSerialized TEXT,
 		creationDate INTEGER
 	)
 `

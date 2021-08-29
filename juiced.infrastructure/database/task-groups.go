@@ -33,7 +33,7 @@ func GetAllTaskGroups() ([]entities.TaskGroup, error) {
 		monitors := []*entities.BaseMonitor{}
 		if tempTaskGroup.MonitorsSerialized != "" {
 			err = json.Unmarshal([]byte(tempTaskGroup.MonitorsSerialized), &monitors)
-			if err != nil {
+			if err == nil {
 				tempTaskGroup.Monitors = monitors
 			}
 		}
@@ -78,7 +78,7 @@ func GetTaskGroup(groupID string) (entities.TaskGroup, error) {
 	monitors := []*entities.BaseMonitor{}
 	if taskGroup.MonitorsSerialized != "" {
 		err = json.Unmarshal([]byte(taskGroup.MonitorsSerialized), &monitors)
-		if err != nil {
+		if err == nil {
 			taskGroup.Monitors = monitors
 		}
 	}
