@@ -1,8 +1,6 @@
 package client
 
 import (
-	"log"
-
 	utls "backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -42,7 +40,6 @@ func NewClient(clientHello utls.ClientHelloID, proxyUrl ...string) (http.Client,
 			}, nil
 		}
 	} else {
-		log.Println(2)
 		return http.Client{
 			Transport: newRoundTripper(clientHello, proxy.Direct),
 		}, nil
