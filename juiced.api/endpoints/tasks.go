@@ -292,12 +292,17 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 										MonitorID:   uuid.New().String(),
 										TaskGroupID: taskGroup.GroupID,
 										MaxPrice:    maxPrice,
+										MonitorType: updateTaskGroupRequestInfo.AmazonUpdateInfo.MonitorType,
 									}
 									switch updateTaskGroupRequestInfo.AmazonUpdateInfo.MonitorType {
 									case enums.SlowSKUMonitor:
 										monitor.ASIN = sku
 									case enums.FastSKUMonitor:
-										monitor.OFID = sku
+										if !strings.Contains(sku, ":") {
+											continue
+										}
+										monitor.ASIN = strings.Split(sku, ":")[0]
+										monitor.OFID = strings.Split(sku, ":")[1]
 									}
 									newMonitors = append(newMonitors, monitor)
 								}
