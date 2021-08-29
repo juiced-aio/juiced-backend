@@ -80,6 +80,7 @@ func (task *Task) RunTask() {
 		}
 		task.Task.StopFlag = true
 	}()
+	task.StockData = NeweggInStockData{}
 	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {

@@ -514,15 +514,18 @@ func UpdateTaskGroupEndpoint(response http.ResponseWriter, request *http.Request
 						newTaskGroup, err = commands.UpdateTaskGroup(groupID, taskGroup)
 						if err == nil {
 							newTaskGroup.UpdateMonitor = true
-							if err == nil {
-								if wasRunning {
-									err = monitorStore.StartMonitor(&newTaskGroup)
-									if err != nil {
-										errorsList = append(errorsList, errors.StartTaskError+err.Error())
-									}
+							if wasRunning {
+								err = monitorStore.StartMonitor(&newTaskGroup)
+								if err != nil {
+									errorsList = append(errorsList, errors.StartTaskGroupError+err.Error())
 								}
 							} else {
-								errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
+								if monitorStore.GetMonitor(newTaskGroup.MonitorRetailer, newTaskGroup.GroupID) != nil {
+									err = monitorStore.UpdateMonitor(&newTaskGroup)
+									if err != nil {
+										errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())
+									}
+								}
 							}
 						} else {
 							errorsList = append(errorsList, errors.UpdateTaskGroupError+err.Error())

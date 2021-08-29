@@ -86,6 +86,7 @@ func (task *Task) RunTask() {
 		}
 		task.Task.StopFlag = true
 	}()
+	task.StockData = DisneyInStockData{}
 	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
