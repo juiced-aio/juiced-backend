@@ -474,22 +474,24 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			priceStr := strings.ReplaceAll(item.Text(), " ", "")
 			priceStr = strings.ReplaceAll(priceStr, "\n", "")
 			priceStr = strings.ReplaceAll(priceStr, "$", "")
-			price, _ = strconv.ParseFloat(priceStr, 64)
+			price, err = strconv.ParseFloat(priceStr, 64)
 		}
-		inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
+
+		stockData = AmazonInStockData{
+			ASIN:        asin,
+			AntiCsrf:    antiCSRF,
+			PID:         pid,
+			RID:         rid,
+			ItemName:    asin,
+			ImageURL:    imageURL,
+			Price:       price,
+			UA:          ua,
+			Client:      currentClient,
+			MonitorType: enums.FastSKUMonitor,
+		}
+		inBudget := err == nil && price != 0 && (float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1)
 		if inBudget {
-			stockData = AmazonInStockData{
-				ASIN:        asin,
-				OfferID:     monitor.ASINWithInfo[asin].OFID,
-				AntiCsrf:    antiCSRF,
-				PID:         pid,
-				RID:         rid,
-				ImageURL:    imageURL,
-				Price:       price,
-				UA:          ua,
-				Client:      currentClient,
-				MonitorType: enums.FastSKUMonitor,
-			}
+			stockData.OfferID = monitor.ASINWithInfo[asin].OFID
 		}
 		return stockData
 	case 503:
