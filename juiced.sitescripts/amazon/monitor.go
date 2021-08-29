@@ -279,9 +279,9 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 			merchantID = item.Attrs()["value"]
 		}
 
-		item = doc.Find("span", "class", "a-price-whole")
-		if item.Error == nil {
-			priceStr = item.Text()
+		price := doc.Find("span", "class", "a-price-whole")
+		if price.Error == nil {
+			priceStr = price.Text()
 		}
 
 		item = doc.Find("h5", "id", "aod-asin-title-text")
@@ -328,9 +328,13 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 				imageURL = item.Attrs()["data-a-hires"]
 			}
 		}
-		item = doc.Find("span", "class", "a-price-whole")
-		if item.Error == nil {
-			priceStr = item.Text()
+
+		span := doc.Find("span", "id", "tp_price_block_total_price_ww")
+		if span.Error == nil {
+			price := span.Find("span", "class", "a-price-whole")
+			if price.Error == nil {
+				priceStr = price.Text()
+			}
 		}
 
 		item = doc.Find("div", "id", "comparison_title1")
@@ -355,7 +359,7 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 		}
 	}
 
-	price, _ := strconv.ParseFloat(priceStr, 64)
+	price, err := strconv.ParseFloat(priceStr, 64)
 	stockData = AmazonInStockData{
 		ASIN:        asin,
 		OfferID:     ofid,
@@ -366,7 +370,7 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 		MonitorType: enums.SlowSKUMonitor,
 	}
 
-	if merchantID != "ATVPDKIKX0DER" || !(float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1) {
+	if price == 0 || err != nil || merchantID != "ATVPDKIKX0DER" || !(float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1) {
 		stockData.OfferID = ""
 	}
 
