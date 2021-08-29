@@ -920,23 +920,32 @@ func CreateTaskEndpoint(response http.ResponseWriter, request *http.Request) {
 				if err == nil {
 					oldTaskGroup, err := queries.GetTaskGroup(groupID)
 					if err == nil {
-						for i := 0; i < len(profileIDs); i++ {
-							profile, err := queries.GetProfile(profileIDs[i])
-							if profile.ID != "" && err == nil {
-								task.SetTaskProfileID(profileIDs[i])
-								var createTaskError error
-								for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
-									task.SetID(uuid.New().String())
-									task.CreationDate = time.Now().Unix()
-									err = commands.CreateTask(*task)
-									if err != nil {
-										createTaskError = err
+						if createTaskRequestInfo.Retailer == enums.Amazon {
+							for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
+								task.SetID(uuid.New().String())
+								task.CreationDate = time.Now().Unix()
+								err = commands.CreateTask(*task)
+								oldTaskGroup.SetTaskIDs(append(oldTaskGroup.TaskIDs, task.ID))
+							}
+						} else {
+							for i := 0; i < len(profileIDs); i++ {
+								profile, err := queries.GetProfile(profileIDs[i])
+								if profile.ID != "" && err == nil {
+									task.SetTaskProfileID(profileIDs[i])
+									var createTaskError error
+									for j := 0; j < createTaskRequestInfo.NumTasksPerProfile; j++ {
+										task.SetID(uuid.New().String())
+										task.CreationDate = time.Now().Unix()
+										err = commands.CreateTask(*task)
+										if err != nil {
+											createTaskError = err
+											break
+										}
+										oldTaskGroup.SetTaskIDs(append(oldTaskGroup.TaskIDs, task.ID))
+									}
+									if createTaskError != nil {
 										break
 									}
-									oldTaskGroup.SetTaskIDs(append(oldTaskGroup.TaskIDs, task.ID))
-								}
-								if createTaskError != nil {
-									break
 								}
 							}
 						}
