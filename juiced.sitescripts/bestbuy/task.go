@@ -72,11 +72,18 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
+		task.Task.StopFlag = true
 	}()
 	task.Task.HasStockData = false
 
@@ -196,7 +203,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status != enums.OrderStatusFailed {
 			break
 		}
 		placedOrder, status = task.PlaceOrder(startTime)
@@ -218,6 +225,8 @@ func (task *Task) RunTask() {
 		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
 		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+	default:
+		task.PublishEvent(fmt.Sprintf(enums.TaskFailed, status), enums.TaskComplete, 100)
 	}
 
 }
@@ -1249,7 +1258,10 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 				status = enums.OrderStatusDeclined
 			case "ITEM_EXCEEDED_ORDER_LIMIT":
 				fmt.Println("Order limit exceeded")
-				status = enums.OrderStatusDeclined
+				status = "Item limit exceeded"
+			case "ACCOUNT_CREATION_REQUIRED":
+				fmt.Println("Account creation required")
+				status = "Account Required"
 			default:
 				fmt.Println("Failed to Checkout", placeOrderResponse)
 				status = enums.OrderStatusFailed
@@ -1267,7 +1279,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		quantity = task.StockData.MaxQuantity
 	}
 
-	if success || status == enums.OrderStatusDeclined {
+	if status != enums.OrderStatusFailed {
 		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 			BaseTask:     task.Task,
 			Success:      success,

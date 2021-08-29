@@ -148,8 +148,16 @@ func (task *Task) CreateBestbuyEmbed(status enums.OrderStatus, imageURL string) 
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
 			URL: imageURL,
 		}
+
 	case enums.OrderStatusFailed:
 		embeds[0].Title = ":apple: Failed to Place Order :apple:"
+		embeds[0].Color = 14495044
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+
+	default:
+		embeds[0].Title = fmt.Sprintf(":apple: Failed to Place Order: %s :apple:", status)
 		embeds[0].Color = 14495044
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
 			URL: imageURL,
