@@ -30,7 +30,6 @@ var ParsedBase, _ = url.Parse(BaseEndpoint)
 type Monitor struct {
 	Monitor         base.Monitor
 	ItemsSentToTask []string
-	RunningMonitors []string
 	OutOfStockItems []string
 	Items           []string
 	InStock         []ToppsInStockData

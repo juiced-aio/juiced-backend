@@ -39,11 +39,10 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	RunningMonitors []string
-	Pids            []string
-	InStock         []BoxlunchInStockData
-	PidWithInfo     map[string]entities.BoxlunchSingleMonitorInfo
+	Monitor     base.Monitor
+	Pids        []string
+	InStock     []BoxlunchInStockData
+	PidWithInfo map[string]entities.BoxlunchSingleMonitorInfo
 }
 
 type BoxlunchInStockData struct {

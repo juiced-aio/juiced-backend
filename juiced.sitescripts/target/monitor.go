@@ -144,10 +144,10 @@ func (monitor *Monitor) RunMonitor() {
 				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
 			}
 		}
-
-		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-		monitor.RunMonitor()
 	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunMonitor()
 }
 
 // GetTCINStock returns a map of in stock TCINs given a list of TCINs joined by commas

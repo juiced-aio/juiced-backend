@@ -118,68 +118,65 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, sku) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
+	defer func() {
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(sku)
+		}
+	}()
 
-		var proxy *entities.Proxy
-		if monitor.Monitor.ProxyGroup != nil {
-			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-				monitor.Monitor.UpdateProxy(proxy)
-			}
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
+	}
+
+	stockData := monitor.GetSKUStock(sku)
+	if stockData.SKU != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
 		}
 
-		stockData := monitor.GetSKUStock(sku)
-		if stockData.SKU != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.SKU == stockData.SKU
-			}
-			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.SKU == stockData.SKU
+		}
+		if !inSlice {
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
 		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if stockData.OutOfPriceRange {
-					if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
-						monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
-							Products: []events.Product{
-								{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-						})
-					}
-				} else {
-					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-						monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-							Products: []events.Product{
-								{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-						})
-					}
-				}
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
 			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.SKU == stockData.SKU {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.SKU == stockData.SKU {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
 			}
-
-			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunSingleMonitor(sku)
 		}
 	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(sku)
 }
 
 // Checks if the item is instock and fills the monitors EventInfo if so
@@ -211,7 +208,6 @@ func (monitor *Monitor) GetSKUStock(sku string) GamestopInStockData {
 
 	switch resp.StatusCode {
 	case 200:
-		monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
 		stockData.Price, _ = strconv.ParseFloat(monitorResponse.Gtmdata.Price.Sellingprice, 64)
 		for _, event := range monitorResponse.Mccevents[0][1].([]interface{}) {
 			stockData.ImageURL = fmt.Sprint(event.(map[string]interface{})["image_url"])

@@ -51,13 +51,12 @@ const (
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	InStock         []PokemonCenterInStockData
-	SKUWithInfo     map[string]entities.PokemonCenterSingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	SKUs           []string
+	InStock        []PokemonCenterInStockData
+	SKUWithInfo    map[string]entities.PokemonCenterSingleMonitorInfo
 }
 
 type MonitorResponse struct {

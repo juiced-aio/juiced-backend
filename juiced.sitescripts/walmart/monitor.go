@@ -114,10 +114,10 @@ func (monitor *Monitor) RunMonitor() {
 
 func (monitor *Monitor) RunSingleMonitor(id string) {
 	defer func() {
-		if r := recover(); r != nil {
-			log.Println(r)
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(id)
 		}
-		// TODO @silent: Re-run this specific monitor
 	}()
 
 	needToStop := monitor.CheckForStop()
@@ -126,61 +126,55 @@ func (monitor *Monitor) RunSingleMonitor(id string) {
 	}
 
 	var proxy *entities.Proxy
-	if !common.InSlice(monitor.RunningMonitors, id) {
-		if monitor.Monitor.ProxyGroup != nil {
-			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
-				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
-				monitor.Monitor.UpdateProxy(proxy)
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
+	}
+
+	stockData := WalmartInStockData{}
+
+	switch monitor.IDWithInfo[id].MonitorType {
+	case enums.SKUMonitor:
+		stockData = monitor.GetSkuStock(id)
+	case enums.FastSKUMonitor:
+		stockData = monitor.GetOfferIDStock(id)
+	}
+
+	if stockData.OfferID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+
+		var inSlice bool
+		for _, monitorStock := range monitor.InStockForShip {
+			inSlice = monitorStock.SKU == stockData.SKU
+		}
+		if !inSlice {
+			monitor.InStockForShip = append(monitor.InStockForShip, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+			monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+		for i, monitorStock := range monitor.InStockForShip {
+			if monitorStock.SKU == stockData.SKU {
+				monitor.InStockForShip = append(monitor.InStockForShip[:i], monitor.InStockForShip[i+1:]...)
+				break
 			}
 		}
 
-		stockData := WalmartInStockData{}
-
-		switch monitor.IDWithInfo[id].MonitorType {
-		case enums.SKUMonitor:
-			stockData = monitor.GetSkuStock(id)
-		case enums.FastSKUMonitor:
-			stockData = monitor.GetOfferIDStock(id)
-		}
-
-		if stockData.OfferID != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-
-			var inSlice bool
-			for _, monitorStock := range monitor.InStockForShip {
-				inSlice = monitorStock.SKU == stockData.SKU
-			}
-			if !inSlice {
-				monitor.InStockForShip = append(monitor.InStockForShip, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-				})
-			}
-		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-						Products: []events.Product{
-							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-					})
-				}
-			}
-			for i, monitorStock := range monitor.InStockForShip {
-				if monitorStock.SKU == stockData.SKU {
-					monitor.InStockForShip = append(monitor.InStockForShip[:i], monitor.InStockForShip[i+1:]...)
-					break
-				}
-			}
-
-			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
-			monitor.RunSingleMonitor(id)
-		}
+		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+		monitor.RunSingleMonitor(id)
 	}
 }
 
@@ -397,10 +391,6 @@ func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 				return stockData
 			}
 
-			// Item exists = Add to running monitors
-			if len(monitorResponse.Payload.Offers.(map[string]interface{})) > 0 {
-				monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-			}
 			lowestPrice := -1
 			for _, value := range monitorResponse.Payload.Offers.(map[string]interface{}) {
 				offer := Offer{}

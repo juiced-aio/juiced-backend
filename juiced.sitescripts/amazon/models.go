@@ -39,7 +39,6 @@ var baseURL, _ = url.Parse(BaseEndpoint)
 // Monitor info
 type Monitor struct {
 	Monitor         base.Monitor
-	RunningMonitors []string
 	OutOfStockASINs []string
 	ASINs           []string
 	InStock         []AmazonInStockData
