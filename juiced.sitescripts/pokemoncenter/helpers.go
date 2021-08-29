@@ -320,35 +320,44 @@ func retrievePaymentToken(keyId string) (string, error) {
 
 // Creates a embed for the DiscordWebhook function
 func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	fields := []sec.DiscordField{
+		{
+			Name:   "Retailer:",
+			Value:  "Pokemon Center",
+			Inline: true,
+		},
+		{
+			Name:   "Price:",
+			Value:  "$" + fmt.Sprintf("%f", task.StockData.Price),
+			Inline: true,
+		},
+		{
+			Name:   "Product SKU:",
+			Value:  task.StockData.SKU,
+			Inline: true,
+		},
+		{
+			Name:  "Product Name:",
+			Value: task.StockData.ItemName,
+		},
+		{
+			Name:  "Profile:",
+			Value: "||" + " " + task.Task.Profile.Name + " " + "||",
+		},
+	}
+
+	if task.Task.Proxy != nil {
+		fields = append(fields, sec.DiscordField{
+			Name:  "Proxy:",
+			Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+		})
+	}
+
 	embeds := []sec.DiscordEmbed{
 		{
-			Fields: []sec.DiscordField{
-				{
-					Name:   "Site:",
-					Value:  "Pokemon Center",
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprintf("%f", task.StockData.Price),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  task.StockData.SKU,
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: task.StockData.ItemName,
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
-				},
-			},
+			Fields: fields,
 			Footer: sec.DiscordFooter{
-				Text:    "Juiced AIO",
+				Text:    "Juiced",
 				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 			},
 			Timestamp: time.Now(),
