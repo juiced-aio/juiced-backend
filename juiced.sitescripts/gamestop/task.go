@@ -68,11 +68,18 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
+		task.Task.StopFlag = true
 	}()
 	task.Task.HasStockData = false
 
