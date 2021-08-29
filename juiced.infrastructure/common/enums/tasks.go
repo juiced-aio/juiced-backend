@@ -5,7 +5,9 @@ type MonitorStatus = string
 
 // Idle --> WaitingForProductData --> WaitingForInStock* --> SendingProductInfoToTasks --> WaitingForOutOfStock --> WaitingForInStock --> ...
 const (
-	MonitorIdle               MonitorStatus = "Idle"
+	MonitorIdle   MonitorStatus = "Idle"
+	MonitorFailed MonitorStatus = "FAIL: %s"
+
 	SettingUpMonitor          MonitorStatus = "Setting up"
 	BypassingPXMonitor        MonitorStatus = "Bypassing PX"
 	WaitingForProductData     MonitorStatus = "Searching"

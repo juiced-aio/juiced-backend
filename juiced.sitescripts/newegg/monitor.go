@@ -58,9 +58,9 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			monitor.PublishEvent(fmt.Sprintf(enums.MonitorFailed, r), enums.MonitorFail, 0)
 			monitor.Monitor.StopFlag = true
-			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
 		}
 	}()
 
@@ -109,7 +109,6 @@ func (monitor *Monitor) RunMonitor() {
 		}(sku)
 	}
 	wg.Wait()
-
 }
 
 func (monitor *Monitor) RunSingleMonitor(sku string) {
@@ -120,8 +119,10 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 
 	if !common.InSlice(monitor.RunningMonitors, sku) {
 		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
+			if r := recover(); r != nil {
+				monitor.PublishEvent(fmt.Sprintf(enums.MonitorFailed, r), enums.MonitorFail, 0)
+				monitor.Monitor.StopFlag = true
+			}
 		}()
 
 		stockData := monitor.GetSKUStock(sku)
@@ -145,8 +146,17 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 			}
 		} else {
 			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+				if stockData.OutOfPriceRange {
+					if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+						monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+						})
+					}
+				} else {
+					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+						monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+					}
 				}
 			}
 			for i, monitorStock := range monitor.InStock {
@@ -192,15 +202,18 @@ func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
 	}
 
 	monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-	if price := monitorResponse.MainItem.FinalPrice; float64(monitor.SKUWithInfo[sku].MaxPrice) > price || monitor.SKUWithInfo[sku].MaxPrice == -1 {
+	price := monitorResponse.MainItem.FinalPrice
+	inBudget := monitor.SKUWithInfo[sku].MaxPrice == -1 || (price != 0 && float64(monitor.SKUWithInfo[sku].MaxPrice) > price)
+	stockData.ProductName = monitorResponse.MainItem.Description.ProductName
+	stockData.ItemURL = "https://www.newegg.com/p/" + sku
+	stockData.ImageURL = "https://c1.neweggimages.com/NeweggImage/ProductImage/" + monitorResponse.MainItem.Image.Normal.ImageName
+	stockData.Price = price
+	if inBudget {
 		stockData.SKU = sku
 		stockData.ItemNumber = monitorResponse.MainItem.Item
-		stockData.ProductName = monitorResponse.MainItem.Description.ProductName
-		stockData.ItemURL = "https://www.newegg.com/p/" + sku
-		stockData.ImageURL = "https://c1.neweggimages.com/NeweggImage/ProductImage/" + monitorResponse.MainItem.Image.Normal.ImageName
-		stockData.Price = price
 		monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
 	} else {
+		stockData.OutOfPriceRange = true
 		monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 	}
 

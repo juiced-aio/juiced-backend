@@ -321,7 +321,8 @@ func (monitorStore *MonitorStore) StartMonitor(monitor *entities.TaskGroup) erro
 	monitor = monitorStore.GetMonitor(monitor.MonitorRetailer, monitor.GroupID)
 
 	// If the Monitor is already running, then we're all set already
-	if !strings.Contains(monitor.MonitorStatus, enums.MonitorIdle) {
+	if !strings.Contains(monitor.MonitorStatus, strings.ReplaceAll(enums.MonitorIdle, " %s", "")) &&
+		!strings.Contains(monitor.MonitorStatus, strings.ReplaceAll(enums.MonitorFailed, " %s", "")) {
 		return nil
 	}
 

@@ -252,7 +252,6 @@ func (task *Task) RunTask() {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
-
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {

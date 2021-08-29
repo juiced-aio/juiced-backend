@@ -48,12 +48,13 @@ type Task struct {
 }
 
 type NeweggInStockData struct {
-	SKU         string
-	ItemNumber  string
-	ImageURL    string
-	ProductName string
-	ItemURL     string
-	Price       float64
+	SKU             string
+	ItemNumber      string
+	ImageURL        string
+	ProductName     string
+	ItemURL         string
+	Price           float64
+	OutOfPriceRange bool
 }
 
 type TaskInfo struct {
