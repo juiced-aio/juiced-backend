@@ -370,7 +370,7 @@ func (taskStore *TaskStore) AddTestTaskToStore(task *entities.Task, profile enti
 		}
 
 		// Create task
-		amazonTask, err := amazon.CreateAmazonTask(task, profile, proxyGroup, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
+		amazonTask, err := amazon.CreateAmazonTask(task, proxyGroup, taskStore.EventBus, task.AmazonTaskInfo.LoginType, task.AmazonTaskInfo.Email, task.AmazonTaskInfo.Password)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
