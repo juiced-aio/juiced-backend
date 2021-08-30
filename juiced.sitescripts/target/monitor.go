@@ -29,12 +29,10 @@ func CreateTargetMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.Pro
 			ProxyGroup: proxyGroup,
 			EventBus:   eventBus,
 		},
-		TCINs:            tcins,
-		StoreID:          monitor.StoreID,
-		TCINsWithInfo:    storedTargetMonitors,
-		InStockForShip:   cmap.New(),
-		InStockForPickup: cmap.New(),
-		MonitorType:      monitor.MonitorType,
+		TCINs:         tcins,
+		StoreID:       monitor.StoreID,
+		TCINsWithInfo: storedTargetMonitors,
+		MonitorType:   monitor.MonitorType,
 	}
 	return targetMonitor, nil
 }
@@ -67,6 +65,9 @@ func (monitor *Monitor) RunMonitor() {
 		}
 		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorComplete, nil)
 	}()
+
+	monitor.InStockForShip = cmap.New()
+	monitor.InStockForPickup = cmap.New()
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
