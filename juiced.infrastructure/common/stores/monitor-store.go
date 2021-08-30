@@ -702,62 +702,112 @@ func (monitorStore *MonitorStore) StartTestMonitor(monitor *entities.TaskGroup) 
 		return nil
 	}
 
+	// If the Monitor is already running, then we're all set already
+	if !strings.Contains(monitor.MonitorStatus, strings.ReplaceAll(enums.MonitorIdle, " %s", "")) &&
+		!strings.Contains(monitor.MonitorStatus, strings.ReplaceAll(enums.MonitorFailed, " %s", "")) {
+		return nil
+	}
+
 	// Otherwise, start the Monitor
 	switch monitor.MonitorRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
-		if amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]; ok {
+		amazonMonitor, ok := monitorStore.AmazonMonitors[monitor.GroupID]
+		if ok {
+			amazonMonitor.InStock = amazonMonitor.InStock[:0]
 			amazonMonitor.Monitor.StopFlag = false
+			go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.AmazonMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.BestBuy:
-		if bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]; ok {
+		bestbuyMonitor, ok := monitorStore.BestbuyMonitors[monitor.GroupID]
+		if ok {
+			bestbuyMonitor.InStock = bestbuyMonitor.InStock[:0]
 			bestbuyMonitor.Monitor.StopFlag = false
+			go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.BestbuyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.BoxLunch:
-		if boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]; ok {
+		boxlunchMonitor, ok := monitorStore.BoxlunchMonitors[monitor.GroupID]
+		if ok {
+			boxlunchMonitor.InStock = boxlunchMonitor.InStock[:0]
 			boxlunchMonitor.Monitor.StopFlag = false
+			go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.BoxlunchMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Disney:
-		if disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]; ok {
+		disneyMonitor, ok := monitorStore.DisneyMonitors[monitor.GroupID]
+		if ok {
+			disneyMonitor.InStock = disneyMonitor.InStock[:0]
 			disneyMonitor.Monitor.StopFlag = false
+			go monitorStore.DisneyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.DisneyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.GameStop:
-		if gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]; ok {
+		gamestopMonitor, ok := monitorStore.GamestopMonitors[monitor.GroupID]
+		if ok {
+			gamestopMonitor.InStock = gamestopMonitor.InStock[:0]
 			gamestopMonitor.Monitor.StopFlag = false
+			go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.GamestopMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.HotTopic:
-		if hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]; ok {
+		hottopicMonitor, ok := monitorStore.HottopicMonitors[monitor.GroupID]
+		if ok {
+			hottopicMonitor.InStock = hottopicMonitor.InStock[:0]
 			hottopicMonitor.Monitor.StopFlag = false
+			go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.HottopicMonitors[monitor.GroupID].RunMonitor()
+
+	case enums.Newegg:
+		neweggMonitor, ok := monitorStore.NeweggMonitors[monitor.GroupID]
+		if ok {
+			neweggMonitor.InStock = neweggMonitor.InStock[:0]
+			neweggMonitor.Monitor.StopFlag = false
+			go monitorStore.NeweggMonitors[monitor.GroupID].RunMonitor()
+		}
+
+	case enums.PokemonCenter:
+		pokemonCenterMonitor, ok := monitorStore.PokemonCenterMonitors[monitor.GroupID]
+		if ok {
+			pokemonCenterMonitor.InStock = pokemonCenterMonitor.InStock[:0]
+			pokemonCenterMonitor.Monitor.StopFlag = false
+			go monitorStore.PokemonCenterMonitors[monitor.GroupID].RunMonitor()
+		}
 
 	case enums.Shopify:
-		if shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]; ok {
+		shopifyMonitor, ok := monitorStore.ShopifyMonitors[monitor.GroupID]
+		if ok {
+			shopifyMonitor.InStock = shopifyMonitor.InStock[:0]
 			shopifyMonitor.Monitor.StopFlag = false
+			go monitorStore.ShopifyMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.ShopifyMonitors[monitor.GroupID].RunMonitor()
 
 	case enums.Target:
-		if targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]; ok {
+		targetMonitor, ok := monitorStore.TargetMonitors[monitor.GroupID]
+		if ok {
+			targetMonitor.InStockForShip = targetMonitor.InStockForShip[:0]
+			targetMonitor.InStockForPickup = targetMonitor.InStockForPickup[:0]
 			targetMonitor.Monitor.StopFlag = false
+			go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.TargetMonitors[monitor.GroupID].RunMonitor()
+
+	case enums.Topps:
+		toppsMonitor, ok := monitorStore.ToppsMonitors[monitor.GroupID]
+		if ok {
+			toppsMonitor.InStock = toppsMonitor.InStock[:0]
+			toppsMonitor.Monitor.StopFlag = false
+			go monitorStore.ToppsMonitors[monitor.GroupID].RunMonitor()
+		}
 
 	case enums.Walmart:
-		if walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]; ok {
+		walmartMonitor, ok := monitorStore.WalmartMonitors[monitor.GroupID]
+		if ok {
+			walmartMonitor.InStockForShip = walmartMonitor.InStockForShip[:0]
 			walmartMonitor.Monitor.StopFlag = false
+			go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
 		}
-		go monitorStore.WalmartMonitors[monitor.GroupID].RunMonitor()
+
 	}
 
 	return nil
