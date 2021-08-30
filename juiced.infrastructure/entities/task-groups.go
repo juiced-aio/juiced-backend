@@ -3,11 +3,11 @@ package entities
 import (
 	"time"
 
+	"backend.juicedbot.io/juiced.antibot/cloudflare"
 	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
-	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
 type TaskGroup struct {
@@ -34,12 +34,12 @@ type BaseMonitor struct {
 	ProductInfo ProductInfo         `json:"productInfo"`
 
 	// In-memory values, omitted in DB serialization and JSON
-	TaskGroup  *TaskGroup   `json:"-"`
-	ProxyGroup *ProxyGroup  `json:"-"`
-	Proxy      *Proxy       `json:"-"`
-	Client     *http.Client `json:"-"`
-	Scraper    hawk.Scraper `json:"-"`
-	StopFlag   bool         `json:"-"`
+	TaskGroup  *TaskGroup         `json:"-"`
+	ProxyGroup *ProxyGroup        `json:"-"`
+	Proxy      *Proxy             `json:"-"`
+	Client     *http.Client       `json:"-"`
+	Scraper    cloudflare.Scraper `json:"-"`
+	StopFlag   bool               `json:"-"`
 }
 
 type MonitorInput struct {

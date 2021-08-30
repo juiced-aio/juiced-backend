@@ -1,4 +1,4 @@
-package hawk
+package cloudflare
 
 import (
 	"bytes"

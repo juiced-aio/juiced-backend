@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"time"
 
+	"backend.juicedbot.io/juiced.antibot/cloudflare"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
 	"backend.juicedbot.io/juiced.infrastructure/util"
-	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
 type Task struct {
@@ -33,14 +33,14 @@ type BaseTask struct {
 	ActualQuantity int              `json:"actualQuantity"`
 
 	// In-memory values, omitted in DB serialization and JSON
-	Task       *Task        `json:"-"`
-	TaskGroup  *TaskGroup   `json:"-"`
-	Profile    *Profile     `json:"-"`
-	ProxyGroup *ProxyGroup  `json:"-"`
-	Proxy      *Proxy       `json:"-"`
-	Client     *http.Client `json:"-"`
-	Scraper    hawk.Scraper `json:"-"`
-	StopFlag   bool         `json:"-"`
+	Task       *Task              `json:"-"`
+	TaskGroup  *TaskGroup         `json:"-"`
+	Profile    *Profile           `json:"-"`
+	ProxyGroup *ProxyGroup        `json:"-"`
+	Proxy      *Proxy             `json:"-"`
+	Client     *http.Client       `json:"-"`
+	Scraper    cloudflare.Scraper `json:"-"`
+	StopFlag   bool               `json:"-"`
 }
 
 type TaskInput struct {

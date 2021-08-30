@@ -1,8 +1,8 @@
 package util
 
 import (
+	"backend.juicedbot.io/juiced.antibot/cloudflare"
 	"backend.juicedbot.io/juiced.client/http"
-	"backend.juicedbot.io/juiced.sitescripts/hawk-go"
 )
 
 type ErrorType = string
@@ -23,7 +23,7 @@ type AddHeadersFunction func(*http.Request, ...string)
 
 type Request struct {
 	Client             *http.Client
-	Scraper            hawk.Scraper
+	Scraper            cloudflare.Scraper
 	Method             string
 	URL                string
 	Headers            http.Header
