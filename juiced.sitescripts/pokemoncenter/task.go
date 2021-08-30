@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 
+	"backend.juicedbot.io/juiced.encryption/cybersource"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	u "backend.juicedbot.io/juiced.infrastructure/util"
@@ -259,7 +260,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 
 func (task *Task) RetrievePrivateKey() (bool, string) {
 	var err error
-	task.CyberSecureInfo.PublicToken, err = CyberSourceV2(task.CyberSecureInfo.PublicKey, *task.BaseTask.Profile.CreditCard)
+	task.CyberSecureInfo.PublicToken, err = cybersource.RetrievePublicToken(task.CyberSecureInfo.PublicKey, *task.BaseTask.Profile.CreditCard)
 	if task.CyberSecureInfo.PublicToken == "" || err != nil {
 		errorMessage := CyberSourceEncryptionError
 		if err != nil {
@@ -312,7 +313,7 @@ func (task *Task) RetrieveToken() (bool, string) {
 
 func (task *Task) RetrieveJTI() (bool, string) {
 	var err error
-	task.CyberSecureInfo.JtiToken, err = retrievePaymentToken(task.CyberSecureInfo.Privatekey)
+	task.CyberSecureInfo.JtiToken, err = cybersource.RetrievePaymentToken(task.CyberSecureInfo.Privatekey)
 	if task.CyberSecureInfo.JtiToken == "" || err != nil {
 		errorMessage := RetrieveCyberSourcePaymentTokenError
 		if err != nil {
