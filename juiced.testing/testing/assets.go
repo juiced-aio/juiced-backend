@@ -82,7 +82,7 @@ var MainCard = entities.Card{
 	CardholderName: "Juiced AIO",
 	CardNumber:     "4767718212263745",
 	ExpMonth:       "02",
-	ExpYear:        "26",
+	ExpYear:        "2026",
 	CVV:            "260",
 	CardType:       "Visa",
 }
