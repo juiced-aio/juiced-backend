@@ -52,6 +52,7 @@ type NeweggInStockData struct {
 	ImageURL        string
 	ProductName     string
 	ItemURL         string
+	MaxQuantity     int
 	Price           float64
 	OutOfPriceRange bool
 }
@@ -84,6 +85,7 @@ type MainItem struct {
 	Description Description `json:"Description"`
 	FinalPrice  float64     `json:"FinalPrice"`
 	InStock     bool        `json:"Instock"`
+	MaxQuantity int         `json:"LimitQuantity"`
 	Item        string      `json:"Item"`
 	Image       Image       `json:"Image"`
 }

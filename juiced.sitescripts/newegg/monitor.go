@@ -206,6 +206,7 @@ func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
 	stockData.ItemURL = "https://www.newegg.com/p/" + sku
 	stockData.ImageURL = "https://c1.neweggimages.com/NeweggImage/ProductImage/" + monitorResponse.MainItem.Image.Normal.ImageName
 	stockData.Price = price
+	stockData.MaxQuantity = monitorResponse.MainItem.MaxQuantity
 	if monitorResponse.MainItem.InStock {
 		if inBudget {
 			stockData.SKU = sku

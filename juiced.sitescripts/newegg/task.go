@@ -280,6 +280,11 @@ retry:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
 
+	quantity := task.Task.Task.TaskQty
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
 	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
 		Success:      submittedOrder,
@@ -291,7 +296,7 @@ retry:
 		Sku:          task.StockData.SKU,
 		Retailer:     enums.Newegg,
 		Price:        float64(task.StockData.Price),
-		Quantity:     task.Task.Task.TaskQty,
+		Quantity:     quantity,
 		MsToCheckout: time.Since(startTime).Milliseconds(),
 	})
 
@@ -369,12 +374,17 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart() bool {
+	quantity := task.Task.Task.TaskQty
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
 	addToCartRequest := AddToCartRequest{
 		Itemlist: []Itemlist{
 			{
 				Itemgroup:     "Single",
 				Itemnumber:    task.StockData.ItemNumber,
-				Quantity:      task.Task.Task.TaskQty,
+				Quantity:      quantity,
 				Optionalinfos: nil,
 				Saletype:      "Sales",
 			},
@@ -422,12 +432,17 @@ func (task *Task) AddToCart() bool {
 }
 
 func (task *Task) PrepareCheckout() (bool, bool) {
+	quantity := task.Task.Task.TaskQty
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
 	prepareCheckoutRequest := PrepareCheckoutRequest{
 		Itemlist: []Itemlist{
 			{
 				Itemnumber: task.StockData.ItemNumber,
 				ItemKey:    base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"SaleType":1,"ItemGroup":1,"ItemNumber":"%v","OptionalInfos":[]}`, task.StockData.ItemNumber))),
-				Quantity:   task.Task.Task.TaskQty,
+				Quantity:   quantity,
 				Itemgroup:  "Single",
 			},
 		},
@@ -475,8 +490,18 @@ func (task *Task) PrepareCheckout() (bool, bool) {
 		return false, false
 	}
 
-	var sessionID string
+	var result string
 	var ok bool
+	if result, ok = respMap["Result"].(string); !ok {
+		return false, false
+	}
+	if result == "SomeItemFailed" {
+		// This result occurs when the quantity for the item is too high so this will lower the quantity until it goes through
+		task.Task.Task.TaskQty--
+		return false, false
+	}
+
+	var sessionID string
 	if sessionID, ok = respMap["SessionID"].(string); !ok {
 		return false, false
 	}
