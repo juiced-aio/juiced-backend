@@ -2,6 +2,7 @@ package testing
 
 import (
 	e "errors"
+	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -16,8 +17,10 @@ var monitorStore *stores.MonitorStore
 
 // TestDriver
 func TestDriver(task *entities.Task, profile entities.Profile, taskGroup entities.TaskGroup) error {
-	if !common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
-		return e.New(errors.StartTaskInvalidCardError + task.TaskRetailer)
+	if task.TaskRetailer != enums.Amazon {
+		if !common.ValidCardType([]byte(profile.CreditCard.CardNumber), task.TaskRetailer) {
+			return e.New(errors.StartTaskInvalidCardError + task.TaskRetailer)
+		}
 	}
 
 	// Start the task's TaskGroup (if it's already running, this will return true)
@@ -32,15 +35,20 @@ func TestDriver(task *entities.Task, profile entities.Profile, taskGroup entitie
 		return err
 	}
 
+	task = taskStore.GetTask(task.TaskRetailer, task.ID)
+
 	// If the Task is already running, then we're all set already
-	if task.TaskStatus != enums.TaskIdle &&
-		task.TaskStatus != enums.CheckedOut &&
-		task.TaskStatus != enums.CheckoutFailed {
+	if !strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+		!strings.Contains(task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 		return nil
 	}
 
 	// Set the task's StopFlag to true before running the task
 	taskStore.SetStopFlag(task.TaskRetailer, task.ID, false)
+	taskStore.SetDontPublishEvents(task.TaskRetailer, task.ID, false)
 
 	// Otherwise, start the Task
 	taskStore.RunTask(task.TaskRetailer, task.ID)

@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -99,6 +98,13 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 	if needToStop {
 		return
 	}
+
+	defer func() {
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(pid)
+		}
+	}()
 
 	var sizes []string
 	var colors []string
@@ -196,7 +202,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					}
 					if atLeastOneInPriceRange {
 						// If at least one combination is in stock and in our price range, remove this monitor from the running monitors
-						monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
 						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 							Products: []events.Product{
 								{ProductName: productName, ProductImageURL: imageURL}},
@@ -216,9 +221,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 								{ProductName: productName, ProductImageURL: imageURL}},
 						})
 					}
-
-					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-					monitor.RunSingleMonitor(pid)
 				}
 			} else {
 				// None of the available sizes/colors match the task's size/color filters
@@ -228,9 +230,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 							{ProductName: productName, ProductImageURL: imageURL}},
 					})
 				}
-
-				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-				monitor.RunSingleMonitor(pid)
 			}
 		} else {
 			// This code is only run for items that have no size/color variations
@@ -240,7 +239,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					inSlice = monitorStock.PID == stockData.PID
 				}
 				if !inSlice {
-					monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
 					monitor.InStock = append(monitor.InStock, stockData)
 					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 						Products: []events.Product{
@@ -248,23 +246,21 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					})
 				}
 			} else {
-				if len(monitor.RunningMonitors) > 0 {
-					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock &&
-						monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct &&
-						monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
-						if !stockData.OutOfPriceRange {
-							if stockData.ProductName != "" && stockData.ImageURL != "" {
-								monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-									Products: []events.Product{
-										{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-								})
-							}
-						} else {
-							monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock &&
+					monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct &&
+					monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+					if !stockData.OutOfPriceRange {
+						if stockData.ProductName != "" && stockData.ImageURL != "" {
+							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
 								Products: []events.Product{
 									{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
 							})
 						}
+					} else {
+						monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+						})
 					}
 				}
 				for i, monitorStock := range monitor.InStock {
@@ -273,15 +269,12 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 						break
 					}
 				}
-
-				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-				monitor.RunSingleMonitor(pid)
 			}
 		}
-	} else {
-
-		monitor.RunSingleMonitor(pid)
 	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(pid)
 }
 
 func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyInStockData, error) {
@@ -317,7 +310,6 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 
 	switch resp.StatusCode {
 	case 200:
-		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
 		return monitor.GetVariationInfo(body, pid)
 	case 403:
 		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)

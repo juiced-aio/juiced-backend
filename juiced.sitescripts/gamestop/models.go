@@ -34,23 +34,23 @@ type AddHeadersFunction func(*http.Request, ...string)
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	InStock         []GamestopInStockData
-	SKUWithInfo     map[string]entities.GamestopSingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	SKUs           []string
+	InStock        []GamestopInStockData
+	SKUWithInfo    map[string]entities.GamestopSingleMonitorInfo
 }
 
 type GamestopInStockData struct {
-	SKU         string
-	Price       float64
-	ItemName    string
-	PID         string
-	ImageURL    string
-	ProductURL  string
-	MaxQuantity int
+	SKU             string
+	Price           float64
+	OutOfPriceRange bool
+	ItemName        string
+	PID             string
+	ImageURL        string
+	ProductURL      string
+	MaxQuantity     int
 }
 
 var DefaultRawHeaders = [][2]string{

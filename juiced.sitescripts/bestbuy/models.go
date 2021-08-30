@@ -38,21 +38,21 @@ type AddHeadersFunction func(*http.Request, ...string)
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	InStock         []BestbuyInStockData
-	SKUWithInfo     map[string]entities.BestbuySingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	SKUs           []string
+	InStock        []BestbuyInStockData
+	SKUWithInfo    map[string]entities.BestbuySingleMonitorInfo
 }
 
 type BestbuyInStockData struct {
-	SKU         string
-	ProductName string
-	ImageURL    string
-	Price       int
-	MaxQuantity int
+	SKU             string
+	OutOfPriceRange bool
+	ProductName     string
+	ImageURL        string
+	Price           int
+	MaxQuantity     int
 }
 
 var DefaultRawHeaders = [][2]string{

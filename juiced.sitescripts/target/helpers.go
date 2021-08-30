@@ -33,35 +33,44 @@ func GetTCINStockRequestToMap(getTCINStockRequest GetTCINStockRequest) map[strin
 
 // Creates a embed for the DiscordWebhook function
 func (task *Task) CreateTargetEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	fields := []sec.DiscordField{
+		{
+			Name:   "Retailer:",
+			Value:  "Target",
+			Inline: true,
+		},
+		{
+			Name:   "Price:",
+			Value:  "$" + fmt.Sprint(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
+			Inline: true,
+		},
+		{
+			Name:   "Product SKU:",
+			Value:  fmt.Sprintf("[%v](https://www.target.com/p/-/A-%v)", task.TCIN, task.TCIN),
+			Inline: true,
+		},
+		{
+			Name:  "Product Name:",
+			Value: task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		},
+		{
+			Name:  "Profile:",
+			Value: "||" + " " + task.Task.Profile.Name + " " + "||",
+		},
+	}
+
+	if task.Task.Proxy != nil {
+		fields = append(fields, sec.DiscordField{
+			Name:  "Proxy:",
+			Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+		})
+	}
+
 	embeds := []sec.DiscordEmbed{
 		{
-			Fields: []sec.DiscordField{
-				{
-					Name:   "Site:",
-					Value:  "Target",
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.AccountInfo.CartInfo.CartItems[0].UnitPrice),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.target.com/p/-/A-%v)", task.TCIN, task.TCIN),
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
-				},
-			},
+			Fields: fields,
 			Footer: sec.DiscordFooter{
-				Text:    "Juiced AIO",
+				Text:    "Juiced",
 				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 			},
 			Timestamp: time.Now(),

@@ -25,7 +25,7 @@ func TestWebhooksEndpoint(response http.ResponseWriter, request *http.Request) {
 
 	embed := util.Embed{
 		Footer: util.Footer{
-			Text:    "Juiced AIO",
+			Text:    "Juiced",
 			IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 		},
 		Timestamp: time.Now(),

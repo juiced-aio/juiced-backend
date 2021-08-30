@@ -246,6 +246,29 @@ func TestHottopic(t *testing.T) {
 	select {}
 }
 
+func TestNewegg(t *testing.T) {
+	MainTask.NeweggTaskInfo = &entities.NeweggTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+	}
+
+	MainTaskGroup.NeweggMonitorInfo = &entities.NeweggMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.NeweggSingleMonitorInfo{{
+			MonitorID:   MainMonitorID,
+			TaskGroupID: MainTaskGroupID,
+			SKU:         "N82E16819113666",
+			MaxPrice:    -1,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.Newegg
+	MainTask.TaskRetailer = enums.Newegg
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	select {}
+}
+
 func TestWalmart(t *testing.T) {
 	MainTask.WalmartTaskInfo = &entities.WalmartTaskInfo{
 		TaskID:      MainTaskID,

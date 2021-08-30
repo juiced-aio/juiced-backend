@@ -41,19 +41,23 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxyGroup
 	}
 	if proxyGroup != nil {
 		bestbuyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		bestbuyTask.Task.Proxy = nil
 	}
 	return bestbuyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
 		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
@@ -72,12 +76,21 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete, 0)
+		task.Task.StopFlag = true
 	}()
+	task.StockData = BestbuyInStockData{}
 	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
@@ -196,7 +209,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status != enums.OrderStatusFailed {
 			break
 		}
 		placedOrder, status = task.PlaceOrder(startTime)
@@ -213,11 +226,13 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
 		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
+	default:
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, status), enums.TaskComplete, 100)
 	}
 
 }
@@ -769,9 +784,7 @@ func (task *Task) SetShippingInfo() bool {
 		Data:              data,
 		RequestBodyStruct: shipOrPickupRequest,
 	})
-	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok || resp.StatusCode != 200 {
 		log.Println(604)
 		log.Println(err.Error())
@@ -848,16 +861,12 @@ func (task *Task) SetShippingInfo() bool {
 		Data:               data,
 		ResponseBodyStruct: &setShippingResponse,
 	})
-	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok {
 		log.Println(604)
 		log.Println(err.Error())
 		return false
 	}
-
-	log.Println(resp.StatusCode)
 
 	if resp.StatusCode != 200 {
 		log.Println(606)
@@ -877,7 +886,6 @@ func (task *Task) SetShippingInfo() bool {
 		}
 	}
 
-	log.Println("request 2")
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -902,14 +910,11 @@ func (task *Task) SetShippingInfo() bool {
 		},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok {
 		log.Println(642)
 		log.Println(err.Error())
 		return false
 	}
-
-	log.Println(resp.StatusCode)
 
 	switch resp.StatusCode {
 	case 200:
@@ -1250,7 +1255,10 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 				status = enums.OrderStatusDeclined
 			case "ITEM_EXCEEDED_ORDER_LIMIT":
 				fmt.Println("Order limit exceeded")
-				status = enums.OrderStatusDeclined
+				status = "Item limit exceeded"
+			case "ACCOUNT_CREATION_REQUIRED":
+				fmt.Println("Account creation required")
+				status = "Account Required"
 			default:
 				fmt.Println("Failed to Checkout", placeOrderResponse)
 				status = enums.OrderStatusFailed
@@ -1268,20 +1276,22 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		quantity = task.StockData.MaxQuantity
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateBestbuyEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.BestBuy,
-		Price:        float64(task.StockData.Price),
-		Quantity:     quantity,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
+	if status != enums.OrderStatusFailed {
+		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+			BaseTask:     task.Task,
+			Success:      success,
+			Status:       status,
+			Content:      "",
+			Embeds:       task.CreateBestbuyEmbed(status, task.StockData.ImageURL),
+			ItemName:     task.StockData.ProductName,
+			ImageURL:     task.StockData.ImageURL,
+			Sku:          task.StockData.SKU,
+			Retailer:     enums.BestBuy,
+			Price:        float64(task.StockData.Price),
+			Quantity:     quantity,
+			MsToCheckout: time.Since(startTime).Milliseconds(),
+		})
+	}
 
 	return success, status
 }

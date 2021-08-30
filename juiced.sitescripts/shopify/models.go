@@ -54,15 +54,14 @@ type ShopifyInStockData struct {
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	VIDs            []string
-	InStock         []ShopifyInStockData
-	SiteURL         string
-	SitePassword    string
-	SKUWithInfo     map[string]entities.ShopifySingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	VIDs           []string
+	InStock        []ShopifyInStockData
+	SiteURL        string
+	SitePassword   string
+	SKUWithInfo    map[string]entities.ShopifySingleMonitorInfo
 }
 
 type AccountInfo struct {

@@ -79,6 +79,77 @@ func (taskStore *TaskStore) SetStopFlag(retailer enums.Retailer, ID string, flag
 	return nil
 }
 
+func (taskStore *TaskStore) SetDontPublishEvents(retailer enums.Retailer, ID string, flag bool) error {
+	switch retailer {
+	// Future sitescripts will have a case here
+	case enums.Amazon:
+		if amazonTask, ok := taskStore.AmazonTasks[ID]; ok {
+			amazonTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.BestBuy:
+		if bestbuyTask, ok := taskStore.BestbuyTasks[ID]; ok {
+			bestbuyTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.BoxLunch:
+		if boxlunchTask, ok := taskStore.BoxlunchTasks[ID]; ok {
+			boxlunchTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.Disney:
+		if disneyTask, ok := taskStore.DisneyTasks[ID]; ok {
+			disneyTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.GameStop:
+		if gamestopTask, ok := taskStore.GamestopTasks[ID]; ok {
+			gamestopTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.HotTopic:
+		if hottopicTask, ok := taskStore.HottopicTasks[ID]; ok {
+			hottopicTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.Newegg:
+		if neweggTask, ok := taskStore.NeweggTasks[ID]; ok {
+			neweggTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.PokemonCenter:
+		if pokemonCenterTask, ok := taskStore.PokemonCenterTasks[ID]; ok {
+			pokemonCenterTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.Shopify:
+		if shopifyTask, ok := taskStore.ShopifyTasks[ID]; ok {
+			shopifyTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.Target:
+		if targetTask, ok := taskStore.TargetTasks[ID]; ok {
+			targetTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.Topps:
+		if toppsTask, ok := taskStore.ToppsTasks[ID]; ok {
+			toppsTask.Task.DontPublishEvents = flag
+		}
+
+	case enums.Walmart:
+		if walmartTask, ok := taskStore.WalmartTasks[ID]; ok {
+			walmartTask.Task.DontPublishEvents = flag
+		}
+
+	default:
+		return e.New(errors.InvalidTaskRetailerError)
+
+	}
+
+	return nil
+}
+
 func (taskStore *TaskStore) GetTask(retailer enums.Retailer, ID string) *entities.Task {
 	switch retailer {
 	// Future sitescripts will have a case here

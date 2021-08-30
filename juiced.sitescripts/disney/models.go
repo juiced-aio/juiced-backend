@@ -44,11 +44,10 @@ type Task struct {
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	RunningMonitors []string
-	Pids            []string
-	InStock         []DisneyInStockData
-	PidWithInfo     map[string]entities.DisneySingleMonitorInfo
+	Monitor     base.Monitor
+	Pids        []string
+	InStock     []DisneyInStockData
+	PidWithInfo map[string]entities.DisneySingleMonitorInfo
 }
 
 type DisneyInStockData struct {

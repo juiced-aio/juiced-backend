@@ -10,16 +10,17 @@ import (
 )
 
 type Task struct {
-	Task         *entities.Task
-	Profile      entities.Profile
-	Proxy        *entities.Proxy
-	ProxyGroup   *entities.ProxyGroup
-	EventBus     *events.EventBus
-	Client       http.Client
-	Scraper      hawk.Scraper
-	StartTime    time.Time
-	EndTime      time.Time
-	HasStockData bool
-	StopFlag     bool
-	ErrorField   string
+	Task              *entities.Task
+	Profile           entities.Profile
+	Proxy             *entities.Proxy
+	ProxyGroup        *entities.ProxyGroup
+	EventBus          *events.EventBus
+	Client            http.Client
+	Scraper           hawk.Scraper
+	StartTime         time.Time
+	EndTime           time.Time
+	HasStockData      bool
+	StopFlag          bool
+	DontPublishEvents bool
+	ErrorField        string
 }

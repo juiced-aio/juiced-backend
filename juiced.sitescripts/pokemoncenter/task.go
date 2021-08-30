@@ -22,7 +22,7 @@ import (
 const MAX_RETRIES = 5
 
 func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string) (Task, error) {
-	return Task{
+	pokemonCenterTask := Task{
 		Task: base.Task{
 			Task:       task,
 			Profile:    profile,
@@ -33,16 +33,24 @@ func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, prox
 			Email:    email,
 			Password: password,
 		},
-	}, nil
+	}
+	if proxyGroup != nil {
+		pokemonCenterTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		pokemonCenterTask.Task.Proxy = nil
+	}
+	return pokemonCenterTask, nil
 }
 
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
 		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
@@ -54,16 +62,18 @@ func (task *Task) RunTask() {
 		if r := recover(); r != nil {
 			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
 		} else {
-			if !strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
-				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckedOut, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
 				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
 				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 			}
 		}
 		task.Task.StopFlag = true
 	}()
+	task.StockData = PokemonCenterInStockData{}
 	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
@@ -161,9 +171,9 @@ func (task *Task) RunTask() {
 	log.Println("TIME TO CHECK OUT: ", task.Task.EndTime.Sub(task.Task.StartTime).Milliseconds())
 
 	if status == enums.OrderStatusSuccess {
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete, 100)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	} else {
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete, 100)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
 }
 
@@ -662,7 +672,7 @@ func (task *Task) Checkout() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
-		return true, enums.CheckedOut
+		return true, enums.CheckingOutSuccess
 	}
 
 	return false, fmt.Sprintf(enums.CheckingOutFailure, UnknownError)
