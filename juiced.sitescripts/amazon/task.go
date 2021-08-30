@@ -26,8 +26,6 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 )
 
-const MAX_RETRIES = 5
-
 // PublishEvent wraps the EventBus's PublishTaskEvent function
 func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
 	if status == enums.TaskIdle || !task.Task.StopFlag {
@@ -155,17 +153,16 @@ func (task *Task) RunTask() {
 
 	// 4. PlaceOrder
 	placedOrder := false
-
+	var retries int
 	for !placedOrder {
-		var retries int
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined || retries > MAX_RETRIES {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime, retries)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
 			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -186,6 +183,22 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusFailed:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ItemName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.ASIN,
+		Retailer:     enums.Amazon,
+		Price:        float64(task.StockData.Price),
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
 }
 
 // Sets the client up by either logging in or waiting for another task to login that is using the same account
@@ -656,7 +669,7 @@ func (task *Task) AddToCart() bool {
 }
 
 // Places the order
-func (task *Task) PlaceOrder(startTime time.Time, retries int) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
@@ -725,23 +738,6 @@ func (task *Task) PlaceOrder(startTime time.Time, retries int) (bool, enums.Orde
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
-	}
-
-	if success || status == enums.OrderStatusDeclined || retries >= MAX_RETRIES {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
-			ItemName:     task.StockData.ItemName,
-			ImageURL:     task.StockData.ImageURL,
-			Sku:          task.StockData.ASIN,
-			Retailer:     enums.Amazon,
-			Price:        float64(task.StockData.Price),
-			Quantity:     1,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
 	}
 
 	return success, status

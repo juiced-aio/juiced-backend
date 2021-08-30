@@ -203,17 +203,19 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 7. PlaceOrder
 	placedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status != enums.OrderStatusFailed {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -234,6 +236,26 @@ func (task *Task) RunTask() {
 	default:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, status), enums.TaskComplete, 100)
 	}
+
+	quantity := task.Task.Task.TaskQty
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateBestbuyEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.BestBuy,
+		Price:        float64(task.StockData.Price),
+		Quantity:     quantity,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
@@ -1134,7 +1156,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 }
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
@@ -1268,28 +1290,6 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		}
 		success = false
 
-	}
-
-	quantity := task.Task.Task.TaskQty
-	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
-		quantity = task.StockData.MaxQuantity
-	}
-
-	if status != enums.OrderStatusFailed {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateBestbuyEmbed(status, task.StockData.ImageURL),
-			ItemName:     task.StockData.ProductName,
-			ImageURL:     task.StockData.ImageURL,
-			Sku:          task.StockData.SKU,
-			Retailer:     enums.BestBuy,
-			Price:        float64(task.StockData.Price),
-			Quantity:     quantity,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
 	}
 
 	return success, status

@@ -193,18 +193,20 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 7. PlaceOrder
 	placedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
 
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -223,6 +225,21 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusFailed:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateToppsEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.Item,
+		Retailer:     enums.Topps,
+		Price:        task.StockData.Price,
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
@@ -681,7 +698,7 @@ func (task *Task) GetCardToken() bool {
 }
 
 // Placing the order using the CardToken from the GetCardToken function
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 
 	currentEndpoint := fmt.Sprintf(PlaceOrderEndpoint, task.TaskInfo.CheckoutID)
@@ -763,22 +780,5 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	}
 	// I do not know what successfully placing an order returns
 
-	if success || status == enums.OrderStatusDeclined {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateToppsEmbed(status, task.StockData.ImageURL),
-			ItemName:     task.StockData.ProductName,
-			ImageURL:     task.StockData.ImageURL,
-			Sku:          task.StockData.Item,
-			Retailer:     enums.Topps,
-			Price:        task.StockData.Price,
-			Quantity:     task.Task.Task.TaskQty,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
-	}
-
-	return true, status
+	return success, status
 }

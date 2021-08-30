@@ -193,17 +193,19 @@ func (task *Task) RunTask() {
 	// 9. SubmitOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	submittedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !submittedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		submittedOrder, status = task.SubmitOrder(startTime)
+		submittedOrder, status = task.SubmitOrder()
 		if !submittedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -219,6 +221,22 @@ func (task *Task) RunTask() {
 	} else {
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      submittedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateHottopicEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.PID,
+		Retailer:     enums.HotTopic,
+		Price:        float64(task.StockData.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -462,7 +480,7 @@ func (task *Task) SubmitPaymentInfo() (bool, bool) {
 	return err == nil, false
 }
 
-func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) SubmitOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	data := url.Values{
 		"cardBin":        {task.Task.Profile.CreditCard.CardNumber[0:6]}, //First 6 digits of card number
@@ -487,23 +505,6 @@ func (task *Task) SubmitOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	} else {
 		status = enums.OrderStatusDeclined
 		success = false
-	}
-
-	if success || status == enums.OrderStatusDeclined {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateHottopicEmbed(status, task.StockData.ImageURL),
-			ItemName:     task.StockData.ProductName,
-			ImageURL:     task.StockData.ImageURL,
-			Sku:          task.StockData.PID,
-			Retailer:     enums.HotTopic,
-			Price:        float64(task.StockData.Price),
-			Quantity:     task.Task.Task.TaskQty,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
 	}
 
 	return success, status

@@ -248,17 +248,19 @@ retry:
 	// 11. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	submittedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !submittedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		submittedOrder, status = task.PlaceOrder(startTime)
+		submittedOrder, status = task.PlaceOrder()
 		if !submittedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -277,6 +279,21 @@ retry:
 	} else {
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      submittedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.Newegg,
+		Price:        float64(task.StockData.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
@@ -791,7 +808,7 @@ func (task *Task) InitOrder() bool {
 	return result == "Success"
 }
 
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	placeOrderRequest := PlaceOrderRequest{
 		Sessionid:               task.TaskInfo.SessionID,
@@ -844,30 +861,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	if placeOrderResponse.Result != "Success" {
 		return false, status
 	}
-	status = enums.OrderStatusSuccess
-	success := true
-
-	if success || status == enums.OrderStatusDeclined {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
-			ItemName:     task.StockData.ProductName,
-			ImageURL:     task.StockData.ImageURL,
-			Sku:          task.StockData.SKU,
-			Retailer:     enums.Newegg,
-			Price:        float64(task.StockData.Price),
-			Quantity:     task.Task.Task.TaskQty,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
-	}
 
 	task.TaskInfo.VBVToken = placeOrderResponse.Vbvdata.Jwttoken
 	task.TaskInfo.CardBin = placeOrderResponse.Vbvdata.Cardbin
 
-	return true, status
+	return true, enums.OrderStatusSuccess
 }
 
 // Pretty sure these requests just speed up the payment, order goes through no matter what then you get a decline email a minute later if you send these requests.

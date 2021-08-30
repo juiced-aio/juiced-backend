@@ -234,17 +234,19 @@ func (task *Task) RunTask() {
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 6. PlaceOrder
 	processOrder := false
+	var retries int
 	var status enums.OrderStatus
 	for !processOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		processOrder, status = task.ProcessOrder(startTime)
+		processOrder, status = task.ProcessOrder()
 		if !processOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -262,6 +264,21 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusFailed:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      processOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
+		ItemName:     task.TaskInfo.Name,
+		ImageURL:     task.TaskInfo.Image,
+		Sku:          task.VariantID,
+		Retailer:     enums.Shopify,
+		Price:        float64(task.TaskInfo.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
@@ -818,7 +835,7 @@ func (task *Task) SetPaymentInfo() bool {
 	return resp.StatusCode == 200
 }
 
-func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) ProcessOrder() (bool, enums.OrderStatus) {
 	var status enums.OrderStatus
 
 	time.Sleep(3 * time.Second)
@@ -854,23 +871,6 @@ func (task *Task) ProcessOrder(startTime time.Time) (bool, enums.OrderStatus) {
 			success = true
 			status = enums.OrderStatusSuccess
 		}
-	}
-
-	if success || status == enums.OrderStatusDeclined {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateShopifyEmbed(status, task.TaskInfo.Image),
-			ItemName:     task.TaskInfo.Name,
-			ImageURL:     task.TaskInfo.Image,
-			Sku:          task.VariantID,
-			Retailer:     enums.Shopify,
-			Price:        float64(task.TaskInfo.Price),
-			Quantity:     task.Task.Task.TaskQty,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
 	}
 
 	return success, status
