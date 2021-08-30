@@ -58,9 +58,9 @@ func (monitor *Monitor) CheckForStop() bool {
 func (monitor *Monitor) RunMonitor() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
+		if r := recover(); r != nil {
+			monitor.PublishEvent(fmt.Sprintf(enums.MonitorFailed, r), enums.MonitorFail, 0)
 			monitor.Monitor.StopFlag = true
-			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
 		}
 	}()
 
@@ -109,7 +109,6 @@ func (monitor *Monitor) RunMonitor() {
 		}(sku)
 	}
 	wg.Wait()
-
 }
 
 func (monitor *Monitor) RunSingleMonitor(sku string) {
@@ -118,47 +117,57 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, sku) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
+	defer func() {
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(sku)
+		}
+	}()
 
-		stockData := monitor.GetSKUStock(sku)
-		if stockData.SKU != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
+	stockData := monitor.GetSKUStock(sku)
+	if stockData.SKU != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
 
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.SKU == stockData.SKU
-			}
-			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, sku)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.SKU == stockData.SKU
+		}
+		if !inSlice {
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
 				})
 			}
 		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
-				}
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+				})
 			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.SKU == stockData.SKU {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.SKU == stockData.SKU {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
 			}
-			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunSingleMonitor(sku)
 		}
 	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(sku)
 }
 
 func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
@@ -191,15 +200,22 @@ func (monitor *Monitor) GetSKUStock(sku string) NeweggInStockData {
 		return stockData
 	}
 
-	monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-	if price := monitorResponse.MainItem.FinalPrice; float64(monitor.SKUWithInfo[sku].MaxPrice) > price {
-		stockData.SKU = sku
-		stockData.ItemNumber = monitorResponse.MainItem.Item
-		stockData.ProductName = monitorResponse.MainItem.Description.ProductName
-		stockData.ItemURL = "https://www.newegg.com/p/" + sku
-		stockData.ImageURL = "https://c1.neweggimages.com/NeweggImage/ProductImage/" + monitorResponse.MainItem.Image.Normal.ImageName
-		stockData.Price = price
-		monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+	price := monitorResponse.MainItem.FinalPrice
+	inBudget := monitor.SKUWithInfo[sku].MaxPrice == -1 || (price != 0 && float64(monitor.SKUWithInfo[sku].MaxPrice) > price)
+	stockData.ProductName = monitorResponse.MainItem.Description.ProductName
+	stockData.ItemURL = "https://www.newegg.com/p/" + sku
+	stockData.ImageURL = "https://c1.neweggimages.com/NeweggImage/ProductImage/" + monitorResponse.MainItem.Image.Normal.ImageName
+	stockData.Price = price
+	stockData.MaxQuantity = monitorResponse.MainItem.MaxQuantity
+	if monitorResponse.MainItem.InStock {
+		if inBudget {
+			stockData.SKU = sku
+			stockData.ItemNumber = monitorResponse.MainItem.Item
+			monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
+		} else {
+			stockData.OutOfPriceRange = true
+			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
+		}
 	} else {
 		monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
 	}

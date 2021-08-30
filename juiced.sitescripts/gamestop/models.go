@@ -12,6 +12,7 @@ import (
 
 const (
 	BaseEndpoint          = "https://www.gamestop.com"
+	BaseLoginEndpoint     = "https://www.gamestop.com/login"
 	LoginEndpoint         = "https://www.gamestop.com/on/demandware.store/Sites-gamestop-us-Site/default/Account-Login"
 	AccountEndpoint       = "https://www.gamestop.com/account"
 	ProductEndpoint       = "https://www.gamestop.com/products/%s.html"
@@ -33,23 +34,23 @@ type AddHeadersFunction func(*http.Request, ...string)
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	InStock         []GamestopInStockData
-	SKUWithInfo     map[string]entities.GamestopSingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	SKUs           []string
+	InStock        []GamestopInStockData
+	SKUWithInfo    map[string]entities.GamestopSingleMonitorInfo
 }
 
 type GamestopInStockData struct {
-	SKU         string
-	Price       float64
-	ItemName    string
-	PID         string
-	ImageURL    string
-	ProductURL  string
-	MaxQuantity int
+	SKU             string
+	Price           float64
+	OutOfPriceRange bool
+	ItemName        string
+	PID             string
+	ImageURL        string
+	ProductURL      string
+	MaxQuantity     int
 }
 
 var DefaultRawHeaders = [][2]string{
@@ -80,6 +81,7 @@ type AccountInfo struct {
 }
 
 type CheckoutInfo struct {
+	CaptchaProtected     bool
 	ShipmentUUID         string
 	OriginalShipmentUUID string
 	CSRF                 string
@@ -135,6 +137,7 @@ type Availability struct {
 
 type Product struct {
 	Availability       Availability `json:"availability"`
+	Available          bool         `json:"available"`
 	ID                 string       `json:"id"`
 	Selectedproducturl string       `json:"selectedProductUrl"`
 	MaxOrderQuantity   int          `json:"maxOrderQuantity"`
@@ -157,7 +160,9 @@ type Gtmdata struct {
 }
 
 type AddToCartResponse struct {
-	Message string `json:"message"`
+	Message          string `json:"message"`
+	CaptchaProtected bool   `json:"protectedCaptchaCheckEnabled"`
+	QuantityTotal    int    `json:"quantityTotal"`
 }
 
 type AkamaiResponse struct {

@@ -27,15 +27,17 @@ import (
 )
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -44,13 +46,12 @@ func (task *Task) CheckForStop() bool {
 var AmazonAccountStore = cmap.New()
 
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
-func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
+func CreateAmazonTask(task *entities.Task, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
 	amazonTask := Task{}
 
 	amazonTask = Task{
 		Task: base.Task{
 			Task:       task,
-			Profile:    profile,
 			ProxyGroup: proxyGroup,
 			EventBus:   eventBus,
 		},
@@ -62,6 +63,8 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxyGroup 
 	}
 	if proxyGroup != nil {
 		amazonTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		amazonTask.Task.Proxy = nil
 	}
 	return amazonTask, nil
 }
@@ -69,14 +72,26 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxyGroup 
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		// TODO @silent: Let the UI know that a task failed
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
+		}
+		task.Task.StopFlag = true
 	}()
-
+	task.StockData = AmazonInStockData{}
+	task.Task.HasStockData = false
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
-	if task.Task.Task.TaskQty == 0 {
+	if task.Task.Task.TaskQty <= 0 {
 		task.Task.Task.TaskQty = 1
 	}
 
@@ -86,7 +101,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 1. Setup task
-	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	task.PublishEvent(enums.SettingUp, enums.TaskStart, 5)
 	setup := task.Setup()
 	if setup {
 		return
@@ -100,7 +115,7 @@ func (task *Task) RunTask() {
 	}
 	AccountPool.Set(task.Task.Task.TaskGroupID, accounts)
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 25)
 	// 2. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
@@ -109,12 +124,12 @@ func (task *Task) RunTask() {
 
 	err = task.Task.UpdateProxy(task.Task.Proxy)
 	if err != nil {
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		return
 	}
 	status := enums.OrderStatusFailed
 	if task.StockData.MonitorType == enums.SlowSKUMonitor {
-		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 50)
 		// 3. AddToCart
 		addedToCart := false
 		var retries int
@@ -134,21 +149,20 @@ func (task *Task) RunTask() {
 	}
 
 	startTime := time.Now()
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 75)
 
 	// 4. PlaceOrder
 	placedOrder := false
-
+	var retries int
 	for !placedOrder {
-		var retries int
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined || retries > 5 {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
 			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -163,12 +177,28 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ItemName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.ASIN,
+		Retailer:     enums.Amazon,
+		Price:        float64(task.StockData.Price),
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
 }
 
 // Sets the client up by either logging in or waiting for another task to login that is using the same account
@@ -194,7 +224,7 @@ func (task *Task) Setup() bool {
 					break
 				} else {
 					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
-						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate, 10)
 					}
 					time.Sleep(common.MS_TO_WAIT)
 				}
@@ -205,7 +235,7 @@ func (task *Task) Setup() bool {
 		}
 	} else {
 		// Login
-		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate, 10)
 		loggedIn := false
 		for !loggedIn {
 			needToStop := task.CheckForStop()
@@ -238,6 +268,12 @@ func (task *Task) Login() bool {
 
 // Browser login using Rod
 func (task *Task) browserLogin() bool {
+	defer func() {
+		if recover() != nil {
+			AmazonAccountStore.Remove(task.AccountInfo.Email)
+		}
+	}()
+
 	cookies := make([]*http.Cookie, 0)
 
 	var userPassProxy bool
@@ -267,7 +303,7 @@ func (task *Task) browserLogin() bool {
 
 	u := launcher_.
 		Set(flags.Flag("headless")).
-		// Delete(flags.Flag("--headless")).
+		Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
 		Set(flags.Flag("disable-background-networking")).
@@ -330,8 +366,9 @@ func (task *Task) browserLogin() bool {
 	page.MustElementX(`//input[@name="rememberMe"]`).MustWaitVisible().MustClick()
 	time.Sleep(2 * time.Second)
 	page.MustElement("#signInSubmit").MustWaitVisible().MustClick()
-	fmt.Println("Accept 2fa")
+	task.PublishEvent("Check for 2FA", enums.TaskUpdate, 15)
 	page.MustElement("#auth-cnep-done-button").MustWaitVisible().MustClick()
+	task.PublishEvent("2FA passed", enums.TaskUpdate, 20)
 	page.MustWaitLoad()
 	page.MustNavigate(BaseEndpoint)
 	page.MustNavigate(TestItemEndpoint)
@@ -535,6 +572,7 @@ func (task *Task) requestsLogin() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -542,6 +580,7 @@ func (task *Task) WaitForMonitor() bool {
 		}
 		emptyString := ""
 		if task.StockData.OfferID != emptyString {
+			task.Task.HasStockData = true
 			return false
 		}
 		// I see why now
@@ -630,7 +669,7 @@ func (task *Task) AddToCart() bool {
 }
 
 // Places the order
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
@@ -682,39 +721,24 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		orderStatus := resp.Header.Get("x-amz-turbo-checkout-page-type")
 		switch orderStatus {
 		case "thankyou":
-			task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+			task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 			status = enums.OrderStatusSuccess
 			success = true
 		default:
-			task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+			task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 			status = enums.OrderStatusFailed
 			success = false
 		}
 
 	case 503:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	default:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	}
-
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ItemName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.ASIN,
-		Retailer:     enums.Amazon,
-		Price:        float64(task.StockData.Price),
-		Quantity:     1,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
 
 	return success, status
 }

@@ -34,16 +34,15 @@ const (
 	SubmitOrderReferer  = "https://www.hottopic.com/cart?dwcont="
 
 	MonitorEndpoint  = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
-	MonitorEndpoint2 = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color="
+	MonitorEndpoint2 = "https://www.hottopic.com/on/demandware.store/Sites-hottopic-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color=%v&dwvar_%s_size=%v"
 )
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	RunningMonitors []string
-	Pids            []string
-	InStock         []HottopicInStockData
-	PidWithInfo     map[string]entities.HottopicSingleMonitorInfo
+	Monitor     base.Monitor
+	Pids        []string
+	InStock     []HottopicInStockData
+	PidWithInfo map[string]entities.HottopicSingleMonitorInfo
 }
 
 type HottopicInStockData struct {

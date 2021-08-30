@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -100,6 +99,13 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 		return
 	}
 
+	defer func() {
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(pid)
+		}
+	}()
+
 	var sizes []string
 	var colors []string
 	var stockData DisneyInStockData
@@ -163,7 +169,8 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 			// If sizes and colors remain, continue
 			if (len(sizes) > 0 && len(colors) > 0) ||
 				(len(sizes) > 0 && noColorsBeforeFilter) || // (Or if there are sizes but no color variants)
-				(len(colors) > 0 && noSizesBeforeFilter) { // (Or if there are colors but no size variants)
+				(len(colors) > 0 && noSizesBeforeFilter) || // (Or if there are colors but no size variants)
+				(noColorsBeforeFilter && noSizesBeforeFilter) {
 				needToStop = monitor.CheckForStop()
 				if needToStop {
 
@@ -195,7 +202,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					}
 					if atLeastOneInPriceRange {
 						// If at least one combination is in stock and in our price range, remove this monitor from the running monitors
-						monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
 						monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 							Products: []events.Product{
 								{ProductName: productName, ProductImageURL: imageURL}},
@@ -215,9 +221,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 								{ProductName: productName, ProductImageURL: imageURL}},
 						})
 					}
-
-					time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-					monitor.RunSingleMonitor(pid)
 				}
 			} else {
 				// None of the available sizes/colors match the task's size/color filters
@@ -227,9 +230,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 							{ProductName: productName, ProductImageURL: imageURL}},
 					})
 				}
-
-				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-				monitor.RunSingleMonitor(pid)
 			}
 		} else {
 			// This code is only run for items that have no size/color variations
@@ -239,7 +239,6 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					inSlice = monitorStock.PID == stockData.PID
 				}
 				if !inSlice {
-					monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, pid)
 					monitor.InStock = append(monitor.InStock, stockData)
 					monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
 						Products: []events.Product{
@@ -247,23 +246,21 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 					})
 				}
 			} else {
-				if len(monitor.RunningMonitors) > 0 {
-					if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock &&
-						monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct &&
-						monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
-						if !stockData.OutOfPriceRange {
-							if stockData.ProductName != "" && stockData.ImageURL != "" {
-								monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-									Products: []events.Product{
-										{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-								})
-							}
-						} else {
-							monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock &&
+					monitor.Monitor.TaskGroup.MonitorStatus != enums.UnableToFindProduct &&
+					monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+					if !stockData.OutOfPriceRange {
+						if stockData.ProductName != "" && stockData.ImageURL != "" {
+							monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
 								Products: []events.Product{
 									{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
 							})
 						}
+					} else {
+						monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+							Products: []events.Product{
+								{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+						})
 					}
 				}
 				for i, monitorStock := range monitor.InStock {
@@ -272,15 +269,12 @@ func (monitor *Monitor) RunSingleMonitor(pid string) {
 						break
 					}
 				}
-
-				time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-				monitor.RunSingleMonitor(pid)
 			}
 		}
-	} else {
-
-		monitor.RunSingleMonitor(pid)
 	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(pid)
 }
 
 func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyInStockData, error) {
@@ -316,7 +310,6 @@ func (monitor *Monitor) GetSizeAndColor(pid string) ([]string, []string, DisneyI
 
 	switch resp.StatusCode {
 	case 200:
-		monitor.RunningMonitors = append(monitor.RunningMonitors, pid)
 		return monitor.GetVariationInfo(body, pid)
 	case 403:
 		monitor.PublishEvent(enums.ProxyBanned, enums.MonitorUpdate, nil)
@@ -341,8 +334,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 	}
 
 	productInfo := stockResponse.Product
-	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" ||
-		!productInfo.Available || stockResponse.ATCState.IsDisabled || stockResponse.ATCState.IsSoldOut {
+	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" {
 		return sizes, colors, stockData, nil
 	}
 
@@ -358,6 +350,7 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 			break
 		}
 	}
+
 	if imageURL == "" {
 		for _, image := range productInfo.Images.LargeImages {
 			if image.ImageURL != "" {
@@ -374,52 +367,60 @@ func (monitor *Monitor) GetVariationInfo(body, pid string) ([]string, []string, 
 			}
 		}
 	}
+	stockData.ImageURL = imageURL
+	stockData.ProductName = productInfo.ProductName
+
 	if imageURL == "" {
 		return sizes, colors, stockData, nil
 	}
 
-	if productInfo.ProductType == "standard" {
-		stockData = DisneyInStockData{
-			PID:             productInfo.ID,
-			VID:             productInfo.ID,
-			ProductName:     productInfo.ProductName,
-			ItemURL:         BaseEndpoint + productInfo.ProductURL,
-			ImageURL:        imageURL,
-			Price:           int(price),
-			OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
-			QuantityLimit:   productInfo.QuantityLimit,
-			IsPreOrder:      productInfo.Availability.IsPreOrder,
-			IsBackOrder:     productInfo.Availability.IsBackOrder,
+	if productInfo.Available || !stockResponse.ATCState.IsDisabled || !stockResponse.ATCState.IsSoldOut {
+		if productInfo.ProductType == "standard" {
+			stockData = DisneyInStockData{
+				PID:             productInfo.ID,
+				VID:             productInfo.ID,
+				ProductName:     productInfo.ProductName,
+				ItemURL:         BaseEndpoint + productInfo.ProductURL,
+				ImageURL:        imageURL,
+				Price:           int(price),
+				OutOfPriceRange: monitor.PidWithInfo[pid].MaxPrice != -1 && monitor.PidWithInfo[pid].MaxPrice < int(price),
+				QuantityLimit:   productInfo.QuantityLimit,
+				IsPreOrder:      productInfo.Availability.IsPreOrder,
+				IsBackOrder:     productInfo.Availability.IsBackOrder,
+			}
+			return sizes, colors, stockData, nil
+		} else {
+			for _, variant := range productInfo.Variants {
+				if variant.Attribute == "size" {
+					for _, size := range variant.Values {
+						if size.Selectable {
+							sizes = append(sizes, size.Value)
+						}
+					}
+				}
+				if variant.Attribute == "color" {
+					for _, color := range variant.Values {
+						if color.Selectable {
+							colors = append(colors, color.Value)
+						}
+					}
+				}
+			}
 		}
-		return sizes, colors, stockData, nil
-	} else {
-		for _, variant := range productInfo.Variants {
-			if variant.Attribute == "size" {
-				for _, size := range variant.Values {
-					if size.Selectable {
-						sizes = append(sizes, size.Value)
-					}
-				}
-			}
-			if variant.Attribute == "color" {
-				for _, color := range variant.Values {
-					if color.Selectable {
-						colors = append(colors, color.Value)
-					}
-				}
-			}
+
+		// Filling VID just incase the ProductType is not standard but still has no variants like this product for some reason https://www.shopdisney.com/elsa-costume-wig-for-kids-frozen-2-428423206036.html?isProductSearch=0&plpPosition=9&guestFacing=Halloween%2520Shop-Costume%2520Accessories
+		stockData = DisneyInStockData{
+			VID:           productInfo.ID,
+			Price:         int(price),
+			ProductName:   productInfo.ProductName,
+			ItemURL:       BaseEndpoint + productInfo.ProductURL,
+			ImageURL:      imageURL,
+			QuantityLimit: productInfo.QuantityLimit,
+			IsPreOrder:    productInfo.Availability.IsPreOrder,
+			IsBackOrder:   productInfo.Availability.IsBackOrder,
 		}
 	}
 
-	stockData = DisneyInStockData{
-		Price:         int(price),
-		ProductName:   productInfo.ProductName,
-		ItemURL:       BaseEndpoint + productInfo.ProductURL,
-		ImageURL:      imageURL,
-		QuantityLimit: productInfo.QuantityLimit,
-		IsPreOrder:    productInfo.Availability.IsPreOrder,
-		IsBackOrder:   productInfo.Availability.IsBackOrder,
-	}
 	return sizes, colors, stockData, nil
 }
 

@@ -5,7 +5,9 @@ type MonitorStatus = string
 
 // Idle --> WaitingForProductData --> WaitingForInStock* --> SendingProductInfoToTasks --> WaitingForOutOfStock --> WaitingForInStock --> ...
 const (
-	MonitorIdle               MonitorStatus = "Idle"
+	MonitorIdle   MonitorStatus = "Idle"
+	MonitorFailed MonitorStatus = "FAIL: %s"
+
 	SettingUpMonitor          MonitorStatus = "Setting up"
 	BypassingPXMonitor        MonitorStatus = "Bypassing PX"
 	WaitingForProductData     MonitorStatus = "Searching"
@@ -15,6 +17,7 @@ const (
 	OutOfPriceRange           MonitorStatus = "Out of price range"
 	SendingProductInfoToTasks MonitorStatus = "Sending to tasks"
 	SentProductInfoToTasks    MonitorStatus = "Tasks in progress"
+	WaitingForCaptchaMonitor  MonitorStatus = "Waiting for Captcha"
 )
 
 type MonitorEventType = string
@@ -32,27 +35,52 @@ type TaskStatus = string
 
 // Idle --> LoggingIn* --> WaitingForMonitor --> AddingToCart --> ? --> CheckedOut
 const (
-	TaskIdle            TaskStatus = "Idle"
-	LoggingIn           TaskStatus = "Logging in"
+	TaskIdle   TaskStatus = "Idle"
+	TaskFailed TaskStatus = "FAIL: %s"
+
+	SettingUp        TaskStatus = "Setting up task"
+	SettingUpSuccess TaskStatus = "Set up task"
+	SettingUpFailure TaskStatus = "Error setting up task: %s"
+
+	LoggingIn    TaskStatus = "Logging in"
+	LoginSuccess TaskStatus = "Logged in"
+	LoginFailure TaskStatus = "Error logging in: %s"
+
+	EncryptingCardInfo        TaskStatus = "Encrypting card details"
+	EncryptingCardInfoSuccess TaskStatus = "Encrypted card details"
+	EncryptingCardInfoFailure TaskStatus = "Error encrypting card details: %s"
+
+	AddingToCart        TaskStatus = "Adding to cart"
+	AddingToCartSuccess TaskStatus = "Added to cart"
+	AddingToCartFailure TaskStatus = "Error adding to cart: %s"
+
+	SettingEmailAddress        TaskStatus = "Setting email address"
+	SettingEmailAddressSuccess TaskStatus = "Set email address"
+	SettingEmailAddressFailure TaskStatus = "Error setting email address: %s"
+
+	SettingShippingInfo        TaskStatus = "Setting shipping info"
+	SettingShippingInfoSuccess TaskStatus = "Set shipping info"
+	SettingShippingInfoFailure TaskStatus = "Error setting shipping info: %s"
+
+	SettingBillingInfo        TaskStatus = "Setting billing info"
+	SettingBillingInfoSuccess TaskStatus = "Set billing info"
+	SettingBillingInfoFailure TaskStatus = "Error setting billing info: %s"
+
+	CheckingOut        TaskStatus = "Checking out"
+	CheckingOutSuccess TaskStatus = "Checked out!"
+	CheckingOutFailure TaskStatus = "Error checking out: %s"
+	CardDeclined       TaskStatus = "Card declined"
+
 	WaitingForLogin     TaskStatus = "Waiting for login cookies"
-	SettingUp           TaskStatus = "Setting up task"
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
 	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
 	BypassingPX         TaskStatus = "Bypassing PX"
-	AddingToCart        TaskStatus = "Adding to cart"
 	GettingCartInfo     TaskStatus = "Getting cart info"
 	SettingCartInfo     TaskStatus = "Setting cart info"
 	GettingShippingInfo TaskStatus = "Getting shipping info"
-	SettingShippingInfo TaskStatus = "Setting shipping info"
-	EncryptingCardInfo  TaskStatus = "Encrypting card details"
 	GettingBillingInfo  TaskStatus = "Getting billing info"
-	SettingBillingInfo  TaskStatus = "Setting billing info"
 	GettingOrderInfo    TaskStatus = "Getting order info"
 	SettingOrderInfo    TaskStatus = "Setting order info"
-	CheckingOut         TaskStatus = "Checking out"
-	CheckedOut          TaskStatus = "Checked out!"
-	CardDeclined        TaskStatus = "Card declined"
-	CheckoutFailed      TaskStatus = "Checkout failed"
 )
 
 type TaskEventType = string
@@ -70,19 +98,20 @@ type Retailer = string
 
 // Choose one per Task/Monitor
 const (
-	Amazon      Retailer = "Amazon"
-	BestBuy     Retailer = "BestBuy"
-	BigCartel   Retailer = "BigCartel"
-	BoxLunch    Retailer = "BoxLunch"
-	Disney      Retailer = "Disney"
-	GameStop    Retailer = "GameStop"
-	HotTopic    Retailer = "HotTopic"
-	Newegg      Retailer = "Newegg"
-	Shopify     Retailer = "Shopify"
-	SquareSpace Retailer = "SquareSpace"
-	Target      Retailer = "Target"
-	Topps       Retailer = "Topps"
-	Walmart     Retailer = "Walmart"
+	Amazon        Retailer = "Amazon"
+	BestBuy       Retailer = "BestBuy"
+	BigCartel     Retailer = "BigCartel"
+	BoxLunch      Retailer = "BoxLunch"
+	Disney        Retailer = "Disney"
+	GameStop      Retailer = "GameStop"
+	HotTopic      Retailer = "HotTopic"
+	Newegg        Retailer = "Newegg"
+	PokemonCenter Retailer = "PokemonCenter"
+	Shopify       Retailer = "Shopify"
+	SquareSpace   Retailer = "SquareSpace"
+	Target        Retailer = "Target"
+	Topps         Retailer = "Topps"
+	Walmart       Retailer = "Walmart"
 )
 
 type ShopifyRetailer = string
@@ -129,6 +158,14 @@ type PaymentType = string
 const (
 	PaymentTypeSAVED PaymentType = "SAVED"
 	PaymentTypeNEW   PaymentType = "NEW"
+)
+
+// AddressType is used to choose which address info to use (stored in account / profile)
+type AddressType = string
+
+const (
+	AddressTypeSAVED AddressType = "SAVED"
+	AddressTypeNEW   AddressType = "NEW"
 )
 
 // CheckoutType is used to choose how the user will receive the item (shipping / pickup)

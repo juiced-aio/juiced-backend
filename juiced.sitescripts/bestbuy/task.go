@@ -41,20 +41,24 @@ func CreateBestbuyTask(task *entities.Task, profile entities.Profile, proxyGroup
 	}
 	if proxyGroup != nil {
 		bestbuyTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		bestbuyTask.Task.Proxy = nil
 	}
 	return bestbuyTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -72,17 +76,27 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.Task.StopFlag = true
 	}()
+	task.StockData = BestbuyInStockData{}
+	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
-	if task.Task.Task.TaskQty == 0 {
+	if task.Task.Task.TaskQty <= 0 {
 		task.Task.Task.TaskQty = 1
 	}
 
@@ -100,10 +114,13 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
-			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart, 10)
 			sessionMade = task.Login()
+			if sessionMade {
+				task.ClearCart()
+			}
 		case enums.TaskTypeGuest:
-			task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			task.PublishEvent(enums.SettingUp, enums.TaskStart, 10)
 			sessionMade = BecomeGuest(task.Task.Client)
 		}
 
@@ -112,14 +129,14 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
 	// 2. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	// 3. AddtoCart / Handle a queue
 	addedToCart := false
 	for !addedToCart {
@@ -137,7 +154,7 @@ func (task *Task) RunTask() {
 		return
 	}
 
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 35)
 
 	startTime := time.Now()
 	// 4. Checkout
@@ -153,7 +170,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 60)
 	// 5. SetShippingInfo
 
 	setShippingInfo := false
@@ -168,7 +185,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 75)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
 	doNotRetry := false
@@ -183,20 +200,22 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 7. PlaceOrder
 	placedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status != enums.OrderStatusFailed || retries > common.MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -209,12 +228,34 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
+	default:
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, status), enums.TaskComplete, 100)
 	}
+
+	quantity := task.Task.Task.TaskQty
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateBestbuyEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.BestBuy,
+		Price:        float64(task.StockData.Price),
+		Quantity:     quantity,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
@@ -367,7 +408,7 @@ func (task *Task) Login() bool {
 		fmt.Println(err.Error())
 		return false
 	}
-	fmt.Println(loginResponse)
+
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
@@ -395,14 +436,46 @@ func (task *Task) Login() bool {
 	return true
 }
 
+func (task *Task) ClearCart() bool {
+	var clearCartResponse ClearCartResponse
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client:             task.Task.Client,
+		Method:             "GET",
+		URL:                CartInfoEndpoint,
+		RawHeaders:         DefaultRawHeaders,
+		ResponseBodyStruct: &clearCartResponse,
+	})
+	ok := util.HandleErrors(err, util.RequestDoError)
+	if !ok || resp.StatusCode != 200 {
+		return false
+	}
+
+	for _, lineItem := range clearCartResponse.Cart.Lineitems {
+		resp, _, err := util.MakeRequest(&util.Request{
+			Client:     task.Task.Client,
+			Method:     "DELETE",
+			URL:        BaseEndpoint + fmt.Sprintf("/cart/item/%v", lineItem.ID),
+			RawHeaders: DefaultRawHeaders,
+		})
+		ok := util.HandleErrors(err, util.RequestDoError)
+		if !ok || resp.StatusCode != 200 {
+			return false
+		}
+	}
+
+	return true
+}
+
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
-		if task.CheckoutInfo.SKUInStock != "" {
+		if task.StockData.SKU != "" {
+			task.Task.HasStockData = true
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
@@ -415,11 +488,11 @@ func (task *Task) AddToCart() bool {
 		Items: []Items{},
 	}
 	quantity := task.Task.Task.TaskQty
-	if task.CheckoutInfo.MaxQuantity != 0 && quantity > task.CheckoutInfo.MaxQuantity {
-		quantity = task.CheckoutInfo.MaxQuantity
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
 	}
 	for i := 0; i < quantity; i++ {
-		addToCartRequest.Items = append(addToCartRequest.Items, Items{Skuid: task.CheckoutInfo.SKUInStock})
+		addToCartRequest.Items = append(addToCartRequest.Items, Items{Skuid: task.StockData.SKU})
 	}
 
 	data, _ := json.Marshal(addToCartRequest)
@@ -435,8 +508,7 @@ func (task *Task) AddToCart() bool {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
-					// TODO @Humphrey: Check if this returns true/false (everywhere it's used)
-					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU), BaseEndpoint, AkamaiEndpoint)
 					if err != nil {
 						return false
 					}
@@ -459,7 +531,7 @@ func (task *Task) AddToCart() bool {
 				{"sec-fetch-site", "same-origin"},
 				{"sec-fetch-mode", "cors"},
 				{"sec-fetch-dest", "empty"},
-				{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock)},
+				{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU)},
 				{"accept-encoding", "gzip, deflate, br"},
 				{"accept-language", "en-US,en;q=0.9"},
 			},
@@ -481,10 +553,12 @@ func (task *Task) AddToCart() bool {
 				if err != nil {
 					return false
 				}
-				task.CheckoutInfo.MaxQuantity, err = strconv.Atoi(quantity)
+				task.StockData.MaxQuantity, err = strconv.Atoi(quantity)
 				if err != nil {
 					return false
 				}
+
+				return false
 			case "CONSTRAINED_ITEM":
 				handled = task.HandleQueue(resp, data)
 			}
@@ -512,12 +586,12 @@ func (task *Task) HandleQueue(resp *http.Response, data []byte) (handled bool) {
 	fmt.Println(times)
 	if times < 6 {
 		// @silent: I added these just because, I think the users will like something like this though
-		task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Joining Queue", enums.TaskUpdate)
+		task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Joining Queue", enums.TaskUpdate, 40)
 		for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 			if cookie.Name == "_abck" {
 				validator, _ := util.FindInString(cookie.Value, "~", "~")
 				if validator == "-1" {
-					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock), BaseEndpoint, AkamaiEndpoint)
+					err := util.NewAbck(&task.Task.Client, fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU), BaseEndpoint, AkamaiEndpoint)
 					if err != nil {
 						return
 					}
@@ -546,7 +620,7 @@ func (task *Task) HandleQueue(resp *http.Response, data []byte) (handled bool) {
 				return
 			}
 		}
-		task.PublishEvent("Queue is up", enums.TaskUpdate)
+		task.PublishEvent("Queue is up", enums.TaskUpdate, 45)
 		fmt.Println("Out of Queue")
 		addToCartResponse := AddToCartResponse{}
 		resp, _, err = util.MakeRequest(&util.Request{
@@ -566,7 +640,7 @@ func (task *Task) HandleQueue(resp *http.Response, data []byte) (handled bool) {
 				{"sec-fetch-site", "same-origin"},
 				{"sec-fetch-mode", "cors"},
 				{"sec-fetch-dest", "empty"},
-				{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock)},
+				{"referer", fmt.Sprintf("https://www.bestbuy.com/site/%v.p?skuId=%v", task.StockData.SKU, task.StockData.SKU)},
 				{"accept-encoding", "gzip, deflate, br"},
 				{"accept-language", "en-US,en;q=0.9"},
 			},
@@ -588,17 +662,19 @@ func (task *Task) HandleQueue(resp *http.Response, data []byte) (handled bool) {
 				if err != nil {
 					return
 				}
-				task.CheckoutInfo.MaxQuantity, err = strconv.Atoi(quantity)
+				task.StockData.MaxQuantity, err = strconv.Atoi(quantity)
 				if err != nil {
 					return
 				}
+
+				return false
 			case "CONSTRAINED_ITEM":
 				return task.HandleQueue(resp, data)
 			}
 		}
 		return
 	} else {
-		task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Retrying", enums.TaskUpdate)
+		task.PublishEvent("Queued for "+fmt.Sprint(int(times))+" minutes, Retrying", enums.TaskUpdate, 35)
 		//	As a guest you do not ever get blocked adding to cart, but while logged in you will get blocked
 		if task.TaskType == enums.TaskTypeGuest {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -636,16 +712,20 @@ func (task *Task) Checkout() bool {
 		if err != nil {
 			return false
 		}
-		fmt.Println(orderData.Items)
+
+		var itemIDs []string
+		for _, item := range orderData.Items {
+			itemIDs = append(itemIDs, item.ID)
+		}
+
 		if len(orderData.Items) > 0 {
 			task.CheckoutInfo.ID = orderData.ID
-			task.CheckoutInfo.ItemID = orderData.Items[0].ID
+			task.CheckoutInfo.ItemIDs = append(task.CheckoutInfo.ItemIDs, itemIDs...)
 			task.CheckoutInfo.PaymentID = orderData.Payment.ID
 			task.CheckoutInfo.OrderID = orderData.Customerorderid
-			task.CheckoutInfo.ImageURL = orderData.Items[0].Meta.Imageurl + ";canvasHeight=500;canvasWidth=500"
-			task.CheckoutInfo.ItemName = orderData.Items[0].Meta.Shortlabel
+			return true
 		}
-		return true
+
 	}
 
 	return false
@@ -667,19 +747,18 @@ func (task *Task) SetShippingInfo() bool {
 	}
 
 	var shipOrPickupRequest ShipOrPickupRequest
-	if task.LocationID == "" {
-		shipOrPickupRequest = ShipOrPickupRequest{
-			{
-				ID: task.CheckoutInfo.ItemID,
+
+	for _, itemID := range task.CheckoutInfo.ItemIDs {
+		if task.LocationID == "" {
+			shipOrPickupRequest = append(shipOrPickupRequest, ShipOrPickup{
+				ID: itemID,
 				Selectedfulfillment: Selectedfulfillment1{
 					Shipping: Shipping1{},
 				},
-			},
-		}
-	} else {
-		shipOrPickupRequest = ShipOrPickupRequest{
-			{
-				ID:                   task.CheckoutInfo.ItemID,
+			})
+		} else {
+			shipOrPickupRequest = append(shipOrPickupRequest, ShipOrPickup{
+				ID:                   itemID,
 				StoreFulfillmentType: "InStore",
 				Type:                 "DEFAULT",
 				Selectedfulfillment: Selectedfulfillment1{
@@ -690,7 +769,7 @@ func (task *Task) SetShippingInfo() bool {
 						IsSTSAvailable:        false,
 					},
 				},
-			},
+			})
 		}
 	}
 
@@ -727,9 +806,7 @@ func (task *Task) SetShippingInfo() bool {
 		Data:              data,
 		RequestBodyStruct: shipOrPickupRequest,
 	})
-	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok || resp.StatusCode != 200 {
 		log.Println(604)
 		log.Println(err.Error())
@@ -741,34 +818,35 @@ func (task *Task) SetShippingInfo() bool {
 		Smsnotifynumber: "",
 		Smsoptin:        false,
 		Emailaddress:    task.Task.Profile.Email,
-		Items: []ShipItems{
-			{
-				ID:   task.CheckoutInfo.ItemID,
-				Type: "DEFAULT",
-				Selectedfulfillment: Selectedfulfillment{
-					Shipping: Shipping{
-						Address: ShipAddress{
-							Country:             task.Task.Profile.ShippingAddress.CountryCode,
-							Savetoprofile:       false,
-							Street2:             strings.ToUpper(task.Task.Profile.ShippingAddress.Address2),
-							Useaddressasbilling: false,
-							Middleinitial:       "",
-							Lastname:            task.Task.Profile.ShippingAddress.LastName,
-							Street:              strings.ToUpper(task.Task.Profile.ShippingAddress.Address1),
-							City:                strings.ToUpper(task.Task.Profile.ShippingAddress.City),
-							Override:            false,
-							Zipcode:             task.Task.Profile.ShippingAddress.ZipCode,
-							State:               task.Task.Profile.ShippingAddress.StateCode,
-							Firstname:           task.Task.Profile.ShippingAddress.FirstName,
-							Iswishlistaddress:   false,
-							Dayphonenumber:      task.Task.Profile.PhoneNumber,
-							Type:                "RESIDENTIAL",
-						},
+		Items:           []ShipItems{},
+	}
+	for _, itemID := range task.CheckoutInfo.ItemIDs {
+		setShippingRequest.Items = append(setShippingRequest.Items, ShipItems{
+			ID:   itemID,
+			Type: "DEFAULT",
+			Selectedfulfillment: Selectedfulfillment{
+				Shipping: Shipping{
+					Address: ShipAddress{
+						Country:             task.Task.Profile.ShippingAddress.CountryCode,
+						Savetoprofile:       false,
+						Street2:             task.Task.Profile.ShippingAddress.Address2,
+						Useaddressasbilling: false,
+						Middleinitial:       "",
+						Lastname:            task.Task.Profile.ShippingAddress.LastName,
+						Street:              task.Task.Profile.ShippingAddress.Address1,
+						City:                task.Task.Profile.ShippingAddress.City,
+						Override:            false,
+						Zipcode:             task.Task.Profile.ShippingAddress.ZipCode,
+						State:               task.Task.Profile.ShippingAddress.StateCode,
+						Firstname:           task.Task.Profile.ShippingAddress.FirstName,
+						Iswishlistaddress:   false,
+						Dayphonenumber:      task.Task.Profile.PhoneNumber,
+						Type:                "RESIDENTIAL",
 					},
 				},
-				Giftmessageselected: false,
 			},
-		},
+			Giftmessageselected: false,
+		})
 	}
 	data, err = json.Marshal(setShippingRequest)
 	ok = util.HandleErrors(err, util.RequestMarshalBodyError)
@@ -805,16 +883,12 @@ func (task *Task) SetShippingInfo() bool {
 		Data:               data,
 		ResponseBodyStruct: &setShippingResponse,
 	})
-	log.Println(err == nil)
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok {
 		log.Println(604)
 		log.Println(err.Error())
 		return false
 	}
-
-	log.Println(resp.StatusCode)
 
 	if resp.StatusCode != 200 {
 		log.Println(606)
@@ -834,7 +908,6 @@ func (task *Task) SetShippingInfo() bool {
 		}
 	}
 
-	log.Println("request 2")
 	resp, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -859,14 +932,11 @@ func (task *Task) SetShippingInfo() bool {
 		},
 	})
 	ok = util.HandleErrors(err, util.RequestDoError)
-	log.Println(ok)
 	if !ok {
 		log.Println(642)
 		log.Println(err.Error())
 		return false
 	}
-
-	log.Println(resp.StatusCode)
 
 	switch resp.StatusCode {
 	case 200:
@@ -1086,7 +1156,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 }
 
 // PlaceOrder completes the checkout by placing the order then sends a webhook depending on if successfully checked out or not
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	for _, cookie := range task.Task.Client.Jar.Cookies(ParsedBase) {
 		if cookie.Name == "_abck" {
@@ -1206,7 +1276,10 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 				status = enums.OrderStatusDeclined
 			case "ITEM_EXCEEDED_ORDER_LIMIT":
 				fmt.Println("Order limit exceeded")
-				status = enums.OrderStatusDeclined
+				status = "Item limit exceeded"
+			case "ACCOUNT_CREATION_REQUIRED":
+				fmt.Println("Account creation required")
+				status = "Account Required"
 			default:
 				fmt.Println("Failed to Checkout", placeOrderResponse)
 				status = enums.OrderStatusFailed
@@ -1218,26 +1291,6 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = false
 
 	}
-
-	quantity := task.Task.Task.TaskQty
-	if task.CheckoutInfo.MaxQuantity != 0 && quantity > task.CheckoutInfo.MaxQuantity {
-		quantity = task.CheckoutInfo.MaxQuantity
-	}
-
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateBestbuyEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.CheckoutInfo.ItemName,
-		ImageURL:     task.CheckoutInfo.ImageURL,
-		Sku:          task.CheckoutInfo.SKUInStock,
-		Retailer:     enums.BestBuy,
-		Price:        float64(task.CheckoutInfo.Price),
-		Quantity:     quantity,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
 
 	return success, status
 }

@@ -20,7 +20,7 @@ const (
 	MonitorEndpoint = "https://www.bestbuy.com/api/3.0/priceBlocks?skus=%v"
 	//{"zipCode":null,"destinationZipCode":null,"showInStore":false,"showOnShelf":false,"additionalStores":null,"items":[{"sku": "6439299"}],"lookupInStoreQuantity":false,"consolidated":false,"locationId":null,"xboxAllAccess":false,"showOnlyOnShelf":false,"onlyBestBuyLocations":false}
 	AddToCartEndpoint            = "https://www.bestbuy.com/cart/api/v1/addToCart"
-	CartInfoEndpoint             = "https://www.bestbuy.com/cart/api/v1/fulfillment/ispu"
+	CartInfoEndpoint             = "https://www.bestbuy.com/cart/json"
 	CheckoutEndpoint             = "https://www.bestbuy.com/checkout/r/fast-track"
 	GetStoreAvailabilityEndpoint = "https://www.bestbuy.com/productfulfillment/com/api/2.0/storeAvailability"
 	BaseShippingEndpoint         = "https://www.bestbuy.com/checkout/r/fulfillment"
@@ -38,20 +38,21 @@ type AddHeadersFunction func(*http.Request, ...string)
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	SKUsSentToTask  []string
-	RunningMonitors []string
-	OutOfStockSKUs  []string
-	SKUs            []string
-	InStock         []BestbuyInStockData
-	SKUWithInfo     map[string]entities.BestbuySingleMonitorInfo
+	Monitor        base.Monitor
+	SKUsSentToTask []string
+	OutOfStockSKUs []string
+	SKUs           []string
+	InStock        []BestbuyInStockData
+	SKUWithInfo    map[string]entities.BestbuySingleMonitorInfo
 }
 
 type BestbuyInStockData struct {
-	SKU         string
-	ProductName string
-	ImageURL    string
-	Price       int
+	SKU             string
+	OutOfPriceRange bool
+	ProductName     string
+	ImageURL        string
+	Price           int
+	MaxQuantity     int
 }
 
 var DefaultRawHeaders = [][2]string{
@@ -90,21 +91,16 @@ type Task struct {
 	Task         base.Task
 	TaskType     enums.TaskType
 	CheckoutInfo CheckoutInfo
+	StockData    BestbuyInStockData
 	AccountInfo  AccountInfo
 	LocationID   string
 }
-
 type CheckoutInfo struct {
-	SKUInStock  string
-	ID          string
-	ItemID      string
-	PaymentID   string
-	OrderID     string
-	ThreeDsID   string
-	ImageURL    string
-	Price       int
-	ItemName    string
-	MaxQuantity int
+	ID        string
+	ItemIDs   []string
+	PaymentID string
+	OrderID   string
+	ThreeDsID string
 }
 
 type AccountInfo struct {
@@ -271,6 +267,18 @@ type LoginResponse struct {
 	Redirecturl    string        `json:"redirectUrl"`
 	Flowoptions    string        `json:"flowOptions"`
 	Missingfields  []interface{} `json:"missingFields"`
+}
+
+type ClearCartResponse struct {
+	Cart Cart `json:"cart"`
+}
+
+type Cart struct {
+	Lineitems []Lineitems `json:"lineItems"`
+}
+
+type Lineitems struct {
+	ID string `json:"id"`
 }
 
 type MonitorRequest struct {
@@ -758,7 +766,9 @@ type ItemsSelectedfulfillment struct {
 	Shipping ItemsShipping `json:"shipping"`
 }
 
-type ShipOrPickupRequest []struct {
+type ShipOrPickupRequest []ShipOrPickup
+
+type ShipOrPickup struct {
 	ID                   string               `json:"id"`
 	StoreFulfillmentType string               `json:"storeFulfillmentType,omitempty"`
 	Type                 string               `json:"type,omitempty"`

@@ -124,53 +124,63 @@ again:
 		goto again
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, asin) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
-
-		stockData := AmazonInStockData{}
-		switch monitor.ASINWithInfo[asin].MonitorType {
-		case enums.SlowSKUMonitor:
-			stockData = monitor.TurboMonitor(asin)
-		case enums.FastSKUMonitor:
-			stockData = monitor.OFIDMonitor(asin)
-		}
-
-		if stockData.ASIN != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, asin)
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.ASIN == stockData.ASIN
-			}
-			if !inSlice {
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-				})
-				monitor.InStock = append(monitor.InStock, stockData)
-			}
-		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
-				}
-			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.ASIN == stockData.ASIN {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
-			}
+	defer func() {
+		if recover() != nil {
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(asin)
 		}
+	}()
+
+	stockData := AmazonInStockData{}
+	switch monitor.ASINWithInfo[asin].MonitorType {
+	case enums.SlowSKUMonitor:
+		stockData = monitor.TurboMonitor(asin)
+	case enums.FastSKUMonitor:
+		stockData = monitor.OFIDMonitor(asin)
 	}
+
+	if stockData.OfferID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.ASIN == stockData.ASIN
+		}
+		if !inSlice {
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+			})
+			monitor.InStock = append(monitor.InStock, stockData)
+		}
+	} else {
+		if stockData.OutOfPriceRange {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.OutOfPriceRange {
+				monitor.PublishEvent(enums.OutOfPriceRange, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		} else {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+					Products: []events.Product{
+						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+				})
+			}
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.ASIN == stockData.ASIN {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
+			}
+		}
+	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(asin)
 }
 
 // A lot of the stuff that I'm doing either seems useless or dumb but Cloudfront is Ai based and the more entropy/randomness you add to every request
@@ -256,87 +266,117 @@ func (monitor *Monitor) StockInfo(ua, urL, body, asin string) AmazonInStockData 
 		item := doc.Find("span", "data-action", "aod-atc-action")
 		if item.Error != nil {
 			item := doc.Find("input", "name", "offeringID.1")
-			if item.Error != nil {
-				return stockData
-			} else {
+			if item.Error == nil {
 				ofid = item.Attrs()["value"]
 			}
 		} else {
 			jsonMap := make(map[string]string)
-			json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
-			ofid = jsonMap["oid"]
+			err = json.Unmarshal([]byte(item.Attrs()["data-aod-atc-action"]), &jsonMap)
+			if err == nil {
+				ofid = jsonMap["oid"]
+			}
 		}
 
-		merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
-		priceStr = doc.Find("span", "class", "a-price-whole").Text()
-		itemName = doc.Find("h5", "id", "aod-asin-title-text").Text()
-		imageURL = doc.Find("img", "id", "aod-asin-image-id").Attrs()["src"]
+		item = doc.Find("input", "id", "ftSelectMerchant")
+		if item.Error == nil {
+			merchantID = item.Attrs()["value"]
+		}
+
+		price := doc.Find("span", "class", "a-price-whole")
+		if price.Error == nil {
+			priceStr = price.Text()
+		}
+
+		item = doc.Find("h5", "id", "aod-asin-title-text")
+		if item.Error == nil {
+			itemName = item.Text()
+		}
+
+		item = doc.Find("img", "id", "aod-asin-image-id")
+		if item.Error == nil {
+			imageURL = item.Attrs()["src"]
+		}
+
 	} else {
-		if doc.Find("input", "name", "offerListingID").Error == nil {
-			ofid = doc.Find("input", "name", "offerListingID").Attrs()["value"]
+		item := doc.Find("input", "name", "offerListingID")
+		if item.Error == nil {
+			ofid = item.Attrs()["value"]
 		} else {
 			ofid, err = util.FindInString(body, `name="offerListingId" value="`, `"`)
 			if err != nil {
 				return stockData
 			}
 		}
-		if doc.Find("input", "name", "merchantID").Error == nil {
-			merchantID = doc.Find("input", "name", "merchantID").Attrs()["value"]
+
+		item = doc.Find("input", "name", "merchantID")
+		if item.Error == nil {
+			merchantID = item.Attrs()["value"]
 		} else {
-			if doc.Find("input", "id", "ftSelectMerchant").Error == nil {
-				merchantID = doc.Find("input", "id", "ftSelectMerchant").Attrs()["value"]
+
+			item = doc.Find("input", "id", "ftSelectMerchant")
+			if item.Error == nil {
+				merchantID = item.Attrs()["value"]
 			} else {
 				return stockData
 			}
 
 		}
 
-		item := doc.Find("div", "data-a-image-name", "immersiveViewMainImage")
+		item = doc.Find("div", "data-a-image-name", "immersiveViewMainImage")
 		if item.Error == nil {
 			imageURL = item.Attrs()["data-a-hires"]
+		} else {
+			item := doc.Find("img", "data-a-image-name", "landingImage")
+			if item.Error == nil {
+				imageURL = item.Attrs()["data-a-hires"]
+			}
 		}
-		item = doc.Find("span", "class", "a-price-whole")
+
+		span := doc.Find("span", "id", "tp_price_block_total_price_ww")
+		if span.Error == nil {
+			price := span.Find("span", "class", "a-price-whole")
+			if price.Error == nil {
+				priceStr = price.Text()
+			}
+		}
+
+		item = doc.Find("div", "id", "comparison_title1")
 		if item.Error == nil {
-			priceStr = item.Text()
-		}
-		if doc.Find("div", "id", "comparison_title1").Error == nil {
-			title := doc.Find("div", "id", "comparison_title1").FindAll("span")
+			title := item.FindAll("span")
 			for _, source := range title {
 				itemName = source.Text()
 			}
 		} else {
-			title := doc.Find("title").Text()
-			itemName, err = util.FindInString(title, "Amazon.com:", ":")
-			if err != nil {
-				itemName, err = util.FindInString(title, "AmazonSmile:", ":")
+			item := doc.Find("title")
+			if item.Error == nil {
+				title := item.Text()
+				itemName, err = util.FindInString(title, "Amazon.com:", ":")
 				if err != nil {
-					return stockData
+					itemName, err = util.FindInString(title, "AmazonSmile:", ":")
+					if err != nil {
+						return stockData
+					}
 				}
 			}
+
 		}
 	}
 
-	if ofid == "" {
-		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return stockData
-	}
-	if merchantID != "ATVPDKIKX0DER" {
-		monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
-		return stockData
+	price, err := strconv.ParseFloat(priceStr, 64)
+	stockData = AmazonInStockData{
+		ASIN:        asin,
+		OfferID:     ofid,
+		Price:       price,
+		ItemName:    itemName,
+		ImageURL:    imageURL,
+		UA:          ua,
+		MonitorType: enums.SlowSKUMonitor,
 	}
 
-	price, _ := strconv.ParseFloat(priceStr, 64)
-	inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
-	if inBudget {
-		stockData = AmazonInStockData{
-			ASIN:        asin,
-			OfferID:     ofid,
-			Price:       price,
-			ItemName:    itemName,
-			ImageURL:    imageURL,
-			UA:          ua,
-			MonitorType: enums.SlowSKUMonitor,
-		}
+	inBudget := monitor.ASINWithInfo[asin].MaxPrice == -1 || (err == nil && price != 0 && merchantID == "ATVPDKIKX0DER" && float64(monitor.ASINWithInfo[asin].MaxPrice) >= price)
+	if !inBudget {
+		stockData.OfferID = ""
+		stockData.OutOfPriceRange = true
 	}
 
 	return stockData
@@ -405,7 +445,6 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 	}
 
 	// It is impossible to know if the OfferID actually exists so it's up to the user here when running OfferID mode/Fast mode
-	monitor.RunningMonitors = append(monitor.RunningMonitors, asin)
 	switch resp.StatusCode {
 	case 200:
 		var imageURL string
@@ -439,22 +478,26 @@ func (monitor *Monitor) OFIDMonitor(asin string) AmazonInStockData {
 			priceStr := strings.ReplaceAll(item.Text(), " ", "")
 			priceStr = strings.ReplaceAll(priceStr, "\n", "")
 			priceStr = strings.ReplaceAll(priceStr, "$", "")
-			price, _ = strconv.ParseFloat(priceStr, 64)
+			price, err = strconv.ParseFloat(priceStr, 64)
 		}
-		inBudget := float64(monitor.ASINWithInfo[asin].MaxPrice) >= price || monitor.ASINWithInfo[asin].MaxPrice == -1
-		if inBudget {
-			stockData = AmazonInStockData{
-				ASIN:        asin,
-				OfferID:     monitor.ASINWithInfo[asin].OFID,
-				AntiCsrf:    antiCSRF,
-				PID:         pid,
-				RID:         rid,
-				ImageURL:    imageURL,
-				Price:       price,
-				UA:          ua,
-				Client:      currentClient,
-				MonitorType: enums.FastSKUMonitor,
-			}
+
+		stockData = AmazonInStockData{
+			ASIN:        asin,
+			OfferID:     monitor.ASINWithInfo[asin].OFID,
+			AntiCsrf:    antiCSRF,
+			PID:         pid,
+			RID:         rid,
+			ItemName:    asin,
+			ImageURL:    imageURL,
+			Price:       price,
+			UA:          ua,
+			Client:      currentClient,
+			MonitorType: enums.FastSKUMonitor,
+		}
+		inBudget := monitor.ASINWithInfo[asin].MaxPrice == -1 || (err == nil && price != 0 && float64(monitor.ASINWithInfo[asin].MaxPrice) >= price)
+		if !inBudget {
+			stockData.OfferID = ""
+			stockData.OutOfPriceRange = true
 		}
 		return stockData
 	case 503:

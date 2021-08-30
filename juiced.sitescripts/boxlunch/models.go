@@ -34,16 +34,15 @@ const (
 	SubmitOrderReferer  = "https://www.boxlunch.com/cart?dwcont="
 
 	MonitorEndpoint  = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
-	MonitorEndpoint2 = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color="
+	MonitorEndpoint2 = "https://www.boxlunch.com/on/demandware.store/Sites-boxlunch-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color=%v&dwvar_%s_size=%v"
 )
 
 // Monitor info
 type Monitor struct {
-	Monitor         base.Monitor
-	RunningMonitors []string
-	Pids            []string
-	InStock         []BoxlunchInStockData
-	PidWithInfo     map[string]entities.BoxlunchSingleMonitorInfo
+	Monitor     base.Monitor
+	Pids        []string
+	InStock     []BoxlunchInStockData
+	PidWithInfo map[string]entities.BoxlunchSingleMonitorInfo
 }
 
 type BoxlunchInStockData struct {

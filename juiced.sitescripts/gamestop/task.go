@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
@@ -36,20 +37,24 @@ func CreateGamestopTask(task *entities.Task, profile entities.Profile, proxyGrou
 	}
 	if proxyGroup != nil {
 		gamestopTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		gamestopTask.Task.Proxy = nil
 	}
 	return gamestopTask, nil
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -67,17 +72,27 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.Task.StopFlag = true
 	}()
+	task.StockData = GamestopInStockData{}
+	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
-	if task.Task.Task.TaskQty == 0 {
+	if task.Task.Task.TaskQty <= 0 {
 		task.Task.Task.TaskQty = 1
 	}
 
@@ -95,10 +110,10 @@ func (task *Task) RunTask() {
 		}
 		switch task.TaskType {
 		case enums.TaskTypeAccount:
-			task.PublishEvent(enums.LoggingIn, enums.TaskStart)
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart, 10)
 			sessionMade = task.Login()
 		case enums.TaskTypeGuest:
-			task.PublishEvent(enums.SettingUp, enums.TaskStart)
+			task.PublishEvent(enums.SettingUp, enums.TaskStart, 10)
 			sessionMade = BecomeGuest(&task.Task.Client)
 		}
 
@@ -107,14 +122,14 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
 	// 2. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	// 3. AddToCart
 	addedToCart := false
 	for !addedToCart {
@@ -128,7 +143,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 60)
 	startTime := time.Now()
 	// 4. Checkout
 	gotCartInfo := false
@@ -143,9 +158,8 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	// 5. SetShippingInfo
-
 	setShippingInfo := false
 	for !setShippingInfo {
 		needToStop := task.CheckForStop()
@@ -158,7 +172,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
 	// 6. SetPaymentInfo
 	setPaymentInfo := false
 	doNotRetry := false
@@ -173,21 +187,23 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	// 7. PlaceOrder
 	placedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
 
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -200,25 +216,49 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateGamestopEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ItemName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.GameStop,
+		Price:        task.StockData.Price,
+		Quantity:     quantity,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
 // Logs the main client in
 func (task *Task) Login() bool {
-	_, _, err := util.MakeRequest(&util.Request{
+	_, body, err := util.MakeRequest(&util.Request{
 		Client:     task.Task.Client,
 		Method:     "GET",
-		URL:        BaseEndpoint,
+		URL:        BaseLoginEndpoint,
 		RawHeaders: DefaultRawHeaders,
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+	}
+	csrf, err := util.FindInString(body, `name="csrf_token" value="`, `"`)
+	if err != nil {
+		return false
 	}
 
 	err = util.NewAbck(&task.Task.Client, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint)
@@ -232,6 +272,7 @@ func (task *Task) Login() bool {
 		"loginPassword":      {task.AccountInfo.Password},
 		"loginRememberMe":    {"true"},
 		"userTimezoneOffset": {"420"},
+		"csrf_token":         {csrf},
 	}
 	_, _, err = util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -295,12 +336,14 @@ func (task *Task) Login() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
 		if task.StockData.SKU != "" {
+			task.Task.HasStockData = true
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
@@ -308,7 +351,7 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 // AddToCart adds an item to the cart
-func (task *Task) AddToCart() bool {
+func (task *Task) AddToCart(token ...string) bool {
 	quantity := task.Task.Task.TaskQty
 	if quantity > task.StockData.MaxQuantity {
 		quantity = task.StockData.MaxQuantity
@@ -325,10 +368,13 @@ func (task *Task) AddToCart() bool {
 		"pageSpecified":  {"PDP"},
 		"recommTitle":    {""},
 	}
+	if len(token) > 0 {
+		form.Add("g-recaptcha-response", token[0])
+	}
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.SKU),
+		URL:    fmt.Sprintf(AddToCartEndpoint, task.StockData.PID),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -354,10 +400,36 @@ func (task *Task) AddToCart() bool {
 
 	switch resp.StatusCode {
 	case 200:
-		switch addToCartResponse.Message {
-		case "Added to cart":
+		if addToCartResponse.QuantityTotal > 0 {
 			return true
-		default:
+		} else {
+			if addToCartResponse.CaptchaProtected {
+				task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate, 30)
+				task.CheckoutInfo.CaptchaProtected = true
+				proxy := entities.Proxy{}
+				if task.Task.Proxy != nil {
+					proxy = *task.Task.Proxy
+				}
+				token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, "atc", 0.8, proxy)
+				if err != nil {
+					return false
+				}
+				for token == nil {
+					needToStop := task.CheckForStop()
+					if needToStop {
+						return false
+					}
+					token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, task.StockData.ProductURL, proxy)
+					time.Sleep(1 * time.Second / 10)
+				}
+				tokenInfo, ok := token.(entities.ReCaptchaToken)
+				if !ok {
+					return false
+				}
+				task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
+				return task.AddToCart(tokenInfo.Token)
+
+			}
 			return false
 		}
 	case 500:
@@ -546,13 +618,40 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 }
 
 // The final request to place the order
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	form := url.Values{
 		"klarnaOrderId":              {""},
 		"accertifyDeviceFingerprint": {""},
 	}
+
+	if task.CheckoutInfo.CaptchaProtected {
+		task.PublishEvent(enums.WaitingForCaptcha, enums.TaskUpdate, 90)
+		proxy := entities.Proxy{}
+		if task.Task.Proxy != nil {
+			proxy = *task.Task.Proxy
+		}
+		token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", "checkout", 0.8, proxy)
+		if err != nil {
+			return false, status
+		}
+		for token == nil {
+			needToStop := task.CheckForStop()
+			if needToStop {
+				return false, status
+			}
+			token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", proxy)
+			time.Sleep(1 * time.Second / 10)
+		}
+		tokenInfo, ok := token.(entities.ReCaptchaToken)
+		if !ok {
+			return false, status
+		}
+		form.Add("g-recaptcha-response", tokenInfo.Token)
+		task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
+	}
+
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -586,7 +685,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	case 200:
 		if placeOrderResponse.Error {
 			status = enums.OrderStatusFailed
-			if strings.Contains(placeOrderResponse.Errormessage, "another form of payment") {
+			if strings.Contains(placeOrderResponse.Errormessage, "another form of payment") || strings.Contains(placeOrderResponse.Errormessage, "The payment you submitted is not valid") {
 				fmt.Println("Card Declined")
 				status = enums.OrderStatusDeclined
 				success = false
@@ -599,25 +698,6 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		status = enums.OrderStatusFailed
 		success = false
 	}
-
-	quantity := task.Task.Task.TaskQty
-	if quantity > task.StockData.MaxQuantity {
-		quantity = task.StockData.MaxQuantity
-	}
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateGamestopEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ItemName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.GameStop,
-		Price:        task.StockData.Price,
-		Quantity:     quantity,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
 
 	return success, status
 

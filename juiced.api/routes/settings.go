@@ -43,5 +43,4 @@ func RouteSettingsEndpoints(router *mux.Router) {
 	router.HandleFunc("/api/settings/accounts/{ID}", endpoints.UpdateAccountEndpoint).Methods("PUT")
 	router.HandleFunc("/api/settings/accounts/remove", endpoints.RemoveAccountsEndpoint).Methods("POST")
 
-	router.HandleFunc("/api/settings/testWebhooks", endpoints.TestWebhooksEndpoint).Methods("POST")
 }

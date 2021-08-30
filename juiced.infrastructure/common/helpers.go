@@ -347,6 +347,13 @@ func Aes256Decrypt(encryptedText string, key string) (string, error) {
 
 // @silent: I just went to go make a commit in the Juiced-AIO repo but the ValidCardType function doesn't seem to be there
 func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
+	if len(string(cardNumber)) < 8 {
+		return false
+	}
+	if string(cardNumber)[:4] == "5859" || string(cardNumber)[:4] == "6394" {
+		return true
+	}
+
 	// Visa
 	matched, _ := regexp.Match(`^4`, cardNumber)
 	if matched {
@@ -393,6 +400,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 		switch retailer {
 		case enums.Topps:
 		case enums.GameStop:
+		case enums.Newegg:
 		case enums.Walmart:
 		default:
 			return true
@@ -407,6 +415,7 @@ func ValidCardType(cardNumber []byte, retailer enums.Retailer) bool {
 		case enums.BestBuy:
 		case enums.BoxLunch:
 		case enums.HotTopic:
+		case enums.Newegg:
 		case enums.Walmart:
 		default:
 			return true
