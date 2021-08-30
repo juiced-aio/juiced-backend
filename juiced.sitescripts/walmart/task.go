@@ -295,17 +295,19 @@ func (task *Task) RunTask() {
 	// 9. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	placedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -324,6 +326,26 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusFailed:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQty {
+		quantity = task.StockData.MaxQty
+	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.Walmart,
+		Price:        task.StockData.Price,
+		Quantity:     quantity,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -938,7 +960,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	data := PlaceOrderRequest{
@@ -1008,28 +1030,6 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		success = true
 		status = enums.OrderStatusSuccess
-	}
-
-	quantity := task.Task.Task.TaskQty
-	if quantity > task.StockData.MaxQty {
-		quantity = task.StockData.MaxQty
-	}
-
-	if success || status == enums.OrderStatusDeclined {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
-			ItemName:     task.StockData.ProductName,
-			ImageURL:     task.StockData.ImageURL,
-			Sku:          task.StockData.SKU,
-			Retailer:     enums.Walmart,
-			Price:        task.StockData.Price,
-			Quantity:     quantity,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
 	}
 
 	return success, status

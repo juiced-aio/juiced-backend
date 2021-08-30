@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http/cookiejar"
+
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -56,16 +58,17 @@ func (task *Task) CheckForStop() bool {
 // RunTask is the script driver that calls all the individual requests
 // Function order:
 //		1. BecomeGuest
-//		2. WaitForMonitor
-//		3. AddTocart
-//		4. ProceedToCheckout
-//		5. Checkout
-//		6. SubmitShippingInfo
-//		7. GetPaymentToken
-//		8. SubmitPaymentInfo
-//		9. InitOrder
-//		10. PlaceOrder
-//		11. Verify
+//		2. VerifyCookie
+//		3. WaitForMonitor
+//		4. AddTocart
+//		5. PrepareCheckout
+//		6. Checkout
+//		7. SubmitShippingInfo
+//		8. GetPaymentToken
+//		9. SubmitPaymentInfo
+//		10. InitOrder
+//		11. PlaceOrder
+//		12. Verify
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
@@ -99,6 +102,7 @@ func (task *Task) RunTask() {
 	}
 
 	task.PublishEvent(enums.SettingUp, enums.TaskStart, 5)
+retry:
 	// 1. BecomeGuest
 	becameGuest := false
 	for !becameGuest {
@@ -112,14 +116,31 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 2. WaitForMonitor
+	// 2. VerifyCookie
+	verifiedCookie := false
+	for !verifiedCookie {
+		needToStop := task.CheckForStop()
+		if needToStop {
+			return
+		}
+		retry := false
+		verifiedCookie, retry = task.VerifyCookie()
+		if !verifiedCookie {
+			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
+		}
+		if retry {
+			goto retry
+		}
+	}
+
+	// 3. WaitForMonitor
 	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 15)
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
-	// 3. AddTocart
+	// 4. AddTocart
 	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	addedToCart := false
 	for !addedToCart {
@@ -135,7 +156,7 @@ func (task *Task) RunTask() {
 
 	startTime := time.Now()
 
-	// 4. ProceedToCheckout
+	// 5. PrepareCheckout
 	task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate, 50)
 	preparedCheckout := false
 	for !preparedCheckout {
@@ -143,13 +164,18 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		preparedCheckout = task.PrepareCheckout()
+		retry := false
+		preparedCheckout, retry = task.PrepareCheckout()
 		if !preparedCheckout {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
+		if retry {
+			task.PublishEvent("Bad cookie. Retrying", enums.TaskUpdate, 50)
+			goto retry
+		}
 	}
 
-	// 5. Checkout
+	// 6. Checkout
 	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 60)
 	gotCheckout := false
 	for !gotCheckout {
@@ -163,7 +189,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 6. SubmitShippingInfo
+	// 7. SubmitShippingInfo
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
 	submittedShipping := false
 	for !submittedShipping {
@@ -177,7 +203,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 7. GetPaymentToken
+	// 8. GetPaymentToken
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
 	gotPaymentToken := false
 	for !gotPaymentToken {
@@ -191,7 +217,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 8. SubmitPaymentInfo
+	// 9. SubmitPaymentInfo
 	submittedPayment := false
 	for !submittedPayment {
 		needToStop := task.CheckForStop()
@@ -204,7 +230,7 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 9. InitOrder
+	// 10. InitOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 85)
 	initiatedOrder := false
 	for !initiatedOrder {
@@ -219,25 +245,27 @@ func (task *Task) RunTask() {
 		}
 	}
 
-	// 10. PlaceOrder
+	// 11. PlaceOrder
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	submittedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !submittedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		submittedOrder, status = task.PlaceOrder(startTime)
+		submittedOrder, status = task.PlaceOrder()
 		if !submittedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
 
-	// 11. Verify
+	// 12. Verify
 	go task.Verify()
 
 	endTime := time.Now()
@@ -252,6 +280,77 @@ func (task *Task) RunTask() {
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
 
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      submittedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.Newegg,
+		Price:        float64(task.StockData.Price),
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
+}
+
+func (task *Task) VerifyCookie() (bool, bool) {
+	prepareCheckoutRequest := PrepareCheckoutRequest{
+		Actions: []interface{}{},
+	}
+
+	data, _ := json.Marshal(prepareCheckoutRequest)
+
+	params, newSign := CreateExtras()
+	if params == "" || newSign == "" {
+		return false, false
+	}
+
+	parsedURL, _ := url.Parse(SecureBaseEndpoint)
+	task.Task.Client.Jar.SetCookies(parsedURL, []*http.Cookie{{
+		Name:   "NV%5FW57",
+		Value:  "USA",
+		Domain: ".newegg.com",
+		Path:   "/",
+	}})
+
+	respMap := make(map[string]interface{})
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    PrepareCheckoutEndpoint + "?" + params,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.131 Safari/537.36`},
+			{"content-type", `application/json`},
+			{"accept", `application/json, text/plain, */*`},
+			{"x-ne-sign", newSign},
+			{"x-requested-with", `XMLHttpRequest`},
+			{"x-ne-sign-type", `simple`},
+			{"origin", SecureBaseEndpoint},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", CartEndpoint},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+		Data:               data,
+		ResponseBodyStruct: &respMap,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		if resp.StatusCode == 403 {
+			cookieJar, _ := cookiejar.New(nil)
+			task.Task.Client.Jar = cookieJar
+			return false, true
+		}
+		return false, false
+	}
+	return true, false
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
@@ -322,7 +421,7 @@ func (task *Task) AddToCart() bool {
 	return true
 }
 
-func (task *Task) PrepareCheckout() bool {
+func (task *Task) PrepareCheckout() (bool, bool) {
 	prepareCheckoutRequest := PrepareCheckoutRequest{
 		Itemlist: []Itemlist{
 			{
@@ -339,16 +438,8 @@ func (task *Task) PrepareCheckout() bool {
 
 	params, newSign := CreateExtras()
 	if params == "" || newSign == "" {
-		return false
+		return false, false
 	}
-
-	parsedURL, _ := url.Parse(SecureBaseEndpoint)
-	task.Task.Client.Jar.SetCookies(parsedURL, []*http.Cookie{{
-		Name:   "NV%5FW57",
-		Value:  "USA",
-		Domain: ".newegg.com",
-		Path:   "/",
-	}})
 
 	respMap := make(map[string]interface{})
 	resp, _, err := util.MakeRequest(&util.Request{
@@ -376,14 +467,18 @@ func (task *Task) PrepareCheckout() bool {
 		ResponseBodyStruct: &respMap,
 	})
 	if err != nil || resp.StatusCode != 200 {
-		fmt.Println(err)
-		return false
+		if resp.StatusCode == 403 {
+			cookieJar, _ := cookiejar.New(nil)
+			task.Task.Client.Jar = cookieJar
+			return false, true
+		}
+		return false, false
 	}
 
 	var sessionID string
 	var ok bool
 	if sessionID, ok = respMap["SessionID"].(string); !ok {
-		return false
+		return false, false
 	}
 
 	task.TaskInfo.SessionID = sessionID
@@ -401,7 +496,7 @@ func (task *Task) PrepareCheckout() bool {
 
 	params, newSign = CreateExtras()
 	if params == "" || newSign == "" {
-		return false
+		return false, false
 	}
 
 	resp, _, err = util.MakeRequest(&util.Request{
@@ -429,10 +524,10 @@ func (task *Task) PrepareCheckout() bool {
 	})
 	if err != nil || resp.StatusCode != 200 {
 		fmt.Println(err)
-		return false
+		return false, false
 	}
 
-	return true
+	return true, false
 
 }
 
@@ -713,7 +808,7 @@ func (task *Task) InitOrder() bool {
 	return result == "Success"
 }
 
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	placeOrderRequest := PlaceOrderRequest{
 		Sessionid:               task.TaskInfo.SessionID,
@@ -766,30 +861,11 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	if placeOrderResponse.Result != "Success" {
 		return false, status
 	}
-	status = enums.OrderStatusSuccess
-	success := true
-
-	if success || status == enums.OrderStatusDeclined {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateNeweggEmbed(status, task.StockData.ImageURL),
-			ItemName:     task.StockData.ProductName,
-			ImageURL:     task.StockData.ImageURL,
-			Sku:          task.StockData.SKU,
-			Retailer:     enums.Newegg,
-			Price:        float64(task.StockData.Price),
-			Quantity:     task.Task.Task.TaskQty,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
-	}
 
 	task.TaskInfo.VBVToken = placeOrderResponse.Vbvdata.Jwttoken
 	task.TaskInfo.CardBin = placeOrderResponse.Vbvdata.Cardbin
 
-	return true, status
+	return true, enums.OrderStatusSuccess
 }
 
 // Pretty sure these requests just speed up the payment, order goes through no matter what then you get a decline email a minute later if you send these requests.

@@ -256,17 +256,19 @@ func (task *Task) RunTask() {
 	// 10. PlaceOrder
 	placedOrder := false
 	doNotRetry := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
-		if needToStop || doNotRetry {
+		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES || doNotRetry {
 			break
 		}
-		placedOrder, doNotRetry, status = task.PlaceOrder(startTime)
+		placedOrder, doNotRetry, status = task.PlaceOrder()
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -285,6 +287,21 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusFailed:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateDisneyEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.PID,
+		Retailer:     enums.Disney,
+		Price:        task.TaskInfo.Total,
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
@@ -831,7 +848,7 @@ func (task *Task) GetCardToken() bool {
 }
 
 // PlaceOrder
-func (task *Task) PlaceOrder(startTime time.Time) (bool, bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	if !common.ValidCardType([]byte(task.Task.Profile.CreditCard.CardNumber), task.Task.Task.TaskRetailer) {
 		return false, true, status
@@ -929,20 +946,5 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, bool, enums.OrderStatus
 		success = true
 	}
 
-	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateDisneyEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.PID,
-		Retailer:     enums.Disney,
-		Price:        task.TaskInfo.Total,
-		Quantity:     task.Task.Task.TaskQty,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
-
-	return success, true, status
+	return success, false, status
 }

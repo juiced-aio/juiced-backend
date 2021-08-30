@@ -19,8 +19,6 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-const MAX_RETRIES = 5
-
 func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string) (Task, error) {
 	pokemonCenterTask := Task{
 		Task: base.Task{
@@ -90,12 +88,12 @@ func (task *Task) RunTask() {
 	// 1. Login/LoginGuest
 	if task.AccountInfo.Email != "" && task.AccountInfo.Password != "" {
 		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate, 10)
-		if success, _ := task.RunUntilSuccessful(task.Login, MAX_RETRIES); !success {
+		if success, _ := task.RunUntilSuccessful(task.Login, common.MAX_RETRIES); !success {
 			return
 		}
 	} else {
 		task.PublishEvent(enums.SettingUp, enums.TaskUpdate, 10)
-		if success, _ := task.RunUntilSuccessful(task.LoginGuest, MAX_RETRIES); !success {
+		if success, _ := task.RunUntilSuccessful(task.LoginGuest, common.MAX_RETRIES); !success {
 			return
 		}
 	}
@@ -106,7 +104,7 @@ func (task *Task) RunTask() {
 
 	// 3. Encrypt card details
 	task.PublishEvent(enums.EncryptingCardInfo, enums.TaskUpdate, 15)
-	if success, _ := task.RunUntilSuccessful(task.RetrieveEncryptedCardDetails, MAX_RETRIES); !success {
+	if success, _ := task.RunUntilSuccessful(task.RetrieveEncryptedCardDetails, common.MAX_RETRIES); !success {
 		return
 	}
 
@@ -128,26 +126,38 @@ func (task *Task) RunTask() {
 	// 6. Submit email address
 	if task.TaskType == enums.TaskTypeGuest {
 		task.PublishEvent(enums.SettingEmailAddress, enums.TaskUpdate, 60)
-		if success, _ := task.RunUntilSuccessful(task.SubmitEmailAddress, MAX_RETRIES); !success {
+		if success, _ := task.RunUntilSuccessful(task.SubmitEmailAddress, common.MAX_RETRIES); !success {
 			return
 		}
 	}
 
 	// 7. Submit address details
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
-	if success, _ := task.RunUntilSuccessful(task.SubmitAddressDetails, MAX_RETRIES); !success {
+	if success, _ := task.RunUntilSuccessful(task.SubmitAddressDetails, common.MAX_RETRIES); !success {
 		return
 	}
 
 	// 8. Submit payment details
 	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
-	if success, _ := task.RunUntilSuccessful(task.SubmitPaymentDetails, MAX_RETRIES); !success {
+	if success, _ := task.RunUntilSuccessful(task.SubmitPaymentDetails, common.MAX_RETRIES); !success {
 		return
 	}
 
 	// 9. Checkout
 	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
-	success, status := task.RunUntilSuccessful(task.Checkout, MAX_RETRIES)
+	success, status := task.RunUntilSuccessful(task.Checkout, common.MAX_RETRIES)
+
+	task.Task.EndTime = time.Now()
+
+	log.Println("STARTED AT: " + task.Task.StartTime.String())
+	log.Println("  ENDED AT: " + task.Task.EndTime.String())
+	log.Println("TIME TO CHECK OUT: ", task.Task.EndTime.Sub(task.Task.StartTime).Milliseconds())
+
+	if status == enums.OrderStatusSuccess {
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
+	} else {
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
+	}
 
 	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
@@ -163,18 +173,6 @@ func (task *Task) RunTask() {
 		Quantity:     task.Task.Task.TaskQty,
 		MsToCheckout: time.Since(task.Task.StartTime).Milliseconds(),
 	})
-
-	task.Task.EndTime = time.Now()
-
-	log.Println("STARTED AT: " + task.Task.StartTime.String())
-	log.Println("  ENDED AT: " + task.Task.EndTime.String())
-	log.Println("TIME TO CHECK OUT: ", task.Task.EndTime.Sub(task.Task.StartTime).Milliseconds())
-
-	if status == enums.OrderStatusSuccess {
-		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
-	} else {
-		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
-	}
 }
 
 func (task *Task) Login() (bool, string) {
@@ -276,11 +274,11 @@ func (task *Task) RefreshLogin() {
 	for {
 		if task.RefreshAt == 0 || time.Now().Unix() > task.RefreshAt {
 			if task.TaskType == enums.TaskTypeAccount {
-				if success, _ := task.RunUntilSuccessful(task.Login, MAX_RETRIES); !success {
+				if success, _ := task.RunUntilSuccessful(task.Login, common.MAX_RETRIES); !success {
 					return
 				}
 			} else {
-				if success, _ := task.RunUntilSuccessful(task.LoginGuest, MAX_RETRIES); !success {
+				if success, _ := task.RunUntilSuccessful(task.LoginGuest, common.MAX_RETRIES); !success {
 					return
 				}
 			}
@@ -294,7 +292,7 @@ func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
 	var err error
 
 	// 1. Retrieve public key for encryption
-	if success, _ := task.RunUntilSuccessful(task.RetrievePublicKey, MAX_RETRIES); !success {
+	if success, _ := task.RunUntilSuccessful(task.RetrievePublicKey, common.MAX_RETRIES); !success {
 		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, RetrieveCyberSourcePublicKeyError)
 	}
 
@@ -309,7 +307,7 @@ func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
 	}
 
 	// 3. Retrieve CyberSourceV2 Token
-	if success, _ := task.RunUntilSuccessful(task.RetrieveToken, MAX_RETRIES); !success {
+	if success, _ := task.RunUntilSuccessful(task.RetrieveToken, common.MAX_RETRIES); !success {
 		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, RetrieveCyberSourceTokenError)
 	}
 

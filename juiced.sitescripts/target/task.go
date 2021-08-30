@@ -30,8 +30,6 @@ import (
 	cmap "github.com/orcaman/concurrent-map"
 )
 
-const MAX_RETRIES = 5
-
 var TargetAccountStore = cmap.New()
 
 // CreateTargetTask takes a Task entity and turns it into a Target Task
@@ -208,10 +206,10 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined || retries > MAX_RETRIES || dontRetry {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES || dontRetry {
 			break
 		}
-		placedOrder, status, dontRetry = task.PlaceOrder(startTime, retries)
+		placedOrder, status, dontRetry = task.PlaceOrder()
 		if !placedOrder {
 			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
@@ -231,6 +229,21 @@ func (task *Task) RunTask() {
 	case enums.OrderStatusFailed:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
+		ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
+		ImageURL:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath,
+		Sku:          task.TCIN,
+		Retailer:     enums.Target,
+		Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,
+		Quantity:     task.Task.Task.TaskQty,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 
 }
 
@@ -830,7 +843,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder(startTime time.Time, retries int) (bool, enums.OrderStatus, bool) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus, bool) {
 	status := enums.OrderStatusFailed
 	placeOrderRequest := PlaceOrderRequest{
 		CartType:  "REGULAR",
@@ -881,23 +894,6 @@ func (task *Task) PlaceOrder(startTime time.Time, retries int) (bool, enums.Orde
 			status = enums.OrderStatusFailed
 			success = false
 		}
-	}
-
-	if success || status == enums.OrderStatusDeclined || retries >= MAX_RETRIES {
-		go util.ProcessCheckout(&util.ProcessCheckoutInfo{
-			BaseTask:     task.Task,
-			Success:      success,
-			Status:       status,
-			Content:      "",
-			Embeds:       task.CreateTargetEmbed(status, task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath),
-			ItemName:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.Description,
-			ImageURL:     task.AccountInfo.CartInfo.CartItems[0].ItemAttributes.ImagePath,
-			Sku:          task.TCIN,
-			Retailer:     enums.Target,
-			Price:        task.AccountInfo.CartInfo.CartItems[0].UnitPrice,
-			Quantity:     task.Task.Task.TaskQty,
-			MsToCheckout: time.Since(startTime).Milliseconds(),
-		})
 	}
 
 	return success, status, dontRetry
