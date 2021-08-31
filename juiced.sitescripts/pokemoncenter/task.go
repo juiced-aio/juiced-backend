@@ -3,14 +3,15 @@ package pokemoncenter
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"net/url"
 	"regexp"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
@@ -19,7 +20,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string) (Task, error) {
+func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string, taskType enums.TaskType) (Task, error) {
 	pokemonCenterTask := Task{
 		Task: base.Task{
 			Task:       task,
@@ -31,6 +32,7 @@ func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, prox
 			Email:    email,
 			Password: password,
 		},
+		TaskType: taskType,
 	}
 	if proxyGroup != nil {
 		pokemonCenterTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
@@ -81,13 +83,17 @@ func (task *Task) RunTask() {
 		task.Task.Task.TaskQty = 1
 	}
 
-	for {
-		time.Sleep(1 * time.Second)
+	err := task.Task.CreateClient(task.Task.Proxy)
+	if err != nil {
+		return
 	}
 
 	// 1. Login/LoginGuest
-	if task.AccountInfo.Email != "" && task.AccountInfo.Password != "" {
+	if task.TaskType == enums.TaskTypeAccount {
 		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate, 10)
+		if success, _ := task.RunUntilSuccessful(task.BecomeGuest, common.MAX_RETRIES); !success {
+			return
+		}
 		if success, _ := task.RunUntilSuccessful(task.Login, common.MAX_RETRIES); !success {
 			return
 		}
@@ -175,6 +181,43 @@ func (task *Task) RunTask() {
 	})
 }
 
+func (task *Task) BecomeGuest() (bool, string) {
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    BaseEndpoint,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", AuthKeyRefererEndpoint},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 403:
+		task.HandleDatadome(body, 10)
+		return false, fmt.Sprintf(enums.SettingUpFailure, errors.New("hit datadome"))
+	case 200:
+	default:
+		return false, fmt.Sprintf(enums.SettingUpFailure, errors.New("non 200 response"))
+	}
+
+	return true, enums.SettingUpSuccess
+}
+
 func (task *Task) Login() (bool, string) {
 	loginResponse := LoginResponse{}
 
@@ -185,12 +228,31 @@ func (task *Task) Login() (bool, string) {
 	params.Add("role", "REGISTERED")
 	params.Add("scope", "pokemon")
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	// First request fails because no datadome cookie
+	hasCookie := false
+	for _, cookie := range task.Task.Client.Jar.Cookies(BaseURL) {
+		if cookie.Name == "datadome" {
+			hasCookie = true
+		}
+	}
+
+	if !hasCookie {
+		task.Task.Client.Jar.SetCookies(BaseURL, []*http.Cookie{{
+			Name:     "datadome",
+			Value:    common.RandString(6),
+			Path:     "/",
+			Domain:   ".pokemoncenter.com",
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}})
+	}
+
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    LoginEndpoint,
 		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(bytes.NewReader([]byte(params.Encode())).Size())},
+			{"content-length", fmt.Sprint(len(params.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
@@ -205,8 +267,7 @@ func (task *Task) Login() (bool, string) {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		ResponseBodyStruct: loginResponse,
-		Data:               []byte(params.Encode()),
+		Data: []byte(params.Encode()),
 	})
 	if err != nil {
 		return false, fmt.Sprintf(enums.LoginFailure, err.Error())
@@ -214,10 +275,18 @@ func (task *Task) Login() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
+		err = json.Unmarshal([]byte(body), &loginResponse)
+		if err != nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
+
 		task.AccessToken = loginResponse.AccessToken
 		return true, enums.LoginSuccess
 	case 401:
 		return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+	case 403:
+		task.HandleDatadome(body, 10)
+		return false, fmt.Sprintf(enums.LoginFailure, errors.New("hit datadome"))
 	}
 
 	return false, fmt.Sprintf(enums.LoginFailure, UnknownError)
@@ -345,7 +414,6 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 			{"referer", PublicPaymentKeyRefererEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		ResponseBodyStruct: &paymentKeyResponse,
 	})
@@ -363,18 +431,18 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 }
 
 func (task *Task) RetrieveToken() (bool, string) {
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    CyberSourceTokenEndpoint,
 		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(bytes.NewReader([]byte(task.CyberSecureInfo.PublicToken)).Size())},
+			{"content-length", fmt.Sprint(len(task.CyberSecureInfo.PublicToken))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"content-type", "application/jwt; charset=UTF-8"},
 			{"origin", BaseEndpoint},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
@@ -390,12 +458,8 @@ func (task *Task) RetrieveToken() (bool, string) {
 	}
 
 	switch resp.StatusCode {
-	case 200:
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, err.Error())
-		}
-		task.CyberSecureInfo.Privatekey = string(body)
+	case 201:
+		task.CyberSecureInfo.Privatekey = body
 		return true, ""
 	}
 
@@ -430,18 +494,18 @@ func (task *Task) AddToCart() (bool, string) {
 		return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 	}
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    AddToCartEndpoint,
 		RawHeaders: [][2]string{
-			{"content-length", fmt.Sprint(bytes.NewReader(addToCartRequestBytes).Size())},
+			{"content-length", fmt.Sprint(len(addToCartRequestBytes))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
-			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"content-type", "application/json; charset=UTF-8"},
 			{"origin", BaseEndpoint},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
@@ -449,10 +513,8 @@ func (task *Task) AddToCart() (bool, string) {
 			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.StockData.SKU)},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
-		ResponseBodyStruct: &addToCartResponse,
-		RequestBodyStruct:  &addToCartRequest,
+		Data: addToCartRequestBytes,
 	})
 	if err != nil {
 		return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
@@ -460,6 +522,11 @@ func (task *Task) AddToCart() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
+		err = json.Unmarshal([]byte(body), &addToCartResponse)
+		if err != nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
+
 		if addToCartResponse.Type == "carts.line-item" {
 			if addToCartResponse.Quantity != task.Task.Task.TaskQty {
 				return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, task.Task.Task.TaskQty, addToCartResponse.Quantity))
@@ -467,6 +534,9 @@ func (task *Task) AddToCart() (bool, string) {
 				return true, enums.AddingToCartSuccess
 			}
 		}
+	case 403:
+		task.HandleDatadome(body, 30)
+		return false, fmt.Sprintf(enums.AddingToCartFailure, errors.New("hit datadome"))
 	}
 
 	return false, fmt.Sprintf(enums.AddingToCartFailure, UnknownError)
@@ -500,7 +570,6 @@ func (task *Task) SubmitEmailAddress() (bool, string) {
 			{"referer", SubmitEmailRefererEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct: &emailRequest,
 	})
@@ -569,7 +638,6 @@ func (task *Task) SubmitAddressDetails() (bool, string) {
 			{"referer", SubmitAddresRefererEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct: &submitAddressRequest,
 	})
@@ -616,7 +684,6 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 			{"referer", SubmitPaymentDetailsRefererEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct:  &submitPaymentRequest,
 		ResponseBodyStruct: &submitPaymentResponse,
@@ -660,7 +727,6 @@ func (task *Task) Checkout() (bool, string) {
 			{"referer", CheckoutRefererEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct: &checkoutDetailsRequest,
 	})
@@ -731,7 +797,6 @@ func (task *Task) SubmitAddressDetailsValidate() (bool, string) {
 			{"referer", SubmitAddresValidateRefererEndpoint}, //double check this endpoint
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
-			{"Cookie", "auth={\"access_token\":\"" + task.AccessToken + "\",\"token_type\":\"bearer\",\"expires_in\":604799,\"scope\":\"pokemon\",\"role\":\"PUBLIC\",\"roles\":[\"PUBLIC\"]}"},
 		},
 		RequestBodyStruct: &submitAddressRequest,
 	})
