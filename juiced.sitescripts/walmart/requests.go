@@ -1,5 +1,12 @@
 package walmart
 
+// LoginRequest is the request sent by the Login function
+type LoginRequest struct {
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	RememberMe bool   `json:"rememberme"`
+}
+
 // AddToCartRequest is the request sent by the AddToCart function
 type AddToCartRequest struct {
 	OfferID               string `json:"offerId"`

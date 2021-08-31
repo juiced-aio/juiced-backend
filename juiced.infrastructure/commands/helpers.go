@@ -583,17 +583,39 @@ func CreateTaskInfos(task entities.Task) error {
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID, task.ToppsTaskInfo.Email, task.ToppsTaskInfo.Password, task.ToppsTaskInfo.TaskType)
+
+		encryptedEmail, err := common.Aes256Encrypt(task.ToppsTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.ToppsTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.ToppsTaskInfo.TaskType)
 		if err != nil {
 			return err
 		}
 
 	case enums.Walmart:
-		statement, err := database.Preparex(`INSERT INTO walmartTaskInfos (taskID, taskGroupID) VALUES (?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO walmartTaskInfos (taskID, taskGroupID, email, password, taskType) VALUES (?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(task.ID, task.TaskGroupID)
+
+		encryptedEmail, err := common.Aes256Encrypt(task.WalmartTaskInfo.Email, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		encryptedPassword, err := common.Aes256Encrypt(task.WalmartTaskInfo.Password, enums.UserKey)
+		if err != nil {
+			return err
+		}
+
+		_, err = statement.Exec(task.ID, task.TaskGroupID, encryptedEmail, encryptedPassword, task.WalmartTaskInfo.TaskType)
 		if err != nil {
 			return err
 		}

@@ -128,8 +128,11 @@ type ToppsTaskInfo struct {
 }
 
 type WalmartTaskInfo struct {
-	TaskID      string `json:"taskID" db:"taskID"`
-	TaskGroupID string `json:"taskGroupID" db:"taskGroupID"`
+	TaskID      string         `json:"taskID" db:"taskID"`
+	TaskGroupID string         `json:"taskGroupID" db:"taskGroupID"`
+	Email       string         `json:"email" db:"email"`
+	Password    string         `json:"password" db:"password"`
+	TaskType    enums.TaskType `json:"taskType" db:"taskType"`
 }
 
 // SetID updates the Task's ID
