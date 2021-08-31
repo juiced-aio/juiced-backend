@@ -51,7 +51,12 @@ func GetAllProxyGroupsEndpoint(response http.ResponseWriter, request *http.Reque
 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
 	errorsList := make([]string, 0)
 	proxyGroups, err := queries.GetAllProxyGroups()
-	if err != nil {
+
+	if err == nil {
+		for i := range proxyGroups {
+			stores.GetProxyStore().AddProxyGroup(&proxyGroups[i])
+		}
+	} else {
 		errorsList = append(errorsList, errors.GetAllProxyGroupsError+err.Error())
 	}
 	result := &responses.ProxyGroupResponse{Success: true, Data: proxyGroups, Errors: make([]string, 0)}
@@ -74,7 +79,7 @@ func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 		err = entities.ParseProxyGroup(proxyGroup, body)
 		if err == nil {
 			// This should probably be done on the frontend
-			proxiesWithGroupID := []entities.Proxy{}
+			proxiesWithGroupID := []*entities.Proxy{}
 			for _, proxy := range proxyGroup.Proxies {
 				proxy.ProxyGroupID = proxyGroup.GroupID
 				proxiesWithGroupID = append(proxiesWithGroupID, proxy)
@@ -82,7 +87,9 @@ func CreateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 			proxyGroup.CreationDate = time.Now().Unix()
 			proxyGroup.Proxies = proxiesWithGroupID
 			err = commands.CreateProxyGroup(*proxyGroup)
-			if err != nil {
+			if err == nil {
+				stores.GetProxyStore().AddProxyGroup(proxyGroup)
+			} else {
 				errorsList = append(errorsList, errors.CreateProxyGroupError+err.Error())
 			}
 		} else {
@@ -114,7 +121,7 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 			next := true
 			monitorStore := stores.GetMonitorStore()
 			for _, taskGroup := range taskGroups {
-				updated := monitorStore.UpdateMonitorProxy(&taskGroup, entities.Proxy{})
+				updated := monitorStore.UpdateMonitorProxy(&taskGroup, &entities.Proxy{})
 				if !updated {
 					next = false
 				}
@@ -125,7 +132,7 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 					next := true
 					taskStore := stores.GetTaskStore()
 					for _, task := range tasks {
-						updated := taskStore.UpdateTaskProxy(&task, entities.Proxy{})
+						updated := taskStore.UpdateTaskProxy(&task, &entities.Proxy{})
 						if !updated {
 							next = false
 							break
@@ -133,7 +140,9 @@ func RemoveProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 					}
 					if next {
 						proxyGroup, err = commands.RemoveProxyGroup(groupID)
-						if err != nil {
+						if err == nil {
+							stores.GetProxyStore().RemoveProxyGroup(groupID)
+						} else {
 							errorsList = append(errorsList, errors.RemoveProxyGroupError+err.Error())
 						}
 					} else {
@@ -176,7 +185,9 @@ func UpdateProxyGroupEndpoint(response http.ResponseWriter, request *http.Reques
 			err = entities.ParseProxyGroup(&newProxyGroup, body)
 			if err == nil {
 				newProxyGroup, err = commands.UpdateProxyGroup(groupID, newProxyGroup)
-				if err != nil {
+				if err == nil {
+					stores.GetProxyStore().UpdateProxyGroup(groupID, &newProxyGroup)
+				} else {
 					errorsList = append(errorsList, errors.UpdateProxyGroupError+err.Error())
 				}
 			} else {
@@ -214,12 +225,14 @@ func CloneProxyGroupEndpoint(response http.ResponseWriter, request *http.Request
 			proxyGroup.SetName(proxyGroup.Name + " (Copy " + common.RandID(4) + ")")
 			proxyGroup.CreationDate = time.Now().Unix()
 			for i := 0; i < len(proxyGroup.Proxies); i++ {
-				proxy := &proxyGroup.Proxies[i]
+				proxy := proxyGroup.Proxies[i]
 				proxy.SetID(uuid.New().String())
 				proxy.ProxyGroupID = newGroupID
 			}
 			err = commands.CreateProxyGroup(proxyGroup)
-			if err != nil {
+			if err == nil {
+				stores.GetProxyStore().AddProxyGroup(&proxyGroup)
+			} else {
 				errorsList = append(errorsList, errors.CreateProxyGroupError+err.Error())
 			}
 		} else {

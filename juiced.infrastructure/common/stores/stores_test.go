@@ -14,8 +14,11 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
+	"backend.juicedbot.io/juiced.sitescripts/newegg"
+	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/target"
+	"backend.juicedbot.io/juiced.sitescripts/topps"
 	"backend.juicedbot.io/juiced.sitescripts/walmart"
 )
 
@@ -87,6 +90,17 @@ var hottopicMonitorInfoAsset = &entities.HottopicMonitorInfo{
 	},
 }
 
+var neweggMonitorAsset = map[string]*newegg.Monitor{"newegg_test_monitor": {Monitor: monitorAsset, SKUs: []string{"N82E16820147790"}}}
+
+var neweggMonitorInfoAsset = &entities.NeweggMonitorInfo{
+	Monitors: []entities.NeweggSingleMonitorInfo{
+		{
+			SKU:      "N82E16820147790",
+			MaxPrice: -1,
+		},
+	},
+}
+
 var shopifyMonitorAsset = map[string]*shopify.Monitor{"shopify_test_monitor": {Monitor: monitorAsset, VIDs: []string{""}}}
 
 var shopifyMonitorInfoAsset = &entities.ShopifyMonitorInfo{
@@ -112,6 +126,17 @@ var targetMonitorInfoAsset = &entities.TargetMonitorInfo{
 	MonitorType: enums.SKUMonitor,
 }
 
+var toppsMonitorAsset = map[string]*topps.Monitor{"topps_test_monitor": {Monitor: monitorAsset, Items: []string{"on-card-auto-to-25-greg-maddux-2021-mlb-topps-now-reg-turn-back-the-clock-card-134b"}}}
+
+var toppsMonitorInfoAsset = &entities.ToppsMonitorInfo{
+	Monitors: []entities.ToppsSingleMonitorInfo{
+		{
+			Item:     "on-card-auto-to-25-greg-maddux-2021-mlb-topps-now-reg-turn-back-the-clock-card-134b",
+			MaxPrice: -1,
+		},
+	},
+}
+
 var walmartMonitorAsset = map[string]*walmart.Monitor{"walmart_test_monitor": {Monitor: monitorAsset, IDs: []string{"544900177"}}}
 
 var walmartMonitorInfoAsset = &entities.WalmartMonitorInfo{
@@ -120,6 +145,17 @@ var walmartMonitorInfoAsset = &entities.WalmartMonitorInfo{
 			ID:          "134448590",
 			MaxPrice:    -1,
 			MonitorType: enums.SKUMonitor,
+		},
+	},
+}
+
+var pokemonCenterMonitorAsset = map[string]*pokemoncenter.Monitor{"pokemoncenter_test_monitor": {Monitor: monitorAsset, SKUs: []string{""}}}
+
+var pokemonCenterMonitorInfoAsset = &entities.PokemonCenterMonitorInfo{
+	Monitors: []entities.PokemonCenterSingleMonitorInfo{
+		{
+			SKU:      "",
+			MaxPrice: -1,
 		},
 	},
 }
@@ -136,7 +172,7 @@ var taskgroupAsset = entities.TaskGroup{
 
 var monitorAsset = base.Monitor{
 	TaskGroup: &taskgroupAsset,
-	Proxy: entities.Proxy{
+	Proxy: &entities.Proxy{
 		Host: "localhost",
 		Port: "3000",
 	},
@@ -166,8 +202,12 @@ func TestStartMonitor(t *testing.T) {
 		{"disney_test", enums.Disney, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"gamestop_test", enums.GameStop, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"hottopic_test", enums.HotTopic, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"newegg_test", enums.Newegg, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"shopify_test", enums.Shopify, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"target_test", enums.Target, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"topps_test", enums.Topps, &MonitorStore{}, args{&taskgroupAsset}, nil},
 		{"walmart_test", enums.Walmart, &MonitorStore{}, args{&taskgroupAsset}, nil},
+		{"pokemoncenter_test", enums.PokemonCenter, &MonitorStore{}, args{&taskgroupAsset}, nil},
 	}
 
 	for _, tt := range tests {
@@ -191,15 +231,24 @@ func TestStartMonitor(t *testing.T) {
 		case enums.HotTopic:
 			tt.monitorStore.HottopicMonitors = hottopicMonitorAsset
 			tt.args.monitor.HottopicMonitorInfo = hottopicMonitorInfoAsset
+		case enums.Newegg:
+			tt.monitorStore.NeweggMonitors = neweggMonitorAsset
+			tt.args.monitor.NeweggMonitorInfo = neweggMonitorInfoAsset
 		case enums.Shopify:
 			tt.monitorStore.ShopifyMonitors = shopifyMonitorAsset
 			tt.args.monitor.ShopifyMonitorInfo = shopifyMonitorInfoAsset
 		case enums.Target:
 			tt.monitorStore.TargetMonitors = targetMonitorsAsset
 			tt.args.monitor.TargetMonitorInfo = targetMonitorInfoAsset
+		case enums.Topps:
+			tt.monitorStore.ToppsMonitors = toppsMonitorAsset
+			tt.args.monitor.ToppsMonitorInfo = toppsMonitorInfoAsset
 		case enums.Walmart:
 			tt.monitorStore.WalmartMonitors = walmartMonitorAsset
 			tt.args.monitor.WalmartMonitorInfo = walmartMonitorInfoAsset
+		case enums.PokemonCenter:
+			tt.monitorStore.PokemonCenterMonitors = pokemonCenterMonitorAsset
+			tt.args.monitor.PokemonCenterMonitorInfo = pokemonCenterMonitorInfoAsset
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.monitorStore.StartMonitor(tt.args.monitor); got != tt.want {

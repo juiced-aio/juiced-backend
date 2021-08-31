@@ -16,43 +16,53 @@ func (task *Task) CreateAmazonEmbed(status enums.OrderStatus, imageURL string) [
 	if task.StockData.ItemName == "" {
 		task.StockData.ItemName = "*N/A*"
 	}
+
+	fields := []sec.DiscordField{
+		{
+			Name:   "Retailer:",
+			Value:  "Amazon",
+			Inline: true,
+		},
+		{
+			Name:   "Price:",
+			Value:  "$" + fmt.Sprint(task.StockData.Price),
+			Inline: true,
+		},
+		{
+			Name:   "Product SKU:",
+			Value:  fmt.Sprintf("[%v](https://www.amazon.com/dp/%v)", task.StockData.ASIN, task.StockData.ASIN),
+			Inline: true,
+		},
+		{
+			Name:  "Product Name:",
+			Value: task.StockData.ItemName,
+		},
+		{
+			Name:  "Mode:",
+			Value: string(task.StockData.MonitorType),
+		},
+		{
+			Name:  "Offer Listing ID:",
+			Value: task.StockData.OfferID,
+		},
+		{
+			Name:  "Profile:",
+			Value: "||" + " " + task.Task.Profile.Name + " " + "||",
+		},
+	}
+
+	if task.Task.Proxy != nil {
+		fields = append(fields, sec.DiscordField{
+			Name:  "Proxy:",
+			Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+		})
+	}
+
 	embeds := []sec.DiscordEmbed{
 		{
-			Fields: []sec.DiscordField{
-				{
-					Name:   "Site:",
-					Value:  "Amazon",
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.CheckoutInfo.Price),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.amazon.com/dp/%v)", task.StockData.ASIN, task.StockData.ASIN),
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: task.StockData.ItemName,
-				},
-				{
-					Name:  "Mode:",
-					Value: string(task.StockData.MonitorType),
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
-				},
-				{
-					Name:  "Offer Listing ID:",
-					Value: task.StockData.OfferID,
-				},
-			},
+			Fields: fields,
 			Footer: sec.DiscordFooter{
-				Text:    "Juiced AIO",
+				Text:    "Juiced",
 				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 			},
 			Timestamp: time.Now(),

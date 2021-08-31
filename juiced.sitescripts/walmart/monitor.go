@@ -4,12 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"math/rand"
 	"strings"
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -20,7 +18,7 @@ import (
 )
 
 // CreateWalmartMonitor takes a TaskGroup entity and turns it into a Walmart Monitor
-func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, singleMonitors []entities.WalmartSingleMonitorInfo) (Monitor, error) {
+func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, singleMonitors []entities.WalmartSingleMonitorInfo) (Monitor, error) {
 	storedWalmartMonitors := make(map[string]entities.WalmartSingleMonitorInfo)
 	walmartMonitor := Monitor{}
 	ids := []string{}
@@ -33,9 +31,9 @@ func CreateWalmartMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 
 	walmartMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		IDs:        ids,
 		IDWithInfo: storedWalmartMonitors,
@@ -72,11 +70,11 @@ func (monitor *Monitor) RunMonitor() {
 	}()
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
+
 	}
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
@@ -98,11 +96,6 @@ func (monitor *Monitor) RunMonitor() {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorUpdate, nil)
 	}
 
-	if len(monitor.Monitor.Proxies) > 0 {
-		monitor.Monitor.Proxy = monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]
-		client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxy))
-	}
-
 	needToStop := monitor.CheckForStop()
 	if needToStop {
 		return
@@ -121,10 +114,10 @@ func (monitor *Monitor) RunMonitor() {
 
 func (monitor *Monitor) RunSingleMonitor(id string) {
 	defer func() {
-		if r := recover(); r != nil {
-			log.Println(r)
+		if recover() != nil {
+			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+			monitor.RunSingleMonitor(id)
 		}
-		// TODO @silent: Re-run this specific monitor
 	}()
 
 	needToStop := monitor.CheckForStop()
@@ -132,58 +125,56 @@ func (monitor *Monitor) RunSingleMonitor(id string) {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, id) {
-		if len(monitor.Monitor.Proxies) > 0 {
-			monitor.Monitor.Proxy = monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxy))
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
+	}
+
+	stockData := WalmartInStockData{}
+
+	switch monitor.IDWithInfo[id].MonitorType {
+	case enums.SKUMonitor:
+		stockData = monitor.GetSkuStock(id)
+	case enums.FastSKUMonitor:
+		stockData = monitor.GetOfferIDStock(id)
+	}
+
+	if stockData.OfferID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
 		}
 
-		stockData := WalmartInStockData{}
-
-		switch monitor.IDWithInfo[id].MonitorType {
-		case enums.SKUMonitor:
-			stockData = monitor.GetSkuStock(id)
-		case enums.FastSKUMonitor:
-			stockData = monitor.GetOfferIDStock(id)
+		var inSlice bool
+		for _, monitorStock := range monitor.InStockForShip {
+			inSlice = monitorStock.SKU == stockData.SKU
+		}
+		if !inSlice {
+			monitor.InStockForShip = append(monitor.InStockForShip, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+			monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+		for i, monitorStock := range monitor.InStockForShip {
+			if monitorStock.SKU == stockData.SKU {
+				monitor.InStockForShip = append(monitor.InStockForShip[:i], monitor.InStockForShip[i+1:]...)
+				break
+			}
 		}
 
-		if stockData.OfferID != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-
-			var inSlice bool
-			for _, monitorStock := range monitor.InStockForShip {
-				inSlice = monitorStock.SKU == stockData.SKU
-			}
-			if !inSlice {
-				monitor.InStockForShip = append(monitor.InStockForShip, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-				})
-			}
-		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
-						Products: []events.Product{
-							{ProductName: stockData.ProductName, ProductImageURL: stockData.ImageURL}},
-					})
-				}
-			}
-			for i, monitorStock := range monitor.InStockForShip {
-				if monitorStock.SKU == stockData.SKU {
-					monitor.InStockForShip = append(monitor.InStockForShip[:i], monitor.InStockForShip[i+1:]...)
-					break
-				}
-			}
-			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
-			monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, id)
-			monitor.RunSingleMonitor(id)
-		}
+		time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+		monitor.RunSingleMonitor(id)
 	}
 }
 
@@ -192,12 +183,9 @@ func (monitor *Monitor) RefreshPX3() {
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
-		if r := recover(); r != nil {
-			monitor.RefreshPX3()
-		}
 	}()
 
-	cancellationToken := util.CancellationToken{Cancel: false}
+	cancellationToken := &util.CancellationToken{Cancel: false}
 	go func() {
 		for {
 			select {
@@ -214,20 +202,32 @@ func (monitor *Monitor) RefreshPX3() {
 		}
 	}()
 
+	retry := true
+	for retry {
+		retry = monitor.RefreshPX3Helper(cancellationToken)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (monitor *Monitor) RefreshPX3Helper(cancellationToken *util.CancellationToken) bool {
 	for {
+		if cancellationToken.Cancel {
+			return false
+		}
 		if monitor.PXValues.RefreshAt == 0 || time.Now().Unix() > monitor.PXValues.RefreshAt {
-			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(monitor.Monitor.Proxy, &monitor.Monitor.Client, cancellationToken)
 			if cancelled {
-				return
+				return false
 			}
 
 			if err != nil {
 				log.Println("Error setting px cookie for monitor: " + err.Error())
-				panic(err)
+				return true
 			}
 			monitor.PXValues = pxValues
 			monitor.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -235,9 +235,6 @@ func (monitor Monitor) HandlePXCap(resp *http.Response, redirectURL string) bool
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
-		if r := recover(); r != nil {
-			monitor.HandlePXCap(resp, redirectURL)
-		}
 	}()
 
 	cancellationToken := util.CancellationToken{Cancel: false}
@@ -395,10 +392,6 @@ func (monitor *Monitor) GetSkuStock(sku string) WalmartInStockData {
 				return stockData
 			}
 
-			// Item exists = Add to running monitors
-			if len(monitorResponse.Payload.Offers.(map[string]interface{})) > 0 {
-				monitor.RunningMonitors = append(monitor.RunningMonitors, sku)
-			}
 			lowestPrice := -1
 			for _, value := range monitorResponse.Payload.Offers.(map[string]interface{}) {
 				offer := Offer{}

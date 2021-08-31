@@ -2,11 +2,9 @@ package shopify
 
 import (
 	"fmt"
-	"math/rand"
 	"sync"
 	"time"
 
-	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -17,7 +15,7 @@ import (
 )
 
 // CreateShopifyMonitor takes a TaskGroup entity and turns it into a Shopify Monitor
-func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Proxy, eventBus *events.EventBus, siteURL, sitePassword string, singleMonitors []entities.ShopifySingleMonitorInfo) (Monitor, error) {
+func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, siteURL, sitePassword string, singleMonitors []entities.ShopifySingleMonitorInfo) (Monitor, error) {
 	storedShopifyMonitors := make(map[string]entities.ShopifySingleMonitorInfo)
 	shopifyMonitor := Monitor{}
 	vIDs := []string{}
@@ -29,9 +27,9 @@ func CreateShopifyMonitor(taskGroup *entities.TaskGroup, proxies []entities.Prox
 
 	shopifyMonitor = Monitor{
 		Monitor: base.Monitor{
-			TaskGroup: taskGroup,
-			Proxies:   proxies,
-			EventBus:  eventBus,
+			TaskGroup:  taskGroup,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		SiteURL:      siteURL,
 		SitePassword: sitePassword,
@@ -71,14 +69,17 @@ func (monitor *Monitor) RunMonitor() {
 	}
 
 	if monitor.Monitor.Client.Transport == nil {
-		monitorClient, err := util.CreateClient()
+		err := monitor.Monitor.CreateClient()
 		if err != nil {
 			return
 		}
-		monitor.Monitor.Client = monitorClient
 
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
+		var proxy *entities.Proxy
+		if monitor.Monitor.ProxyGroup != nil {
+			if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+				proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+				monitor.Monitor.UpdateProxy(proxy)
+			}
 		}
 
 		becameGuest := false
@@ -118,57 +119,59 @@ func (monitor *Monitor) RunSingleMonitor(vid string) {
 		return
 	}
 
-	if !common.InSlice(monitor.RunningMonitors, vid) {
-		defer func() {
-			recover()
-			// TODO @silent: Re-run this specific monitor
-		}()
-
-		if len(monitor.Monitor.Proxies) > 0 {
-			client.UpdateProxy(&monitor.Monitor.Client, common.ProxyCleaner(monitor.Monitor.Proxies[rand.Intn(len(monitor.Monitor.Proxies))]))
-		}
-
-		stockData := monitor.GetVIDstock(vid)
-		if stockData.VariantID != "" {
-			needToStop := monitor.CheckForStop()
-			if needToStop {
-				return
-			}
-
-			var inSlice bool
-			for _, monitorStock := range monitor.InStock {
-				inSlice = monitorStock.VariantID == stockData.VariantID
-			}
-			if !inSlice {
-				monitor.InStock = append(monitor.InStock, stockData)
-				monitor.RunningMonitors = common.RemoveFromSlice(monitor.RunningMonitors, vid)
-				monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
-					Products: []events.Product{
-						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
-				})
-			}
-		} else {
-			if len(monitor.RunningMonitors) > 0 {
-				if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
-					monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
-				}
-			}
-			for i, monitorStock := range monitor.InStock {
-				if monitorStock.VariantID == stockData.VariantID {
-					monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
-					break
-				}
-			}
+	defer func() {
+		if recover() != nil {
 			time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
 			monitor.RunSingleMonitor(vid)
 		}
+	}()
+
+	var proxy *entities.Proxy
+	if monitor.Monitor.ProxyGroup != nil {
+		if len(monitor.Monitor.ProxyGroup.Proxies) > 0 {
+			proxy = util.RandomLeastUsedProxy(monitor.Monitor.ProxyGroup.Proxies)
+			monitor.Monitor.UpdateProxy(proxy)
+		}
 	}
+
+	stockData := monitor.GetVIDstock(vid)
+	if stockData.VariantID != "" {
+		needToStop := monitor.CheckForStop()
+		if needToStop {
+			return
+		}
+
+		var inSlice bool
+		for _, monitorStock := range monitor.InStock {
+			inSlice = monitorStock.VariantID == stockData.VariantID
+		}
+		if !inSlice {
+			monitor.InStock = append(monitor.InStock, stockData)
+			monitor.PublishEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, events.ProductInfo{
+				Products: []events.Product{
+					{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
+			})
+		}
+	} else {
+		if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+			monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, nil)
+		}
+		for i, monitorStock := range monitor.InStock {
+			if monitorStock.VariantID == stockData.VariantID {
+				monitor.InStock = append(monitor.InStock[:i], monitor.InStock[i+1:]...)
+				break
+			}
+		}
+	}
+
+	time.Sleep(time.Duration(monitor.Monitor.TaskGroup.MonitorDelay) * time.Millisecond)
+	monitor.RunSingleMonitor(vid)
 }
 
 // Getting stock by adding to cart
 func (monitor *Monitor) GetVIDstock(vid string) ShopifyInStockData {
 	stockData := ShopifyInStockData{}
-	paramsString := util.CreateParams(map[string]string{
+	paramsString := common.CreateParams(map[string]string{
 		"form_type": "product",
 		"utf8":      "✓",
 		"id":        vid,

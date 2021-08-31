@@ -1,10 +1,16 @@
 package main
 
 import (
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
+	"strings"
 	"time"
+
+	"backend.juicedbot.io/juiced.client/http"
+	_ "backend.juicedbot.io/juiced.client/http/pprof"
+	rpc "backend.juicedbot.io/juiced.rpc"
 
 	api "backend.juicedbot.io/juiced.api"
 	"backend.juicedbot.io/juiced.infrastructure/common"
@@ -14,12 +20,12 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.infrastructure/common/stores"
 	"backend.juicedbot.io/juiced.infrastructure/queries"
-
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	ws "backend.juicedbot.io/juiced.ws"
-	"github.com/hugolgst/rich-go/client"
+	"github.com/denisbrodbeck/machineid"
+	"github.com/go-rod/rod/lib/launcher"
 )
 
 func main() {
@@ -30,6 +36,17 @@ func main() {
 			}
 			time.Sleep(1 * time.Second)
 		}
+	}()
+
+	hwid, err := machineid.ProtectedID("juiced")
+	if err != nil {
+		os.Exit(0)
+	}
+
+	sec.HWID = hwid
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:5012", nil))
 	}()
 
 	// Initalize the event bus
@@ -71,6 +88,7 @@ func main() {
 				go Heartbeat(eventBus, userInfo)
 				go stores.InitTaskStore(eventBus)
 				stores.InitMonitorStore(eventBus)
+				stores.InitProxyStore()
 				captcha.InitCaptchaStore(eventBus)
 				err := captcha.InitAycd()
 				if err == nil {
@@ -94,28 +112,31 @@ func main() {
 				go util.DiscordWebhookQueue()
 				go api.StartServer()
 
-				err = client.Login("856936229223006248")
-				// No need to close the app if Discord RPC doesn't work. It's not a necessary feature.
-				// If it breaks for everyone at once for some reason, don't want to entirely break the app without a hotfix.
+				rpc.EnableRPC()
+				fileInfos, err := ioutil.ReadDir(launcher.DefaultBrowserDir)
 				if err == nil {
-					start := time.Now()
-					client.SetActivity(client.Activity{
-						Details:    "Beta - " + userInfo.UserVer, // TODO @silent -- Show the application version, rather than the backend version
-						LargeImage: "main-juiced",
-						LargeText:  "Juiced",
-						SmallImage: "",
-						SmallText:  "",
-						Timestamps: &client.Timestamps{
-							Start: &start,
-						},
-						Buttons: []*client.Button{
-							{
-								Label: "Dashboard",
-								Url:   "https://dash.juicedbot.io/",
-							},
-						},
-					})
+					if len(fileInfos) == 0 {
+						log.Println("Chromium is not installed")
+						err = launcher.NewBrowser().Download()
+						if err != nil {
+							log.Println("Failed to download latest chromium snapshot")
+						}
+					}
+				} else {
+					log.Println("Failed to find files in default chromium path, trying to download")
+					err = launcher.NewBrowser().Download()
+					if err != nil {
+						log.Println("Failed to download latest chromium snapshot")
+					}
 				}
+				for _, fileInfo := range fileInfos {
+					if strings.Contains(fileInfo.Name(), "zip") {
+						if os.Remove(launcher.DefaultBrowserDir+"\\"+fileInfo.Name()) != nil {
+							log.Println("Could not remove a zip file")
+						}
+					}
+				}
+
 			}
 		}
 

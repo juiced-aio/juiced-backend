@@ -19,10 +19,10 @@ const RemoveTaskGroupError = "Removing the TaskGroup with the given ID returned 
 const UpdateTaskGroupError = "Updating the TaskGroup with the given ID returned an error: "
 
 // StartTaskGroupError is the error encountered when starting a TaskGroup returns an error
-const StartTaskGroupError = "Starting the TaskGroup encountered an error."
+const StartTaskGroupError = "Starting the TaskGroup encountered an error: "
 
 // StopTaskGroupError is the error encountered when stopping a TaskGroup returns an error
-const StopTaskGroupError = "Stopping the TaskGroup encountered an error."
+const StopTaskGroupError = "Stopping the TaskGroup encountered an error: "
 
 // ParseTaskError is the error encountered when parsing JSON into a Task returns an error
 const ParseTaskError = "Parsing the JSON into a Task returned an error: "
@@ -85,6 +85,9 @@ const InvalidTaskRetailerError = "the Task's retailer is not supported"
 // MonitorStore errors
 // StartMonitorInvalidCardError is the error encountered when starting a Monitor with every task with an invalid card type for the given retailer
 const StartMonitorInvalidCardError = "none of the Tasks in the TaskGroup have a Profile with a payment method that is supported by "
+
+// MissingMonitorFieldsError is returned when the Monitor's <Retailer>MonitorInfo is missing certain required fields
+const MissingMonitorFieldsError = "the Monitor is missing required fields"
 
 // NoMonitorsError is returned when the TaskGroup's <Retailer>MonitorInfo.Monitors is an empty slice
 const NoMonitorsError = "the TaskGroup has no monitors attached to it"

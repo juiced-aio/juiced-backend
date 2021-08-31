@@ -39,7 +39,6 @@ var baseURL, _ = url.Parse(BaseEndpoint)
 // Monitor info
 type Monitor struct {
 	Monitor         base.Monitor
-	RunningMonitors []string
 	OutOfStockASINs []string
 	ASINs           []string
 	InStock         []AmazonInStockData
@@ -47,17 +46,18 @@ type Monitor struct {
 }
 
 type AmazonInStockData struct {
-	ASIN        string
-	OfferID     string
-	Price       int
-	ItemName    string
-	AntiCsrf    string
-	PID         string
-	RID         string
-	ImageURL    string
-	UA          string
-	Client      http.Client
-	MonitorType enums.MonitorType
+	ASIN            string
+	OfferID         string
+	Price           float64
+	OutOfPriceRange bool
+	ItemName        string
+	AntiCsrf        string
+	PID             string
+	RID             string
+	ImageURL        string
+	UA              string
+	Client          http.Client
+	MonitorType     enums.MonitorType
 }
 
 type Acc struct {

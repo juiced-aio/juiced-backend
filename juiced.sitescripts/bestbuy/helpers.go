@@ -96,39 +96,48 @@ func CheckTime(uuid string) (float64, error) {
 
 // Creates a embed for the DiscordWebhook function
 func (task *Task) CreateBestbuyEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	fields := []sec.DiscordField{
+		{
+			Name:   "Retailer:",
+			Value:  "BestBuy",
+			Inline: true,
+		},
+		{
+			Name:   "Price:",
+			Value:  "$" + fmt.Sprint(task.StockData.Price),
+			Inline: true,
+		},
+		{
+			Name:   "Product SKU:",
+			Value:  fmt.Sprintf("[%v](https://www.bestbuy.com/site/%v.p?skuId=%v)", task.StockData.SKU, task.StockData.SKU, task.StockData.SKU),
+			Inline: true,
+		},
+		{
+			Name:  "Product Name:",
+			Value: task.StockData.ProductName,
+		},
+		{
+			Name:  "Task Type:",
+			Value: string(task.TaskType),
+		},
+		{
+			Name:  "Profile:",
+			Value: "||" + " " + task.Task.Profile.Name + " " + "||",
+		},
+	}
+
+	if task.Task.Proxy != nil {
+		fields = append(fields, sec.DiscordField{
+			Name:  "Proxy:",
+			Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+		})
+	}
+
 	embeds := []sec.DiscordEmbed{
 		{
-			Fields: []sec.DiscordField{
-				{
-					Name:   "Site:",
-					Value:  "BestBuy",
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.CheckoutInfo.Price),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.bestbuy.com/site/%v.p?skuId=%v)", task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock, task.CheckoutInfo.SKUInStock),
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: task.CheckoutInfo.ItemName,
-				},
-				{
-					Name:  "Task Type:",
-					Value: string(task.TaskType),
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
-				},
-			},
+			Fields: fields,
 			Footer: sec.DiscordFooter{
-				Text:    "Juiced AIO",
+				Text:    "Juiced",
 				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 			},
 			Timestamp: time.Now(),
@@ -148,8 +157,16 @@ func (task *Task) CreateBestbuyEmbed(status enums.OrderStatus, imageURL string) 
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
 			URL: imageURL,
 		}
+
 	case enums.OrderStatusFailed:
 		embeds[0].Title = ":apple: Failed to Place Order :apple:"
+		embeds[0].Color = 14495044
+		embeds[0].Thumbnail = sec.DiscordThumbnail{
+			URL: imageURL,
+		}
+
+	default:
+		embeds[0].Title = fmt.Sprintf(":apple: Failed to Place Order: %s :apple:", status)
 		embeds[0].Color = 14495044
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
 			URL: imageURL,

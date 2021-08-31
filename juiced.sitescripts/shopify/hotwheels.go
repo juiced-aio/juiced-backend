@@ -21,7 +21,7 @@ type HotWheelsLoginRequest struct {
 }
 
 func (task *Task) HotWheelsLogin() {
-	task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+	task.PublishEvent(enums.LoggingIn, enums.TaskUpdate, 10)
 	loggedIn := false
 	for !loggedIn {
 		needToStop := task.CheckForStop()

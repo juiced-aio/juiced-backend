@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
@@ -26,35 +27,44 @@ func SplitCard(card string, cardType string) string {
 
 // Creates a embed for the DiscordWebhook function
 func (task *Task) CreateShopifyEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	fields := []sec.DiscordField{
+		{
+			Name:   "Retailer:",
+			Value:  task.ShopifyRetailer,
+			Inline: true,
+		},
+		{
+			Name:   "Price:",
+			Value:  "$" + fmt.Sprint(task.TaskInfo.Price),
+			Inline: true,
+		},
+		{
+			Name:   "Product SKU:",
+			Value:  fmt.Sprintf("[%v](%v%v)", task.SiteURL, task.VariantID, task.TaskInfo.ItemURL),
+			Inline: true,
+		},
+		{
+			Name:  "Product Name:",
+			Value: task.TaskInfo.Name,
+		},
+		{
+			Name:  "Profile:",
+			Value: "||" + " " + task.Task.Profile.Name + " " + "||",
+		},
+	}
+
+	if task.Task.Proxy != nil {
+		fields = append(fields, sec.DiscordField{
+			Name:  "Proxy:",
+			Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+		})
+	}
+
 	embeds := []sec.DiscordEmbed{
 		{
-			Fields: []sec.DiscordField{
-				{
-					Name:   "Site:",
-					Value:  task.ShopifyRetailer,
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.TaskInfo.Price),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](%v%v)", task.SiteURL, task.VariantID, task.TaskInfo.ItemURL),
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: task.TaskInfo.Name,
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
-				},
-			},
+			Fields: fields,
 			Footer: sec.DiscordFooter{
-				Text:    "Juiced AIO",
+				Text:    "Juiced",
 				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 			},
 			Timestamp: time.Now(),
@@ -110,7 +120,7 @@ func BecomeGuest(client http.Client, siteURL, sitePassword string) bool {
 			return false
 		}
 	} else {
-		paramsString := util.CreateParams(map[string]string{
+		paramsString := common.CreateParams(map[string]string{
 			"form_type": "storefront_password",
 			"utf8":      "✓",
 			"password":  sitePassword,

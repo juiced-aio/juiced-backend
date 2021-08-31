@@ -2,20 +2,24 @@ package client
 
 import (
 	utls "backend.juicedbot.io/juiced.client/utls"
+	"backend.juicedbot.io/juiced.infrastructure/common"
+	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"golang.org/x/net/proxy"
 
 	"backend.juicedbot.io/juiced.client/http"
 )
 
-func UpdateProxy(client *http.Client, proxyurl string) error {
-	if proxyurl == "" {
+func UpdateProxy(client *http.Client, newProxy *entities.Proxy) error {
+	if newProxy == nil || newProxy.Host == "" {
+		client.Transport = newRoundTripper(utls.HelloChrome_90, proxy.Direct)
 		return nil
 	}
-	dialer, err := newConnectDialer(proxyurl)
+	newProxy.AddCount()
+	dialer, err := newConnectDialer(common.ProxyCleaner(*newProxy))
 	if err != nil {
 		return err
 	}
-	client.Transport = newRoundTripper(utls.HelloChrome_83, dialer)
+	client.Transport = newRoundTripper(utls.HelloChrome_90, dialer)
 	return nil
 
 }

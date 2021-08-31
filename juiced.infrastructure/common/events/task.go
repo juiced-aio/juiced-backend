@@ -6,10 +6,11 @@ import (
 
 // TaskEvent is fired whenever a Task updates
 type TaskEvent struct {
-	Status    enums.TaskStatus    `json:"status"`
-	EventType enums.TaskEventType `json:"eventType"`
-	Data      interface{}         `json:"data"`
-	TaskID    string              `json:"taskID"`
+	Status           enums.TaskStatus    `json:"status"`
+	StatusPercentage int                 `json:"statusPercentage"`
+	EventType        enums.TaskEventType `json:"eventType"`
+	Data             interface{}         `json:"data"`
+	TaskID           string              `json:"taskID"`
 }
 
 // ProductInfo is sent when publishing the SendingProductInfoToTasks event

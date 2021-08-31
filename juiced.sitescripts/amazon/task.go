@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/rand"
 	"net/url"
 	"strings"
 	"time"
 
-	cclient "backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
@@ -21,20 +21,23 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
 	"github.com/go-rod/rod/lib/launcher/flags"
+	"github.com/go-rod/rod/lib/proto"
 	"github.com/go-rod/stealth"
 	cmap "github.com/orcaman/concurrent-map"
 )
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -43,15 +46,14 @@ func (task *Task) CheckForStop() bool {
 var AmazonAccountStore = cmap.New()
 
 // CreateAmazonTask takes a Task entity and turns it into a Amazon Task
-func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
+func CreateAmazonTask(task *entities.Task, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, loginType enums.LoginType, email, password string) (Task, error) {
 	amazonTask := Task{}
 
 	amazonTask = Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
 		AccountInfo: AccountInfo{
 			Email:     email,
@@ -59,28 +61,47 @@ func CreateAmazonTask(task *entities.Task, profile entities.Profile, proxy entit
 			LoginType: loginType,
 		},
 	}
+	if proxyGroup != nil {
+		amazonTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		amazonTask.Task.Proxy = nil
+	}
 	return amazonTask, nil
 }
 
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		recover()
-		// TODO @silent: Let the UI know that a task failed
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
+		}
+		task.Task.StopFlag = true
 	}()
-
+	task.StockData = AmazonInStockData{}
+	task.Task.HasStockData = false
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty <= 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
 	// 1. Setup task
-	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	task.PublishEvent(enums.SettingUp, enums.TaskStart, 5)
 	setup := task.Setup()
 	if setup {
 		return
@@ -94,35 +115,33 @@ func (task *Task) RunTask() {
 	}
 	AccountPool.Set(task.Task.Task.TaskGroupID, accounts)
 
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 25)
 	// 2. WaitForMonitor
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
 	}
 
-	err = cclient.UpdateProxy(&task.Task.Client, common.ProxyCleaner(task.Task.Proxy))
+	err = task.Task.UpdateProxy(task.Task.Proxy)
 	if err != nil {
-		task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		task.PublishEvent(enums.TaskIdle, enums.TaskFail, 0)
 		return
 	}
 	status := enums.OrderStatusFailed
-	if task.CheckoutInfo.MonitorType == enums.SlowSKUMonitor {
-		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	if task.StockData.MonitorType == enums.SlowSKUMonitor {
+		task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 50)
 		// 3. AddToCart
 		addedToCart := false
+		var retries int
 		for !addedToCart {
-			var retries int
 			needToStop := task.CheckForStop()
-			if needToStop {
+			if needToStop || retries > 5 {
 				return
 			}
 			addedToCart = task.AddToCart()
-			if !addedToCart && retries < 5 {
+			if !addedToCart {
 				retries++
 				time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-			} else {
-				return
 			}
 		}
 	} else {
@@ -130,39 +149,56 @@ func (task *Task) RunTask() {
 	}
 
 	startTime := time.Now()
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 75)
 
 	// 4. PlaceOrder
 	placedOrder := false
-
+	var retries int
 	for !placedOrder {
-		var retries int
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
-		if !placedOrder && retries < 5 {
+		placedOrder, status = task.PlaceOrder()
+		if !placedOrder {
 			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
-		} else {
-			status = enums.OrderStatusFailed
-			break
 		}
-
 	}
+
+	endTime := time.Now()
+
+	log.Println("STARTED AT: " + startTime.String())
+	log.Println("  ENDED AT: " + endTime.String())
+	log.Println("TIME TO CHECK OUT: ", endTime.Sub(startTime).Milliseconds())
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateAmazonEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ItemName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.ASIN,
+		Retailer:     enums.Amazon,
+		Price:        float64(task.StockData.Price),
+		Quantity:     1,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
+
 }
 
 // Sets the client up by either logging in or waiting for another task to login that is using the same account
@@ -179,15 +215,16 @@ func (task *Task) Setup() bool {
 			// Error will be nil unless the item isn't in the map which we are already checking above
 			value, ok := AmazonAccountStore.Get(task.AccountInfo.Email)
 			if ok {
-				client, isClient := value.(http.Client)
-				if isClient {
+				acc, ok := value.(Acc)
+				if ok {
 					if len(task.Task.Client.Jar.Cookies(baseURL)) == 0 {
-						task.Task.Client.Jar = client.Jar
+						task.Task.Client.Jar = acc.Client.Jar
 					}
+					task.AccountInfo = acc.AccountInfo
 					break
 				} else {
 					if task.Task.Task.TaskStatus != enums.WaitingForLogin {
-						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate)
+						task.PublishEvent(enums.WaitingForLogin, enums.TaskUpdate, 10)
 					}
 					time.Sleep(common.MS_TO_WAIT)
 				}
@@ -198,7 +235,7 @@ func (task *Task) Setup() bool {
 		}
 	} else {
 		// Login
-		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate)
+		task.PublishEvent(enums.LoggingIn, enums.TaskUpdate, 10)
 		loggedIn := false
 		for !loggedIn {
 			needToStop := task.CheckForStop()
@@ -231,6 +268,12 @@ func (task *Task) Login() bool {
 
 // Browser login using Rod
 func (task *Task) browserLogin() bool {
+	defer func() {
+		if recover() != nil {
+			AmazonAccountStore.Remove(task.AccountInfo.Email)
+		}
+	}()
+
 	cookies := make([]*http.Cookie, 0)
 
 	var userPassProxy bool
@@ -239,7 +282,10 @@ func (task *Task) browserLogin() bool {
 
 	launcher_ := launcher.New()
 
-	proxyCleaned := common.ProxyCleaner(task.Task.Proxy)
+	proxyCleaned := ""
+	if task.Task.Proxy != nil {
+		proxyCleaned = common.ProxyCleaner(*task.Task.Proxy)
+	}
 	if proxyCleaned != "" {
 		proxyURL := proxyCleaned[7:]
 
@@ -257,7 +303,7 @@ func (task *Task) browserLogin() bool {
 
 	u := launcher_.
 		Set(flags.Flag("headless")).
-		// Delete(flags.Flag("--headless")).
+		Delete(flags.Flag("--headless")).
 		Delete(flags.Flag("--enable-automation")).
 		Delete(flags.Flag("--restore-on-startup")).
 		Set(flags.Flag("disable-background-networking")).
@@ -310,6 +356,7 @@ func (task *Task) browserLogin() bool {
 	}
 
 	page := stealth.MustPage(browserWithCancel)
+	page.MustSetUserAgent(&proto.NetworkSetUserAgentOverride{UserAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.107 Safari/537.36"})
 	page.MustNavigate(LoginEndpoint)
 	page.MustWaitLoad()
 	page.MustElement("#ap_email").MustWaitVisible().Input(task.AccountInfo.Email)
@@ -319,8 +366,9 @@ func (task *Task) browserLogin() bool {
 	page.MustElementX(`//input[@name="rememberMe"]`).MustWaitVisible().MustClick()
 	time.Sleep(2 * time.Second)
 	page.MustElement("#signInSubmit").MustWaitVisible().MustClick()
-	fmt.Println("Accept 2fa")
+	task.PublishEvent("Check for 2FA", enums.TaskUpdate, 15)
 	page.MustElement("#auth-cnep-done-button").MustWaitVisible().MustClick()
+	task.PublishEvent("2FA passed", enums.TaskUpdate, 20)
 	page.MustWaitLoad()
 	page.MustNavigate(BaseEndpoint)
 	page.MustNavigate(TestItemEndpoint)
@@ -332,13 +380,18 @@ func (task *Task) browserLogin() bool {
 	}
 
 	doc := soup.HTMLParse(body)
-	task.AccountInfo.SavedAddressID = doc.Find("input", "name", "dropdown-selection").Attrs()["value"]
-	if task.AccountInfo.SavedAddressID == "" {
+	item := doc.Find("input", "name", "dropdown-selection")
+	var addressID string
+	if item.Error == nil {
+		addressID = item.Attrs()["value"]
+	}
+
+	if addressID == "" {
 		AmazonAccountStore.Remove(task.AccountInfo.Email)
 		return false
 	}
 
-	task.AccountInfo.SessionID, err = util.FindInString(body, `ue_sid = '`, `'`)
+	sid, err := util.FindInString(body, `ue_sid = '`, `'`)
 	if err != nil {
 		AmazonAccountStore.Remove(task.AccountInfo.Email)
 		return false
@@ -363,7 +416,19 @@ func (task *Task) browserLogin() bool {
 		}
 	}
 	task.Task.Client.Jar.SetCookies(baseURL, cookies)
-	AmazonAccountStore.Set(task.AccountInfo.Email, task.Task.Client)
+	acc := Acc{
+		GroupID: task.Task.Task.TaskGroupID,
+		Client:  task.Task.Client,
+		AccountInfo: AccountInfo{
+			Email:          task.AccountInfo.Email,
+			Password:       task.AccountInfo.Password,
+			LoginType:      enums.LoginTypeBROWSER,
+			SavedAddressID: addressID,
+			SessionID:      sid,
+		},
+	}
+	task.AccountInfo = acc.AccountInfo
+	AmazonAccountStore.Set(task.AccountInfo.Email, acc)
 	return true
 }
 
@@ -417,7 +482,7 @@ func (task *Task) requestsLogin() bool {
 		return false
 	}
 
-	params := util.CreateParams(map[string]string{
+	params := common.CreateParams(map[string]string{
 		"appActionToken":   string(appActionToken),
 		"appAction":        "IGNIN_PWD_COLLECT",
 		"subPageType":      "SignInClaimCollect",
@@ -507,13 +572,15 @@ func (task *Task) requestsLogin() bool {
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
 		emptyString := ""
-		if task.CheckoutInfo.MonitorType != emptyString {
+		if task.StockData.OfferID != emptyString {
+			task.Task.HasStockData = true
 			return false
 		}
 		// I see why now
@@ -529,7 +596,7 @@ func (task *Task) AddToCart() bool {
 		"addressID":       {task.AccountInfo.SavedAddressID},
 		"asin.1":          {task.StockData.ASIN},
 		"offerListing.1":  {task.StockData.OfferID},
-		"quantity.1":      {"1"},
+		"quantity.1":      {fmt.Sprint(task.Task.Task.TaskQty)},
 		"forcePlaceOrder": {"Place+this+duplicate+order"},
 	}
 
@@ -544,7 +611,7 @@ func (task *Task) AddToCart() bool {
 			{"x-amz-turbo-checkout-dp-url", currentEndpoint + fmt.Sprintf(MonitorEndpoints[util.RandomNumberInt(0, len(MonitorEndpoints))], task.StockData.ASIN) + util.Randomizer("&pldnSite=1")},
 			{"rtt", "100"},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", task.CheckoutInfo.UA},
+			{"user-agent", task.StockData.UA},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"x-amz-support-custom-signin", "1"},
 			{"accept", "*/*"},
@@ -563,7 +630,7 @@ func (task *Task) AddToCart() bool {
 		Data: []byte(form.Encode()),
 	})
 	if err != nil {
-		fmt.Println(err.Error())
+		return false
 	}
 
 	switch resp.StatusCode {
@@ -574,23 +641,17 @@ func (task *Task) AddToCart() bool {
 		if err != nil {
 			return false
 		}
-		task.CheckoutInfo.AntiCsrf = doc.Find("input", "name", "anti-csrftoken-a2z").Attrs()["value"]
+		task.StockData.AntiCsrf = doc.Find("input", "name", "anti-csrftoken-a2z").Attrs()["value"]
 
-		task.CheckoutInfo.PID, err = util.FindInString(body, `currentPurchaseId":"`, `"`)
+		task.StockData.PID, err = util.FindInString(body, `currentPurchaseId":"`, `"`)
 		if err != nil {
 			fmt.Println("Could not find PID")
 			return false
 		}
-		task.CheckoutInfo.RID, err = util.FindInString(body, `var ue_id = '`, `'`)
+		task.StockData.RID, err = util.FindInString(body, `var ue_id = '`, `'`)
 		if err != nil {
 			fmt.Println("Could not find RID")
 			return false
-		}
-		images := doc.FindAll("img")
-		for _, source := range images {
-			if strings.Contains(source.Attrs()["src"], "https://m.media-amazon.com") {
-				task.CheckoutInfo.ImageURL = source.Attrs()["src"]
-			}
 		}
 
 		return true
@@ -608,14 +669,14 @@ func (task *Task) AddToCart() bool {
 }
 
 // Places the order
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	currentEndpoint := AmazonEndpoints[util.RandomNumberInt(0, 2)]
 	form := url.Values{
 		"x-amz-checkout-csrf-token": {task.AccountInfo.SessionID},
 		"ref_":                      {"chk_spc_placeOrder"},
 		"referrer":                  {"spc"},
-		"pid":                       {task.CheckoutInfo.PID},
+		"pid":                       {task.StockData.PID},
 		"pipelineType":              {"turbo"},
 		"clientId":                  {"retailwebsite"},
 		"temporaryAddToCart":        {"1"},
@@ -628,14 +689,14 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(CheckoutEndpoint, task.CheckoutInfo.RID, fmt.Sprint(time.Now().UnixNano())[0:13], task.CheckoutInfo.PID),
+		URL:    fmt.Sprintf(CheckoutEndpoint, task.StockData.RID, fmt.Sprint(time.Now().UnixNano())[0:13], task.StockData.PID),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
 			{"x-amz-checkout-entry-referer-url", currentEndpoint + "/gp/product/" + task.StockData.ASIN + "/ref=crt_ewc_title_oth_4?ie=UTF8&psc=1&smid=ATVPDKIKX0DER"},
-			{"anti-csrftoken-a2z", task.CheckoutInfo.AntiCsrf},
+			{"anti-csrftoken-a2z", task.StockData.AntiCsrf},
 			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", task.CheckoutInfo.UA},
+			{"user-agent", task.StockData.UA},
 			{"content-type", "application/x-www-form-urlencoded"},
 			{"accept", "*/*"},
 			{"x-requested-with", "XMLHttpRequest"},
@@ -660,39 +721,24 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		orderStatus := resp.Header.Get("x-amz-turbo-checkout-page-type")
 		switch orderStatus {
 		case "thankyou":
-			task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+			task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 			status = enums.OrderStatusSuccess
 			success = true
 		default:
-			task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+			task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 			status = enums.OrderStatusFailed
 			success = false
 		}
 
 	case 503:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	default:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 		status = enums.OrderStatusFailed
 		success = false
 	}
-
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateAmazonEmbed(status, task.CheckoutInfo.ImageURL),
-		ItemName:     task.StockData.ItemName,
-		ImageURL:     task.CheckoutInfo.ImageURL,
-		Sku:          task.StockData.ASIN,
-		Retailer:     enums.Amazon,
-		Price:        float64(task.CheckoutInfo.Price),
-		Quantity:     1,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
 
 	return success, status
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
+	"backend.juicedbot.io/juiced.infrastructure/common"
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
 	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
@@ -30,8 +31,18 @@ func AddWalmartHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-func SetPXCookie(proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) (util.PXValues, bool, error) {
-	px3, pxValues, cancel, err := util.GetPXCookie("walmart", proxy, cancellationToken)
+func SetPXCookie(proxy *entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) (util.PXValues, bool, error) {
+	var px3 string
+	var pxValues util.PXValues
+	var cancel bool
+	var err error
+	for {
+		px3, pxValues, cancel, err = util.GetPXCookie("walmart", proxy, cancellationToken)
+		if err == nil || err.Error() != "retry" {
+			break
+		}
+		time.Sleep(common.MS_TO_WAIT)
+	}
 	if cancel {
 		return pxValues, true, nil
 	}
@@ -59,8 +70,18 @@ func SetPXCookie(proxy entities.Proxy, client *http.Client, cancellationToken *u
 	return pxValues, false, nil
 }
 
-func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
-	px3, cancel, err := util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, "", proxy, cancellationToken)
+func SetPXCapCookie(captchaURL string, pxValues *util.PXValues, proxy *entities.Proxy, client *http.Client, cancellationToken *util.CancellationToken) error {
+	var px3 string
+	var cancel bool
+	var err error
+	for {
+		px3, cancel, err = util.GetPXCapCookie("walmart", pxValues.SetID, pxValues.VID, pxValues.UUID, "", proxy, cancellationToken)
+		if err == nil || err.Error() != "retry" {
+			break
+		}
+		time.Sleep(common.MS_TO_WAIT)
+	}
+
 	if cancel {
 		return nil
 	}
@@ -109,35 +130,44 @@ func ParseInstockSku(resp soup.Root) []string {
 
 // Creates a embed for the DiscordWebhook function
 func (task *Task) CreateWalmartEmbed(status enums.OrderStatus, imageURL string) []sec.DiscordEmbed {
+	fields := []sec.DiscordField{
+		{
+			Name:   "Retailer:",
+			Value:  "Walmart",
+			Inline: true,
+		},
+		{
+			Name:   "Price:",
+			Value:  "$" + fmt.Sprint(task.StockData.Price),
+			Inline: true,
+		},
+		{
+			Name:   "Product SKU:",
+			Value:  fmt.Sprintf("[%v](https://www.walmart.com/ip/%v)", task.StockData.SKU, task.StockData.SKU),
+			Inline: true,
+		},
+		{
+			Name:  "Product Name:",
+			Value: task.StockData.ProductName,
+		},
+		{
+			Name:  "Profile:",
+			Value: "||" + " " + task.Task.Profile.Name + " " + "||",
+		},
+	}
+
+	if task.Task.Proxy != nil {
+		fields = append(fields, sec.DiscordField{
+			Name:  "Proxy:",
+			Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
+		})
+	}
+
 	embeds := []sec.DiscordEmbed{
 		{
-			Fields: []sec.DiscordField{
-				{
-					Name:   "Site:",
-					Value:  "Walmart",
-					Inline: true,
-				},
-				{
-					Name:   "Price:",
-					Value:  "$" + fmt.Sprint(task.StockData.Price),
-					Inline: true,
-				},
-				{
-					Name:   "Product SKU:",
-					Value:  fmt.Sprintf("[%v](https://www.walmart.com/ip/%v)", task.StockData.SKU, task.StockData.SKU),
-					Inline: true,
-				},
-				{
-					Name:  "Product Name:",
-					Value: task.StockData.ProductName,
-				},
-				{
-					Name:  "Proxy:",
-					Value: "||" + " " + util.ProxyCleaner(task.Task.Proxy) + " " + "||",
-				},
-			},
+			Fields: fields,
 			Footer: sec.DiscordFooter{
-				Text:    "Juiced AIO",
+				Text:    "Juiced",
 				IconURL: "https://media.discordapp.net/attachments/849430464036077598/855979506204278804/Icon_1.png?width=128&height=128",
 			},
 			Timestamp: time.Now(),

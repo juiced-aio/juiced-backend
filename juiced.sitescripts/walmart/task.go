@@ -19,14 +19,19 @@ import (
 )
 
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
-func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxy entities.Proxy, eventBus *events.EventBus) (Task, error) {
+func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus) (Task, error) {
 	walmartTask := Task{
 		Task: base.Task{
-			Task:     task,
-			Profile:  profile,
-			Proxy:    proxy,
-			EventBus: eventBus,
+			Task:       task,
+			Profile:    profile,
+			ProxyGroup: proxyGroup,
+			EventBus:   eventBus,
 		},
+	}
+	if proxyGroup != nil {
+		walmartTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
+	} else {
+		walmartTask.Task.Proxy = nil
 	}
 	return walmartTask, nil
 }
@@ -36,12 +41,9 @@ func (task *Task) RefreshPX3() {
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
-		if r := recover(); r != nil {
-			task.RefreshPX3()
-		}
 	}()
 
-	cancellationToken := util.CancellationToken{Cancel: false}
+	cancellationToken := &util.CancellationToken{Cancel: false}
 	go func() {
 		for {
 			select {
@@ -58,36 +60,46 @@ func (task *Task) RefreshPX3() {
 		}
 	}()
 
+	retry := true
+	for retry {
+		retry = task.RefreshPX3Helper(cancellationToken)
+		time.Sleep(common.MS_TO_WAIT)
+	}
+}
+
+func (task *Task) RefreshPX3Helper(cancellationToken *util.CancellationToken) bool {
 	for {
+		if cancellationToken.Cancel {
+			return false
+		}
 		if task.PXValues.RefreshAt == 0 || time.Now().Unix() > task.PXValues.RefreshAt {
-			proxy := task.Task.Proxy
-			if proxy.Host == "localhost" {
-				proxy = entities.Proxy{}
-			}
-			pxValues, cancelled, err := SetPXCookie(proxy, &task.Task.Client, &cancellationToken)
+			pxValues, cancelled, err := SetPXCookie(task.Task.Proxy, &task.Task.Client, cancellationToken)
 			if cancelled {
-				return
+				return false
 			}
 			if err != nil {
 				log.Println("Error setting px cookie for task: " + err.Error())
-				panic(err)
+				return true
 			}
 			task.PXValues = pxValues
 			task.PXValues.RefreshAt = time.Now().Unix() + 240
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
 // PublishEvent wraps the EventBus's PublishTaskEvent function
-func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
-	task.Task.Task.SetTaskStatus(status)
-	task.Task.EventBus.PublishTaskEvent(status, eventType, nil, task.Task.Task.ID)
+func (task *Task) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType, statusPercentage int) {
+	if status == enums.TaskIdle || !task.Task.StopFlag {
+		task.Task.Task.SetTaskStatus(status)
+		task.Task.EventBus.PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.Task.ID)
+	}
 }
 
 // CheckForStop checks the stop flag and stops the monitor if it's true
 func (task *Task) CheckForStop() bool {
-	if task.Task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+	if task.Task.StopFlag && !task.Task.DontPublishEvents {
+		task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
 		return true
 	}
 	return false
@@ -107,24 +119,36 @@ func (task *Task) CheckForStop() bool {
 func (task *Task) RunTask() {
 	// If the function panics due to a runtime error, recover from it
 	defer func() {
-		if recover() != nil {
-			task.Task.StopFlag = true
-			task.PublishEvent(enums.TaskIdle, enums.TaskFail)
+		if r := recover(); r != nil {
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), enums.TaskFail, 0)
+		} else {
+			if !task.Task.StopFlag &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskIdle, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutFailure, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CardDeclined, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.CheckingOutSuccess, " %s", "")) &&
+				!strings.Contains(task.Task.Task.TaskStatus, strings.ReplaceAll(enums.TaskFailed, " %s", "")) {
+				task.PublishEvent(enums.TaskIdle, enums.TaskStop, 0)
+			}
 		}
-		task.PublishEvent(enums.TaskIdle, enums.TaskComplete)
+		task.Task.StopFlag = true
 	}()
+	task.StockData = WalmartInStockData{}
+	task.Task.HasStockData = false
 
 	if task.Task.Task.TaskDelay == 0 {
 		task.Task.Task.TaskDelay = 2000
 	}
+	if task.Task.Task.TaskQty <= 0 {
+		task.Task.Task.TaskQty = 1
+	}
 
-	client, err := util.CreateClient(task.Task.Proxy)
+	err := task.Task.CreateClient(task.Task.Proxy)
 	if err != nil {
 		return
 	}
-	task.Task.Client = client
 
-	task.PublishEvent(enums.SettingUp, enums.TaskStart)
+	task.PublishEvent(enums.SettingUp, enums.TaskStart, 5)
 	go task.RefreshPX3()
 	for task.PXValues.RefreshAt == 0 {
 		needToStop := task.CheckForStop()
@@ -147,7 +171,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 1. WaitForMonitor
-	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate)
+	task.PublishEvent(enums.WaitingForMonitor, enums.TaskUpdate, 20)
 	needToStop := task.WaitForMonitor()
 	if needToStop {
 		return
@@ -158,7 +182,7 @@ func (task *Task) RunTask() {
 	// @Tehnic: The endpoint that you are monitoring with automatically adds it to the cart so you should somehow pass the
 	// cookies/client to here and then completely cut out the AddToCart request, otherwise using a faster endpoint to monitor would be better.
 	// 2. AddToCart
-	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+	task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, 30)
 	addedToCart := false
 	for !addedToCart {
 		needToStop := task.CheckForStop()
@@ -184,11 +208,11 @@ func (task *Task) RunTask() {
 			CardCVV:    task.Task.Profile.CreditCard.CVV,
 			PIEValues:  pieValues,
 		}
-		task.Task.EventBus.PublishTaskEvent(enums.EncryptingCardInfo, enums.TaskUpdate, cardInfo, task.Task.Task.ID)
+		task.Task.EventBus.PublishTaskEvent(enums.EncryptingCardInfo, -1, enums.TaskUpdate, cardInfo, task.Task.Task.ID)
 	}()
 
 	// 3. GetCartInfo
-	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, 50)
 	gotCartInfo := false
 	for !gotCartInfo {
 		needToStop := task.CheckForStop()
@@ -216,7 +240,7 @@ func (task *Task) RunTask() {
 	// }
 
 	// 5. SetShippingInfo
-	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 60)
 	setShippingInfo := false
 	for !setShippingInfo {
 		needToStop := task.CheckForStop()
@@ -230,7 +254,7 @@ func (task *Task) RunTask() {
 	}
 
 	// 6. WaitForEncryptedPaymentInfo
-	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.GettingBillingInfo, enums.TaskUpdate, 70)
 	needToStop = task.WaitForEncryptedPaymentInfo()
 	if needToStop {
 		return
@@ -240,7 +264,7 @@ func (task *Task) RunTask() {
 	// * but for now we should just comment it out
 
 	// 7. SetCreditCard
-	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+	task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, 80)
 	setCreditCard := false
 	doNotRetry := false
 	for !setCreditCard {
@@ -269,19 +293,21 @@ func (task *Task) RunTask() {
 	}
 
 	// 9. PlaceOrder
-	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+	task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, 90)
 	placedOrder := false
+	var retries int
 	status := enums.OrderStatusFailed
 	for !placedOrder {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined {
+		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
 			break
 		}
-		placedOrder, status = task.PlaceOrder(startTime)
+		placedOrder, status = task.PlaceOrder()
 		if !placedOrder {
+			retries++
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -294,22 +320,44 @@ func (task *Task) RunTask() {
 
 	switch status {
 	case enums.OrderStatusSuccess:
-		task.PublishEvent(enums.CheckedOut, enums.TaskComplete)
+		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
 	case enums.OrderStatusDeclined:
-		task.PublishEvent(enums.CardDeclined, enums.TaskComplete)
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
 	case enums.OrderStatusFailed:
-		task.PublishEvent(enums.CheckoutFailed, enums.TaskComplete)
+		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
 	}
+
+	quantity := task.Task.Task.TaskQty
+	if quantity > task.StockData.MaxQty {
+		quantity = task.StockData.MaxQty
+	}
+
+	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
+		BaseTask:     task.Task,
+		Success:      placedOrder,
+		Status:       status,
+		Content:      "",
+		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
+		ItemName:     task.StockData.ProductName,
+		ImageURL:     task.StockData.ImageURL,
+		Sku:          task.StockData.SKU,
+		Retailer:     enums.Walmart,
+		Price:        task.StockData.Price,
+		Quantity:     quantity,
+		MsToCheckout: time.Since(startTime).Milliseconds(),
+	})
 }
 
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
+
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return true
 		}
 		if task.StockData.OfferID != "" && task.StockData.SKU != "" {
+			task.Task.HasStockData = true
 			return false
 		}
 		time.Sleep(common.MS_TO_WAIT)
@@ -342,7 +390,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 		}
 	}()
 
-	task.PublishEvent(enums.BypassingPX, enums.TaskUpdate)
+	task.PublishEvent(enums.BypassingPX, enums.TaskUpdate, -1)
 	captchaURL := resp.Request.URL.String()
 	if redirectURL != "" {
 		captchaURL = BaseEndpoint + redirectURL[1:]
@@ -517,7 +565,7 @@ func (task *Task) AddToCart() bool {
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (addToCartResponse.RedirectURL != "" && strings.Contains(addToCartResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, addToCartResponse.RedirectURL)
 		if handled {
-			task.PublishEvent(enums.AddingToCart, enums.TaskUpdate)
+			task.PublishEvent(enums.AddingToCart, enums.TaskUpdate, -1)
 		}
 		return false
 	}
@@ -582,7 +630,7 @@ func (task *Task) GetCartInfo() bool {
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (getCartInfoResponse.RedirectURL != "" && strings.Contains(getCartInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, getCartInfoResponse.RedirectURL)
 		if handled {
-			task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate)
+			task.PublishEvent(enums.GettingCartInfo, enums.TaskUpdate, -1)
 		}
 	}
 	if err != nil {
@@ -631,7 +679,7 @@ func (task *Task) SetPCID() bool {
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPCIDResponse.RedirectURL != "" && strings.Contains(setPCIDResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setPCIDResponse.RedirectURL)
 		if handled {
-			task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate)
+			task.PublishEvent(enums.SettingCartInfo, enums.TaskUpdate, -1)
 		}
 	}
 	if err != nil {
@@ -701,7 +749,7 @@ func (task *Task) SetShippingInfo() bool {
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setShippingInfoResponse.RedirectURL != "" && strings.Contains(setShippingInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setShippingInfoResponse.RedirectURL)
 		if handled {
-			task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate)
+			task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, -1)
 		}
 	}
 	if err != nil {
@@ -732,6 +780,7 @@ func (task *Task) WaitForEncryptedPaymentInfo() bool {
 		if task.CardInfo.EncryptedPan != "" {
 			return false
 		}
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -798,7 +847,7 @@ func (task *Task) SetCreditCard() (bool, bool) {
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setCreditCardResponse.RedirectURL != "" && strings.Contains(setCreditCardResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setCreditCardResponse.RedirectURL)
 		if handled {
-			task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+			task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, -1)
 		}
 	}
 	if err != nil {
@@ -893,7 +942,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (setPaymentInfoResponse.RedirectURL != "" && strings.Contains(setPaymentInfoResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, setPaymentInfoResponse.RedirectURL)
 		if handled {
-			task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate)
+			task.PublishEvent(enums.SettingBillingInfo, enums.TaskUpdate, -1)
 		}
 	}
 	if err != nil {
@@ -914,7 +963,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 }
 
 // PlaceOrder completes the checkout process
-func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
+func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 	status := enums.OrderStatusFailed
 	placeOrderResponse := PlaceOrderResponse{}
 	data := PlaceOrderRequest{
@@ -961,7 +1010,7 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 	if strings.Contains(resp.Request.URL.String(), "blocked") || (placeOrderResponse.RedirectURL != "" && strings.Contains(placeOrderResponse.RedirectURL, "blocked")) {
 		handled := task.HandlePXCap(resp, placeOrderResponse.RedirectURL)
 		if handled {
-			task.PublishEvent(enums.CheckingOut, enums.TaskUpdate)
+			task.PublishEvent(enums.CheckingOut, enums.TaskUpdate, -1)
 		}
 	}
 	if err != nil {
@@ -983,26 +1032,6 @@ func (task *Task) PlaceOrder(startTime time.Time) (bool, enums.OrderStatus) {
 		success = true
 		status = enums.OrderStatusSuccess
 	}
-
-	quantity := task.Task.Task.TaskQty
-	if quantity > task.StockData.MaxQty {
-		quantity = task.StockData.MaxQty
-	}
-
-	go util.ProcessCheckout(util.ProcessCheckoutInfo{
-		BaseTask:     task.Task,
-		Success:      success,
-		Status:       status,
-		Content:      "",
-		Embeds:       task.CreateWalmartEmbed(status, task.StockData.ImageURL),
-		ItemName:     task.StockData.ProductName,
-		ImageURL:     task.StockData.ImageURL,
-		Sku:          task.StockData.SKU,
-		Retailer:     enums.Walmart,
-		Price:        task.StockData.Price,
-		Quantity:     quantity,
-		MsToCheckout: time.Since(startTime).Milliseconds(),
-	})
 
 	return success, status
 }
