@@ -149,7 +149,10 @@ var toppsTaskInfosSchema = `
 var walmartTaskInfosSchema = `
 	CREATE TABLE IF NOT EXISTS walmartTaskInfos (
 		taskID TEXT,
-		taskGroupID TEXT
+		taskGroupID TEXT,
+		email TEXT,
+		password TEXT,
+		taskType TEXT
 	)
 `
 
