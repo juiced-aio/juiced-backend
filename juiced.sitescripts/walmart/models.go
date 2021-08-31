@@ -2,14 +2,17 @@ package walmart
 
 import (
 	"backend.juicedbot.io/juiced.infrastructure/common/entities"
+	"backend.juicedbot.io/juiced.infrastructure/common/enums"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
 // Endpoints
 const (
-	BaseEndpoint          = "https://www.walmart.com/"
+	BaseEndpoint          = "https://www.walmart.com"
 	BlockedToBaseEndpoint = "https://www.walmart.com/blocked?url=Lw=="
+
+	LoginEndpoint = "https://www.walmart.com/account/electrode/api/signin?ref=domain"
 
 	PIEEndpoint = "https://securedataweb.walmart.com/pie/v1/wmcom_us_vtg_pie/getkey.js?bust="
 	PIEReferer  = "https://www.walmart.com/"
@@ -58,10 +61,12 @@ type WalmartInStockData struct {
 
 // Task info
 type Task struct {
-	Task      base.Task
-	StockData WalmartInStockData
-	CardInfo  CardInfo
-	PXValues  util.PXValues
+	Task        base.Task
+	TaskType    enums.TaskType
+	StockData   WalmartInStockData
+	CardInfo    CardInfo
+	AccountInfo AccountInfo
+	PXValues    util.PXValues
 }
 
 //Part of the Task struct
@@ -73,6 +78,11 @@ type CardInfo struct {
 	Phase          int    `json:"phase"`
 	PiHash         string `json:"piHash"`
 	PaymentType    string `json:"paymentType"`
+}
+
+type AccountInfo struct {
+	Email    string
+	Password string
 }
 
 type EncryptCardInfo struct {

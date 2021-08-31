@@ -324,8 +324,15 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 		if queryError != nil {
 			return queryError
 		}
+
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.WalmartTaskInfo.TaskType == emptyString || (task.WalmartTaskInfo.TaskType == enums.TaskTypeAccount && (task.WalmartTaskInfo.Email == emptyString || task.WalmartTaskInfo.Password == emptyString)) {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+
 		// Create task
-		walmartTask, err := walmart.CreateWalmartTask(task, profile, proxyGroup, taskStore.EventBus)
+		walmartTask, err := walmart.CreateWalmartTask(task, profile, proxyGroup, taskStore.EventBus, task.WalmartTaskInfo.Email, task.WalmartTaskInfo.Password, task.WalmartTaskInfo.TaskType)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
