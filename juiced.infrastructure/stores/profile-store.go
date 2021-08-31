@@ -105,11 +105,14 @@ func CreateProfile(profile entities.Profile) (*entities.Profile, error) {
 	profile.CreditCard.ProfileID = profile.ID
 
 	err := database.CreateProfile(profile)
+	if err != nil {
+		return nil, err
+	}
 
 	profilePtr := &profile
 	profileStore.Profiles[profile.ID] = profilePtr
 
-	return profilePtr, err
+	return profilePtr, nil
 }
 
 func UpdateProfile(profileID string, newProfile entities.Profile) (*entities.Profile, error) {
@@ -148,5 +151,15 @@ func UpdateProfile(profileID string, newProfile entities.Profile) (*entities.Pro
 	profile.CreditCard.CVV = newProfile.CreditCard.CVV
 	profile.CreditCard.CardType = newProfile.CreditCard.CardType
 
-	return profile, nil
+	return profile, database.UpdateProfile(profileID, *profile)
+}
+
+func RemoveProfile(profileID string) (entities.Profile, error) {
+	profile, err := GetProfile(profileID)
+	if err != nil {
+		return entities.Profile{}, err
+	}
+
+	delete(profileStore.Profiles, profileID)
+	return *profile, database.RemoveProfileGroup(profileID)
 }

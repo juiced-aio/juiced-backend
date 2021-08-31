@@ -66,11 +66,14 @@ func CreateProfileGroup(profileGroup entities.ProfileGroup) (*entities.ProfileGr
 	profileGroup.Profiles = GetProfiles(profileGroup.ProfileIDs)
 
 	err := database.CreateProfileGroup(profileGroup)
+	if err != nil {
+		return nil, err
+	}
 
 	profileGroupPtr := &profileGroup
 	profileGroupStore.ProfileGroups[profileGroup.GroupID] = profileGroupPtr
 
-	return profileGroupPtr, err
+	return profileGroupPtr, nil
 }
 
 func UpdateProfileGroup(groupID string, newProfileGroup entities.ProfileGroup) (*entities.ProfileGroup, error) {
@@ -84,7 +87,7 @@ func UpdateProfileGroup(groupID string, newProfileGroup entities.ProfileGroup) (
 	profileGroup.ProfileIDsJoined = newProfileGroup.ProfileIDsJoined
 	profileGroup.Profiles = GetProfiles(profileGroup.ProfileIDs)
 
-	return profileGroup, nil
+	return profileGroup, database.UpdateProfileGroup(groupID, *profileGroup)
 }
 
 func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
@@ -94,6 +97,5 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 	}
 
 	delete(profileGroupStore.ProfileGroups, groupID)
-	err = database.RemoveProfileGroup(groupID)
-	return *profileGroup, err
+	return *profileGroup, database.RemoveProfileGroup(groupID)
 }

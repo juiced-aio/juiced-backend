@@ -64,11 +64,14 @@ func CreateProxyGroup(proxyGroup entities.ProxyGroup) (*entities.ProxyGroup, err
 	}
 
 	err := database.CreateProxyGroup(proxyGroup)
+	if err != nil {
+		return nil, err
+	}
 
 	proxyGroupPtr := &proxyGroup
 	proxyGroupStore.ProxyGroups[proxyGroup.GroupID] = proxyGroupPtr
 
-	return proxyGroupPtr, err
+	return proxyGroupPtr, nil
 }
 
 func UpdateProxyGroup(groupID string, newProxyGroup entities.ProxyGroup) (*entities.ProxyGroup, error) {
@@ -80,7 +83,7 @@ func UpdateProxyGroup(groupID string, newProxyGroup entities.ProxyGroup) (*entit
 	proxyGroup.Name = newProxyGroup.Name
 	proxyGroup.Proxies = newProxyGroup.Proxies
 
-	return proxyGroup, nil
+	return proxyGroup, database.UpdateProxyGroup(groupID, *proxyGroup)
 }
 
 func RemoveProxyGroup(groupID string) (entities.ProxyGroup, error) {
@@ -90,6 +93,5 @@ func RemoveProxyGroup(groupID string) (entities.ProxyGroup, error) {
 	}
 
 	delete(proxyGroupStore.ProxyGroups, groupID)
-	err = database.RemoveProxyGroup(groupID)
-	return *proxyGroup, err
+	return *proxyGroup, database.RemoveProxyGroup(groupID)
 }

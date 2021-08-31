@@ -75,7 +75,6 @@ func GetTaskGroup(groupID string) (*entities.TaskGroup, error) {
 
 func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) {
 	taskGroupPtr := &taskGroup
-	taskGroupStore.TaskGroups[taskGroup.GroupID] = taskGroupPtr
 
 	if taskGroupPtr.GroupID == "" {
 		taskGroup.GroupID = uuid.New().String()
@@ -108,8 +107,12 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 	}
 
 	err := database.CreateTaskGroup(*taskGroupPtr)
+	if err != nil {
+		return nil, err
+	}
 
-	return taskGroupPtr, err
+	taskGroupStore.TaskGroups[taskGroup.GroupID] = taskGroupPtr
+	return taskGroupPtr, nil
 }
 
 func RunTaskGroup(taskGroupID string) error {

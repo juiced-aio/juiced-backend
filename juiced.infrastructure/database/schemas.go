@@ -154,6 +154,7 @@ var accountsSchema = `
 		retailer TEXT,
 		email TEXT,
 		password TEXT,
+		cookiesSerialized TEXT,
 		creationDate INTEGER
 	)
 `
