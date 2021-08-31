@@ -210,7 +210,7 @@ func (task *Task) RunTask() {
 		if needToStop {
 			return
 		}
-		if status == enums.OrderStatusDeclined || retries > common.MAX_RETRIES {
+		if status != enums.OrderStatusFailed || retries > common.MAX_RETRIES {
 			break
 		}
 		placedOrder, status = task.PlaceOrder()
