@@ -11,6 +11,7 @@ require (
 	github.com/dsnet/compress v0.0.1
 	github.com/dvsekhvalnov/jose2go v1.5.0
 	github.com/go-rod/rod v0.99.1
+	github.com/gofiber/fiber/v2 v2.18.0
 	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/mux v1.8.0
@@ -26,7 +27,7 @@ require (
 	gitlab.com/aycd-inc/autosolve-clients/autosolve-client-go v0.0.0-20210316010646-b5ea46dc87ee
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec
 	gitlab.com/yawning/utls.git v0.0.12-1
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
 	golang.org/x/net v0.0.0-20210610132358-84b48f89b13b
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect

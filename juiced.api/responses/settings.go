@@ -1,12 +1,5 @@
 package responses
 
-import (
-	"backend.juicedbot.io/juiced.infrastructure/entities"
-)
-
-// SettingsResponse is the response that any /api/settings request receives
-type SettingsResponse struct {
-	Success bool              `json:"success"`
-	Data    entities.Settings `json:"data"`
-	Errors  []string          `json:"errors"`
-}
+var UpdateSettingsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 1000, Message: "Could not parse settings: "}
+var UpdateSettingsUpdateErrorResponse = Response{StatusCode: 500, ErrorCode: 1001, Message: "Could not update settings: "}
+var UpdateSettingsStartAYCDWarningResponse = Response{StatusCode: 200, ErrorCode: 1002, Message: "Could not restart AYCD, restarting the bot is recommended: "}
