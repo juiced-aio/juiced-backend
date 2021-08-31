@@ -16,12 +16,12 @@ type PaymentKeyResponse struct {
 }
 
 type LoginResponse struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   string `json:"expires_in"`
-	Scope       string `json:"scope"`
-	Role        string `json:"role"`
-	Roles       string `json:"roles"`
-	FamilyName  string `json:"familyName"`
-	GivenName   string `json:"givenName"`
+	AccessToken string   `json:"access_token"`
+	TokenType   string   `json:"token_type"`
+	ExpiresIn   int64    `json:"expires_in"`
+	Scope       string   `json:"scope"`
+	Role        string   `json:"role"`
+	Roles       []string `json:"roles"`
+	FamilyName  string   `json:"familyName"`
+	GivenName   string   `json:"givenName"`
 }

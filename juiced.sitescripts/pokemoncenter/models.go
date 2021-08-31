@@ -8,9 +8,9 @@ import (
 
 // Endpoints
 const (
-	BaseEndpoint = "https://www.pokemoncenter.com/"
+	BaseEndpoint = "https://www.pokemoncenter.com"
 
-	MonitorEndpoint = "https://www.pokemoncenter.com/product/%s"
+	MonitorEndpoint = "https://www.pokemoncenter.com/tpci-ecommweb-api/product/%v?format="
 
 	DatadomeEndpoint          = "https://geo.captcha-delivery.com/captcha/?"
 	DatadomeChallengeEndpoint = "https://geo.captcha-delivery.com/captcha/check?"
@@ -60,30 +60,62 @@ type Monitor struct {
 }
 
 type MonitorResponse struct {
-	Props struct {
-		IsServer     bool
-		InitialState struct {
-			Product struct {
-				AddToCartForm string
-				Availability  string
-				Images        struct {
-					Original string
-				}
-				ListPrice struct {
-					Amount float64
-				}
-				Name string
-			}
-		}
-		InitialProps struct {
-		}
-	}
+	Definition []Definition `json:"_definition"`
+	Images     []Images     `json:"images"`
+	Items      []Items      `json:"_items"`
+}
+
+type Definition struct {
+	Details []Detail `json:"details"`
+}
+type Detail struct {
+	DisplayName  string      `json:"display-name"`
+	DisplayValue string      `json:"display-value"`
+	Value        interface{} `json:"value"`
+}
+
+type Images struct {
+	High string `json:"high"`
+}
+
+type Availability struct {
+	State string `json:"state"`
+}
+
+type Self struct {
+	Type string `json:"type"`
+	URI  string `json:"uri"`
+	Href string `json:"href"`
+}
+
+type Addtocartform struct {
+	Self Self `json:"self"`
+}
+
+type PurchasePrice struct {
+	Amount   float64 `json:"amount"`
+	Currency string  `json:"currency"`
+	Display  string  `json:"display"`
+}
+type Price struct {
+	PurchasePrice []PurchasePrice `json:"purchase-price"`
+}
+
+type Element struct {
+	Addtocartform []Addtocartform `json:"_addtocartform"`
+	Availability  []Availability  `json:"_availability"`
+	Price         []Price         `json:"_price"`
+}
+
+type Items struct {
+	Element []Element `json:"_element"`
 }
 
 //Populated when item comes into stock, then populates checkout info
 type PokemonCenterInStockData struct {
 	SKU             string
 	Price           float64
+	MaxQuantity     int
 	OutOfPriceRange bool
 	ItemName        string
 	AddToCartForm   string

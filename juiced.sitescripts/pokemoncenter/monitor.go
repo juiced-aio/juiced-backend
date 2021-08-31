@@ -3,9 +3,7 @@ package pokemoncenter
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"log"
-	"strings"
+	"strconv"
 	"sync"
 	"time"
 
@@ -15,7 +13,6 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/common/events"
 	"backend.juicedbot.io/juiced.sitescripts/base"
 	"backend.juicedbot.io/juiced.sitescripts/util"
-	"github.com/anaskhan96/soup"
 )
 
 // CreatePokemonCenterMonitor takes a TaskGroup entity and turns it into a pokemoncenter Monitor
@@ -166,24 +163,29 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.Monitor.Client,
 		Method: "GET",
-		URL:    fmt.Sprintf(MonitorEndpoint, sku),
+		// Random string here is to bypass caching
+		URL: fmt.Sprintf(MonitorEndpoint, sku) + common.RandString(5),
 		RawHeaders: [][2]string{
-			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
-			{"accept", "*/*"},
-			{"x-requested-with", "XMLHttpRequest"},
-			{"sec-ch-ua-mobile", "?0"},
-			{"user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15"},
-			{"sec-fetch-site", "same-origin"},
-			{"sec-fetch-mode", "cors"},
-			{"sec-fetch-dest", "empty"},
-			{"referer", BaseEndpoint},
-			{"accept-encoding", "gzip, deflate, br"},
-			{"accept-language", "en-US,en;q=0.9"},
-			{"cache-control", "max-age=0"},
+			{"pragma", `no-transform`},
+			{"cache-control", `no-cache=#headers`},
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
+			{"content-type", `application/json`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"user-agent", `Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15`},
+			{"x-store-scope", `pokemon`},
+			{"accept", `*/*`},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", BaseEndpoint + "/"},
+			{"accept-language", `en-SP`},
+			{"origin", BaseEndpoint},
+			{"Accept-Encoding", `identity`},
 		},
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+		return stockData
 	}
 
 	switch resp.StatusCode {
@@ -191,104 +193,45 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 		monitor.HandleDatadome(body)
 		return stockData
 	case 200:
-		//Get response data as this is embedded into the HTML in a script.
-		body, _ := ioutil.ReadAll(resp.Body)
-		responseBody := soup.HTMLParse(string(body))
-		nextData := responseBody.Find("script", "id", "__NEXT_DATA__")
-		nextDataString := nextData.Pointer.FirstChild.Data
-		json.Unmarshal([]byte(nextDataString), &monitorResponse)
-
-		switch monitorResponse.Props.InitialState.Product.Availability {
-		case "AVAILABLE":
-			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
-			fmt.Println(monitorResponse.Props.InitialState.Product.ListPrice.Amount)
-			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
-			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
-			stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
-			var inBudget bool
-			inBudget = monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
-			if inBudget {
-				stockData.SKU = sku
-				monitor.SKUsSentToTask = append(monitor.SKUsSentToTask, sku)
-			} else {
-				stockData.OutOfPriceRange = true
-			}
-			return stockData
-		case "NOT_AVAILABLE":
-			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
-			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
-			monitor.SKUsSentToTask = common.RemoveFromSlice(monitor.SKUsSentToTask, sku)
-			return stockData
-		default:
-			stockData.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
-			stockData.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
-			stockData.ItemName = monitorResponse.Props.InitialState.Product.Name
-			stockData.AddToCartForm = monitorResponse.Props.InitialState.Product.AddToCartForm
-			fmt.Println(monitorResponse.Props.InitialState.Product.Availability)
+		err = json.Unmarshal([]byte(body), &monitorResponse)
+		if err != nil {
+			fmt.Println(err.Error())
 			return stockData
 		}
-	default:
-		return stockData
-	}
-}
 
-func (monitor Monitor) HandleDatadome(body string) {
-	status := monitor.Monitor.TaskGroup.MonitorStatus
-	monitor.PublishEvent(enums.WaitingForCaptchaMonitor, enums.MonitorUpdate, nil)
-	quit := make(chan bool)
-	defer func() {
-		quit <- true
-	}()
+		if len(monitorResponse.Items) == 0 || len(monitorResponse.Definition) == 0 || len(monitorResponse.Images) == 0 {
+			return stockData
+		}
 
-	cancellationToken := util.CancellationToken{Cancel: false}
-	go func() {
-		for {
-			select {
-			case <-quit:
-				return
-			default:
-				needToStop := monitor.CheckForStop()
-				if needToStop {
-					cancellationToken.Cancel = true
-					return
+		//Get response data as this is embedded into the HTML in a script.
+		for _, detail := range monitorResponse.Definition[0].Details {
+			switch detail.DisplayName {
+			case "Item Name (Web)":
+				stockData.ItemName = detail.Value.(string)
+			case "Item Name":
+				stockData.ItemName = detail.Value.(string)
+			case "Purchase Quantity Limit":
+				stockData.MaxQuantity, err = strconv.Atoi(detail.DisplayValue)
+				if err != nil {
+					fmt.Println(err.Error())
+					return stockData
 				}
 			}
-			time.Sleep(common.MS_TO_WAIT)
 		}
-	}()
+		stockData.ImageURL = monitorResponse.Images[0].High
 
-	datadomeStr, err := util.FindInString(body, "<script>var dd=", "}")
-	if err != nil {
-		return
-	}
-	datadomeStr += "}"
-	datadomeStr = strings.ReplaceAll(datadomeStr, "'", "\"")
-
-	datadomeInfo := DatadomeInfo{}
-	err = json.Unmarshal([]byte(datadomeStr), &datadomeInfo)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	}
-
-	cookies := monitor.Monitor.Client.Jar.Cookies(BaseURL)
-	for _, cookie := range cookies {
-		if cookie.Name == "datadome" {
-			datadomeInfo.CID = cookie.Value
+		for _, element := range monitorResponse.Items[0].Element {
+			stockData.AddToCartForm = element.Addtocartform[0].Self.URI
+			stockData.Price = element.Price[0].PurchasePrice[0].Amount
+			if inBudget := monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1; element.Availability[0].State == "AVAILABLE" && inBudget {
+				if !inBudget {
+					stockData.OutOfPriceRange = true
+				}
+				stockData.SKU = sku
+			}
 		}
 	}
 
-	if datadomeInfo.CID == "" {
-		return
-	}
+	return stockData
 
-	err = SetDatadomeCookie(datadomeInfo, monitor.Monitor.Proxy, &monitor.Monitor.Client, &cancellationToken)
-	if err != nil {
-		log.Println(err.Error())
-		return
-	} else {
-		monitor.PublishEvent(status, enums.MonitorUpdate, nil)
-		log.Println("Cookie updated.")
-		return
-	}
 }
