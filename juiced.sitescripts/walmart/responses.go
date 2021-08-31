@@ -7,6 +7,11 @@ type GetPXCookieResponse struct {
 	Uuid  string
 }
 
+// LoginResponse is returned by the Login endpoint
+type LoginResponse struct {
+	Status string `json:"status"`
+}
+
 // AddToCartResponse is returned by the AddToCart endpoint
 type AddToCartResponse struct {
 	Cart        Cart    `json:"cart"`

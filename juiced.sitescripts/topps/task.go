@@ -774,7 +774,7 @@ func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 		case "Your payment could not be taken. Please try again or use a different payment method. Do Not Honor":
 			status = enums.OrderStatusDeclined
 		default:
-			status = enums.OrderStatusSuccess
+			status = enums.OrderStatusFailed
 			success = true
 		}
 	}

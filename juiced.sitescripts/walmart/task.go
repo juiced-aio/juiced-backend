@@ -19,7 +19,7 @@ import (
 )
 
 // CreateWalmartTask takes a Task entity and turns it into a Walmart Task
-func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus) (Task, error) {
+func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string, taskType enums.TaskType) (Task, error) {
 	walmartTask := Task{
 		Task: base.Task{
 			Task:       task,
@@ -27,6 +27,12 @@ func CreateWalmartTask(task *entities.Task, profile entities.Profile, proxyGroup
 			ProxyGroup: proxyGroup,
 			EventBus:   eventBus,
 		},
+		AccountInfo: AccountInfo{
+			Email:    email,
+			Password: password,
+		},
+
+		TaskType: taskType,
 	}
 	if proxyGroup != nil {
 		walmartTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
@@ -158,14 +164,22 @@ func (task *Task) RunTask() {
 		time.Sleep(common.MS_TO_WAIT)
 	}
 
-	setup := false
-	for !setup {
+	sessionMade := false
+	for !sessionMade {
 		needToStop := task.CheckForStop()
 		if needToStop {
 			return
 		}
-		setup = task.Setup()
-		if !setup {
+		switch task.TaskType {
+		case enums.TaskTypeAccount:
+			task.PublishEvent(enums.LoggingIn, enums.TaskStart, 10)
+			sessionMade = task.Login()
+		case enums.TaskTypeGuest:
+			task.PublishEvent(enums.SettingUp, enums.TaskStart, 10)
+			sessionMade = task.BecomeGuest()
+		}
+
+		if !sessionMade {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 	}
@@ -348,6 +362,41 @@ func (task *Task) RunTask() {
 	})
 }
 
+func (task *Task) Login() bool {
+	loginRequest := LoginRequest{
+		Username:   task.AccountInfo.Email,
+		Password:   task.AccountInfo.Password,
+		RememberMe: true,
+	}
+	var loginResponse LoginResponse
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "POST",
+		URL:    LoginEndpoint,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", `"Chromium";v="92", " Not A;Brand";v="99", "Google Chrome";v="92"`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/92.0.4515.159 Safari/537.36`},
+			{"content-type", `application/json`},
+			{"accept", `*/*`},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", LoginEndpoint},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+		RequestBodyStruct:  loginRequest,
+		ResponseBodyStruct: &loginResponse,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+
+	return loginResponse.Status == "OK"
+}
+
 // WaitForMonitor waits until the Monitor has sent the info to the task to continue
 func (task *Task) WaitForMonitor() bool {
 
@@ -393,7 +442,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 	task.PublishEvent(enums.BypassingPX, enums.TaskUpdate, -1)
 	captchaURL := resp.Request.URL.String()
 	if redirectURL != "" {
-		captchaURL = BaseEndpoint + redirectURL[1:]
+		captchaURL = BaseEndpoint + "/" + redirectURL[1:]
 	}
 	proxy := task.Task.Proxy
 	if proxy.Host == "localhost" {
@@ -410,8 +459,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 
 }
 
-// Setup sends a GET request to the BaseEndpoint
-func (task *Task) Setup() bool {
+func (task *Task) BecomeGuest() bool {
 	u, _ := url.Parse("https://www.walmart.com/")
 	task.Task.Client.Jar.SetCookies(u, []*http.Cookie{{
 		Name:     "com.wm.reflector",
@@ -444,7 +492,7 @@ func (task *Task) Setup() bool {
 		log.Println("Setup request 2 error: " + err.Error())
 	}
 	if strings.Contains(resp.Request.URL.String(), "blocked") {
-		handled := task.HandlePXCap(resp, BaseEndpoint)
+		handled := task.HandlePXCap(resp, BaseEndpoint+"/")
 		return handled
 	}
 
@@ -735,7 +783,7 @@ func (task *Task) SetShippingInfo() bool {
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 			{"wm_vertical_id", "0"},
 			{"content-type", "application/json"},
-			{"origin", "https://www.walmart.com"},
+			{"origin", BaseEndpoint},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
@@ -832,7 +880,7 @@ func (task *Task) SetCreditCard() (bool, bool) {
 			{"sec-ch-ua-mobile", "?0"},
 			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36"},
 			{"content-type", "application/json"},
-			{"origin", "https://www.walmart.com"},
+			{"origin", BaseEndpoint},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
@@ -926,7 +974,7 @@ func (task *Task) SetPaymentInfo() (bool, bool) {
 			{"accept", "application/json"},
 			{"wm_cvv_in_session", "true"},
 			{"wm_vertical_id", "0"},
-			{"origin", "https://www.walmart.com"},
+			{"origin", BaseEndpoint},
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
