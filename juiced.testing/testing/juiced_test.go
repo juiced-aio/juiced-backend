@@ -269,26 +269,28 @@ func TestNewegg(t *testing.T) {
 	select {}
 }
 
-func TestWalmart(t *testing.T) {
-	MainTask.WalmartTaskInfo = &entities.WalmartTaskInfo{
+func TestPokemonCenter(t *testing.T) {
+	MainTask.PokemonCenterTaskInfo = &entities.PokemonCenterTaskInfo{
 		TaskID:      MainTaskID,
 		TaskGroupID: MainTaskGroupID,
+		Email:       "andersonrector@gmail.com",
+		Password:    "#Testing1",
+		TaskType:    enums.TaskTypeAccount,
+		AddressType: enums.AddressTypeNEW,
 	}
 
-	MainTaskGroup.WalmartMonitorInfo = &entities.WalmartMonitorInfo{
+	MainTaskGroup.PokemonCenterMonitorInfo = &entities.PokemonCenterMonitorInfo{
 		ID:          MainMonitorID,
 		TaskGroupID: MainTaskGroupID,
-		Monitors: []entities.WalmartSingleMonitorInfo{{
-			MonitorID:     MainMonitorID,
-			TaskGroupID:   MainTaskGroupID,
-			ID:            "855737650",
-			MaxPrice:      -1,
-			SoldByWalmart: true,
-			MonitorType:   enums.SKUMonitor,
+		Monitors: []entities.PokemonCenterSingleMonitorInfo{{
+			MonitorID:   MainMonitorID,
+			TaskGroupID: MainTaskGroupID,
+			SKU:         "703-05408",
+			MaxPrice:    -1,
 		}},
 	}
-	MainTaskGroup.MonitorRetailer = enums.Walmart
-	MainTask.TaskRetailer = enums.Walmart
+	MainTaskGroup.MonitorRetailer = enums.PokemonCenter
+	MainTask.TaskRetailer = enums.PokemonCenter
 	MainTaskGroup.MonitorStatus = enums.MonitorIdle
 	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
 	select {}
@@ -344,6 +346,31 @@ func TestTopps(t *testing.T) {
 	}
 	MainTaskGroup.MonitorRetailer = enums.Topps
 	MainTask.TaskRetailer = enums.Topps
+	MainTaskGroup.MonitorStatus = enums.MonitorIdle
+	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
+	select {}
+}
+
+func TestWalmart(t *testing.T) {
+	MainTask.WalmartTaskInfo = &entities.WalmartTaskInfo{
+		TaskID:      MainTaskID,
+		TaskGroupID: MainTaskGroupID,
+	}
+
+	MainTaskGroup.WalmartMonitorInfo = &entities.WalmartMonitorInfo{
+		ID:          MainMonitorID,
+		TaskGroupID: MainTaskGroupID,
+		Monitors: []entities.WalmartSingleMonitorInfo{{
+			MonitorID:     MainMonitorID,
+			TaskGroupID:   MainTaskGroupID,
+			ID:            "855737650",
+			MaxPrice:      -1,
+			SoldByWalmart: true,
+			MonitorType:   enums.SKUMonitor,
+		}},
+	}
+	MainTaskGroup.MonitorRetailer = enums.Walmart
+	MainTask.TaskRetailer = enums.Walmart
 	MainTaskGroup.MonitorStatus = enums.MonitorIdle
 	TestDriver(MainTask, *MainProfile, *MainTaskGroup)
 	select {}

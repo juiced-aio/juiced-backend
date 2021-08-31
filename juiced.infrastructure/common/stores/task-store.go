@@ -231,7 +231,7 @@ func (taskStore *TaskStore) AddTaskToStore(task *entities.Task) error {
 			return e.New(errors.MissingTaskFieldsError)
 		}
 		// Create task
-		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxyGroup, taskStore.EventBus, task.PokemonCenterTaskInfo.Email, task.PokemonCenterTaskInfo.Password)
+		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxyGroup, taskStore.EventBus, task.PokemonCenterTaskInfo.Email, task.PokemonCenterTaskInfo.Password, task.PokemonCenterTaskInfo.TaskType)
 		if err != nil {
 			return e.New(errors.CreateBotTaskError + err.Error())
 		}
@@ -349,6 +349,7 @@ func (taskStore *TaskStore) AddTestTaskToStore(task *entities.Task, profile enti
 			queryError = e.New("proxy group failure")
 		}
 	}
+
 	switch task.TaskRetailer {
 	// Future sitescripts will have a case here
 	case enums.Amazon:
@@ -496,6 +497,29 @@ func (taskStore *TaskStore) AddTestTaskToStore(task *entities.Task, profile enti
 		// Add task to store
 		taskStore.NeweggTasks[task.ID] = &neweggTask
 
+	case enums.PokemonCenter:
+		// Check if task exists in store already
+		if _, ok := taskStore.PokemonCenterTasks[task.ID]; ok {
+			return nil
+		}
+
+		// Only return false on a query error if the task doesn't exist in the store already
+		if queryError != nil {
+			return queryError
+		}
+		// Make sure necessary fields exist
+		emptyString := ""
+		if task.PokemonCenterTaskInfo.TaskType == emptyString || task.PokemonCenterTaskInfo.AddressType == emptyString || (task.PokemonCenterTaskInfo.TaskType == enums.TaskTypeAccount && (task.PokemonCenterTaskInfo.Email == emptyString || task.PokemonCenterTaskInfo.Password == emptyString)) {
+			return e.New(errors.MissingTaskFieldsError)
+		}
+		// Create task
+		pokemonCenterTask, err := pokemoncenter.CreatePokemonCenterTask(task, profile, proxyGroup, taskStore.EventBus, task.PokemonCenterTaskInfo.Email, task.PokemonCenterTaskInfo.Password, task.PokemonCenterTaskInfo.TaskType)
+		if err != nil {
+			return e.New(errors.CreateBotTaskError + err.Error())
+		}
+		// Add task to store
+		taskStore.PokemonCenterTasks[task.ID] = &pokemonCenterTask
+
 	case enums.Shopify:
 		// Check if task exists in store already
 		if _, ok := taskStore.ShopifyTasks[task.ID]; ok && !task.UpdateTask {
@@ -505,7 +529,6 @@ func (taskStore *TaskStore) AddTestTaskToStore(task *entities.Task, profile enti
 		if queryError != nil {
 			return queryError
 		}
-
 		// Make sure necessary fields exist
 		emptyString := ""
 		if task.ShopifyTaskInfo.SiteURL == emptyString || task.ShopifyTaskInfo.ShopifyRetailer == emptyString {
@@ -520,7 +543,6 @@ func (taskStore *TaskStore) AddTestTaskToStore(task *entities.Task, profile enti
 				return e.New(errors.MissingTaskFieldsError)
 			}
 		}
-
 		// Create task
 		shopifyTask, err := shopify.CreateShopifyTask(task, profile, proxyGroup, taskStore.EventBus, task.ShopifyTaskInfo.CouponCode, task.ShopifyTaskInfo.SiteURL, task.ShopifyTaskInfo.SitePassword, task.ShopifyTaskInfo.HotWheelsTaskInfo.Email, task.ShopifyTaskInfo.HotWheelsTaskInfo.Password)
 		if err != nil {
