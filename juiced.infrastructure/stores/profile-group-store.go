@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
@@ -98,4 +99,29 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 
 	delete(profileGroupStore.ProfileGroups, groupID)
 	return *profileGroup, database.RemoveProfileGroup(groupID)
+}
+
+func CloneProfileGroup(groupID string) (*entities.ProfileGroup, error) {
+	profileGroupPtr, err := GetProfileGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	newProfileGroup := *profileGroupPtr
+	newProfileGroup.GroupID = ""
+	newProfileGroup.CreationDate = 0
+
+	newProfileGroupPtr, err := CreateProfileGroup(newProfileGroup)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, profileID := range newProfileGroupPtr.ProfileIDs {
+		profile, err := GetProfile(profileID)
+		if err == nil {
+			profile.ProfileGroupIDs = append(profile.ProfileGroupIDs, newProfileGroupPtr.GroupID)
+			profile.ProfileGroupIDsJoined = strings.Join(profile.ProfileGroupIDs, ",")
+		}
+	}
+	return newProfileGroupPtr, nil
 }
