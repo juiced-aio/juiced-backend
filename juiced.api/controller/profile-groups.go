@@ -96,30 +96,89 @@ func CloneProfileGroups(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.DeleteProfileGroupsEmptyInputErrorResponse, nil)
 	}
 
-	response := responses.ProfileGroupsSuccessResponse{}
+	profileGroups := []entities.ProfileGroup{}
+	success := false
 	for _, profileGroupID := range input.ProfileGroupIDs {
-		newProfileGroup, err_ := stores.CloneProfileGroup(profileGroupID)
+		newProfileGroupPtr, err_ := stores.CloneProfileGroup(profileGroupID)
 		if err_ == nil {
-			response.SuccessProfileGroupIDs = append(response.SuccessProfileGroupIDs, newProfileGroup.GroupID)
+			success = true
+			profileGroups = append(profileGroups, *newProfileGroupPtr)
 		} else {
 			if err == nil {
 				err = err_
 			}
-			response.FailureProfileGroupIDs = append(response.FailureProfileGroupIDs, profileGroupID)
 		}
 	}
 
-	if len(response.SuccessProfileGroupIDs) == 0 {
+	if !success {
 		return responses.ReturnResponse(c, responses.DeleteProfileGroupsDeleteErrorResponse, err)
 	}
 
-	return c.Status(200).JSON(response)
+	return c.Status(200).JSON(profileGroups)
 }
 
 func AddProfilesToGroups(c *fiber.Ctx) error {
+	var input requests.ProfileGroupsRequest
+	var err error
 
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.AddProfilesToGroupsParseErrorResponse, err)
+	}
+
+	if len(input.ProfileGroupIDs) == 0 || len(input.ProfileIDs) == 0 {
+		return responses.ReturnResponse(c, responses.AddProfilesToGroupsEmptyInputErrorResponse, nil)
+	}
+
+	profileGroups := []entities.ProfileGroup{}
+	success := false
+	for _, profileGroupID := range input.ProfileGroupIDs {
+		profileGroupPtr, err_ := stores.AddProfilesToGroup(profileGroupID, input.ProfileIDs)
+		if err_ == nil {
+			success = true
+			profileGroups = append(profileGroups, *profileGroupPtr)
+		} else {
+			if err == nil {
+				err = err_
+			}
+		}
+	}
+
+	if !success {
+		return responses.ReturnResponse(c, responses.DeleteProfileGroupsDeleteErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(profileGroups)
 }
 
 func RemoveProfilesFromGroups(c *fiber.Ctx) error {
+	var input requests.ProfileGroupsRequest
+	var err error
 
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.RemoveProfilesFromGroupsParseErrorResponse, err)
+	}
+
+	if len(input.ProfileGroupIDs) == 0 || len(input.ProfileIDs) == 0 {
+		return responses.ReturnResponse(c, responses.RemoveProfilesFromGroupsEmptyInputErrorResponse, nil)
+	}
+
+	profileGroups := []entities.ProfileGroup{}
+	success := false
+	for _, profileGroupID := range input.ProfileGroupIDs {
+		profileGroupPtr, err_ := stores.RemoveProfilesFromGroup(profileGroupID, input.ProfileIDs)
+		if err_ == nil {
+			success = true
+			profileGroups = append(profileGroups, *profileGroupPtr)
+		} else {
+			if err == nil {
+				err = err_
+			}
+		}
+	}
+
+	if !success {
+		return responses.ReturnResponse(c, responses.DeleteProfileGroupsDeleteErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(profileGroups)
 }

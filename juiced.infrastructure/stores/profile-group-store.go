@@ -7,6 +7,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	"github.com/google/uuid"
 )
 
@@ -97,7 +98,12 @@ func RemoveProfileGroup(groupID string) (entities.ProfileGroup, error) {
 		return entities.ProfileGroup{}, err
 	}
 
+	for _, profileID := range profileGroup.ProfileIDs {
+		RemoveGroupIDFromProfile(profileID, groupID)
+	}
+
 	delete(profileGroupStore.ProfileGroups, groupID)
+
 	return *profileGroup, database.RemoveProfileGroup(groupID)
 }
 
@@ -117,11 +123,49 @@ func CloneProfileGroup(groupID string) (*entities.ProfileGroup, error) {
 	}
 
 	for _, profileID := range newProfileGroupPtr.ProfileIDs {
-		profile, err := GetProfile(profileID)
+		AddGroupIDToProfile(profileID, newProfileGroupPtr.GroupID)
+	}
+
+	return newProfileGroupPtr, nil
+}
+
+func AddProfilesToGroup(groupID string, profileIDs []string) (*entities.ProfileGroup, error) {
+	profileGroupPtr, err := GetProfileGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, profileID := range profileIDs {
+		newProfile, err := AddGroupIDToProfile(profileID, groupID)
 		if err == nil {
-			profile.ProfileGroupIDs = append(profile.ProfileGroupIDs, newProfileGroupPtr.GroupID)
-			profile.ProfileGroupIDsJoined = strings.Join(profile.ProfileGroupIDs, ",")
+			profileGroupPtr.ProfileIDs = append(profileGroupPtr.ProfileIDs, profileID)
+			profileGroupPtr.Profiles = append(profileGroupPtr.Profiles, newProfile)
 		}
 	}
-	return newProfileGroupPtr, nil
+	profileGroupPtr.ProfileIDsJoined = strings.Join(profileGroupPtr.ProfileIDs, ",")
+
+	return UpdateProfileGroup(groupID, *profileGroupPtr)
+}
+
+func RemoveProfilesFromGroup(groupID string, profileIDs []string) (*entities.ProfileGroup, error) {
+	profileGroupPtr, err := GetProfileGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	newProfiles := []*entities.Profile{}
+	newProfileIDs := []string{}
+	for _, profile := range profileGroupPtr.Profiles {
+		if util.InSlice(profileIDs, profile.ID) {
+			RemoveGroupIDFromProfile(profile.ID, groupID)
+		} else {
+			newProfiles = append(newProfiles, profile)
+			newProfileIDs = append(newProfileIDs, profile.ID)
+		}
+	}
+	profileGroupPtr.ProfileIDs = newProfileIDs
+	profileGroupPtr.ProfileIDsJoined = strings.Join(newProfileIDs, ",")
+	profileGroupPtr.Profiles = newProfiles
+
+	return UpdateProfileGroup(groupID, *profileGroupPtr)
 }
