@@ -16,7 +16,7 @@ func ReturnSuccessResponse(c *fiber.Ctx) error {
 	return c.SendStatus(200)
 }
 
-func ReturnErrorResponse(c *fiber.Ctx, info Response, err error) error {
+func ReturnResponse(c *fiber.Ctx, info Response, err error) error {
 	message := info.Message
 	if err != nil {
 		message = fmt.Sprintf("%s: %s", info.Message, err.Error())

@@ -11,7 +11,7 @@ import (
 )
 
 type AccountStore struct {
-	Accounts map[enums.Retailer]map[string]*entities.Account
+	Accounts map[string]*entities.Account
 }
 
 var accountStore AccountStore
@@ -23,19 +23,18 @@ func (store *AccountStore) Init() error {
 	}
 
 	for _, account := range accounts {
-		store.Accounts[account.Retailer][account.ID] = &account
+		store.Accounts[account.ID] = &account
 	}
 
 	return nil
 }
 
 type AccountNotFoundError struct {
-	ID       string
-	Retailer string
+	ID string
 }
 
 func (e *AccountNotFoundError) Error() string {
-	return fmt.Sprintf("Account with ID %s not found for retailer %s", e.ID, e.Retailer)
+	return fmt.Sprintf("Account with ID %s not found", e.ID)
 }
 
 type AccountNotFoundByEmailError struct {
@@ -49,19 +48,17 @@ func (e *AccountNotFoundByEmailError) Error() string {
 
 func GetAllAccounts() []*entities.Account {
 	accounts := []*entities.Account{}
-	for _, retailerAccounts := range accountStore.Accounts {
-		for _, account := range retailerAccounts {
-			accounts = append(accounts, account)
-		}
+	for _, account := range accountStore.Accounts {
+		accounts = append(accounts, account)
 	}
 
 	return accounts
 }
 
-func GetAccounts(accountIDs []string, retailer enums.Retailer) []*entities.Account {
+func GetAccounts(accountIDs []string) []*entities.Account {
 	accounts := []*entities.Account{}
 	for _, accountID := range accountIDs {
-		if account, ok := accountStore.Accounts[retailer][accountID]; ok {
+		if account, ok := accountStore.Accounts[accountID]; ok {
 			accounts = append(accounts, account)
 		}
 	}
@@ -69,18 +66,18 @@ func GetAccounts(accountIDs []string, retailer enums.Retailer) []*entities.Accou
 	return accounts
 }
 
-func GetAccount(accountID string, retailer enums.Retailer) (*entities.Account, error) {
-	profile, ok := accountStore.Accounts[retailer][accountID]
+func GetAccount(accountID string) (*entities.Account, error) {
+	profile, ok := accountStore.Accounts[accountID]
 	if !ok {
-		return nil, &AccountNotFoundError{accountID, retailer}
+		return nil, &AccountNotFoundError{accountID}
 	}
 
 	return profile, nil
 }
 
 func GetAccountByEmail(email string, retailer enums.Retailer) (*entities.Account, error) {
-	for _, account := range accountStore.Accounts[retailer] {
-		if account.Email == email {
+	for _, account := range accountStore.Accounts {
+		if account.Email == email && account.Retailer == retailer {
 			return account, nil
 		}
 	}
@@ -102,13 +99,13 @@ func CreateAccount(account entities.Account) (*entities.Account, error) {
 	}
 
 	accountPtr := &account
-	accountStore.Accounts[account.Retailer][account.ID] = accountPtr
+	accountStore.Accounts[account.ID] = accountPtr
 
 	return accountPtr, nil
 }
 
-func UpdateAccount(accountID string, retailer enums.Retailer, newAccount entities.Account) (*entities.Account, error) {
-	account, err := GetAccount(accountID, retailer)
+func UpdateAccount(accountID string, newAccount entities.Account) (*entities.Account, error) {
+	account, err := GetAccount(accountID)
 	if err != nil {
 		return nil, err
 	}
@@ -119,12 +116,12 @@ func UpdateAccount(accountID string, retailer enums.Retailer, newAccount entitie
 	return account, database.UpdateAccount(accountID, *account)
 }
 
-func RemoveAccount(accountID string, retailer enums.Retailer) (entities.Account, error) {
-	account, err := GetAccount(accountID, retailer)
+func RemoveAccount(accountID string) (entities.Account, error) {
+	account, err := GetAccount(accountID)
 	if err != nil {
 		return entities.Account{}, err
 	}
 
-	delete(accountStore.Accounts[retailer], accountID)
+	delete(accountStore.Accounts, accountID)
 	return *account, database.RemoveAccount(accountID)
 }

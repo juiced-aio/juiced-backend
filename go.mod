@@ -14,7 +14,6 @@ require (
 	github.com/gofiber/fiber/v2 v2.18.0
 	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22
 	github.com/google/uuid v1.2.0
-	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/hugolgst/rich-go v0.0.0-20210525072106-9d45f0e06959
 	github.com/jmoiron/sqlx v1.3.4
@@ -22,7 +21,6 @@ require (
 	github.com/lestrrat-go/jwx v1.2.4
 	github.com/mattn/go-sqlite3 v1.14.7 // indirect
 	github.com/mergermarket/go-pkcs7 v0.0.0-20170926155232-153b18ea13c9
-	github.com/rs/cors v1.7.0
 	github.com/tam7t/hpkp v0.0.0-20160821193359-2b70b4024ed5
 	gitlab.com/aycd-inc/autosolve-clients/autosolve-client-go v0.0.0-20210316010646-b5ea46dc87ee
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec

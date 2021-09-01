@@ -17,7 +17,7 @@ func UpdateSettings(c *fiber.Ctx) error {
 	var newSettings entities.Settings
 
 	if err := c.BodyParser(&newSettings); err != nil {
-		return responses.ReturnErrorResponse(c, responses.UpdateSettingsParseErrorResponse, err)
+		return responses.ReturnResponse(c, responses.UpdateSettingsParseErrorResponse, err)
 	}
 
 	currentSettings := staticstores.GetSettings()
@@ -57,15 +57,15 @@ func UpdateSettings(c *fiber.Ctx) error {
 
 	err := staticstores.UpdateSettings(newSettings)
 	if err != nil {
-		return responses.ReturnErrorResponse(c, responses.UpdateSettingsUpdateErrorResponse, err)
+		return responses.ReturnResponse(c, responses.UpdateSettingsUpdateErrorResponse, err)
 	}
 
 	if aycdChanged && newSettings.AYCDAccessToken != "" && newSettings.AYCDAPIKey != "" {
 		err = captcha.ConnectToAycd(newSettings.AYCDAccessToken, newSettings.AYCDAPIKey)
 		if err != nil {
-			return responses.ReturnErrorResponse(c, responses.UpdateSettingsStartAYCDWarningResponse, err)
+			return responses.ReturnResponse(c, responses.UpdateSettingsStartAYCDWarningResponse, err)
 		}
 	}
 
-	return responses.ReturnSuccessResponse(c)
+	return c.Status(200).JSON(newSettings)
 }
