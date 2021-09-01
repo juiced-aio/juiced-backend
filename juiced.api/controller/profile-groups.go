@@ -115,3 +115,11 @@ func CloneProfileGroups(c *fiber.Ctx) error {
 
 	return c.Status(200).JSON(response)
 }
+
+func AddProfilesToGroups(c *fiber.Ctx) error {
+
+}
+
+func RemoveProfilesFromGroups(c *fiber.Ctx) error {
+
+}
