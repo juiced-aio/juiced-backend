@@ -151,7 +151,6 @@ func SetDatadomeCookie(datadomeInfo DatadomeInfo, proxy *entities.Proxy, client 
 		}
 	}
 	newCookies = append(newCookies, datadomeCookie)
-	log.Println(newCookies)
 	client.Jar.SetCookies(u, newCookies)
 	return nil
 }
@@ -291,7 +290,7 @@ func CyberSourceV2(keyId string, card entities.Card) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		dumpMap("", headerMap)
+		//dumpMap("", headerMap)
 
 		token__, err := jose.Encrypt(payload, jose.RSA_OAEP, jose.A256GCM, rsa___, jose.Headers(headerMap))
 		if err != nil {
@@ -370,19 +369,19 @@ func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL st
 		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
 		embeds[0].Color = 16742912
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
+			URL: BaseEndpoint + "/" + imageURL,
 		}
 	case enums.OrderStatusDeclined:
 		embeds[0].Title = ":lemon: Card Declined :lemon:"
 		embeds[0].Color = 16766464
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
+			URL: BaseEndpoint + "/" + imageURL,
 		}
 	case enums.OrderStatusFailed:
 		embeds[0].Title = ":apple: Failed to Place Order :apple:"
 		embeds[0].Color = 14495044
 		embeds[0].Thumbnail = sec.DiscordThumbnail{
-			URL: imageURL,
+			URL: BaseEndpoint + "/" + imageURL,
 		}
 	}
 
@@ -419,7 +418,7 @@ func (task *Task) RunUntilSuccessful(fn func() (bool, string), maxRetries int) (
 		if attempt >= 0 {
 			attempt++
 		}
-		if !strings.Contains(status, "hit datadome") {
+		if !success && !strings.Contains(status, "hit datadome") {
 			time.Sleep(time.Duration(task.Task.Task.TaskDelay) * time.Millisecond)
 		}
 
@@ -503,7 +502,6 @@ func (monitor *Monitor) HandleDatadome(body string) {
 
 	datadomeStr, err := util.FindInString(body, "<script>var dd=", "}")
 	if err != nil {
-		fmt.Println(body)
 		return
 	}
 	datadomeStr += "}"
@@ -565,7 +563,6 @@ func (task *Task) HandleDatadome(body string, taskPercent int) {
 
 	datadomeStr, err := util.FindInString(body, "<script>var dd=", "}")
 	if err != nil {
-		fmt.Println(body)
 		return
 	}
 	datadomeStr += "}"

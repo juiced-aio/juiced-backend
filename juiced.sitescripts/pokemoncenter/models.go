@@ -35,6 +35,8 @@ const (
 	CyberSourceTokenRefererEndpoint     = "https://www.pokemoncenter.com/cart"
 	LoginEndpoint                       = "https://www.pokemoncenter.com/tpci-ecommweb-api/auth?format=zoom.nodatalinks"
 	LoginRefererEndpoint                = "https://www.pokemoncenter.com/cart"
+	CartEndpoint                        = "https://www.pokemoncenter.com/tpci-ecommweb-api/cart"
+	CartRefererEndpoint                 = "https://www.pokemoncenter.com/cart"
 )
 
 // Errors
@@ -75,7 +77,8 @@ type Detail struct {
 }
 
 type Images struct {
-	High string `json:"high"`
+	High     string `json:"high"`
+	Original string `json:"original"`
 }
 
 type Availability struct {
@@ -102,6 +105,7 @@ type Price struct {
 }
 
 type Element struct {
+	Self          Self            `json:"self"`
 	Addtocartform []Addtocartform `json:"_addtocartform"`
 	Availability  []Availability  `json:"_availability"`
 	Price         []Price         `json:"_price"`

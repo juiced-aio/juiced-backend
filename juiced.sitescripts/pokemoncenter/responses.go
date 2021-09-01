@@ -1,5 +1,13 @@
 package pokemoncenter
 
+type GetCartInfoResponse struct {
+	Lineitems []Lineitems `json:"_lineitems"`
+}
+
+type Lineitems struct {
+	Element []Element `json:"_element"`
+}
+
 type AddToCartResponse struct {
 	Type     string `json:"type"`
 	Quantity int    `json:"quantity"`
@@ -24,4 +32,18 @@ type LoginResponse struct {
 	Roles       []string `json:"roles"`
 	FamilyName  string   `json:"familyName"`
 	GivenName   string   `json:"givenName"`
+}
+
+type CheckoutResponse struct {
+	Messages []Messages    `json:"messages"`
+	Links    []interface{} `json:"links"`
+}
+type Data struct {
+	Cause string `json:"cause"`
+}
+type Messages struct {
+	Type         string `json:"type"`
+	ID           string `json:"id"`
+	DebugMessage string `json:"debug-message"`
+	Data         Data   `json:"data"`
 }

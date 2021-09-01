@@ -446,7 +446,7 @@ func (task *Task) HandlePXCap(resp *http.Response, redirectURL string) bool {
 	}
 	proxy := task.Task.Proxy
 	if proxy.Host == "localhost" {
-		proxy = entities.Proxy{}
+		proxy = &entities.Proxy{}
 	}
 	err := SetPXCapCookie(strings.ReplaceAll(captchaURL, "affil.", ""), &task.PXValues, proxy, &task.Task.Client, &cancellationToken)
 	if err != nil {

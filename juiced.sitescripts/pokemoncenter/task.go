@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
@@ -104,6 +105,13 @@ func (task *Task) RunTask() {
 		}
 	}
 
+	// So clearing the cart is only needed for accounts of course but I noticed that it hits datadome everytime so
+	// I thought it would be a good idea to force getting the cookie since it lasts throughout the task and will speed up
+	// checkout times.
+	if success, _ := task.RunUntilSuccessful(task.ClearCart, common.MAX_RETRIES); !success {
+		return
+	}
+
 	// 2. RefreshLogin (in background)
 	task.RefreshAt = time.Now().Unix() + 1800
 	go task.RefreshLogin()
@@ -159,10 +167,19 @@ func (task *Task) RunTask() {
 	log.Println("  ENDED AT: " + task.Task.EndTime.String())
 	log.Println("TIME TO CHECK OUT: ", task.Task.EndTime.Sub(task.Task.StartTime).Milliseconds())
 
-	if status == enums.OrderStatusSuccess {
+	switch status {
+	case enums.OrderStatusSuccess:
 		task.PublishEvent(enums.CheckingOutSuccess, enums.TaskComplete, 100)
-	} else {
+	case enums.OrderStatusDeclined:
+		success = false
+		task.PublishEvent(enums.CardDeclined, enums.TaskComplete, 100)
+	case enums.OrderStatusFailed:
 		task.PublishEvent(fmt.Sprintf(enums.CheckingOutFailure, "Unknown error"), enums.TaskComplete, 100)
+	}
+
+	quantity := task.Task.Task.TaskQty
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
 	}
 
 	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
@@ -176,7 +193,7 @@ func (task *Task) RunTask() {
 		Sku:          task.StockData.SKU,
 		Retailer:     enums.PokemonCenter,
 		Price:        task.StockData.Price,
-		Quantity:     task.Task.Task.TaskQty,
+		Quantity:     quantity,
 		MsToCheckout: time.Since(task.Task.StartTime).Milliseconds(),
 	})
 }
@@ -292,6 +309,83 @@ func (task *Task) Login() (bool, string) {
 	return false, fmt.Sprintf(enums.LoginFailure, UnknownError)
 }
 
+func (task *Task) ClearCart() (bool, string) {
+	var getCartInfoResponse GetCartInfoResponse
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: task.Task.Client,
+		Method: "GET",
+		URL:    CartEndpoint + "?format=nodatalinks",
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"x-store-scope", "pokemon"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", CartRefererEndpoint},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		err = json.Unmarshal([]byte(body), &getCartInfoResponse)
+		if err != nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
+	case 403:
+		task.HandleDatadome(body, 10)
+		return false, fmt.Sprintf(enums.LoginFailure, errors.New("hit datadome"))
+	default:
+		return false, fmt.Sprintf(enums.SettingUpFailure, errors.New("non 200 status "+resp.Status))
+	}
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(getCartInfoResponse.Lineitems))
+	for _, lineItem := range getCartInfoResponse.Lineitems {
+		go func(itemUrl string) {
+			defer wg.Done()
+			resp, _, err := util.MakeRequest(&util.Request{
+				Client: task.Task.Client,
+				Method: "POST",
+				URL:    CartEndpoint + "?type=product&format=nodatalinks",
+				RawHeaders: [][2]string{
+					{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+					{"accept", "*/*"},
+					{"x-requested-with", "XMLHttpRequest"},
+					{"sec-ch-ua-mobile", "?0"},
+					{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+					{"x-store-scope", "pokemon"},
+					{"content-type", "application/json"},
+					{"origin", BaseEndpoint},
+					{"sec-fetch-site", "same-origin"},
+					{"sec-fetch-mode", "cors"},
+					{"sec-fetch-dest", "empty"},
+					{"referer", CartRefererEndpoint},
+					{"accept-encoding", "gzip, deflate, br"},
+					{"accept-language", "en-US,en;q=0.9"},
+				},
+
+				Data: []byte(`{"productURI": "` + itemUrl + `","quantity": 0}`),
+			})
+			if err != nil || resp.StatusCode >= 200 && resp.StatusCode < 300 {
+				return
+			}
+		}(lineItem.Element[0].Self.URI)
+	}
+	wg.Wait()
+
+	return true, ""
+}
+
 func (task *Task) LoginGuest() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
@@ -322,7 +416,6 @@ func (task *Task) LoginGuest() (bool, string) {
 		rawHeader := resp.Header.Get("Set-Cookie")
 		re := regexp.MustCompile("({)(.*?)(})")
 		match := re.FindStringSubmatch(rawHeader)
-		fmt.Println(match[0])
 
 		accessToken := AccessToken{}
 		json.Unmarshal([]byte(match[0]), &accessToken)
@@ -482,10 +575,15 @@ func (task *Task) WaitForMonitor() bool {
 }
 
 func (task *Task) AddToCart() (bool, string) {
+	quantity := task.Task.Task.TaskQty
+	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
+		quantity = task.StockData.MaxQuantity
+	}
+
 	addToCartRequest := AddToCartRequest{
 		ProductUri:    task.StockData.AddToCartForm,
-		Quantity:      task.Task.Task.TaskQty,
-		Configuration: "",
+		Quantity:      quantity,
+		Configuration: struct{}{},
 	}
 	addToCartResponse := AddToCartResponse{}
 
@@ -510,7 +608,7 @@ func (task *Task) AddToCart() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.StockData.SKU)},
+			{"referer", fmt.Sprintf(AddToCartRefererEndpoint, task.StockData.SKU) + "/"},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -527,13 +625,23 @@ func (task *Task) AddToCart() (bool, string) {
 			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 		}
 
-		if addToCartResponse.Type == "carts.line-item" {
-			if addToCartResponse.Quantity != task.Task.Task.TaskQty {
-				return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, task.Task.Task.TaskQty, addToCartResponse.Quantity))
-			} else {
-				return true, enums.AddingToCartSuccess
-			}
+		if addToCartResponse.Quantity != quantity {
+			return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, quantity, addToCartResponse.Quantity))
+		} else {
+			return true, enums.AddingToCartSuccess
 		}
+	case 201:
+		err = json.Unmarshal([]byte(body), &addToCartResponse)
+		if err != nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
+
+		if addToCartResponse.Quantity != quantity {
+			return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(AddToCartQuantityError, quantity, addToCartResponse.Quantity))
+		} else {
+			return true, enums.AddingToCartSuccess
+		}
+
 	case 403:
 		task.HandleDatadome(body, 30)
 		return false, fmt.Sprintf(enums.AddingToCartFailure, errors.New("hit datadome"))
@@ -696,6 +804,10 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	case 200:
 		task.CheckoutInfo.CheckoutUri = submitPaymentResponse.Self.Uri
 		return true, enums.SettingBillingInfoSuccess
+	case 201:
+		task.CheckoutInfo.CheckoutUri = submitPaymentResponse.Self.Uri
+		return true, enums.SettingBillingInfoSuccess
+
 	}
 
 	return false, fmt.Sprintf(enums.SettingBillingInfoFailure, UnknownError)
@@ -708,6 +820,7 @@ func (task *Task) Checkout() (bool, string) {
 	if err != nil {
 		return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
+	var checkoutResponse CheckoutResponse
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
@@ -728,7 +841,8 @@ func (task *Task) Checkout() (bool, string) {
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
-		RequestBodyStruct: &checkoutDetailsRequest,
+		RequestBodyStruct:  &checkoutDetailsRequest,
+		ResponseBodyStruct: &checkoutResponse,
 	})
 	if err != nil {
 		return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
@@ -736,7 +850,15 @@ func (task *Task) Checkout() (bool, string) {
 
 	switch resp.StatusCode {
 	case 200:
-		return true, enums.CheckingOutSuccess
+		return true, enums.OrderStatusSuccess
+	case 409:
+		switch checkoutResponse.Messages[0].ID {
+		case "payment.declined":
+			return true, enums.OrderStatusDeclined
+		default:
+			return false, enums.OrderStatusFailed
+		}
+
 	}
 
 	return false, fmt.Sprintf(enums.CheckingOutFailure, UnknownError)
