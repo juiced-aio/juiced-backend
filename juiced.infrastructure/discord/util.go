@@ -1,6 +1,7 @@
 package discord
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -39,7 +40,7 @@ func DiscordWebhookQueue() {
 	}
 }
 
-func SendDiscordWebhook(discordWebhook string, embeds []DiscordEmbed) bool {
+func SendDiscordWebhook(discordWebhook string, embeds []DiscordEmbed) error {
 	client := &http.Client{
 		Transport: &http.Transport{},
 	}
@@ -56,10 +57,13 @@ func SendDiscordWebhook(discordWebhook string, embeds []DiscordEmbed) bool {
 		},
 	})
 	if err != nil {
-		return false
+		return err
 	}
 
-	return response.StatusCode >= 200 && response.StatusCode < 300
+	if response.StatusCode >= 200 && response.StatusCode < 300 {
+		return nil
+	}
+	return errors.New(response.Status)
 }
 
 func CreateDiscordEmbed(retailer, proxy, profile, status string, productInfo entities.ProductInfo) []DiscordEmbed {

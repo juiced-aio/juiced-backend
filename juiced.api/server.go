@@ -85,6 +85,7 @@ func StartServer() {
 
 	misc := v1.Group("/misc")
 	misc.Post("/version", controller.SetVersion)
+	misc.Post("/discord/test", controller.TestDiscord)
 
 	app.Listen(":10000")
 }
