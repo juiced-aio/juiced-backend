@@ -12,7 +12,7 @@ var DeleteAccountsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode:
 var DeleteAccountsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 2201, Message: "Could not parse account IDs: "}
 var DeleteAccountsDeleteErrorResponse = Response{StatusCode: 500, ErrorCode: 2202, Message: "Could not delete account(s): "}
 
-type DeleteAccountsSuccessResponse struct {
+type AccountsSuccessResponse struct {
 	SuccessAccountIDs []string `json:"successAccountIDs"`
 	FailureAccountIDs []string `json:"failureAccountIDs"`
 }

@@ -1,5 +1,5 @@
 package requests
 
-type DeleteAccountsRequest struct {
+type AccountsRequest struct {
 	AccountIDs []string `json:"accountIDs"`
 }

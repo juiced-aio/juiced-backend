@@ -53,7 +53,7 @@ func UpdateAccount(c *fiber.Ctx) error {
 }
 
 func DeleteAccounts(c *fiber.Ctx) error {
-	var input requests.DeleteAccountsRequest
+	var input requests.AccountsRequest
 	var err error
 
 	if err = c.BodyParser(&input); err != nil {
@@ -64,7 +64,7 @@ func DeleteAccounts(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.DeleteAccountsEmptyInputErrorResponse, nil)
 	}
 
-	response := responses.DeleteAccountsSuccessResponse{}
+	response := responses.AccountsSuccessResponse{}
 	for _, accountID := range input.AccountIDs {
 		_, err_ := stores.RemoveAccount(accountID)
 		if err_ == nil {

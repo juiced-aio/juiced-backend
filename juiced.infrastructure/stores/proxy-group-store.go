@@ -95,3 +95,16 @@ func RemoveProxyGroup(groupID string) (entities.ProxyGroup, error) {
 	delete(proxyGroupStore.ProxyGroups, groupID)
 	return *proxyGroup, database.RemoveProxyGroup(groupID)
 }
+
+func CloneProxyGroup(groupID string) (*entities.ProxyGroup, error) {
+	proxyGroupPtr, err := GetProxyGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	newProxyGroup := *proxyGroupPtr
+	newProxyGroup.GroupID = ""
+	newProxyGroup.CreationDate = 0
+
+	return CreateProxyGroup(newProxyGroup)
+}
