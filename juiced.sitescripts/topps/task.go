@@ -775,7 +775,6 @@ func (task *Task) PlaceOrder() (bool, enums.OrderStatus) {
 			status = enums.OrderStatusDeclined
 		default:
 			status = enums.OrderStatusFailed
-			success = true
 		}
 	}
 	// I do not know what successfully placing an order returns
