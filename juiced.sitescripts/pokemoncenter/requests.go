@@ -1,9 +1,9 @@
 package pokemoncenter
 
 type AddToCartRequest struct {
-	ProductUri    string `json:"productUri"`
-	Quantity      int    `json:"quantity"`
-	Configuration string `json:"configuration"`
+	ProductUri    string   `json:"productURI"`
+	Quantity      int      `json:"quantity"`
+	Configuration struct{} `json:"configuration"`
 }
 
 type SubmitAddressRequest struct {

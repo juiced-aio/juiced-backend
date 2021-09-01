@@ -218,7 +218,7 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 				}
 			}
 		}
-		stockData.ImageURL = monitorResponse.Images[0].High
+		stockData.ImageURL = monitorResponse.Images[0].Original
 
 		for _, element := range monitorResponse.Items[0].Element {
 			stockData.AddToCartForm = element.Addtocartform[0].Self.URI
