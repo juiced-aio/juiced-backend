@@ -129,6 +129,7 @@ type PokemonCenterInStockData struct {
 type Task struct {
 	Task            base.Task
 	AccountInfo     AccountInfo
+	AddressType     enums.AddressType
 	TaskType        enums.TaskType
 	CheckoutInfo    CheckoutInfo
 	StockData       PokemonCenterInStockData

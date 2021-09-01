@@ -3,6 +3,8 @@ package pokemoncenter
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"math"
 	"strconv"
 	"sync"
 	"time"
@@ -61,6 +63,8 @@ func (monitor *Monitor) RunMonitor() {
 			monitor.PublishEvent(enums.MonitorIdle, enums.MonitorFail, nil)
 		}
 	}()
+
+	log.Println("Monitor starting")
 
 	if monitor.Monitor.TaskGroup.MonitorStatus == enums.MonitorIdle {
 		monitor.PublishEvent(enums.WaitingForProductData, enums.MonitorStart, nil)
@@ -138,7 +142,7 @@ func (monitor *Monitor) RunSingleMonitor(sku string) {
 				})
 			}
 		} else {
-			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock {
+			if monitor.Monitor.TaskGroup.MonitorStatus != enums.WaitingForInStock && stockData.ItemName != "" {
 				monitor.PublishEvent(enums.WaitingForInStock, enums.MonitorUpdate, events.ProductInfo{
 					Products: []events.Product{
 						{ProductName: stockData.ItemName, ProductImageURL: stockData.ImageURL}},
@@ -222,7 +226,7 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 
 		for _, element := range monitorResponse.Items[0].Element {
 			stockData.AddToCartForm = element.Addtocartform[0].Self.URI
-			stockData.Price = element.Price[0].PurchasePrice[0].Amount
+			stockData.Price = math.Floor(element.Price[0].PurchasePrice[0].Amount*100) / 100
 			inBudget := monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
 			if !inBudget {
 				stockData.OutOfPriceRange = true

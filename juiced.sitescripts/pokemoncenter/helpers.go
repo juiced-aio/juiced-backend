@@ -328,7 +328,7 @@ func (task *Task) CreatePokemonCenterEmbed(status enums.OrderStatus, imageURL st
 		},
 		{
 			Name:   "Price:",
-			Value:  "$" + fmt.Sprintf("%f", task.StockData.Price),
+			Value:  "$" + fmt.Sprintf("%0.2f", task.StockData.Price),
 			Inline: true,
 		},
 		{

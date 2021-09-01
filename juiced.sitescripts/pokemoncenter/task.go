@@ -21,7 +21,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string, taskType enums.TaskType) (Task, error) {
+func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, proxyGroup *entities.ProxyGroup, eventBus *events.EventBus, email, password string, taskType enums.TaskType, addressType enums.AddressType) (Task, error) {
 	pokemonCenterTask := Task{
 		Task: base.Task{
 			Task:       task,
@@ -33,7 +33,8 @@ func CreatePokemonCenterTask(task *entities.Task, profile entities.Profile, prox
 			Email:    email,
 			Password: password,
 		},
-		TaskType: taskType,
+		TaskType:    taskType,
+		AddressType: addressType,
 	}
 	if proxyGroup != nil {
 		pokemonCenterTask.Task.Proxy = util.RandomLeastUsedProxy(proxyGroup.Proxies)
@@ -147,8 +148,15 @@ func (task *Task) RunTask() {
 
 	// 7. Submit address details
 	task.PublishEvent(enums.SettingShippingInfo, enums.TaskUpdate, 70)
-	if success, _ := task.RunUntilSuccessful(task.SubmitAddressDetails, common.MAX_RETRIES); !success {
-		return
+
+	if task.AddressType == enums.AddressTypeNEW {
+		if success, _ := task.RunUntilSuccessful(task.SubmitAddressDetails, common.MAX_RETRIES); !success {
+			return
+		}
+	} else {
+		// if success, _ := task.RunUntilSuccessful(task.SubmitAddressDetails, common.MAX_RETRIES); !success {
+		// 	return
+		// }
 	}
 
 	// 8. Submit payment details
@@ -181,6 +189,8 @@ func (task *Task) RunTask() {
 	if task.StockData.MaxQuantity != 0 && quantity > task.StockData.MaxQuantity {
 		quantity = task.StockData.MaxQuantity
 	}
+
+	log.Println(status)
 
 	go util.ProcessCheckout(&util.ProcessCheckoutInfo{
 		BaseTask:     task.Task,
@@ -449,7 +459,7 @@ func (task *Task) RefreshLogin() {
 			}
 			task.RefreshAt = time.Now().Unix() + 1800
 		}
-		time.Sleep(time.Millisecond * common.MS_TO_WAIT)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -486,7 +496,7 @@ func (task *Task) RetrieveEncryptedCardDetails() (bool, string) {
 		return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, errorMessage)
 	}
 
-	return true, enums.EncryptingCardInfoSuccess
+	return true, ""
 }
 
 func (task *Task) RetrievePublicKey() (bool, string) {
@@ -563,7 +573,6 @@ func (task *Task) RetrieveToken() (bool, string) {
 }
 
 func (task *Task) WaitForMonitor() bool {
-
 	for {
 		needToStop := task.CheckForStop()
 		if needToStop {
@@ -573,7 +582,7 @@ func (task *Task) WaitForMonitor() bool {
 			task.Task.HasStockData = true
 			return false
 		}
-		time.Sleep(time.Millisecond * common.MS_TO_WAIT)
+		time.Sleep(common.MS_TO_WAIT)
 	}
 }
 
@@ -697,10 +706,6 @@ func (task *Task) SubmitEmailAddress() (bool, string) {
 }
 
 func (task *Task) SubmitAddressDetails() (bool, string) {
-	if task.TaskType == enums.TaskTypeAccount {
-		return true, ""
-	}
-
 	submitAddressRequest := SubmitAddressRequest{
 		Billing: Address{
 			FamilyName:      task.Task.Profile.BillingAddress.LastName,
@@ -824,7 +829,7 @@ func (task *Task) Checkout() (bool, string) {
 		return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
 	var checkoutResponse CheckoutResponse
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "POST",
 		URL:    CheckoutEndpoint,
@@ -848,8 +853,10 @@ func (task *Task) Checkout() (bool, string) {
 		ResponseBodyStruct: &checkoutResponse,
 	})
 	if err != nil {
+		log.Println(err.Error())
 		return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
+	log.Println(string(body))
 
 	switch resp.StatusCode {
 	case 200:
