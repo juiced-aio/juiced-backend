@@ -20,29 +20,29 @@ func (store *CheckoutStore) Init() error {
 	return err
 }
 
-func GetCheckouts(retailer enums.Retailer, daysBack int) []entities.Checkout {
+func GetCheckouts(retailer enums.Retailer, days int) []entities.Checkout {
 	checkouts := []entities.Checkout{}
 
-	then := time.Now().Add(time.Duration(-daysBack) * (24 * time.Hour)).Unix()
+	then := time.Now().Add(time.Duration(-days) * (24 * time.Hour)).Unix()
 	for _, checkout := range checkoutsStore.Checkouts {
 		// No filters
-		if retailer == "" && daysBack == -1 {
+		if retailer == "" && days == -1 {
 			checkouts = append(checkouts, checkout)
 		}
 		// Only time filter
-		if retailer == "" && daysBack != -1 {
+		if retailer == "" && days != -1 {
 			if then > checkout.Time {
 				checkouts = append(checkouts, checkout)
 			}
 		}
 		// Only retailer filter
-		if retailer != "" && daysBack == -1 {
+		if retailer != "" && days == -1 {
 			if checkout.Retailer == retailer {
 				checkouts = append(checkouts, checkout)
 			}
 		}
 		// Both retailer and time filter
-		if retailer != "" && daysBack != -1 {
+		if retailer != "" && days != -1 {
 			if checkout.Retailer == retailer && then > checkout.Time {
 				checkouts = append(checkouts, checkout)
 			}

@@ -7,21 +7,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func GetProfileGroups(c *fiber.Ctx) error {
-	return c.Status(200).JSON(stores.GetAllProfileGroups())
-}
+func CreateProfile(c *fiber.Ctx) error {
+	var profile entities.Profile
 
-func CreateProfileGroup(c *fiber.Ctx) error {
-	var profileGroup entities.ProfileGroup
-
-	if err := c.BodyParser(&profileGroup); err != nil {
-		return responses.ReturnResponse(c, responses.CreateProfileGroupParseErrorResponse, err)
+	if err := c.BodyParser(&profile); err != nil {
+		return responses.ReturnResponse(c, responses.CreateProfileParseErrorResponse, err)
 	}
 
-	profileGroupPtr, err := stores.CreateProfileGroup(profileGroup)
+	profilePtr, err := stores.CreateProfile(profile)
 	if err != nil {
-		return responses.ReturnResponse(c, responses.CreateProfileGroupCreateErrorResponse, err)
+		return responses.ReturnResponse(c, responses.CreateProfileCreateErrorResponse, err)
 	}
 
-	return c.Status(200).JSON(*profileGroupPtr)
+	return c.Status(200).JSON(*profilePtr)
 }
