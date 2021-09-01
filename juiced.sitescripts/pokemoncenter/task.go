@@ -339,11 +339,11 @@ func (task *Task) ClearCart() (bool, string) {
 	case 200:
 		err = json.Unmarshal([]byte(body), &getCartInfoResponse)
 		if err != nil {
-			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+			return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
 		}
 	case 403:
 		task.HandleDatadome(body, 10)
-		return false, fmt.Sprintf(enums.LoginFailure, errors.New("hit datadome"))
+		return false, fmt.Sprintf(enums.SettingUpFailure, errors.New("hit datadome"))
 	default:
 		return false, fmt.Sprintf(enums.SettingUpFailure, errors.New("non 200 status "+resp.Status))
 	}
@@ -387,7 +387,7 @@ func (task *Task) ClearCart() (bool, string) {
 }
 
 func (task *Task) LoginGuest() (bool, string) {
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.Task.Client,
 		Method: "GET",
 		URL:    AuthKeyEndpoint,
@@ -421,6 +421,9 @@ func (task *Task) LoginGuest() (bool, string) {
 		json.Unmarshal([]byte(match[0]), &accessToken)
 		task.AccessToken = accessToken.AccessToken
 		return true, enums.SettingUpSuccess
+	case 403:
+		task.HandleDatadome(body, 10)
+		return false, fmt.Sprintf(enums.SettingUpFailure, errors.New("hit datadome"))
 	}
 
 	return false, fmt.Sprintf(enums.SettingUpFailure, UnknownError)

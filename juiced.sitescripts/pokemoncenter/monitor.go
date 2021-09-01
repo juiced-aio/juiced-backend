@@ -223,11 +223,13 @@ func (monitor *Monitor) GetSKUStock(sku string) PokemonCenterInStockData {
 		for _, element := range monitorResponse.Items[0].Element {
 			stockData.AddToCartForm = element.Addtocartform[0].Self.URI
 			stockData.Price = element.Price[0].PurchasePrice[0].Amount
-			if inBudget := monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1; element.Availability[0].State == "AVAILABLE" && inBudget {
-				if !inBudget {
-					stockData.OutOfPriceRange = true
+			inBudget := monitor.SKUWithInfo[sku].MaxPrice > int(stockData.Price) || monitor.SKUWithInfo[sku].MaxPrice == -1
+			if !inBudget {
+				stockData.OutOfPriceRange = true
+			} else {
+				if element.Availability[0].State == "AVAILABLE" {
+					stockData.SKU = sku
 				}
-				stockData.SKU = sku
 			}
 		}
 	}
