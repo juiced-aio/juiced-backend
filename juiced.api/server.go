@@ -9,9 +9,11 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
+var app *fiber.App
+
 // StartServer launches the local server that hosts the API for communication between the app and the backend
 func StartServer() {
-	app := fiber.New(fiber.Config{
+	app = fiber.New(fiber.Config{
 		Prefork:       true,
 		StrictRouting: true,
 		CaseSensitive: true,
@@ -20,7 +22,7 @@ func StartServer() {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
+		AllowOrigins: "http://127.0.0.1:3000",
 	}))
 	app.Use(logger.New())
 	app.Use(recover.New())
@@ -51,8 +53,8 @@ func StartServer() {
 	profiles.Post("/:id", controller.UpdateProfile)
 	profiles.Post("/delete", controller.DeleteProfiles)
 	profiles.Post("/clone", controller.CloneProfiles)
-	profiles.Post("/import", controller.ImportProfiles)
-	profiles.Post("/export", controller.ExportProfiles)
+	// profiles.Post("/import", controller.ImportProfiles)
+	// profiles.Post("/export", controller.ExportProfiles)
 
 	profileGroups := profiles.Group("/group")
 	profileGroups.Get("/", controller.GetProfileGroups)
@@ -60,25 +62,25 @@ func StartServer() {
 	profileGroups.Post("/:id", controller.UpdateProfileGroup)
 	profileGroups.Post("/delete", controller.DeleteProfileGroups)
 	profileGroups.Post("/clone", controller.CloneProfileGroups)
-	profileGroups.Post("/addProfiles", controller.AddProfilesToGroupsEndpoint)
-	profileGroups.Post("/removeProfiles", controller.RemoveProfilesFromGroupsEndpoint)
+	profileGroups.Post("/addProfiles", controller.AddProfilesToGroups)
+	profileGroups.Post("/removeProfiles", controller.RemoveProfilesFromGroups)
 
 	tasks := v1.Group("/task")
-	tasks.Post("/", controller.CreateTasks)
-	tasks.Post("/update", controller.UpdateTasks)
-	tasks.Post("/delete", controller.DeleteTasks)
-	tasks.Post("/clone", controller.CloneTasks)
-	tasks.Post("/start", controller.StartTasks)
-	tasks.Post("/stop", controller.StopTasks)
+	// tasks.Post("/", controller.CreateTasks)
+	// tasks.Post("/update", controller.UpdateTasks)
+	// tasks.Post("/delete", controller.DeleteTasks)
+	// tasks.Post("/clone", controller.CloneTasks)
+	// tasks.Post("/start", controller.StartTasks)
+	// tasks.Post("/stop", controller.StopTasks)
 
 	taskGroups := tasks.Group("/group")
 	taskGroups.Get("/", controller.GetTaskGroups)
 	taskGroups.Post("/", controller.CreateTaskGroup)
-	taskGroups.Post("/update", controller.UpdateTaskGroups)
-	taskGroups.Post("/delete", controller.DeleteTaskGroups)
-	taskGroups.Post("/clone", controller.CloneTaskGroups)
-	taskGroups.Post("/start", controller.StartTaskGroups)
-	taskGroups.Post("/stop", controller.StopTaskGroups)
+	// taskGroups.Post("/update", controller.UpdateTaskGroups)
+	// taskGroups.Post("/delete", controller.DeleteTaskGroups)
+	// taskGroups.Post("/clone", controller.CloneTaskGroups)
+	// taskGroups.Post("/start", controller.StartTaskGroups)
+	// taskGroups.Post("/stop", controller.StopTaskGroups)
 
 	checkouts := v1.Group("/checkouts")
 	checkouts.Get("/", controller.GetCheckouts)
@@ -87,5 +89,9 @@ func StartServer() {
 	misc.Post("/version", controller.SetVersion)
 	misc.Post("/discord/test", controller.TestDiscord)
 
-	app.Listen(":10000")
+	go app.Listen(":10000")
+}
+
+func GetApp() *fiber.App {
+	return app
 }

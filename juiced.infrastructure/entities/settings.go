@@ -1,5 +1,7 @@
 package entities
 
+import "fmt"
+
 // Settings is a class that holds details about a user's settings
 type Settings struct {
 	ID                    int    `json:"ID" db:"ID"`
@@ -14,4 +16,21 @@ type Settings struct {
 	DarkMode              bool   `json:"darkMode" db:"darkMode"`
 	UseAnimationsUpdate   bool   `json:"useAnimationsUpdate"`
 	UseAnimations         bool   `json:"useAnimations" db:"useAnimations"`
+}
+
+func (s Settings) String() string {
+	return fmt.Sprintf(`Settings:
+		SuccessDiscordWebhook   %s
+		FailureDiscordWebhook   %s
+		TwoCaptchaAPIKey        %s
+		AntiCaptchaAPIKey       %s
+		CapMonsterAPIKey        %s
+		AYCDAccessToken         %s
+		AYCDAPIKey              %s
+		DarkMode                %t
+		UseAnimations           %t
+	`, s.SuccessDiscordWebhook, s.FailureDiscordWebhook,
+		s.TwoCaptchaAPIKey, s.AntiCaptchaAPIKey, s.CapMonsterAPIKey,
+		s.AYCDAccessToken, s.AYCDAPIKey,
+		s.DarkMode, s.UseAnimations)
 }

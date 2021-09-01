@@ -162,7 +162,26 @@ func RemoveProfile(profileID string) (entities.Profile, error) {
 	}
 
 	delete(profileStore.Profiles, profileID)
+
+	// TODO: Delete Tasks with this Profile
+
 	return *profile, database.RemoveProfileGroup(profileID)
+}
+
+func CloneProfile(profileID string) (*entities.Profile, error) {
+	profilePtr, err := GetProfile(profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	newProfile := *profilePtr
+	newProfile.ID = ""
+	newProfile.BillingAddress.ID = ""
+	newProfile.ShippingAddress.ID = ""
+	newProfile.CreditCard.ID = ""
+	newProfile.CreationDate = 0
+
+	return CreateProfile(newProfile)
 }
 
 func AddGroupIDToProfile(profileID string, groupID string) (*entities.Profile, error) {

@@ -93,6 +93,9 @@ func RemoveProxyGroup(groupID string) (entities.ProxyGroup, error) {
 	}
 
 	delete(proxyGroupStore.ProxyGroups, groupID)
+
+	// TODO: Update Tasks with this ProxyGroup to use no ProxyGroup
+
 	return *proxyGroup, database.RemoveProxyGroup(groupID)
 }
 

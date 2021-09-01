@@ -2,27 +2,63 @@ package database
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/util"
 	"github.com/jmoiron/sqlx"
 	"github.com/kirsle/configdir"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 var database *sqlx.DB
 
-// InitDatabase initializes the database singleton
-func InitDatabase() error {
-	var err error
+const DB_FILENAME = "juiced.db"
+const DB_TEST_FILENAME = "juiced_test.db"
 
-	configPath := configdir.LocalConfig("juiced")
-	err = configdir.MakePath(configPath)
+func InitDatabase() error {
+	filepath, err := GetDBFilePath(DB_FILENAME)
 	if err != nil {
 		return err
 	}
-	filename := filepath.Join(configPath, "juiced.db")
-	database, err = sqlx.Connect("sqlite3", "file:"+filename+"?cache=shared&mode=rwc")
+	return InitDatabaseHelper(filepath)
+}
+
+func InitTestDatabase() error {
+	filepath, err := GetDBFilePath(DB_TEST_FILENAME)
+	if err != nil {
+		return err
+	}
+	if err := DeleteDatabaseFile(filepath); err != nil {
+		return err
+	}
+	if _, err := os.Create(filepath); err != nil {
+		return err
+	}
+	return InitDatabaseHelper(filepath)
+}
+
+func GetDBFilePath(filename string) (string, error) {
+	configPath := configdir.LocalConfig("juiced")
+	err := configdir.MakePath(configPath)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(configPath, filename), nil
+}
+
+func DeleteDatabaseFile(filepath string) error {
+	if _, err := os.Stat(filepath); os.IsNotExist(err) {
+		return nil
+	}
+
+	return os.Remove(filepath)
+}
+
+func InitDatabaseHelper(filepath string) error {
+	var err error
+	database, err = sqlx.Connect("sqlite3", "file:"+filepath+"?cache=shared&mode=rwc")
 	if err != nil {
 		return err
 	}
@@ -30,7 +66,7 @@ func InitDatabase() error {
 	for _, schema := range schemas {
 		_, err = database.Exec(schema)
 		if err != nil {
-			fmt.Println(err)
+			return err
 		}
 		tableName, _ := util.FindInString(schema, "EXISTS ", " \\(")
 		missing, extra := CompareColumns(ParseColumns(schema), GetCurrentColumns(schema))
@@ -38,7 +74,6 @@ func InitDatabase() error {
 			extraSplit := strings.Split(extra[i], "|")
 			_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v DROP COLUMN %v", tableName, extraSplit[0]))
 			if err != nil {
-				fmt.Println(err)
 				return err
 			}
 		}
@@ -53,12 +88,11 @@ func InitDatabase() error {
 				_, err = database.Exec(fmt.Sprintf("ALTER TABLE %v ADD COLUMN %v %v", tableName, missingSplit[0], missingSplit[1]))
 			}
 			if err != nil {
-				fmt.Println(err)
 				return err
 			}
 		}
-
 	}
+
 	return err
 }
 
