@@ -9,7 +9,9 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/discord"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	"backend.juicedbot.io/juiced.security/auth/util"
+	sec "backend.juicedbot.io/juiced.security/auth/util"
+	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
+	"github.com/google/uuid"
 )
 
 type TaskStore struct {
@@ -59,6 +61,72 @@ func GetTasks(taskIDs []string) []*entities.Task {
 	return tasks
 }
 
+func CreateTask(task entities.Task) (*entities.Task, error) {
+	taskPtr := &task
+
+	if taskPtr.ID == "" {
+		taskPtr.ID = uuid.New().String()
+	}
+	if taskPtr.CreationDate == 0 {
+		taskPtr.CreationDate = time.Now().Unix()
+	}
+
+	taskGroupPtr, err := GetTaskGroup(task.TaskGroupID)
+	if err != nil {
+		return nil, err
+	}
+
+	profilePtr, err := GetProfile(task.Task.TaskInput.ProfileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var proxyGroupPtr *entities.ProxyGroup
+	var proxyPtr *entities.Proxy
+	if task.Task.TaskInput.ProxyGroupID != "" {
+		proxyGroupPtr, err = GetProxyGroup(task.Task.TaskInput.ProxyGroupID)
+		if err != nil {
+			return nil, err
+		} else {
+			proxyPtr = proxyGroupPtr.GetRandomLeastUsedProxy()
+		}
+	}
+
+	task.Task.Status = enums.TaskIdle
+	task.Task.Task = taskPtr
+	task.Task.TaskGroup = taskGroupPtr
+	task.Task.Profile = profilePtr
+	task.Task.ProxyGroup = proxyGroupPtr
+	task.Task.Proxy = proxyPtr
+
+	if task.Task.TaskInput.DelayMS <= 0 {
+		task.Task.TaskInput.DelayMS = 2000
+	}
+	if task.Task.TaskInput.Quantity <= 0 {
+		task.Task.TaskInput.Quantity = 1
+	}
+
+	var retailerTask entities.RetailerTask
+	switch task.Retailer {
+	case enums.PokemonCenter:
+		retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+
+	}
+	if err != nil {
+		return nil, err
+	}
+	task.Task.RetailerTask = &retailerTask
+
+	err = database.CreateTask(*taskPtr)
+	if err != nil {
+		return nil, err
+	}
+
+	taskStore.Tasks[task.ID] = taskPtr
+
+	return taskPtr, nil
+}
+
 func GetTask(taskID string) (*entities.Task, error) {
 	task, ok := taskStore.Tasks[taskID]
 	if !ok {
@@ -90,7 +158,8 @@ func RunRetailerTask(task *entities.BaseTask) {
 	task.Running = true
 	task.PublishEvent(enums.TaskStart, enums.TaskStarted)
 
-	ranSetupFunctions := task.RunFunctions(task.RetailerTask.GetSetupFunctions())
+	retailerTask := *task.RetailerTask
+	ranSetupFunctions := task.RunFunctions(retailerTask.GetSetupFunctions())
 	if !ranSetupFunctions {
 		return
 	}
@@ -102,7 +171,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 
 	startTime := time.Now().Unix()
 
-	ranMainFunctions := task.RunFunctions(task.RetailerTask.GetMainFunctions())
+	ranMainFunctions := task.RunFunctions(retailerTask.GetMainFunctions())
 	if !ranMainFunctions {
 		return
 	}
@@ -119,7 +188,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 		profile = task.Profile.Name
 	}
 
-	util.ProcessCheckout(task, util.ProcessCheckoutInfo{
+	sec.ProcessCheckout(task, sec.ProcessCheckoutInfo{
 		ProductInfo:  task.ProductInfo,
 		Quantity:     task.ActualQuantity,
 		MsToCheckout: endTime - startTime,

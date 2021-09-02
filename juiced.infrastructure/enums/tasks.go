@@ -1,5 +1,7 @@
 package enums
 
+import "fmt"
+
 type TaskStatus = string
 
 const (
@@ -107,3 +109,20 @@ const (
 	OrderStatusDeclined OrderStatus = "DECLINED"
 	OrderStatusFailed   OrderStatus = "FAILED"
 )
+
+type InvalidInputTypeError struct {
+	Field    string
+	ShouldBe string
+}
+
+func (e *InvalidInputTypeError) Error() string {
+	return fmt.Sprintf("unsupported input type for field %s (should be %s)", e.Field, e.ShouldBe)
+}
+
+type EmptyInputFieldError struct {
+	Field string
+}
+
+func (e *EmptyInputFieldError) Error() string {
+	return fmt.Sprintf("input for required field %s is empty", e.Field)
+}

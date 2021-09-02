@@ -14,6 +14,9 @@ import (
 func CreateMonitor(input entities.MonitorInput, baseMonitor *entities.BaseMonitor) (entities.Monitor, error) {
 	switch input.MonitorType {
 	case enums.SKUMonitor:
+		if err := ValidateMonitorInput(input.Input, input.MonitorType, input.SiteSpecificInfo); err != nil {
+			return nil, err
+		}
 		return &SKUMonitor{
 			Input:       input,
 			BaseMonitor: baseMonitor,

@@ -5,10 +5,12 @@ import (
 	"reflect"
 	"time"
 
+	"backend.juicedbot.io/juiced.antibot/cloudflare"
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
+	u "backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/google/uuid"
@@ -75,6 +77,7 @@ func GetTaskGroup(groupID string) (*entities.TaskGroup, error) {
 
 func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) {
 	taskGroupPtr := &taskGroup
+	var err error
 
 	if taskGroupPtr.GroupID == "" {
 		taskGroup.GroupID = uuid.New().String()
@@ -84,15 +87,25 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 	}
 
 	for _, monitor := range taskGroupPtr.Monitors {
+		if monitor.MonitorInput.DelayMS <= 0 {
+			monitor.MonitorInput.DelayMS = 2000
+		}
+		if monitor.MonitorInput.MaxPrice <= 0 {
+			monitor.MonitorInput.MaxPrice = -1
+		}
+
 		monitor.Status = enums.MonitorIdle
 		monitor.TaskGroup = taskGroupPtr
 
-		proxyGroup, err := GetProxyGroup(monitor.MonitorInput.ProxyGroupID)
-		if err != nil {
-			return nil, err
+		var proxyGroupPtr *entities.ProxyGroup
+		if monitor.MonitorInput.ProxyGroupID != "" {
+			proxyGroupPtr, err = GetProxyGroup(monitor.MonitorInput.ProxyGroupID)
+			if err != nil {
+				return nil, err
+			}
 		}
 
-		monitor.ProxyGroup = proxyGroup
+		monitor.ProxyGroup = proxyGroupPtr
 
 		var retailerMonitor entities.Monitor
 		switch taskGroup.Retailer {
@@ -106,13 +119,51 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 		monitor.Monitor = &retailerMonitor
 	}
 
-	err := database.CreateTaskGroup(*taskGroupPtr)
+	err = database.CreateTaskGroup(*taskGroupPtr)
 	if err != nil {
 		return nil, err
 	}
 
 	taskGroupStore.TaskGroups[taskGroup.GroupID] = taskGroupPtr
 	return taskGroupPtr, nil
+}
+
+func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (*entities.TaskGroup, error) {
+	taskGroup, err := GetTaskGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	taskGroup.Name = newTaskGroup.Name
+
+	// TODO
+
+	return taskGroup, database.UpdateTaskGroup(groupID, *taskGroup)
+}
+
+func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
+	taskGroup, err := GetTaskGroup(groupID)
+	if err != nil {
+		return entities.TaskGroup{}, err
+	}
+
+	delete(taskGroupStore.TaskGroups, groupID)
+
+	return *taskGroup, database.RemoveTaskGroup(groupID, true)
+}
+
+func AddTasksToGroup(groupID string, tasks []*entities.Task) (*entities.TaskGroup, error) {
+	taskGroupPtr, err := GetTaskGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, task := range tasks {
+		taskGroupPtr.TaskIDs = append(taskGroupPtr.TaskIDs, task.ID)
+		taskGroupPtr.Tasks = append(taskGroupPtr.Tasks, task)
+	}
+
+	return UpdateTaskGroup(groupID, *taskGroupPtr)
 }
 
 func RunTaskGroup(taskGroupID string) error {
@@ -142,6 +193,8 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 		panic("could not create HTTP client")
 	}
 	monitor.Client = &monitorClient
+	monitorScraper := cloudflare.Init(monitorClient, u.HAWK_KEY, false)
+	monitor.Scraper = &monitorScraper
 
 	for {
 		needToStop := monitor.CheckForStop()

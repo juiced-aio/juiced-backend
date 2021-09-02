@@ -66,7 +66,7 @@ func StartServer() {
 	profileGroups.Post("/removeProfiles", controller.RemoveProfilesFromGroups)
 
 	tasks := v1.Group("/task")
-	// tasks.Post("/", controller.CreateTasks)
+	tasks.Post("/", controller.CreateTasks)
 	// tasks.Post("/update", controller.UpdateTasks)
 	// tasks.Post("/delete", controller.DeleteTasks)
 	// tasks.Post("/clone", controller.CloneTasks)

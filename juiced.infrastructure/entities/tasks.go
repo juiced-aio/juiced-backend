@@ -21,7 +21,7 @@ type Task struct {
 }
 
 type BaseTask struct {
-	RetailerTask RetailerTask `json:"-"`
+	RetailerTask *RetailerTask `json:"-"`
 
 	// Task inputs, included in DB serialization and JSON
 	TaskInput TaskInput `json:"taskInput"`
@@ -33,14 +33,14 @@ type BaseTask struct {
 	ActualQuantity int              `json:"actualQuantity"`
 
 	// In-memory values, omitted in DB serialization and JSON
-	Task       *Task              `json:"-"`
-	TaskGroup  *TaskGroup         `json:"-"`
-	Profile    *Profile           `json:"-"`
-	ProxyGroup *ProxyGroup        `json:"-"`
-	Proxy      *Proxy             `json:"-"`
-	Client     *http.Client       `json:"-"`
-	Scraper    cloudflare.Scraper `json:"-"`
-	StopFlag   bool               `json:"-"`
+	Task       *Task               `json:"-"`
+	TaskGroup  *TaskGroup          `json:"-"`
+	Profile    *Profile            `json:"-"`
+	ProxyGroup *ProxyGroup         `json:"-"`
+	Proxy      *Proxy              `json:"-"`
+	Client     *http.Client        `json:"-"`
+	Scraper    *cloudflare.Scraper `json:"-"`
+	StopFlag   bool                `json:"-"`
 }
 
 type TaskInput struct {

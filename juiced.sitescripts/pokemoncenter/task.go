@@ -19,6 +19,18 @@ import (
 
 const MAX_RETRIES = 5
 
+func CreateTask(input entities.TaskInput, baseTask *entities.BaseTask) (entities.RetailerTask, error) {
+	pokemonCenterTaskInput, err := ValidateTaskInput(input.SiteSpecificInfo)
+	if err != nil {
+		return nil, err
+	}
+	return &Task{
+		Input:              input,
+		PokemonCenterInput: pokemonCenterTaskInput,
+		BaseTask:           baseTask,
+	}, nil
+}
+
 func (task *Task) GetSetupFunctions() []entities.TaskFunction {
 	setupTaskFunctions := []entities.TaskFunction{}
 
@@ -260,7 +272,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 
 func (task *Task) RetrievePrivateKey() (bool, string) {
 	var err error
-	task.CyberSecureInfo.PublicToken, err = cybersource.RetrievePublicToken(task.CyberSecureInfo.PublicKey, *task.BaseTask.Profile.CreditCard)
+	task.CyberSecureInfo.PublicToken, err = cybersource.RetrievePublicToken(task.CyberSecureInfo.PublicKey, task.BaseTask.Profile.CreditCard)
 	if task.CyberSecureInfo.PublicToken == "" || err != nil {
 		errorMessage := CyberSourceEncryptionError
 		if err != nil {

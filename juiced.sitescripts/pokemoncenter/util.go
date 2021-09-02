@@ -25,3 +25,30 @@ func ValidateMonitorInput(input string, monitorType enums.MonitorType, info map[
 
 	return nil
 }
+
+func ValidateTaskInput(info map[string]interface{}) (TaskInput, error) {
+	pokemonCenterTaskInput := TaskInput{}
+	if info["taskType"] == enums.TaskTypeAccount {
+		pokemonCenterTaskInput.TaskType = enums.TaskTypeAccount
+		if email, ok := info["email"].(string); !ok {
+			return pokemonCenterTaskInput, &enums.InvalidInputTypeError{Field: "email", ShouldBe: "string"}
+		} else {
+			if email == "" {
+				return pokemonCenterTaskInput, &enums.EmptyInputFieldError{Field: "email"}
+			}
+			pokemonCenterTaskInput.Email = email
+		}
+		if password, ok := info["password"].(string); !ok {
+			return pokemonCenterTaskInput, &enums.InvalidInputTypeError{Field: "password", ShouldBe: "string"}
+		} else {
+			if password == "" {
+				return pokemonCenterTaskInput, &enums.EmptyInputFieldError{Field: "password"}
+			}
+			pokemonCenterTaskInput.Password = password
+		}
+	} else {
+		pokemonCenterTaskInput.TaskType = enums.TaskTypeGuest
+	}
+
+	return pokemonCenterTaskInput, nil
+}
