@@ -53,8 +53,8 @@ func StartServer() {
 	profiles.Post("/:id", controller.UpdateProfile)
 	profiles.Post("/delete", controller.DeleteProfiles)
 	profiles.Post("/clone", controller.CloneProfiles)
-	// profiles.Post("/import", controller.ImportProfiles)
-	// profiles.Post("/export", controller.ExportProfiles)
+	profiles.Post("/import", controller.ImportProfiles)
+	profiles.Post("/export", controller.ExportProfiles)
 
 	profileGroups := profiles.Group("/group")
 	profileGroups.Get("/", controller.GetProfileGroups)
