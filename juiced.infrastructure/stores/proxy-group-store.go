@@ -7,6 +7,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	"github.com/google/uuid"
 )
 
@@ -116,6 +117,7 @@ func CloneProxyGroup(groupID string) (*entities.ProxyGroup, error) {
 	}
 
 	newProxyGroup := *proxyGroupPtr
+	newProxyGroup.Name += " " + util.RandString(3)
 	newProxyGroup.GroupID = ""
 	newProxyGroup.CreationDate = 0
 

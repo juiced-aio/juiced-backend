@@ -8,6 +8,7 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/util"
 	"github.com/google/uuid"
 )
 
@@ -189,6 +190,7 @@ func CloneProfile(profileID string) (*entities.Profile, error) {
 	}
 
 	newProfile := *profilePtr
+	newProfile.Name += " " + util.RandString(3)
 	newProfile.ID = ""
 	newProfile.BillingAddress.ID = ""
 	newProfile.ShippingAddress.ID = ""

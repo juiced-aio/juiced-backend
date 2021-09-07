@@ -96,22 +96,23 @@ func CloneProxyGroups(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.DeleteProxyGroupsEmptyInputErrorResponse, nil)
 	}
 
-	response := responses.ProxyGroupsSuccessResponse{}
+	proxyGroups := []entities.ProxyGroup{}
+	success := false
 	for _, proxyGroupID := range input.ProxyGroupIDs {
-		newProxyGroup, err_ := stores.CloneProxyGroup(proxyGroupID)
+		newProxyGroupPtr, err_ := stores.CloneProxyGroup(proxyGroupID)
 		if err_ == nil {
-			response.SuccessProxyGroupIDs = append(response.SuccessProxyGroupIDs, newProxyGroup.GroupID)
+			success = true
+			proxyGroups = append(proxyGroups, *newProxyGroupPtr)
 		} else {
 			if err == nil {
 				err = err_
 			}
-			response.FailureProxyGroupIDs = append(response.FailureProxyGroupIDs, proxyGroupID)
 		}
 	}
 
-	if len(response.SuccessProxyGroupIDs) == 0 {
+	if !success {
 		return responses.ReturnResponse(c, responses.DeleteProxyGroupsDeleteErrorResponse, err)
 	}
 
-	return c.Status(200).JSON(response)
+	return c.Status(200).JSON(proxyGroups)
 }

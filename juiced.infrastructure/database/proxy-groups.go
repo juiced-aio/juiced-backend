@@ -1,6 +1,8 @@
 package database
 
 import (
+	"sort"
+
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 )
 
@@ -28,6 +30,10 @@ func GetAllProxyGroups() ([]entities.ProxyGroup, error) {
 		}
 		proxyGroups = append(proxyGroups, tempProxyGroup)
 	}
+
+	sort.SliceStable(proxyGroups, func(i, j int) bool {
+		return proxyGroups[i].CreationDate < proxyGroups[j].CreationDate
+	})
 
 	return proxyGroups, err
 }

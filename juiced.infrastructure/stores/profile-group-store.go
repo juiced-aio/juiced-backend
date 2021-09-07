@@ -124,6 +124,7 @@ func CloneProfileGroup(groupID string) (*entities.ProfileGroup, error) {
 	}
 
 	newProfileGroup := *profileGroupPtr
+	newProfileGroup.Name += " " + util.RandString(3)
 	newProfileGroup.GroupID = ""
 	newProfileGroup.CreationDate = 0
 

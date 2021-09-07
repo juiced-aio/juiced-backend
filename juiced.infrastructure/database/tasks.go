@@ -2,6 +2,7 @@ package database
 
 import (
 	"encoding/json"
+	"sort"
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 )
@@ -35,6 +36,10 @@ func GetAllTasks() ([]entities.Task, error) {
 
 		tasks = append(tasks, tempTask)
 	}
+
+	sort.SliceStable(tasks, func(i, j int) bool {
+		return tasks[i].CreationDate < tasks[j].CreationDate
+	})
 
 	return tasks, err
 }
