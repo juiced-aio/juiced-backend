@@ -14,7 +14,6 @@ var app *fiber.App
 // StartServer launches the local server that hosts the API for communication between the app and the backend
 func StartServer() {
 	app = fiber.New(fiber.Config{
-		Prefork:       true,
 		StrictRouting: true,
 		CaseSensitive: true,
 		Concurrency:   1024 * 1024 * 16,
