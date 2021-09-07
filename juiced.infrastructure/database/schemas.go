@@ -2,17 +2,18 @@ package database
 
 var userInfoSchema = `
 	CREATE TABLE IF NOT EXISTS userInfo (
-		ID INTEGER,
 		email TEXT,
+		userID TEXT,
 		licenseKey TEXT,
 		deviceName TEXT,
-		userVer TEXT,
 		discordID TEXT,
 		discordUsername TEXT,
 		discordAvatarURL TEXT,
 		activationToken TEXT,
 		refreshToken TEXT,
-		expiresAt INTEGER
+		expiresAt INTEGER,
+		channel TEXT,
+		backendVersion TEXT
 	)
 `
 

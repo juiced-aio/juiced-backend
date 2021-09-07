@@ -41,14 +41,16 @@ func SetUserInfo(userInfo entities.UserInfo) error {
 
 	userInfoInsert := `
 		INSERT INTO userInfo (
-			ID, email, licenseKey, deviceName, userVer,
+			email, userID, licenseKey, deviceName,
 			discordID, discordUsername, discordAvatarURL, 
-			activationToken, refreshToken, expiresAt
-		) VALUES (0, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			activationToken, refreshToken, expiresAt,
+			channel, backendVersion
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	_, err = database.Exec(userInfoInsert,
-		userInfo.Email, userInfo.LicenseKey, userInfo.DeviceName, userInfo.UserVer,
+		userInfo.Email, userInfo.UserID, userInfo.LicenseKey, userInfo.DeviceName,
 		userInfo.DiscordID, userInfo.DiscordUsername, userInfo.DiscordAvatarURL,
-		userInfo.ActivationToken, userInfo.RefreshToken, userInfo.ExpiresAt)
+		userInfo.ActivationToken, userInfo.RefreshToken, userInfo.ExpiresAt,
+		userInfo.Channel, userInfo.BackendVersion)
 	return err
 }
