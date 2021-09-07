@@ -148,7 +148,16 @@ func AddProfilesToGroup(groupID string, profileIDs []string) (*entities.ProfileG
 
 	for _, profileID := range profileIDs {
 		newProfile, err := AddGroupIDToProfile(profileID, groupID)
-		if err == nil {
+
+		found := false
+		for _, existingProfileID := range profileGroupPtr.ProfileIDs {
+			if existingProfileID == profileID {
+				found = true
+				break
+			}
+		}
+
+		if !found && err == nil {
 			profileGroupPtr.ProfileIDs = append(profileGroupPtr.ProfileIDs, profileID)
 			profileGroupPtr.Profiles = append(profileGroupPtr.Profiles, newProfile)
 		}

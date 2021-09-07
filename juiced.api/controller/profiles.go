@@ -14,6 +14,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+func GetProfiles(c *fiber.Ctx) error {
+	return c.Status(200).JSON(stores.GetAllProfiles())
+}
+
 func CreateProfile(c *fiber.Ctx) error {
 	var profile entities.Profile
 
@@ -142,6 +146,9 @@ func ImportProfiles(c *fiber.Ctx) error {
 	}
 	defer file.Close()
 	byteValue, err := ioutil.ReadAll(file)
+	if err != nil {
+		return responses.ReturnResponse(c, responses.ImportProfilesImportErrorResponse, err)
+	}
 	parsedProfiles := requests.ProfilesFileFormat{}
 	if err = json.Unmarshal(byteValue, &parsedProfiles); err != nil {
 		return responses.ReturnResponse(c, responses.ImportProfilesImportErrorResponse, err)

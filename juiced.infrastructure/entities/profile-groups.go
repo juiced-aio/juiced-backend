@@ -4,7 +4,7 @@ package entities
 type ProfileGroup struct {
 	GroupID          string     `json:"groupID" db:"groupID"`
 	Name             string     `json:"name" db:"name"`
-	ProfileIDs       []string   `json:"-"`
+	ProfileIDs       []string   `json:"profileIDs"`
 	ProfileIDsJoined string     `json:"-" db:"profileIDsJoined"`
 	CreationDate     int64      `json:"creationDate" db:"creationDate"`
 	Profiles         []*Profile `json:"profiles"`

@@ -48,13 +48,6 @@ func StartServer() {
 	proxyGroups.Post("/:id", controller.UpdateProxyGroup)
 
 	profiles := v1.Group("/profile")
-	profiles.Post("/", controller.CreateProfile)
-	profiles.Post("/delete", controller.DeleteProfiles)
-	profiles.Post("/clone", controller.CloneProfiles)
-	profiles.Post("/import", controller.ImportProfiles)
-	profiles.Post("/export", controller.ExportProfiles)
-	profiles.Post("/:id", controller.UpdateProfile)
-
 	profileGroups := profiles.Group("/group")
 	profileGroups.Get("/", controller.GetProfileGroups)
 	profileGroups.Post("/", controller.CreateProfileGroup)
@@ -63,6 +56,14 @@ func StartServer() {
 	profileGroups.Post("/addProfiles", controller.AddProfilesToGroups)
 	profileGroups.Post("/removeProfiles", controller.RemoveProfilesFromGroups)
 	profileGroups.Post("/:id", controller.UpdateProfileGroup)
+
+	profiles.Get("/", controller.GetProfiles)
+	profiles.Post("/", controller.CreateProfile)
+	profiles.Post("/delete", controller.DeleteProfiles)
+	profiles.Post("/clone", controller.CloneProfiles)
+	profiles.Post("/import", controller.ImportProfiles)
+	profiles.Post("/export", controller.ExportProfiles)
+	profiles.Post("/:id", controller.UpdateProfile)
 
 	tasks := v1.Group("/task")
 	tasks.Post("/", controller.CreateTasks)

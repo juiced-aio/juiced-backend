@@ -180,7 +180,7 @@ func RemoveProfile(profileID string) (entities.Profile, error) {
 
 	// TODO: Delete Tasks with this Profile
 
-	return *profile, database.RemoveProfileGroup(profileID)
+	return *profile, database.RemoveProfile(profileID)
 }
 
 func CloneProfile(profileID string) (*entities.Profile, error) {
