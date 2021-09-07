@@ -2,7 +2,6 @@ package database
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	"time"
 
@@ -89,10 +88,6 @@ func GetAllProfiles() ([]entities.Profile, error) {
 			profiles = append(profiles, tempProfile)
 		}
 	}
-
-	sort.SliceStable(profiles, func(i, j int) bool {
-		return profiles[i].CreationDate < profiles[j].CreationDate
-	})
 
 	return profiles, err
 }

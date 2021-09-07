@@ -3,7 +3,6 @@ package database
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"time"
 
 	"backend.juicedbot.io/juiced.client/http"
@@ -95,10 +94,6 @@ func GetAllAccounts() ([]entities.Account, error) {
 
 		accounts = append(accounts, account)
 	}
-
-	sort.SliceStable(accounts, func(i, j int) bool {
-		return accounts[i].CreationDate < accounts[j].CreationDate
-	})
 
 	return accounts, nil
 }

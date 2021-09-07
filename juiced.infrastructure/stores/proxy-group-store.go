@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
@@ -15,14 +16,19 @@ type ProxyGroupStore struct {
 
 var proxyGroupStore ProxyGroupStore
 
-func (store *ProxyGroupStore) Init() error {
+func InitProxyGroupStore() error {
+	proxyGroupStore = ProxyGroupStore{
+		ProxyGroups: make(map[string]*entities.ProxyGroup),
+	}
+
 	proxyGroups, err := database.GetAllProxyGroups()
 	if err != nil {
 		return err
 	}
 
 	for _, proxyGroup := range proxyGroups {
-		store.ProxyGroups[proxyGroup.GroupID] = &proxyGroup
+		proxyGroup := proxyGroup
+		proxyGroupStore.ProxyGroups[proxyGroup.GroupID] = &proxyGroup
 	}
 
 	return nil
@@ -42,6 +48,10 @@ func GetAllProxyGroups() []*entities.ProxyGroup {
 	for _, proxyGroup := range proxyGroupStore.ProxyGroups {
 		proxyGroups = append(proxyGroups, proxyGroup)
 	}
+
+	sort.SliceStable(proxyGroups, func(i, j int) bool {
+		return proxyGroups[i].CreationDate < proxyGroups[j].CreationDate
+	})
 
 	return proxyGroups
 }

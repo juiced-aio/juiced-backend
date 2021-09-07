@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -20,14 +21,19 @@ type TaskStore struct {
 
 var taskStore TaskStore
 
-func (store *TaskStore) Init() error {
+func InitTaskStore() error {
+	taskStore = TaskStore{
+		Tasks: make(map[string]*entities.Task),
+	}
+
 	tasks, err := database.GetAllTasks()
 	if err != nil {
 		return err
 	}
 
 	for _, task := range tasks {
-		store.Tasks[task.ID] = &task
+		task := task
+		taskStore.Tasks[task.ID] = &task
 	}
 
 	return nil
@@ -47,6 +53,10 @@ func GetAllTasks() []*entities.Task {
 		tasks = append(tasks, task)
 	}
 
+	sort.SliceStable(tasks, func(i, j int) bool {
+		return tasks[i].CreationDate < tasks[j].CreationDate
+	})
+
 	return tasks
 }
 
@@ -57,6 +67,10 @@ func GetTasks(taskIDs []string) []*entities.Task {
 			tasks = append(tasks, task)
 		}
 	}
+
+	sort.SliceStable(tasks, func(i, j int) bool {
+		return tasks[i].CreationDate < tasks[j].CreationDate
+	})
 
 	return tasks
 }

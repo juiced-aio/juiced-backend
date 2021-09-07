@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
@@ -16,14 +17,19 @@ type AccountStore struct {
 
 var accountStore AccountStore
 
-func (store *AccountStore) Init() error {
+func InitAccountStore() error {
+	accountStore = AccountStore{
+		Accounts: make(map[string]*entities.Account),
+	}
+
 	accounts, err := database.GetAllAccounts()
 	if err != nil {
 		return err
 	}
 
 	for _, account := range accounts {
-		store.Accounts[account.ID] = &account
+		account := account
+		accountStore.Accounts[account.ID] = &account
 	}
 
 	return nil
@@ -52,6 +58,10 @@ func GetAllAccounts() []*entities.Account {
 		accounts = append(accounts, account)
 	}
 
+	sort.SliceStable(accounts, func(i, j int) bool {
+		return accounts[i].CreationDate < accounts[j].CreationDate
+	})
+
 	return accounts
 }
 
@@ -62,6 +72,10 @@ func GetAccounts(accountIDs []string) []*entities.Account {
 			accounts = append(accounts, account)
 		}
 	}
+
+	sort.SliceStable(accounts, func(i, j int) bool {
+		return accounts[i].CreationDate < accounts[j].CreationDate
+	})
 
 	return accounts
 }

@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,15 +18,20 @@ type ProfileGroupStore struct {
 
 var profileGroupStore ProfileGroupStore
 
-func (store *ProfileGroupStore) Init() error {
+func InitProfileGroupStore() error {
+	profileGroupStore = ProfileGroupStore{
+		ProfileGroups: make(map[string]*entities.ProfileGroup),
+	}
+
 	profileGroups, err := database.GetAllProfileGroups()
 	if err != nil {
 		return err
 	}
 
 	for _, profileGroup := range profileGroups {
+		profileGroup := profileGroup
 		profileGroup.Profiles = GetProfiles(profileGroup.ProfileIDs)
-		store.ProfileGroups[profileGroup.GroupID] = &profileGroup
+		profileGroupStore.ProfileGroups[profileGroup.GroupID] = &profileGroup
 	}
 
 	return nil
@@ -45,6 +51,10 @@ func GetAllProfileGroups() []*entities.ProfileGroup {
 	for _, profileGroup := range profileGroupStore.ProfileGroups {
 		profileGroups = append(profileGroups, profileGroup)
 	}
+
+	sort.SliceStable(profileGroups, func(i, j int) bool {
+		return profileGroups[i].CreationDate < profileGroups[j].CreationDate
+	})
 
 	return profileGroups
 }

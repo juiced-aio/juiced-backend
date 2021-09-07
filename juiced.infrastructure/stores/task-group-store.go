@@ -3,6 +3,7 @@ package stores
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"time"
 
 	"backend.juicedbot.io/juiced.antibot/cloudflare"
@@ -22,13 +23,18 @@ type TaskGroupStore struct {
 
 var taskGroupStore TaskGroupStore
 
-func (store *TaskGroupStore) Init() error {
+func InitTaskGroupStore() error {
+	taskGroupStore = TaskGroupStore{
+		TaskGroups: make(map[string]*entities.TaskGroup),
+	}
+
 	taskGroups, err := database.GetAllTaskGroups()
 	if err != nil {
 		return err
 	}
 
 	for _, taskGroup := range taskGroups {
+		taskGroup := taskGroup
 		taskGroupPtr := &taskGroup
 		for _, monitor := range taskGroup.Monitors {
 			monitor.Status = enums.MonitorIdle
@@ -42,7 +48,7 @@ func (store *TaskGroupStore) Init() error {
 			}
 		}
 		taskGroup.Tasks = GetTasks(taskGroup.TaskIDs)
-		store.TaskGroups[taskGroup.GroupID] = taskGroupPtr
+		taskGroupStore.TaskGroups[taskGroup.GroupID] = taskGroupPtr
 	}
 
 	return nil
@@ -62,6 +68,10 @@ func GetAllTaskGroups() []*entities.TaskGroup {
 	for _, taskGroup := range taskGroupStore.TaskGroups {
 		taskGroups = append(taskGroups, taskGroup)
 	}
+
+	sort.SliceStable(taskGroups, func(i, j int) bool {
+		return taskGroups[i].CreationDate < taskGroups[j].CreationDate
+	})
 
 	return taskGroups
 }
