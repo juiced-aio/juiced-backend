@@ -136,7 +136,6 @@ var checkoutsSchema = `
 
 var settingsSchema = `
 	CREATE TABLE IF NOT EXISTS settings (
-		id TEXT,
 		successDiscordWebhook TEXT,
 		failureDiscordWebhook TEXT,
 		twoCaptchaAPIKey TEXT,

@@ -4,7 +4,6 @@ import "fmt"
 
 // Settings is a class that holds details about a user's settings
 type Settings struct {
-	ID                    int    `json:"ID" db:"ID"`
 	SuccessDiscordWebhook string `json:"successDiscordWebhook" db:"successDiscordWebhook"`
 	FailureDiscordWebhook string `json:"failureDiscordWebhook" db:"failureDiscordWebhook"`
 	TwoCaptchaAPIKey      string `json:"twoCaptchaAPIKey" db:"twoCaptchaAPIKey"`
