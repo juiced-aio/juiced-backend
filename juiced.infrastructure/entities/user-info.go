@@ -24,8 +24,4 @@ type UserInfo struct {
 	BackendVersion  string  `json:"backendVersion" db:"backendVersion"`
 	EncryptionKey   string  `json:"encryptionKey"`
 	FrontendVersion string  `json:"frontendVersion"`
-
-	// Unused
-	ID      string `db:"ID"`
-	UserVer string `db:"userVer"`
 }

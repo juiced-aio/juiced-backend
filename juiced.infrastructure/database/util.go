@@ -14,7 +14,7 @@ import (
 
 var database *sqlx.DB
 
-const DB_FILENAME = "juiced.db"
+const DB_FILENAME = "juiced3.db"
 const DB_TEST_FILENAME = "juiced_test.db"
 
 func InitDatabase() error {
