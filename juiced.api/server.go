@@ -21,7 +21,7 @@ func StartServer() {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://127.0.0.1:3000",
+		AllowOrigins: "http://localhost:3000",
 	}))
 	app.Use(logger.New())
 	app.Use(recover.New())
