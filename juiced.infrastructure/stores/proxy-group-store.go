@@ -94,6 +94,8 @@ func UpdateProxyGroup(groupID string, newProxyGroup entities.ProxyGroup) (*entit
 	proxyGroup.Name = newProxyGroup.Name
 	proxyGroup.Proxies = newProxyGroup.Proxies
 
+	// TODO: Update Tasks/TaskGroups with this ProxyGroup to change proxies and restart
+
 	return proxyGroup, database.UpdateProxyGroup(groupID, *proxyGroup)
 }
 
@@ -105,7 +107,7 @@ func RemoveProxyGroup(groupID string) (entities.ProxyGroup, error) {
 
 	delete(proxyGroupStore.ProxyGroups, groupID)
 
-	// TODO: Update Tasks with this ProxyGroup to use no ProxyGroup
+	// TODO: Update Tasks/TaskGroups with this ProxyGroup to use no ProxyGroup
 
 	return *proxyGroup, database.RemoveProxyGroup(groupID)
 }

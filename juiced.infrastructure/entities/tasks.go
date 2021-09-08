@@ -73,14 +73,14 @@ type TaskFunction struct {
 }
 
 type ProductInfo struct {
-	InStock      bool
-	InPriceRange bool
-	SKU          string
-	Price        float64
-	ItemName     string
-	ItemURL      string
-	ImageURL     string
-	SiteSpecific map[string]interface{}
+	InStock          bool                   `json:"inStock"`
+	InPriceRange     bool                   `json:"inPriceRange"`
+	SKU              string                 `json:"sku"`
+	Price            float64                `json:"price"`
+	ItemName         string                 `json:"itemName"`
+	ItemURL          string                 `json:"itemURL"`
+	ImageURL         string                 `json:"imageURL"`
+	SiteSpecificInfo map[string]interface{} `json:"siteSpecificInfo"`
 }
 
 func (task *BaseTask) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {

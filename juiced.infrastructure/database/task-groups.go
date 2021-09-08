@@ -129,7 +129,6 @@ func RemoveTaskGroup(groupID string, deleteTasks bool) error {
 	}
 
 	return err
-
 }
 
 func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) error {

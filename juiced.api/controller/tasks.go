@@ -69,3 +69,68 @@ func CreateTasks(c *fiber.Ctx) error {
 
 	return c.Status(200).JSON(newTasks)
 }
+
+func DeleteTasks(c *fiber.Ctx) error {
+	var input requests.TasksRequest
+	var err error
+
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.DeleteTasksParseErrorResponse, err)
+	}
+
+	if len(input.TaskIDs) == 0 {
+		return responses.ReturnResponse(c, responses.DeleteTasksEmptyInputErrorResponse, nil)
+	}
+
+	response := responses.TasksSuccessResponse{}
+	for _, taskID := range input.TaskIDs {
+		_, err_ := stores.RemoveTask(taskID)
+		if err_ == nil {
+			response.SuccessTaskIDs = append(response.SuccessTaskIDs, taskID)
+		} else {
+			if err == nil {
+				err = err_
+			}
+			response.FailureTaskIDs = append(response.FailureTaskIDs, taskID)
+		}
+	}
+
+	if len(response.SuccessTaskIDs) == 0 {
+		return responses.ReturnResponse(c, responses.DeleteTasksDeleteErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(response)
+}
+
+func CloneTasks(c *fiber.Ctx) error {
+	var input requests.TasksRequest
+	var err error
+
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.DeleteTasksParseErrorResponse, err)
+	}
+
+	if len(input.TaskIDs) == 0 {
+		return responses.ReturnResponse(c, responses.DeleteTasksEmptyInputErrorResponse, nil)
+	}
+
+	tasks := []entities.Task{}
+	success := false
+	for _, taskID := range input.TaskIDs {
+		newTaskPtr, err_ := stores.CloneTask(taskID)
+		if err_ == nil {
+			success = true
+			tasks = append(tasks, *newTaskPtr)
+		} else {
+			if err == nil {
+				err = err_
+			}
+		}
+	}
+
+	if !success {
+		return responses.ReturnResponse(c, responses.DeleteTasksDeleteErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(tasks)
+}

@@ -338,11 +338,11 @@ func (task *Task) RetrieveJTI() (bool, string) {
 }
 
 func (task *Task) AddToCart() (bool, string) {
-	if _, ok := task.BaseTask.ProductInfo.SiteSpecific["AddToCartForm"].(string); !ok {
+	if _, ok := task.BaseTask.ProductInfo.SiteSpecificInfo["AddToCartForm"].(string); !ok {
 		return false, fmt.Sprintf(enums.AddingToCartFailure, AddToCartBadInputError)
 	}
 	addToCartRequest := AddToCartRequest{
-		ProductUri:    task.BaseTask.ProductInfo.SiteSpecific["AddToCartForm"].(string),
+		ProductUri:    task.BaseTask.ProductInfo.SiteSpecificInfo["AddToCartForm"].(string),
 		Quantity:      task.Input.Quantity,
 		Configuration: "",
 	}

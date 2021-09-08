@@ -7,8 +7,11 @@ type CreateTasksRequest struct {
 	ProfileIDs         []string               `json:"profileIDs"`
 	ProfileGroupID     string                 `json:"profileGroupID"`
 	ProxyGroupID       string                 `json:"proxyGroupID"`
-	ProfileID          string                 `json:"profileID"`
 	Quantity           int                    `json:"quantity"`
 	DelayMS            int                    `json:"delayMS"`
 	SiteSpecificInfo   map[string]interface{} `json:"siteSpecificInfo"`
+}
+
+type TasksRequest struct {
+	TaskIDs []string `json:"taskIDs"`
 }

@@ -150,7 +150,44 @@ func GetTask(taskID string) (*entities.Task, error) {
 	return task, nil
 }
 
-func RunTask(taskID string) error {
+func RemoveTask(taskID string) (entities.Task, error) {
+	task, err := GetTask(taskID)
+	if err != nil {
+		return entities.Task{}, err
+	}
+
+	err = StopTask(taskID)
+	if err != nil {
+		return entities.Task{}, err
+	}
+
+	delete(taskStore.Tasks, taskID)
+
+	return *task, database.RemoveTask(taskID)
+}
+
+func CloneTask(taskID string) (*entities.Task, error) {
+	taskPtr, err := GetTask(taskID)
+	if err != nil {
+		return nil, err
+	}
+
+	newTask := *taskPtr
+	newTask.ID = ""
+	newTask.CreationDate = 0
+
+	// TODO
+
+	return CreateTask(newTask)
+}
+
+func StartTask(taskID string) error {
+	// TODO
+
+	return nil
+}
+
+func StopTask(taskID string) error {
 	// TODO
 
 	return nil

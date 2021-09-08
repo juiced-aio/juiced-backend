@@ -157,9 +157,35 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 		return entities.TaskGroup{}, err
 	}
 
+	err = StopTaskGroup(groupID)
+	if err != nil {
+		return entities.TaskGroup{}, err
+	}
+
 	delete(taskGroupStore.TaskGroups, groupID)
 
 	return *taskGroup, database.RemoveTaskGroup(groupID, true)
+}
+
+func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
+	taskGroupPtr, err := GetTaskGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	newTaskGroup := *taskGroupPtr
+	newTaskGroup.Name += " " + u.RandString(3)
+	newTaskGroup.GroupID = ""
+	newTaskGroup.CreationDate = 0
+
+	// TODO
+
+	newTaskGroupPtr, err := CreateTaskGroup(newTaskGroup)
+	if err != nil {
+		return nil, err
+	}
+
+	return newTaskGroupPtr, nil
 }
 
 func AddTasksToGroup(groupID string, tasks []*entities.Task) (*entities.TaskGroup, error) {
@@ -176,7 +202,13 @@ func AddTasksToGroup(groupID string, tasks []*entities.Task) (*entities.TaskGrou
 	return UpdateTaskGroup(groupID, *taskGroupPtr)
 }
 
-func RunTaskGroup(taskGroupID string) error {
+func StartTaskGroup(taskGroupID string) error {
+	// TODO
+
+	return nil
+}
+
+func StopTaskGroup(taskGroupID string) error {
 	// TODO
 
 	return nil
