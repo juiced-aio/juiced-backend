@@ -161,9 +161,15 @@ func RemoveTask(taskID string) (entities.Task, error) {
 		return entities.Task{}, err
 	}
 
-	delete(taskStore.Tasks, taskID)
+	err = database.RemoveTask(taskID)
+	if err != nil {
+		return entities.Task{}, err
+	}
 
-	return *task, database.RemoveTask(taskID)
+	delete(taskStore.Tasks, taskID)
+	_, err = RemoveTasksFromGroup(task.TaskGroupID, []string{taskID})
+
+	return *task, err
 }
 
 func CloneTask(taskID string) (*entities.Task, error) {

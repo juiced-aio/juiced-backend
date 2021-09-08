@@ -344,66 +344,6 @@ package endpoints
 // 	json.NewEncoder(response).Encode(result)
 // }
 
-// // CloneTaskGroupEndpoint handles the POST request at /api/task/group/{GroupID}/clone
-// func CloneTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
-// 	response.Header().Set("content-type", "application/json")
-// 	response.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-// 	var newTaskGroup entities.TaskGroup
-// 	var err error
-// 	errorsList := make([]string, 0)
-
-// 	params := mux.Vars(request)
-// 	groupID, ok := params["GroupID"]
-
-// 	if ok {
-// 		newTaskGroup, err = stores.GetTaskGroup(groupID)
-// 		if err == nil {
-// 			newTaskGroup.SetGroupID(uuid.New().String())
-// 			newTaskGroup.SetName(newTaskGroup.Name + " (Copy " + util.RandID(4) + ")")
-// 			newTaskGroup.CreationDate = time.Now().Unix()
-// 			newTaskIDs := make([]string, 0)
-// 			for _, taskID := range newTaskGroup.TaskIDs {
-// 				var task entities.Task
-// 				task, err = stores.GetTask(taskID)
-// 				if err != nil {
-// 					break
-// 				}
-// 				task.ID = uuid.New().String()
-// 				task.TaskGroupID = newTaskGroup.GroupID
-// 				err = stores.CreateTask(task)
-// 				if err != nil {
-// 					break
-// 				}
-// 				newTaskIDs = append(newTaskIDs, task.ID)
-// 			}
-// 			if err == nil {
-// 				newTaskGroup.TaskIDs = newTaskIDs
-// 				err = stores.CreateTaskGroup(newTaskGroup)
-// 				if err != nil {
-// 					errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
-// 				}
-// 			} else {
-// 				errorsList = append(errorsList, errors.CreateTaskGroupError+err.Error())
-// 			}
-// 		} else {
-// 			errorsList = append(errorsList, errors.GetTaskGroupError+err.Error())
-// 		}
-// 	} else {
-// 		errorsList = append(errorsList, errors.MissingParameterError)
-// 	}
-// 	newTaskGroup, err := stores.ConvertTaskIDsToTasks(&newTaskGroup)
-// 	if err != nil {
-// 		errorsList = append(errorsList, errors.GetTaskError+err.Error())
-// 	}
-// 	data := []entities.TaskGroup{newTaskGroup}
-// 	result := &responses.TaskGroupResponse{Success: true, Data: data, Errors: make([]string, 0)}
-// 	if len(errorsList) > 0 {
-// 		response.WriteHeader(http.StatusBadRequest)
-// 		result = &responses.TaskGroupResponse{Success: false, Data: data, Errors: errorsList}
-// 	}
-// 	json.NewEncoder(response).Encode(result)
-// }
-
 // // StartTaskGroupEndpoint handles the POST request at /api/task/group/{GroupID}/start
 // func StartTaskGroupEndpoint(response http.ResponseWriter, request *http.Request) {
 // 	response.Header().Set("content-type", "application/json")

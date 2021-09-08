@@ -176,11 +176,22 @@ func RemoveProfile(profileID string) (entities.Profile, error) {
 		return entities.Profile{}, err
 	}
 
+	err = database.RemoveProfile(profileID)
+	if err != nil {
+		return entities.Profile{}, err
+	}
+
 	delete(profileStore.Profiles, profileID)
+	for _, profileGroupID := range profile.ProfileGroupIDs {
+		_, err = RemoveProfilesFromGroup(profileGroupID, []string{profile.ID})
+		if err != nil {
+			return *profile, err
+		}
+	}
 
 	// TODO: Delete Tasks with this Profile
 
-	return *profile, database.RemoveProfile(profileID)
+	return *profile, err
 }
 
 func CloneProfile(profileID string) (*entities.Profile, error) {

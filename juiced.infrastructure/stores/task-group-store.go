@@ -5,6 +5,7 @@ import (
 	"log"
 	"reflect"
 	"sort"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.antibot/cloudflare"
@@ -246,6 +247,27 @@ func AddTasksToGroup(groupID string, tasks []*entities.Task) (*entities.TaskGrou
 		taskGroupPtr.TaskIDs = append(taskGroupPtr.TaskIDs, task.ID)
 		taskGroupPtr.Tasks = append(taskGroupPtr.Tasks, task)
 	}
+
+	return UpdateTaskGroup(groupID, *taskGroupPtr)
+}
+
+func RemoveTasksFromGroup(groupID string, taskIDs []string) (*entities.TaskGroup, error) {
+	taskGroupPtr, err := GetTaskGroup(groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	newTasks := []*entities.Task{}
+	newTaskIDs := []string{}
+	for _, task := range taskGroupPtr.Tasks {
+		if !u.InSlice(taskIDs, task.ID) {
+			newTasks = append(newTasks, task)
+			newTaskIDs = append(newTaskIDs, task.ID)
+		}
+	}
+	taskGroupPtr.TaskIDs = newTaskIDs
+	taskGroupPtr.TaskIDsSerialized = strings.Join(newTaskIDs, ",")
+	taskGroupPtr.Tasks = newTasks
 
 	return UpdateTaskGroup(groupID, *taskGroupPtr)
 }
