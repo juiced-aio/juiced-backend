@@ -74,6 +74,12 @@ func CreateProxyGroup(proxyGroup entities.ProxyGroup) (*entities.ProxyGroup, err
 		proxyGroup.CreationDate = time.Now().Unix()
 	}
 
+	for _, proxy := range proxyGroup.Proxies {
+		proxy.ID = uuid.New().String()
+		proxy.ProxyGroupID = proxyGroup.GroupID
+		proxy.CreationDate = time.Now().Unix()
+	}
+
 	err := database.CreateProxyGroup(proxyGroup)
 	if err != nil {
 		return nil, err
@@ -122,6 +128,13 @@ func CloneProxyGroup(groupID string) (*entities.ProxyGroup, error) {
 	newProxyGroup.Name += " " + util.RandString(3)
 	newProxyGroup.GroupID = ""
 	newProxyGroup.CreationDate = 0
+
+	newProxies := []*entities.Proxy{}
+	for _, proxy := range newProxyGroup.Proxies {
+		newProxy := *proxy
+		newProxies = append(newProxies, &newProxy)
+	}
+	newProxyGroup.Proxies = newProxies
 
 	return CreateProxyGroup(newProxyGroup)
 }

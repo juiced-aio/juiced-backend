@@ -1,6 +1,10 @@
 package database
 
-import "backend.juicedbot.io/juiced.infrastructure/entities"
+import (
+	"sort"
+
+	"backend.juicedbot.io/juiced.infrastructure/entities"
+)
 
 func GetProxies(proxyGroup entities.ProxyGroup) (entities.ProxyGroup, error) {
 	if database == nil {
@@ -16,6 +20,7 @@ func GetProxies(proxyGroup entities.ProxyGroup) (entities.ProxyGroup, error) {
 		return proxyGroup, err
 	}
 
+	proxies := []*entities.Proxy{}
 	defer rows.Close()
 	for rows.Next() {
 		tempProxy := entities.Proxy{}
@@ -23,8 +28,14 @@ func GetProxies(proxyGroup entities.ProxyGroup) (entities.ProxyGroup, error) {
 		if err != nil {
 			return proxyGroup, err
 		}
-		proxyGroup.Proxies = append(proxyGroup.Proxies, &tempProxy)
+		proxies = append(proxies, &tempProxy)
 	}
+
+	sort.SliceStable(proxies, func(i, j int) bool {
+		return proxies[i].CreationDate < proxies[j].CreationDate
+	})
+
+	proxyGroup.Proxies = proxies
 
 	return proxyGroup, err
 }

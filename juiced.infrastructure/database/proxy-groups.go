@@ -81,11 +81,11 @@ func CreateProxyGroup(proxyGroup entities.ProxyGroup) error {
 	}
 
 	for _, proxy := range proxyGroup.Proxies {
-		statement, err := database.Preparex(`INSERT INTO proxies (ID, proxyGroupID, host, port, username, password) VALUES (?, ?, ?, ?, ?, ?)`)
+		statement, err := database.Preparex(`INSERT INTO proxies (ID, proxyGroupID, host, port, username, password, creationDate) VALUES (?, ?, ?, ?, ?, ?, ?)`)
 		if err != nil {
 			return err
 		}
-		_, err = statement.Exec(proxy.ID, proxyGroup.GroupID, proxy.Host, proxy.Port, proxy.Username, proxy.Password)
+		_, err = statement.Exec(proxy.ID, proxyGroup.GroupID, proxy.Host, proxy.Port, proxy.Username, proxy.Password, proxy.CreationDate)
 		if err != nil {
 			return err
 		}

@@ -5,6 +5,7 @@ import (
 	"sort"
 	"time"
 
+	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
@@ -138,4 +139,29 @@ func RemoveAccount(accountID string) (entities.Account, error) {
 
 	delete(accountStore.Accounts, accountID)
 	return *account, database.RemoveAccount(accountID)
+}
+
+func AccessAccountCookies(accountID string) ([]*http.Cookie, error) {
+	account, err := GetAccount(accountID)
+	if err != nil {
+		return []*http.Cookie{}, err
+	}
+
+	if len(account.Cookies) > 0 {
+		if AccountIsLoggedIn(account) {
+			return account.Cookies, nil
+		}
+	}
+
+	return AccountLogin(account)
+}
+
+func AccountLogin(account *entities.Account) ([]*http.Cookie, error) {
+	// TODO
+	return []*http.Cookie{}, nil
+}
+
+func AccountIsLoggedIn(account *entities.Account) bool {
+	// TODO
+	return false
 }
