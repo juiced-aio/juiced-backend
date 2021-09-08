@@ -37,7 +37,8 @@ func InitTaskGroupStore() error {
 	for _, taskGroup := range taskGroups {
 		taskGroup := taskGroup
 		taskGroupPtr := &taskGroup
-		for _, monitor := range taskGroup.Monitors {
+		skip := false
+		for _, monitor := range taskGroupPtr.Monitors {
 			monitor.Status = enums.MonitorIdle
 			monitor.TaskGroup = taskGroupPtr
 
@@ -47,9 +48,26 @@ func InitTaskGroupStore() error {
 					monitor.ProxyGroup = proxyGroup
 				}
 			}
+
+			var retailerMonitor entities.Monitor
+			switch taskGroup.Retailer {
+			case enums.PokemonCenter:
+				retailerMonitor, err = pokemoncenter.CreateMonitor(monitor.MonitorInput, monitor)
+
+			}
+			if err != nil {
+				skip = true
+			}
+			monitor.Monitor = &retailerMonitor
 		}
-		taskGroup.Tasks = GetTasks(taskGroup.TaskIDs)
-		taskGroupStore.TaskGroups[taskGroup.GroupID] = taskGroupPtr
+
+		if !skip {
+			taskGroupPtr.Tasks = GetTasks(taskGroupPtr.TaskIDs)
+			for _, task := range taskGroupPtr.Tasks {
+				task.Task.TaskGroup = taskGroupPtr
+			}
+			taskGroupStore.TaskGroups[taskGroupPtr.GroupID] = taskGroupPtr
+		}
 	}
 
 	return nil
@@ -272,16 +290,67 @@ func RemoveTasksFromGroup(groupID string, taskIDs []string) (*entities.TaskGroup
 	return UpdateTaskGroup(groupID, *taskGroupPtr)
 }
 
-func StartTaskGroup(taskGroupID string) error {
-	// TODO
+func StartTaskGroup(groupID string) error {
+	taskGroupPtr, err := GetTaskGroup(groupID)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	for _, monitor := range taskGroupPtr.Monitors {
+		go RunMonitor(monitor)
+	}
+
+	for _, taskID := range taskGroupPtr.TaskIDs {
+		err_ := StartTask(taskID)
+		if err == nil {
+			err = err_
+		}
+	}
+
+	return err
 }
 
-func StopTaskGroup(taskGroupID string) error {
-	// TODO
+func StopTaskGroup(groupID string) error {
+	taskGroupPtr, err := GetTaskGroup(groupID)
+	if err != nil {
+		return err
+	}
 
-	return nil
+	for _, monitor := range taskGroupPtr.Monitors {
+		monitor.StopFlag = true
+		monitor.Status = enums.MonitorIdle
+		monitor.Running = false
+		monitor.ProductInfo = entities.ProductInfo{}
+
+		monitor.Proxy = nil
+		monitor.Client = nil
+		monitor.Scraper = nil
+	}
+
+	for _, taskID := range taskGroupPtr.TaskIDs {
+		err_ := StopTask(taskID)
+		if err == nil {
+			err = err_
+		}
+	}
+
+	return err
+}
+
+func CheckForTaskGroupStop(groupID string) {
+	taskGroupPtr, err := GetTaskGroup(groupID)
+	runningTasks := false
+	if err == nil {
+		for _, task := range taskGroupPtr.Tasks {
+			if task.Task.Running && !task.Task.StopFlag {
+				runningTasks = true
+			}
+		}
+	}
+
+	if !runningTasks {
+		StopTaskGroup(groupID)
+	}
 }
 
 func RunMonitor(monitor *entities.BaseMonitor) {
@@ -297,6 +366,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 		return
 	}
 
+	monitor.StopFlag = false
 	monitor.Running = true
 	monitor.PublishEvent(enums.MonitorStart, enums.Searching)
 

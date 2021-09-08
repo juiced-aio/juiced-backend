@@ -18,6 +18,14 @@ var CloneTasksEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 630
 var CloneTasksParseErrorResponse = Response{StatusCode: 400, ErrorCode: 6301, Message: "Could not parse task IDs: "}
 var CloneTasksCloneErrorResponse = Response{StatusCode: 500, ErrorCode: 6302, Message: "Could not create new task(s): "}
 
+var StartTasksEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 6400, Message: "TaskIDs field was empty"}
+var StartTasksParseErrorResponse = Response{StatusCode: 400, ErrorCode: 6401, Message: "Could not parse task IDs: "}
+var StartTasksStartErrorResponse = Response{StatusCode: 500, ErrorCode: 6402, Message: "Could not start task(s): "}
+
+var StopTasksEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 6500, Message: "TaskIDs field was empty"}
+var StopTasksParseErrorResponse = Response{StatusCode: 400, ErrorCode: 6501, Message: "Could not parse task IDs: "}
+var StopTasksStopErrorResponse = Response{StatusCode: 500, ErrorCode: 6502, Message: "Could not stop task(s): "}
+
 type TasksSuccessResponse struct {
 	SuccessTaskIDs []string `json:"successTaskIDs"`
 	FailureTaskIDs []string `json:"failureTaskIDs"`

@@ -107,11 +107,11 @@ func CloneTasks(c *fiber.Ctx) error {
 	var err error
 
 	if err = c.BodyParser(&input); err != nil {
-		return responses.ReturnResponse(c, responses.DeleteTasksParseErrorResponse, err)
+		return responses.ReturnResponse(c, responses.CloneTasksParseErrorResponse, err)
 	}
 
 	if len(input.TaskIDs) == 0 {
-		return responses.ReturnResponse(c, responses.DeleteTasksEmptyInputErrorResponse, nil)
+		return responses.ReturnResponse(c, responses.CloneTasksEmptyInputErrorResponse, nil)
 	}
 
 	tasks := []entities.Task{}
@@ -129,8 +129,72 @@ func CloneTasks(c *fiber.Ctx) error {
 	}
 
 	if !success {
-		return responses.ReturnResponse(c, responses.DeleteTasksDeleteErrorResponse, err)
+		return responses.ReturnResponse(c, responses.CloneTasksCloneErrorResponse, err)
 	}
 
 	return c.Status(200).JSON(tasks)
+}
+
+func StartTasks(c *fiber.Ctx) error {
+	var input requests.TasksRequest
+	var err error
+
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.StartTasksParseErrorResponse, err)
+	}
+
+	if len(input.TaskIDs) == 0 {
+		return responses.ReturnResponse(c, responses.StartTasksEmptyInputErrorResponse, nil)
+	}
+
+	response := responses.TasksSuccessResponse{}
+	for _, taskID := range input.TaskIDs {
+		err_ := stores.StartTask(taskID)
+		if err_ == nil {
+			response.SuccessTaskIDs = append(response.SuccessTaskIDs, taskID)
+		} else {
+			if err == nil {
+				err = err_
+			}
+			response.FailureTaskIDs = append(response.FailureTaskIDs, taskID)
+		}
+	}
+
+	if len(response.SuccessTaskIDs) == 0 {
+		return responses.ReturnResponse(c, responses.StartTasksStartErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(response)
+}
+
+func StopTasks(c *fiber.Ctx) error {
+	var input requests.TasksRequest
+	var err error
+
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.StopTasksParseErrorResponse, err)
+	}
+
+	if len(input.TaskIDs) == 0 {
+		return responses.ReturnResponse(c, responses.StopTasksEmptyInputErrorResponse, nil)
+	}
+
+	response := responses.TasksSuccessResponse{}
+	for _, taskID := range input.TaskIDs {
+		err_ := stores.StopTask(taskID)
+		if err_ == nil {
+			response.SuccessTaskIDs = append(response.SuccessTaskIDs, taskID)
+		} else {
+			if err == nil {
+				err = err_
+			}
+			response.FailureTaskIDs = append(response.FailureTaskIDs, taskID)
+		}
+	}
+
+	if len(response.SuccessTaskIDs) == 0 {
+		return responses.ReturnResponse(c, responses.StopTasksStopErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(response)
 }

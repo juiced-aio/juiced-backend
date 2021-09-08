@@ -8,16 +8,6 @@ func InitStores() error {
 		return err
 	}
 
-	err = InitTaskStore()
-	if err != nil {
-		return err
-	}
-
-	err = InitTaskGroupStore()
-	if err != nil {
-		return err
-	}
-
 	err = InitProfileStore()
 	if err != nil {
 		return err
@@ -29,6 +19,16 @@ func InitStores() error {
 	}
 
 	err = InitProxyGroupStore()
+	if err != nil {
+		return err
+	}
+
+	err = InitTaskStore()
+	if err != nil {
+		return err
+	}
+
+	err = InitTaskGroupStore()
 	if err != nil {
 		return err
 	}

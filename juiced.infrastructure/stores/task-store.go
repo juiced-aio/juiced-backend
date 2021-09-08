@@ -33,7 +33,24 @@ func InitTaskStore() error {
 
 	for _, task := range tasks {
 		task := task
-		taskStore.Tasks[task.ID] = &task
+		taskPtr := &task
+
+		taskPtr.Task.Status = enums.TaskIdle
+		taskPtr.Task.Task = taskPtr
+
+		profilePtr, err := GetProfile(taskPtr.Task.TaskInput.ProfileID)
+		if err == nil {
+			taskPtr.Task.Profile = profilePtr
+
+			if taskPtr.Task.TaskInput.ProxyGroupID != "" {
+				proxyGroup, err := GetProxyGroup(taskPtr.Task.TaskInput.ProxyGroupID)
+				if err == nil {
+					taskPtr.Task.ProxyGroup = proxyGroup
+				}
+			}
+
+			taskStore.Tasks[task.ID] = taskPtr
+		}
 	}
 
 	return nil
@@ -75,6 +92,15 @@ func GetTasks(taskIDs []string) []*entities.Task {
 	return tasks
 }
 
+func GetTask(taskID string) (*entities.Task, error) {
+	task, ok := taskStore.Tasks[taskID]
+	if !ok {
+		return nil, &TaskNotFoundError{taskID}
+	}
+
+	return task, nil
+}
+
 func CreateTask(task entities.Task) (*entities.Task, error) {
 	taskPtr := &task
 
@@ -96,13 +122,10 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	}
 
 	var proxyGroupPtr *entities.ProxyGroup
-	var proxyPtr *entities.Proxy
 	if task.Task.TaskInput.ProxyGroupID != "" {
 		proxyGroupPtr, err = GetProxyGroup(task.Task.TaskInput.ProxyGroupID)
 		if err != nil {
 			return nil, err
-		} else {
-			proxyPtr = proxyGroupPtr.GetRandomLeastUsedProxy()
 		}
 	}
 
@@ -111,7 +134,6 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	task.Task.TaskGroup = taskGroupPtr
 	task.Task.Profile = profilePtr
 	task.Task.ProxyGroup = proxyGroupPtr
-	task.Task.Proxy = proxyPtr
 
 	if task.Task.TaskInput.DelayMS <= 0 {
 		task.Task.TaskInput.DelayMS = 2000
@@ -141,13 +163,15 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	return taskPtr, nil
 }
 
-func GetTask(taskID string) (*entities.Task, error) {
-	task, ok := taskStore.Tasks[taskID]
-	if !ok {
-		return nil, &TaskNotFoundError{taskID}
+func UpdateTask(taskID string, newTask entities.Task) (*entities.Task, error) {
+	task, err := GetTask(taskID)
+	if err != nil {
+		return nil, err
 	}
 
-	return task, nil
+	// TODO
+
+	return task, database.UpdateTask(taskID, *task)
 }
 
 func RemoveTask(taskID string) (entities.Task, error) {
@@ -202,20 +226,16 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 	}
 
 	var proxyGroupPtr *entities.ProxyGroup
-	var proxyPtr *entities.Proxy
 	if newBaseTask.TaskInput.ProxyGroupID != "" {
 		proxyGroupPtr, err = GetProxyGroup(newBaseTask.TaskInput.ProxyGroupID)
 		if err != nil {
 			return nil, err
-		} else {
-			proxyPtr = proxyGroupPtr.GetRandomLeastUsedProxy()
 		}
 	}
 
 	newBaseTask.TaskGroup = taskGroupPtr
 	newBaseTask.Profile = profilePtr
 	newBaseTask.ProxyGroup = proxyGroupPtr
-	newBaseTask.Proxy = proxyPtr
 
 	newBaseTask.Client = nil
 	newBaseTask.Scraper = nil
@@ -254,13 +274,31 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 }
 
 func StartTask(taskID string) error {
-	// TODO
+	task, err := GetTask(taskID)
+	if err != nil {
+		return err
+	}
+
+	go RunRetailerTask(task.Task)
 
 	return nil
 }
 
 func StopTask(taskID string) error {
-	// TODO
+	task, err := GetTask(taskID)
+	if err != nil {
+		return err
+	}
+
+	task.Task.StopFlag = true
+	task.Task.Status = enums.TaskIdle
+	task.Task.Running = false
+	task.Task.ProductInfo = entities.ProductInfo{}
+	task.Task.ActualQuantity = 0
+
+	task.Task.Proxy = nil
+	task.Task.Client = nil
+	task.Task.Scraper = nil
 
 	return nil
 }
@@ -272,12 +310,18 @@ func RunRetailerTask(task *entities.BaseTask) {
 			task.PublishEvent(enums.TaskFail, fmt.Sprintf(enums.TaskFailed, r))
 		}
 		task.Running = false
+		CheckForTaskGroupStop(task.Task.TaskGroupID)
 	}()
 
 	if task.Running {
 		return
 	}
 
+	if task.ProxyGroup != nil {
+		task.Proxy = task.ProxyGroup.GetRandomLeastUsedProxy()
+	}
+
+	task.StopFlag = false
 	task.Running = true
 	task.PublishEvent(enums.TaskStart, enums.TaskStarted)
 

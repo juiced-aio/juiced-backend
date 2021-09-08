@@ -71,8 +71,8 @@ func StartServer() {
 	tasks.Post("/delete", controller.DeleteTasks)
 	// 		TEST AFTER START/STOP FUNCTIONALITY
 	tasks.Post("/clone", controller.CloneTasks)
-	// tasks.Post("/start", controller.StartTasks)
-	// tasks.Post("/stop", controller.StopTasks)
+	tasks.Post("/start", controller.StartTasks)
+	tasks.Post("/stop", controller.StopTasks)
 
 	taskGroups := tasks.Group("/group")
 	taskGroups.Get("/", controller.GetTaskGroups)
@@ -81,8 +81,8 @@ func StartServer() {
 	taskGroups.Post("/delete", controller.DeleteTaskGroups)
 	// 		TEST AFTER START/STOP FUNCTIONALITY
 	taskGroups.Post("/clone", controller.CloneTaskGroups)
-	// taskGroups.Post("/start", controller.StartTaskGroups)
-	// taskGroups.Post("/stop", controller.StopTaskGroups)
+	taskGroups.Post("/start", controller.StartTaskGroups)
+	taskGroups.Post("/stop", controller.StopTaskGroups)
 
 	checkouts := v1.Group("/checkouts")
 	checkouts.Get("/", controller.GetCheckouts)

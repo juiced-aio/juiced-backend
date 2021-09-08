@@ -16,6 +16,14 @@ var CloneTaskGroupsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode
 var CloneTaskGroupsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 7301, Message: "Could not parse task group IDs: "}
 var CloneTaskGroupsCloneErrorResponse = Response{StatusCode: 500, ErrorCode: 7302, Message: "Could not create new task group(s): "}
 
+var StartTaskGroupsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 7400, Message: "TaskGroupIDs field was empty"}
+var StartTaskGroupsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 7401, Message: "Could not parse task group IDs: "}
+var StartTaskGroupsStartErrorResponse = Response{StatusCode: 500, ErrorCode: 7402, Message: "Could not start task group(s): "}
+
+var StopTaskGroupsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 7500, Message: "TaskGroupIDs field was empty"}
+var StopTaskGroupsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 7501, Message: "Could not parse task group IDs: "}
+var StopTaskGroupsStopErrorResponse = Response{StatusCode: 500, ErrorCode: 7502, Message: "Could not stop task group(s): "}
+
 type TaskGroupsSuccessResponse struct {
 	SuccessTaskGroupIDs []string `json:"successTaskGroupIDs"`
 	FailureTaskGroupIDs []string `json:"failureTaskGroupIDs"`
