@@ -47,6 +47,9 @@ func ValidateTaskInput(info map[string]interface{}) (TaskInput, error) {
 			pokemonCenterTaskInput.Password = password
 		}
 	} else {
+		if info["addressType"] == enums.AddressTypeSAVED {
+			return pokemonCenterTaskInput, &enums.InvalidAddressTypeError{}
+		}
 		pokemonCenterTaskInput.TaskType = enums.TaskTypeGuest
 	}
 

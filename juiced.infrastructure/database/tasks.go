@@ -84,7 +84,7 @@ func CreateTask(task entities.Task) error {
 		return &DatabaseNotInitializedError{}
 	}
 
-	statement, err := database.Preparex(`INSERT INTO tasks (ID, taskGroupID, retailer, taskSerialized, creationDate) VALUES (?, ?, ?, ?, ?, ?)`)
+	statement, err := database.Preparex(`INSERT INTO tasks (ID, taskGroupID, retailer, taskSerialized, creationDate) VALUES (?, ?, ?, ?, ?)`)
 	if err != nil {
 		return err
 	}

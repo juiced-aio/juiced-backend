@@ -2,6 +2,7 @@ package stores
 
 import (
 	"fmt"
+	"log"
 	"reflect"
 	"sort"
 	"time"
@@ -178,12 +179,59 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 	newTaskGroup.GroupID = ""
 	newTaskGroup.CreationDate = 0
 
-	// TODO
+	newTasks := []*entities.Task{}
+	newTaskIDs := []string{}
+	for _, taskID := range taskGroupPtr.TaskIDs {
+		newTask, err := CloneTask(taskID)
+		log.Printf("%p\n", newTasks)
+		if err == nil {
+			newTasks = append(newTasks, newTask)
+			newTaskIDs = append(newTaskIDs, newTask.ID)
+		}
+	}
+
+	newTaskGroup.TaskIDs = newTaskIDs
+	newTaskGroup.Tasks = newTasks
 
 	newTaskGroupPtr, err := CreateTaskGroup(newTaskGroup)
 	if err != nil {
 		return nil, err
 	}
+
+	newMonitors := []*entities.BaseMonitor{}
+	var err_ error
+	for _, monitor := range newTaskGroupPtr.Monitors {
+		newMonitor := *monitor
+		newMonitor.Status = enums.MonitorIdle
+		newMonitor.Running = false
+		newMonitor.ProductInfo = entities.ProductInfo{}
+
+		newMonitor.TaskGroup = newTaskGroupPtr
+		newMonitor.Proxy = nil
+		newMonitor.Client = nil
+		newMonitor.Scraper = nil
+
+		var retailerMonitor entities.Monitor
+		switch newTaskGroupPtr.Retailer {
+		case enums.PokemonCenter:
+			retailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
+
+		}
+		if err == nil {
+			newMonitor.Monitor = &retailerMonitor
+			newMonitors = append(newMonitors, &newMonitor)
+		} else {
+			if err_ == nil {
+				err_ = err
+			}
+		}
+	}
+
+	if len(newMonitors) == 0 {
+		return nil, err_
+	}
+
+	newTaskGroupPtr.Monitors = newMonitors
 
 	return newTaskGroupPtr, nil
 }

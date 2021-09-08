@@ -73,11 +73,11 @@ const (
 	LoginTypeREQUESTS LoginType = "REQUESTS"
 )
 
-type ShippingType = string
+type AddressType = string
 
 const (
-	ShippingTypeSAVED ShippingType = "SAVED"
-	ShippingTypeNEW   ShippingType = "NEW"
+	AddressTypeSAVED AddressType = "SAVED"
+	AddressTypeNEW   AddressType = "NEW"
 )
 
 type PaymentType = string
@@ -125,4 +125,11 @@ type EmptyInputFieldError struct {
 
 func (e *EmptyInputFieldError) Error() string {
 	return fmt.Sprintf("input for required field %s is empty", e.Field)
+}
+
+type InvalidAddressTypeError struct {
+}
+
+func (e *InvalidAddressTypeError) Error() string {
+	return fmt.Sprintf("cannot use saved address in guest mode")
 }

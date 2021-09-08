@@ -60,11 +60,11 @@ func CreateTasks(c *fiber.Ctx) error {
 	}
 
 	if _, err := stores.AddTasksToGroup(input.TaskGroupID, newTaskPtrs); err != nil {
-		return responses.ReturnResponse(c, responses.CreateTaskGroupCreateErrorResponse, err)
+		return responses.ReturnResponse(c, responses.CreateTaskCreateErrorResponse, err)
 	}
 
 	if err != nil {
-		return responses.ReturnResponse(c, responses.CreateTaskGroupCreateErrorResponse, err)
+		return responses.ReturnResponse(c, responses.CreateTaskCreateErrorResponse, err)
 	}
 
 	return c.Status(200).JSON(newTasks)

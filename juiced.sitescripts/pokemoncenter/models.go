@@ -61,9 +61,10 @@ type Task struct {
 }
 
 type TaskInput struct {
-	Email    string
-	Password string
-	TaskType enums.TaskType
+	Email       string
+	Password    string
+	TaskType    enums.TaskType
+	AddressType enums.AddressType
 }
 
 type CyberSecureInfo struct {

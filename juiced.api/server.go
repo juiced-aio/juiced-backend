@@ -81,6 +81,7 @@ func StartServer() {
 	taskGroups.Post("/delete", controller.DeleteTaskGroups)
 	// 		TEST AFTER START/STOP FUNCTIONALITY
 	// taskGroups.Post("/clone", controller.CloneTaskGroups)
+	//		TEST AFTER TASK CREATION FUNCTIONALITY
 	// taskGroups.Post("/start", controller.StartTaskGroups)
 	// taskGroups.Post("/stop", controller.StopTaskGroups)
 
