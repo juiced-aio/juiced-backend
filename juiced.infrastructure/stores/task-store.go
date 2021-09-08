@@ -172,7 +172,7 @@ func RemoveTask(taskID string) (entities.Task, error) {
 	return *task, err
 }
 
-func CloneTask(taskID string) (*entities.Task, error) {
+func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 	taskPtr, err := GetTask(taskID)
 	if err != nil {
 		return nil, err
@@ -181,10 +181,76 @@ func CloneTask(taskID string) (*entities.Task, error) {
 	newTask := *taskPtr
 	newTask.ID = ""
 	newTask.CreationDate = 0
+	if taskGroupID != "" {
+		newTask.TaskGroupID = taskGroupID
+	}
 
-	// TODO
+	newBaseTask := *taskPtr.Task
+	newBaseTask.Status = enums.TaskIdle
+	newBaseTask.Running = false
+	newBaseTask.ProductInfo = entities.ProductInfo{}
+	newBaseTask.ActualQuantity = 0
 
-	return CreateTask(newTask)
+	taskGroupPtr, err := GetTaskGroup(newTask.TaskGroupID)
+	if err != nil {
+		return nil, err
+	}
+
+	profilePtr, err := GetProfile(newBaseTask.TaskInput.ProfileID)
+	if err != nil {
+		return nil, err
+	}
+
+	var proxyGroupPtr *entities.ProxyGroup
+	var proxyPtr *entities.Proxy
+	if newBaseTask.TaskInput.ProxyGroupID != "" {
+		proxyGroupPtr, err = GetProxyGroup(newBaseTask.TaskInput.ProxyGroupID)
+		if err != nil {
+			return nil, err
+		} else {
+			proxyPtr = proxyGroupPtr.GetRandomLeastUsedProxy()
+		}
+	}
+
+	newBaseTask.TaskGroup = taskGroupPtr
+	newBaseTask.Profile = profilePtr
+	newBaseTask.ProxyGroup = proxyGroupPtr
+	newBaseTask.Proxy = proxyPtr
+
+	newBaseTask.Client = nil
+	newBaseTask.Scraper = nil
+	newBaseTask.StopFlag = false
+
+	newBaseTaskPtr := &newBaseTask
+
+	var retailerTask entities.RetailerTask
+	switch newTask.Retailer {
+	case enums.PokemonCenter:
+		retailerTask, err = pokemoncenter.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
+
+	}
+	if err != nil {
+		return nil, err
+	}
+	newBaseTask.RetailerTask = &retailerTask
+
+	newTask.Task = newBaseTaskPtr
+
+	newTaskPtr, err := CreateTask(newTask)
+	if err != nil {
+		return nil, err
+	}
+
+	newTaskPtr.Task.Task = newTaskPtr
+
+	if taskGroupID == "" {
+		_, err = AddTasksToGroup(newTaskPtr.TaskGroupID, []*entities.Task{newTaskPtr})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return newTaskPtr, nil
 }
 
 func StartTask(taskID string) error {

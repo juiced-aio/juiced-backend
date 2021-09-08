@@ -70,7 +70,7 @@ func StartServer() {
 	// tasks.Post("/update", controller.UpdateTasks)
 	tasks.Post("/delete", controller.DeleteTasks)
 	// 		TEST AFTER START/STOP FUNCTIONALITY
-	// tasks.Post("/clone", controller.CloneTasks)
+	tasks.Post("/clone", controller.CloneTasks)
 	// tasks.Post("/start", controller.StartTasks)
 	// tasks.Post("/stop", controller.StopTasks)
 

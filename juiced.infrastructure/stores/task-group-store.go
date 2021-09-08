@@ -2,7 +2,6 @@ package stores
 
 import (
 	"fmt"
-	"log"
 	"reflect"
 	"sort"
 	"strings"
@@ -180,40 +179,22 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 	newTaskGroup.GroupID = ""
 	newTaskGroup.CreationDate = 0
 
-	newTasks := []*entities.Task{}
-	newTaskIDs := []string{}
-	for _, taskID := range taskGroupPtr.TaskIDs {
-		newTask, err := CloneTask(taskID)
-		log.Printf("%p\n", newTasks)
-		if err == nil {
-			newTasks = append(newTasks, newTask)
-			newTaskIDs = append(newTaskIDs, newTask.ID)
-		}
-	}
-
-	newTaskGroup.TaskIDs = newTaskIDs
-	newTaskGroup.Tasks = newTasks
-
-	newTaskGroupPtr, err := CreateTaskGroup(newTaskGroup)
-	if err != nil {
-		return nil, err
-	}
-
 	newMonitors := []*entities.BaseMonitor{}
 	var err_ error
-	for _, monitor := range newTaskGroupPtr.Monitors {
+	for _, monitor := range newTaskGroup.Monitors {
 		newMonitor := *monitor
 		newMonitor.Status = enums.MonitorIdle
 		newMonitor.Running = false
 		newMonitor.ProductInfo = entities.ProductInfo{}
 
-		newMonitor.TaskGroup = newTaskGroupPtr
+		newMonitor.TaskGroup = &newTaskGroup
 		newMonitor.Proxy = nil
 		newMonitor.Client = nil
 		newMonitor.Scraper = nil
+		newMonitor.StopFlag = false
 
 		var retailerMonitor entities.Monitor
-		switch newTaskGroupPtr.Retailer {
+		switch newTaskGroup.Retailer {
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 
@@ -232,9 +213,28 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 		return nil, err_
 	}
 
-	newTaskGroupPtr.Monitors = newMonitors
+	newTaskGroup.Monitors = newMonitors
 
-	return newTaskGroupPtr, nil
+	newTaskGroupPtr, err := CreateTaskGroup(newTaskGroup)
+	if err != nil {
+		return nil, err
+	}
+
+	newTasks := []*entities.Task{}
+	newTaskIDs := []string{}
+	for _, taskID := range taskGroupPtr.TaskIDs {
+		var newTask *entities.Task
+		newTask, err = CloneTask(taskID, newTaskGroupPtr.GroupID)
+		if err == nil {
+			newTasks = append(newTasks, newTask)
+			newTaskIDs = append(newTaskIDs, newTask.ID)
+		}
+	}
+
+	newTaskGroupPtr.TaskIDs = newTaskIDs
+	newTaskGroupPtr.Tasks = newTasks
+
+	return UpdateTaskGroup(newTaskGroupPtr.GroupID, *newTaskGroupPtr)
 }
 
 func AddTasksToGroup(groupID string, tasks []*entities.Task) (*entities.TaskGroup, error) {

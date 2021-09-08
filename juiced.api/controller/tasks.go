@@ -117,7 +117,7 @@ func CloneTasks(c *fiber.Ctx) error {
 	tasks := []entities.Task{}
 	success := false
 	for _, taskID := range input.TaskIDs {
-		newTaskPtr, err_ := stores.CloneTask(taskID)
+		newTaskPtr, err_ := stores.CloneTask(taskID, "")
 		if err_ == nil {
 			success = true
 			tasks = append(tasks, *newTaskPtr)
