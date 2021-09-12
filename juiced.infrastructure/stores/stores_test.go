@@ -354,12 +354,6 @@ func TestProxyGroupStore(t *testing.T) {
 			if err != nil {
 				t.Fatalf("UpdateProxyGroup returned an error: %v\n", err)
 			}
-			if proxyGroupUpdatePtr.GroupID != proxyGroup2Ptr.GroupID {
-				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same GroupID (%s) as stored proxyGroup2Ptr (%s)\n", proxyGroupUpdatePtr.GroupID, proxyGroup2Ptr.GroupID)
-			}
-			if proxyGroupUpdatePtr.CreationDate-proxyGroup2Ptr.CreationDate != 0 {
-				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same CreationDate (%d) as stored proxyGroup2Ptr (%d)\n", proxyGroupUpdatePtr.CreationDate, proxyGroup2Ptr.CreationDate)
-			}
 			if proxyGroupUpdatePtr.Name != proxyGroupUpdate.Name {
 				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same Name (%s) as proxyGroupUpdate (%s)\n", proxyGroupUpdatePtr.Name, proxyGroupUpdate.Name)
 			}
@@ -373,22 +367,41 @@ func TestProxyGroupStore(t *testing.T) {
 			}
 		})
 		t.Run("UpdateProxyGroup doesn't change the ProxyGroup's pointer", func(t *testing.T) {
-
+			if proxyGroupUpdatePtr != proxyGroup2Ptr {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same pointer (%p) as stored proxyGroup2Ptr (%p)\n", proxyGroupUpdatePtr, proxyGroup2Ptr)
+			}
+			if proxyGroupUpdatePtr.GroupID != proxyGroup2Ptr.GroupID {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same GroupID (%s) as stored proxyGroup2Ptr (%s)\n", proxyGroupUpdatePtr.GroupID, proxyGroup2Ptr.GroupID)
+			}
+			if proxyGroupUpdatePtr.CreationDate-proxyGroup2Ptr.CreationDate != 0 {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same CreationDate (%d) as stored proxyGroup2Ptr (%d)\n", proxyGroupUpdatePtr.CreationDate, proxyGroup2Ptr.CreationDate)
+			}
+			if proxyGroupUpdatePtr.Name != proxyGroup2Ptr.Name {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same Name (%s) as stored proxyGroup2Ptr (%s)\n", proxyGroupUpdatePtr.Name, proxyGroup2Ptr.Name)
+			}
+			if len(proxyGroupUpdatePtr.Proxies) != len(proxyGroup2Ptr.Proxies) {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same number of proxies (%d) as stored proxyGroup2Ptr (%d)\n", len(proxyGroupUpdatePtr.Proxies), len(proxyGroup2Ptr.Proxies))
+			}
+			for i := 0; i < len(proxyGroup3.Proxies); i++ {
+				if proxyGroupUpdatePtr.Proxies[i] != proxyGroup2Ptr.Proxies[i] {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by UpdateProxyGroup does not have same pointer (%p) as Proxy #%d in stored proxyGroup2Ptr (%p)\n", i, proxyGroupUpdatePtr.Proxies[i], i, proxyGroup2Ptr.Proxies[i])
+				}
+			}
 		})
 		t.Run("Each Proxy that still exists in the ProxyGroup updated by UpdateProxyGroup has the same pointer as it did before the ProxyGroup was updated", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("For each Task that uses a Proxy that no longer exists, UpdateProxyGroup replaces the Task's Proxy", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("For each Monitor that uses a Proxy that no longer exists, UpdateProxyGroup replaces the Monitor's Proxy", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("Tasks that use a ProxyGroup that has been updated by UpdateProxyGroup have access to the latest ProxyGroup values", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("Monitors that use a ProxyGroup that has been updated by UpdateProxyGroup have access to the latest ProxyGroup values", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 
@@ -406,10 +419,10 @@ func TestProxyGroupStore(t *testing.T) {
 
 		})
 		t.Run("RemoveProxyGroup removes the Proxy and ProxyGroup from every Task that uses the deleted ProxyGroup", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveProxyGroup removes the Proxy and ProxyGroup from every Monitor that uses the deleted ProxyGroup", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 
