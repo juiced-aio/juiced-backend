@@ -388,6 +388,12 @@ func TestProxyGroupStore(t *testing.T) {
 				}
 			}
 		})
+		t.Run("UpdateProxyGroup updates the ProxyGroup in the proxyGroupStore", func(t *testing.T) {
+			// TODO
+		})
+		t.Run("UpdateProxyGroup updates the ProxyGroup in the database", func(t *testing.T) {
+			// TODO
+		})
 		t.Run("Each Proxy that still exists in the ProxyGroup updated by UpdateProxyGroup has the same pointer as it did before the ProxyGroup was updated", func(t *testing.T) {
 			// TODO
 		})
@@ -475,24 +481,89 @@ func TestProxyGroupStore(t *testing.T) {
 		})
 	})
 
+	var proxyGroup2ClonedPtr *entities.ProxyGroup
 	t.Run("CloneProxyGroup", func(t *testing.T) {
 		t.Run("CloneProxyGroup returns ProxyGroupNotFoundError for invalid proxyGroupID", func(t *testing.T) {
-
+			_, err := stores.CloneProxyGroup("INVALID_GROUP_ID")
+			if err == nil {
+				t.Fatal("CloneProxyGroup did not return an error on an invalid proxyGroupID\n")
+			}
+			if _, ok := err.(*stores.ProxyGroupNotFoundError); !ok {
+				t.Fatalf("CloneProxyGroup did not return a ProxyGroupNotFoundError (actual error: %v)\n", err)
+			}
 		})
 		t.Run("CloneProxyGroup returns correct ProxyGroup", func(t *testing.T) {
-
+			time.Sleep(1 * time.Second)
+			proxyGroup2Ptr.Proxies[0].AddCount()
+			proxyGroup2ClonedPtr, err = stores.CloneProxyGroup(proxyGroup2Ptr.GroupID)
+			if err != nil {
+				t.Fatalf("CloneProxyGroup returned an error: %v\n", err)
+			}
+			if proxyGroup2ClonedPtr.GroupID == proxyGroup2Ptr.GroupID {
+				t.Fatalf("ProxyGroup returned by CloneProxyGroup and stored proxyGroup2Ptr have same GroupID (%s)\n", proxyGroup2ClonedPtr.GroupID)
+			}
+			if proxyGroup2ClonedPtr.Name == proxyGroup2Ptr.Name {
+				t.Fatalf("ProxyGroup returned by CloneProxyGroup and stored proxyGroup2Ptr have same Name (%s)\n", proxyGroup2ClonedPtr.Name)
+			}
+			if proxyGroup2ClonedPtr.CreationDate == proxyGroup2Ptr.CreationDate {
+				t.Fatalf("ProxyGroup returned by CloneProxyGroup and stored proxyGroup2Ptr have same CreationDate (%d)\n", proxyGroup2ClonedPtr.CreationDate)
+			}
+			if len(proxyGroup2ClonedPtr.Proxies) != len(proxyGroup2Ptr.Proxies) {
+				t.Fatalf("ProxyGroup returned by CloneProxyGroup does not have same number of proxies (%d) as stored proxyGroup2Ptr (%d)\n", len(proxyGroup2ClonedPtr.Proxies), len(proxyGroup2Ptr.Proxies))
+			}
+			for i := 0; i < len(proxyGroup2ClonedPtr.Proxies); i++ {
+				if entities.ProxyCleaner(*proxyGroup2ClonedPtr.Proxies[i]) != entities.ProxyCleaner(*proxyGroup2Ptr.Proxies[i]) {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by CloneProxyGroup is not the same value (%s) as Proxy #%d in stored proxyGroup2Ptr (%s)\n", i, entities.ProxyCleaner(*proxyGroup2ClonedPtr.Proxies[i]), i, entities.ProxyCleaner(*proxyGroup2Ptr.Proxies[i]))
+				}
+				if proxyGroup2ClonedPtr.Proxies[i].ID == proxyGroup2Ptr.Proxies[i].ID {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by CloneProxyGroup has the same ID (%s) as Proxy #%d in stored proxyGroup2Ptr (%s)\n", i, proxyGroup2ClonedPtr.Proxies[i].ID, i, proxyGroup2Ptr.Proxies[i].ID)
+				}
+				if proxyGroup2ClonedPtr.Proxies[i].CreationDate == proxyGroup2Ptr.Proxies[i].CreationDate {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by CloneProxyGroup has the same CreationDate (%d) as Proxy #%d in stored proxyGroup2Ptr (%d)\n", i, proxyGroup2ClonedPtr.Proxies[i].CreationDate, i, proxyGroup2Ptr.Proxies[i].CreationDate)
+				}
+				if proxyGroup2ClonedPtr.Proxies[i].ProxyGroupID != proxyGroup2ClonedPtr.GroupID {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by CloneProxyGroup has a different ProxyGroupID (%s) than the cloned ProxyGroup's GroupID (%s)\n", i, proxyGroup2ClonedPtr.Proxies[i].ProxyGroupID, proxyGroup2ClonedPtr.GroupID)
+				}
+				if proxyGroup2ClonedPtr.Proxies[i].Count != 0 {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by CloneProxyGroup has a non-zero count (%d)\n", i, proxyGroup2ClonedPtr.Proxies[i].Count)
+				}
+			}
 		})
 		t.Run("CloneProxyGroup adds the new ProxyGroup to the proxyGroupStore", func(t *testing.T) {
-
+			proxyGroup2ClonedStore, err := stores.GetProxyGroup(proxyGroup2ClonedPtr.GroupID)
+			if err != nil {
+				t.Fatalf("stores.GetProxyGroup failed: %v\n", err)
+			}
+			if proxyGroup2ClonedStore != proxyGroup2ClonedPtr {
+				t.Fatalf("ProxyGroup returned by GetProxyGroup does not have same pointer (%p) as stored proxyGroup2ClonedPtr (%p)\n", proxyGroup2ClonedStore, proxyGroup2ClonedPtr)
+			}
 		})
 		t.Run("CloneProxyGroup adds the new ProxyGroup to the database", func(t *testing.T) {
-
+			proxyGroup2ClonedDatabase, err := database.GetProxyGroup(proxyGroup3Ptr.GroupID)
+			if err != nil {
+				t.Fatalf("database.GetProxyGroup failed: %v\n", err)
+			}
+			if proxyGroup2ClonedDatabase.GroupID != proxyGroup3Ptr.GroupID {
+				t.Fatalf("ProxyGroup returned by database.GetProxyGroup does not have same GroupID (%s) as stored proxyGroup2ClonedPtr (%s)\n", proxyGroup2ClonedDatabase.GroupID, proxyGroup2ClonedPtr.GroupID)
+			}
+			if proxyGroup2ClonedDatabase.Name != proxyGroup3Ptr.Name {
+				t.Fatalf("ProxyGroup returned by database.GetProxyGroup does not have same Name (%s) as stored proxyGroup2ClonedPtr (%s)\n", proxyGroup2ClonedDatabase.Name, proxyGroup2ClonedPtr.Name)
+			}
+			if proxyGroup2ClonedDatabase.CreationDate != proxyGroup3Ptr.CreationDate {
+				t.Fatalf("ProxyGroup returned by database.GetProxyGroup does not have same CreationDate (%d) as stored proxyGroup2ClonedPtr (%d)\n", proxyGroup2ClonedDatabase.CreationDate, proxyGroup2ClonedPtr.CreationDate)
+			}
 		})
 		t.Run("CloneProxyGroup returns a different pointer than the ProxyGroup it is cloning", func(t *testing.T) {
-
+			if proxyGroup2ClonedPtr == proxyGroup2Ptr {
+				t.Fatalf("ProxyGroup returned by CloneProxyGroup and stored proxyGroup2Ptr have same pointer (%p)\n", proxyGroup2ClonedPtr)
+			}
 		})
 		t.Run("CloneProxyGroup returns a different pointer for each Proxy in the new ProxyGroup than for the corresponding Proxy in the ProxyGroup it is cloning", func(t *testing.T) {
-
+			for i := 0; i < len(proxyGroup2ClonedPtr.Proxies); i++ {
+				if proxyGroup2ClonedPtr.Proxies[i] == proxyGroup2Ptr.Proxies[i] {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by CloneProxyGroup has the same pointer (%p) as Proxy #%d in stored proxyGroup2Ptr (%p)\n", i, proxyGroup2ClonedPtr.Proxies[i], i, proxyGroup2Ptr.Proxies[i])
+				}
+			}
 		})
 	})
 }
