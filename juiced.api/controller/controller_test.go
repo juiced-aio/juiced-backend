@@ -98,9 +98,9 @@ func TestSettingsEndpoints(t *testing.T) {
 				DarkMode:              true,
 				UseAnimations:         true,
 			}
-			err := database.UpdateSettings(newSettings)
+			err := staticstores.UpdateSettings(newSettings)
 			if err != nil {
-				t.Errorf("Failed to call database.UpdateSettings: %v", err)
+				t.Errorf("Failed to call staticstores.UpdateSettings: %v", err)
 				t.FailNow()
 			}
 
