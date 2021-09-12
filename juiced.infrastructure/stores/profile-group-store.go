@@ -45,6 +45,22 @@ func (e *ProfileGroupNotFoundError) Error() string {
 	return fmt.Sprintf("ProfileGroup with ID %s not found", e.ID)
 }
 
+type ProfileGroupNotFoundByNameError struct {
+	Name string
+}
+
+func (e *ProfileGroupNotFoundByNameError) Error() string {
+	return fmt.Sprintf("ProfileGroup with name %s not found", e.Name)
+}
+
+type ProfileGroupAlreadyExistsError struct {
+	Name string
+}
+
+func (e *ProfileGroupAlreadyExistsError) Error() string {
+	return fmt.Sprintf("ProfileGroup with name %s already exists", e.Name)
+}
+
 func GetAllProfileGroups() []*entities.ProfileGroup {
 	profileGroups := []*entities.ProfileGroup{}
 
@@ -68,7 +84,22 @@ func GetProfileGroup(groupID string) (*entities.ProfileGroup, error) {
 	return profileGroup, nil
 }
 
+func GetProfileGroupByName(name string) (*entities.ProfileGroup, error) {
+	profileGroups := GetAllProfileGroups()
+	for _, profileGroup := range profileGroups {
+		if profileGroup.Name == name {
+			return profileGroup, nil
+		}
+	}
+	return nil, &ProfileGroupNotFoundByNameError{name}
+}
+
 func CreateProfileGroup(profileGroup entities.ProfileGroup) (*entities.ProfileGroup, error) {
+	_, err := GetProfileGroupByName(profileGroup.Name)
+	if err == nil {
+		return nil, &ProfileGroupAlreadyExistsError{profileGroup.Name}
+	}
+
 	if profileGroup.GroupID == "" {
 		profileGroup.GroupID = uuid.New().String()
 	}
@@ -77,7 +108,7 @@ func CreateProfileGroup(profileGroup entities.ProfileGroup) (*entities.ProfileGr
 	}
 	profileGroup.Profiles = GetProfiles(profileGroup.ProfileIDs)
 
-	err := database.CreateProfileGroup(profileGroup)
+	err = database.CreateProfileGroup(profileGroup)
 	if err != nil {
 		return nil, err
 	}

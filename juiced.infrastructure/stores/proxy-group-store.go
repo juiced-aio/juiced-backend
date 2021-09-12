@@ -43,6 +43,22 @@ func (e *ProxyGroupNotFoundError) Error() string {
 	return fmt.Sprintf("ProxyGroup with ID %s not found", e.ID)
 }
 
+type ProxyGroupNotFoundByNameError struct {
+	Name string
+}
+
+func (e *ProxyGroupNotFoundByNameError) Error() string {
+	return fmt.Sprintf("ProxyGroup with name %s not found", e.Name)
+}
+
+type ProxyGroupAlreadyExistsError struct {
+	Name string
+}
+
+func (e *ProxyGroupAlreadyExistsError) Error() string {
+	return fmt.Sprintf("ProxyGroup with name %s already exists", e.Name)
+}
+
 func GetAllProxyGroups() []*entities.ProxyGroup {
 	proxyGroups := []*entities.ProxyGroup{}
 
@@ -66,7 +82,22 @@ func GetProxyGroup(groupID string) (*entities.ProxyGroup, error) {
 	return proxyGroup, nil
 }
 
+func GetProxyGroupByName(name string) (*entities.ProxyGroup, error) {
+	proxyGroups := GetAllProxyGroups()
+	for _, proxyGroup := range proxyGroups {
+		if proxyGroup.Name == name {
+			return proxyGroup, nil
+		}
+	}
+	return nil, &ProxyGroupNotFoundByNameError{name}
+}
+
 func CreateProxyGroup(proxyGroup entities.ProxyGroup) (*entities.ProxyGroup, error) {
+	_, err := GetProxyGroupByName(proxyGroup.Name)
+	if err == nil {
+		return nil, &ProxyGroupAlreadyExistsError{proxyGroup.Name}
+	}
+
 	if proxyGroup.GroupID == "" {
 		proxyGroup.GroupID = uuid.New().String()
 	}
@@ -80,7 +111,7 @@ func CreateProxyGroup(proxyGroup entities.ProxyGroup) (*entities.ProxyGroup, err
 		proxy.CreationDate = time.Now().Unix()
 	}
 
-	err := database.CreateProxyGroup(proxyGroup)
+	err = database.CreateProxyGroup(proxyGroup)
 	if err != nil {
 		return nil, err
 	}

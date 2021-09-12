@@ -268,7 +268,15 @@ func TestProxyGroupStore(t *testing.T) {
 
 	t.Run("CreateProxyGroup", func(t *testing.T) {
 		t.Run("CreateProxyGroup returns ProxyGroupAlreadyExistsError if a ProxyGroup with the given name already exists", func(t *testing.T) {
-
+			_, err := stores.CreateProxyGroup(proxyGroup1)
+			if err == nil {
+				t.Error("CreateProxyGroup should have failed due to duplicate name but succeeded\n", err)
+				t.FailNow()
+			}
+			if _, ok := err.(*stores.ProxyGroupAlreadyExistsError); !ok {
+				t.Errorf("CreateProxyGroup did not return a ProxyGroupAlreadyExistsError (actual error: %v)\n", err)
+				t.FailNow()
+			}
 		})
 		t.Run("CreateProxyGroup returns correct ProxyGroup", func(t *testing.T) {
 
