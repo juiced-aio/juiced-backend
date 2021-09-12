@@ -373,7 +373,7 @@ func TestProxyGroupStore(t *testing.T) {
 			if proxyGroupUpdatePtr.GroupID != proxyGroup2Ptr.GroupID {
 				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same GroupID (%s) as stored proxyGroup2Ptr (%s)\n", proxyGroupUpdatePtr.GroupID, proxyGroup2Ptr.GroupID)
 			}
-			if proxyGroupUpdatePtr.CreationDate-proxyGroup2Ptr.CreationDate != 0 {
+			if proxyGroupUpdatePtr.CreationDate != proxyGroup2Ptr.CreationDate {
 				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same CreationDate (%d) as stored proxyGroup2Ptr (%d)\n", proxyGroupUpdatePtr.CreationDate, proxyGroup2Ptr.CreationDate)
 			}
 			if proxyGroupUpdatePtr.Name != proxyGroup2Ptr.Name {
@@ -405,18 +405,67 @@ func TestProxyGroupStore(t *testing.T) {
 		})
 	})
 
+	var proxyGroup1Removed entities.ProxyGroup
 	t.Run("RemoveProxyGroup", func(t *testing.T) {
 		t.Run("RemoveProxyGroup returns ProxyGroupNotFoundError for invalid proxyGroupID", func(t *testing.T) {
-
+			_, err := stores.RemoveProxyGroup("INVALID_GROUP_ID")
+			if err == nil {
+				t.Fatal("RemoveProxyGroup did not return an error on an invalid proxyGroupID\n")
+			}
+			if _, ok := err.(*stores.ProxyGroupNotFoundError); !ok {
+				t.Fatalf("RemoveProxyGroup did not return a ProxyGroupNotFoundError (actual error: %v)\n", err)
+			}
+		})
+		t.Run("RemoveProxyGroup returns the correct ProxyGroup", func(t *testing.T) {
+			proxyGroup1BeforeRemove := *proxyGroup1Ptr
+			proxyGroup1Removed, err = stores.RemoveProxyGroup(proxyGroup1Ptr.GroupID)
+			if err != nil {
+				t.Fatalf("RemoveProxyGroup returned an error: %v\n", err)
+			}
+			if proxyGroup1BeforeRemove.GroupID != proxyGroup1Removed.GroupID {
+				t.Fatalf("ProxyGroup returned by RemoveProxyGroup does not have same GroupID (%s) as proxyGroup1BeforeRemove (%s)\n", proxyGroup1Removed.GroupID, proxyGroup1BeforeRemove.GroupID)
+			}
+			if proxyGroup1BeforeRemove.CreationDate != proxyGroup1Removed.CreationDate {
+				t.Fatalf("ProxyGroup returned by RemoveProxyGroup does not have same CreationDate (%d) as proxyGroup1BeforeRemove (%d)\n", proxyGroup1Removed.CreationDate, proxyGroup1BeforeRemove.CreationDate)
+			}
+			if proxyGroup1BeforeRemove.Name != proxyGroup1Removed.Name {
+				t.Fatalf("ProxyGroup returned by RemoveProxyGroup does not have same Name (%s) as proxyGroup1BeforeRemove (%s)\n", proxyGroup1Removed.Name, proxyGroup1BeforeRemove.Name)
+			}
+			if len(proxyGroup1BeforeRemove.Proxies) != len(proxyGroup1Removed.Proxies) {
+				t.Fatalf("ProxyGroup returned by RemoveProxyGroup does not have same number of proxies (%d) as proxyGroup1BeforeRemove (%d)\n", len(proxyGroup1Removed.Proxies), len(proxyGroup1BeforeRemove.Proxies))
+			}
+			for i := 0; i < len(proxyGroup3.Proxies); i++ {
+				if proxyGroup1BeforeRemove.Proxies[i] != proxyGroup1Removed.Proxies[i] {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by RemoveProxyGroup does not have same pointer (%p) as Proxy #%d in proxyGroup1BeforeRemove (%p)\n", i, proxyGroup1Removed.Proxies[i], i, proxyGroup1BeforeRemove.Proxies[i])
+				}
+			}
 		})
 		t.Run("RemoveProxyGroup removes the ProxyGroup from the proxyGroupStore", func(t *testing.T) {
-
+			_, err := stores.GetProxyGroup(proxyGroup1Removed.GroupID)
+			if err == nil {
+				t.Fatal("stores.GetProxyGroup did not return an error on proxyGroup1Removed's GroupID\n")
+			}
+			if _, ok := err.(*stores.ProxyGroupNotFoundError); !ok {
+				t.Fatalf("stores.GetProxyGroup did not return a ProxyGroupNotFoundError (actual error: %v)\n", err)
+			}
 		})
 		t.Run("RemoveProxyGroup removes the ProxyGroup from the database", func(t *testing.T) {
-
+			proxyGroup1RemovedDatabase, err := database.GetProxyGroup(proxyGroup1Removed.GroupID)
+			if err != nil {
+				t.Fatalf("database.GetProxyGroup returned an error: %v\n", err)
+			}
+			if proxyGroup1RemovedDatabase.GroupID != "" {
+				t.Fatalf("database.GetProxyGroup returned a populated ProxyGroup with GroupID %s\n", proxyGroup1RemovedDatabase.GroupID)
+			}
 		})
 		t.Run("RemoveProxyGroup removes the ProxyGroup's Proxies from the database", func(t *testing.T) {
-
+			proxyGroupWithDatabaseProxies, err := database.GetProxies(entities.ProxyGroup{GroupID: proxyGroup1Removed.GroupID})
+			if err != nil {
+				t.Fatalf("database.GetProxyGroup returned an error: %v\n", err)
+			}
+			if len(proxyGroupWithDatabaseProxies.Proxies) != 0 {
+				t.Fatalf("database.GetProxyGroup returned a populated ProxyGroup with %d Proxies\n", len(proxyGroupWithDatabaseProxies.Proxies))
+			}
 		})
 		t.Run("RemoveProxyGroup removes the Proxy and ProxyGroup from every Task that uses the deleted ProxyGroup", func(t *testing.T) {
 			// TODO
