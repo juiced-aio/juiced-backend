@@ -109,6 +109,7 @@ func CreateProxyGroup(proxyGroup entities.ProxyGroup) (*entities.ProxyGroup, err
 		proxy.ID = uuid.New().String()
 		proxy.ProxyGroupID = proxyGroup.GroupID
 		proxy.CreationDate = time.Now().Unix()
+		proxy.Count = 0
 	}
 
 	err = database.CreateProxyGroup(proxyGroup)
