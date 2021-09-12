@@ -53,7 +53,8 @@ var proxiesSchema = `
 		host TEXT,
 		port TEXT,
 		username TEXT,
-		password TEXT
+		password TEXT,
+		creationDate INTEGER
 	)
 `
 

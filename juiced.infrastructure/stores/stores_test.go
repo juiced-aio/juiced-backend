@@ -102,70 +102,71 @@ func TestProxyGroupStore(t *testing.T) {
 			},
 		},
 	}
+	proxyGroup3 := entities.ProxyGroup{
+		Name: "3",
+		Proxies: []*entities.Proxy{
+			{
+				Host:     "127.0.0.1",
+				Port:     "5000",
+				Username: "username",
+				Password: "password",
+			},
+		},
+	}
 	var proxyGroup1Ptr *entities.ProxyGroup
 	var proxyGroup2Ptr *entities.ProxyGroup
+	var proxyGroup3Ptr *entities.ProxyGroup
 
 	t.Run("GetAllProxyGroups", func(t *testing.T) {
 		t.Run("GetAllProxyGroups returns empty array upon first startup", func(t *testing.T) {
 			proxyGroups := stores.GetAllProxyGroups()
 			if len(proxyGroups) != 0 {
-				t.Error("Array is not empty")
-				t.FailNow()
+				t.Fatal("Array is not empty")
 			}
 		})
 		t.Run("GetAllProxyGroups returns ProxyGroups in correct order after adding them", func(t *testing.T) {
 			proxyGroup1Ptr, err = stores.CreateProxyGroup(proxyGroup1)
 			if err != nil {
-				t.Errorf("CreateProxyGroup 1 failed: %v\n", err)
-				t.FailNow()
+				t.Fatalf("CreateProxyGroup 1 failed: %v\n", err)
 			}
 			time.Sleep(2 * time.Second)
 			proxyGroup2Ptr, err = stores.CreateProxyGroup(proxyGroup2)
 			if err != nil {
-				t.Errorf("CreateProxyGroup 2 failed: %v\n", err)
-				t.FailNow()
+				t.Fatalf("CreateProxyGroup 2 failed: %v\n", err)
 			}
 			proxyGroups := stores.GetAllProxyGroups()
 			if len(proxyGroups) != 2 {
-				t.Errorf("Array has %d elements (should have 2)\n", len(proxyGroups))
-				t.FailNow()
+				t.Fatalf("Array has %d elements (should have 2)\n", len(proxyGroups))
 			}
 			if proxyGroups[0].CreationDate >= proxyGroups[1].CreationDate {
-				t.Errorf("First ProxyGroup has CreationDate (%d) after second ProxyGroup (%d)\n", proxyGroups[0].CreationDate, proxyGroups[1].CreationDate)
-				t.FailNow()
+				t.Fatalf("First ProxyGroup has CreationDate (%d) after second ProxyGroup (%d)\n", proxyGroups[0].CreationDate, proxyGroups[1].CreationDate)
 			}
 			if proxyGroups[0] != proxyGroup1Ptr {
-				t.Errorf("First ProxyGroup does not have same pointer (%p) as stored proxyGroup1Ptr (%p)\n", proxyGroups[0], proxyGroup1Ptr)
-				t.FailNow()
+				t.Fatalf("First ProxyGroup does not have same pointer (%p) as stored proxyGroup1Ptr (%p)\n", proxyGroups[0], proxyGroup1Ptr)
 			}
 			if proxyGroups[1] != proxyGroup2Ptr {
-				t.Errorf("Second ProxyGroup does not have same pointer (%p) as stored proxyGroup2Ptr (%p)\n", proxyGroups[0], proxyGroup1Ptr)
-				t.FailNow()
+				t.Fatalf("Second ProxyGroup does not have same pointer (%p) as stored proxyGroup2Ptr (%p)\n", proxyGroups[0], proxyGroup1Ptr)
 			}
 		})
 		t.Run("Each ProxyGroup returned by GetAllProxyGroups has a unique pointer", func(t *testing.T) {
 			proxyGroups := stores.GetAllProxyGroups()
 			if len(proxyGroups) != 2 {
-				t.Errorf("Array has %d elements (should have 2)\n", len(proxyGroups))
-				t.FailNow()
+				t.Fatalf("Array has %d elements (should have 2)\n", len(proxyGroups))
 			}
 			if proxyGroups[0] == proxyGroups[1] {
-				t.Errorf("First ProxyGroup has same pointer (%p) as second ProxyGroup (%p)\n", proxyGroups[0], proxyGroups[1])
-				t.FailNow()
+				t.Fatalf("First ProxyGroup has same pointer (%p) as second ProxyGroup (%p)\n", proxyGroups[0], proxyGroups[1])
 			}
 		})
 		t.Run("Each Proxy within each ProxyGroup returned by GetAllProxyGroups has a unique pointer", func(t *testing.T) {
 			proxyGroups := stores.GetAllProxyGroups()
 			if len(proxyGroups) != 2 {
-				t.Errorf("Array has %d elements (should have 2)\n", len(proxyGroups))
-				t.FailNow()
+				t.Fatalf("Array has %d elements (should have 2)\n", len(proxyGroups))
 			}
 			proxies := append(proxyGroups[0].Proxies, proxyGroups[1].Proxies...)
 			visited := make(map[*entities.Proxy]bool)
 			for _, proxy := range proxies {
 				if visited[proxy] {
-					t.Errorf("Two proxies have the same pointer (%p)\n", proxy)
-					t.FailNow()
+					t.Fatalf("Two proxies have the same pointer (%p)\n", proxy)
 				} else {
 					visited[proxy] = true
 				}
@@ -177,46 +178,38 @@ func TestProxyGroupStore(t *testing.T) {
 		t.Run("GetProxyGroup returns ProxyGroupNotFoundError for invalid proxyGroupID", func(t *testing.T) {
 			_, err := stores.GetProxyGroup("INVALID_GROUP_ID")
 			if err == nil {
-				t.Error("GetProxyGroup did not return an error on an invalid proxyGroupID\n")
-				t.FailNow()
+				t.Fatal("GetProxyGroup did not return an error on an invalid proxyGroupID\n")
 			}
 			if _, ok := err.(*stores.ProxyGroupNotFoundError); !ok {
-				t.Errorf("GetProxyGroup did not return a ProxyGroupNotFoundError (actual error: %v)\n", err)
-				t.FailNow()
+				t.Fatalf("GetProxyGroup did not return a ProxyGroupNotFoundError (actual error: %v)\n", err)
 			}
 		})
 		t.Run("GetProxyGroup returns correct ProxyGroup", func(t *testing.T) {
 			proxyGroupPtr, err := stores.GetProxyGroup(proxyGroup1Ptr.GroupID)
 			if err != nil {
-				t.Errorf("GetProxyGroup returned an error on a valid proxyGroupID: %v\n", err)
-				t.FailNow()
+				t.Fatalf("GetProxyGroup returned an error on a valid proxyGroupID: %v\n", err)
 			}
 			if proxyGroupPtr != proxyGroup1Ptr {
-				t.Errorf("ProxyGroup returned by GetProxyGroup does not have same pointer (%p) as stored proxyGroup1Ptr (%p)\n", proxyGroupPtr, proxyGroup1Ptr)
-				t.FailNow()
+				t.Fatalf("ProxyGroup returned by GetProxyGroup does not have same pointer (%p) as stored proxyGroup1Ptr (%p)\n", proxyGroupPtr, proxyGroup1Ptr)
 			}
 			if len(proxyGroupPtr.Proxies) != len(proxyGroup1Ptr.Proxies) {
-				t.Errorf("ProxyGroup returned by GetProxyGroup does not have same number of proxies (%d) as stored proxyGroup1Ptr (%d)\n", len(proxyGroupPtr.Proxies), len(proxyGroup1Ptr.Proxies))
-				t.FailNow()
+				t.Fatalf("ProxyGroup returned by GetProxyGroup does not have same number of proxies (%d) as stored proxyGroup1Ptr (%d)\n", len(proxyGroupPtr.Proxies), len(proxyGroup1Ptr.Proxies))
 			}
 			for i := 0; i < len(proxyGroupPtr.Proxies); i++ {
 				if proxyGroupPtr.Proxies[i] != proxyGroup1Ptr.Proxies[i] {
-					t.Errorf("Proxy #%d in ProxyGroup returned by GetProxyGroup does not have same pointer (%p) as Proxy #%d in stored proxyGroup1Ptr (%p)\n", i, proxyGroupPtr.Proxies[i], i, proxyGroup1Ptr.Proxies[i])
-					t.FailNow()
+					t.Fatalf("Proxy #%d in ProxyGroup returned by GetProxyGroup does not have same pointer (%p) as Proxy #%d in stored proxyGroup1Ptr (%p)\n", i, proxyGroupPtr.Proxies[i], i, proxyGroup1Ptr.Proxies[i])
 				}
 			}
 		})
 		t.Run("Each Proxy in the ProxyGroup returned by GetProxyGroup has a unique pointer", func(t *testing.T) {
 			proxyGroupPtr, err := stores.GetProxyGroup(proxyGroup1Ptr.GroupID)
 			if err != nil {
-				t.Errorf("GetProxyGroup returned an error: %v\n", err)
-				t.FailNow()
+				t.Fatalf("GetProxyGroup returned an error: %v\n", err)
 			}
 			visited := make(map[*entities.Proxy]bool)
 			for _, proxy := range proxyGroupPtr.Proxies {
 				if visited[proxy] {
-					t.Errorf("Two proxies have the same pointer (%p)\n", proxy)
-					t.FailNow()
+					t.Fatalf("Two proxies have the same pointer (%p)\n", proxy)
 				} else {
 					visited[proxy] = true
 				}
@@ -225,43 +218,35 @@ func TestProxyGroupStore(t *testing.T) {
 		t.Run("GetProxyGroup returns the same ProxyGroup pointer if it is called twice on the same proxyGroupID", func(t *testing.T) {
 			proxyGroupPtrA, err := stores.GetProxyGroup(proxyGroup1Ptr.GroupID)
 			if err != nil {
-				t.Errorf("GetProxyGroup returned an error: %v\n", err)
-				t.FailNow()
+				t.Fatalf("GetProxyGroup returned an error: %v\n", err)
 			}
 			proxyGroupPtrB, err := stores.GetProxyGroup(proxyGroup1Ptr.GroupID)
 			if err != nil {
-				t.Errorf("GetProxyGroup returned an error: %v\n", err)
-				t.FailNow()
+				t.Fatalf("GetProxyGroup returned an error: %v\n", err)
 			}
 			if proxyGroupPtrA != proxyGroupPtrB {
-				t.Errorf("The two ProxyGroups returned by GetProxyGroup don't have the same pointer (%p, %p)\n", proxyGroupPtrA, proxyGroupPtrB)
-				t.FailNow()
+				t.Fatalf("The two ProxyGroups returned by GetProxyGroup don't have the same pointer (%p, %p)\n", proxyGroupPtrA, proxyGroupPtrB)
 			}
 			if len(proxyGroupPtrA.Proxies) != len(proxyGroupPtrB.Proxies) {
-				t.Errorf("The two ProxyGroups returned by GetProxyGroup don't have same number of proxies (%d, %d)\n", len(proxyGroupPtrA.Proxies), len(proxyGroupPtrB.Proxies))
-				t.FailNow()
+				t.Fatalf("The two ProxyGroups returned by GetProxyGroup don't have same number of proxies (%d, %d)\n", len(proxyGroupPtrA.Proxies), len(proxyGroupPtrB.Proxies))
 			}
 			for i := 0; i < len(proxyGroupPtrA.Proxies); i++ {
 				if proxyGroupPtrA.Proxies[i] != proxyGroupPtrB.Proxies[i] {
-					t.Errorf("Proxy #%d in the two ProxyGroups returned by GetProxyGroup don't have same pointer (%p, %p)\n", i, proxyGroupPtrA.Proxies[i], proxyGroupPtrB.Proxies[i])
-					t.FailNow()
+					t.Fatalf("Proxy #%d in the two ProxyGroups returned by GetProxyGroup don't have same pointer (%p, %p)\n", i, proxyGroupPtrA.Proxies[i], proxyGroupPtrB.Proxies[i])
 				}
 			}
 		})
 		t.Run("GetProxyGroup returns unique ProxyGroup pointers if it is called on two different proxyGroupIDs", func(t *testing.T) {
 			proxyGroupPtr1, err := stores.GetProxyGroup(proxyGroup1Ptr.GroupID)
 			if err != nil {
-				t.Errorf("GetProxyGroup returned an error: %v\n", err)
-				t.FailNow()
+				t.Fatalf("GetProxyGroup returned an error: %v\n", err)
 			}
 			proxyGroupPtr2, err := stores.GetProxyGroup(proxyGroup2Ptr.GroupID)
 			if err != nil {
-				t.Errorf("GetProxyGroup returned an error: %v\n", err)
-				t.FailNow()
+				t.Fatalf("GetProxyGroup returned an error: %v\n", err)
 			}
 			if proxyGroupPtr1 == proxyGroupPtr2 {
-				t.Errorf("The two ProxyGroups returned by GetProxyGroup have the same pointer (%p, %p)\n", proxyGroupPtr1, proxyGroupPtr2)
-				t.FailNow()
+				t.Fatalf("The two ProxyGroups returned by GetProxyGroup have the same pointer (%p, %p)\n", proxyGroupPtr1, proxyGroupPtr2)
 			}
 		})
 	})
@@ -270,31 +255,122 @@ func TestProxyGroupStore(t *testing.T) {
 		t.Run("CreateProxyGroup returns ProxyGroupAlreadyExistsError if a ProxyGroup with the given name already exists", func(t *testing.T) {
 			_, err := stores.CreateProxyGroup(proxyGroup1)
 			if err == nil {
-				t.Error("CreateProxyGroup should have failed due to duplicate name but succeeded\n", err)
-				t.FailNow()
+				t.Fatal("CreateProxyGroup should have failed due to duplicate name but succeeded\n", err)
 			}
 			if _, ok := err.(*stores.ProxyGroupAlreadyExistsError); !ok {
-				t.Errorf("CreateProxyGroup did not return a ProxyGroupAlreadyExistsError (actual error: %v)\n", err)
-				t.FailNow()
+				t.Fatalf("CreateProxyGroup did not return a ProxyGroupAlreadyExistsError (actual error: %v)\n", err)
 			}
 		})
 		t.Run("CreateProxyGroup returns correct ProxyGroup", func(t *testing.T) {
-
+			proxyGroup3Ptr, err = stores.CreateProxyGroup(proxyGroup3)
+			if err != nil {
+				t.Fatalf("CreateProxyGroup failed: %v\n", err)
+			}
+			if proxyGroup3Ptr.Name != proxyGroup3.Name {
+				t.Fatalf("Created ProxyGroup does not have same name (%s) as stored proxyGroup3 (%s)\n", proxyGroup3Ptr.Name, proxyGroup3.Name)
+			}
+			if len(proxyGroup3Ptr.Proxies) != len(proxyGroup3.Proxies) {
+				t.Fatalf("Created ProxyGroup does not have same number of proxies (%d) as stored proxyGroup3 (%d)\n", len(proxyGroup3Ptr.Proxies), len(proxyGroup3.Proxies))
+			}
+			for i := 0; i < len(proxyGroup3.Proxies); i++ {
+				if proxyGroup3Ptr.Proxies[i] != proxyGroup3.Proxies[i] {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by CreateProxyGroup does not have same pointer (%p) as Proxy #%d in stored proxyGroup3 (%p)\n", i, proxyGroup3Ptr.Proxies[i], i, proxyGroup3.Proxies[i])
+				}
+			}
+			if proxyGroup3Ptr.GroupID == "" {
+				t.Fatal("Created ProxyGroup has an empty GroupID\n")
+			}
+			if proxyGroup3Ptr.CreationDate == 0 {
+				t.Fatal("Created ProxyGroup has CreationDate = 0\n")
+			}
+			for i := 0; i < len(proxyGroup3Ptr.Proxies); i++ {
+				if proxyGroup3Ptr.Proxies[i].ID == "" {
+					t.Fatalf("Proxy #%d in the created ProxyGroup has an empty ID\n", i)
+				}
+				if proxyGroup3Ptr.Proxies[i].ProxyGroupID == "" {
+					t.Fatalf("Proxy #%d in the created ProxyGroup has an empty ProxyGroupID\n", i)
+				}
+				if proxyGroup3Ptr.Proxies[i].CreationDate == 0 {
+					t.Fatalf("Proxy #%d in the created ProxyGroup has CreationDate = 0\n", i)
+				}
+			}
 		})
 		t.Run("CreateProxyGroup adds the ProxyGroup to the proxyGroupStore", func(t *testing.T) {
-
+			proxyGroup3Store, err := stores.GetProxyGroup(proxyGroup3Ptr.GroupID)
+			if err != nil {
+				t.Fatalf("stores.GetProxyGroup failed: %v\n", err)
+			}
+			if proxyGroup3Store != proxyGroup3Ptr {
+				t.Fatalf("ProxyGroup returned by GetProxyGroup does not have same pointer (%p) as stored proxyGroup3Ptr (%p)\n", proxyGroup3Store, proxyGroup3Ptr)
+			}
 		})
 		t.Run("CreateProxyGroup adds the ProxyGroup to the database", func(t *testing.T) {
-
+			proxyGroup3Database, err := database.GetProxyGroup(proxyGroup3Ptr.GroupID)
+			if err != nil {
+				t.Fatalf("database.GetProxyGroup failed: %v\n", err)
+			}
+			if proxyGroup3Database.GroupID != proxyGroup3Ptr.GroupID {
+				t.Fatalf("ProxyGroup returned by database.GetProxyGroup does not have same GroupID (%s) as stored proxyGroup3Ptr (%s)\n", proxyGroup3Database.GroupID, proxyGroup3Ptr.GroupID)
+			}
+			if proxyGroup3Database.Name != proxyGroup3Ptr.Name {
+				t.Fatalf("ProxyGroup returned by database.GetProxyGroup does not have same Name (%s) as stored proxyGroup3Ptr (%s)\n", proxyGroup3Database.Name, proxyGroup3Ptr.Name)
+			}
+			if proxyGroup3Database.CreationDate != proxyGroup3Ptr.CreationDate {
+				t.Fatalf("ProxyGroup returned by database.GetProxyGroup does not have same CreationDate (%d) as stored proxyGroup3Ptr (%d)\n", proxyGroup3Database.CreationDate, proxyGroup3Ptr.CreationDate)
+			}
 		})
 	})
 
+	proxyGroupUpdate := entities.ProxyGroup{
+		Name: "UPDATE",
+		Proxies: []*entities.Proxy{
+			{ // Same as proxyGroup2
+				Host:     "127.0.0.1",
+				Port:     "5000",
+				Username: "username",
+				Password: "password",
+			},
+			{ // New
+				Host:     "127.0.0.1",
+				Port:     "5001",
+				Username: "username",
+				Password: "password",
+			},
+		},
+	}
+	var proxyGroupUpdatePtr *entities.ProxyGroup
 	t.Run("UpdateProxyGroup", func(t *testing.T) {
 		t.Run("UpdateProxyGroup returns ProxyGroupNotFoundError for invalid proxyGroupID", func(t *testing.T) {
-
+			_, err := stores.UpdateProxyGroup("INVALID_GROUP_ID", proxyGroupUpdate)
+			if err == nil {
+				t.Fatal("GetProxyGroup did not return an error on an invalid proxyGroupID\n")
+			}
+			if _, ok := err.(*stores.ProxyGroupNotFoundError); !ok {
+				t.Fatalf("GetProxyGroup did not return a ProxyGroupNotFoundError (actual error: %v)\n", err)
+			}
 		})
 		t.Run("UpdateProxyGroup updates the ProxyGroup's values as expected", func(t *testing.T) {
-
+			proxyGroupUpdatePtr, err = stores.UpdateProxyGroup(proxyGroup2Ptr.GroupID, proxyGroupUpdate)
+			if err != nil {
+				t.Fatalf("UpdateProxyGroup returned an error: %v\n", err)
+			}
+			if proxyGroupUpdatePtr.GroupID != proxyGroup2Ptr.GroupID {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same GroupID (%s) as stored proxyGroup2Ptr (%s)\n", proxyGroupUpdatePtr.GroupID, proxyGroup2Ptr.GroupID)
+			}
+			if proxyGroupUpdatePtr.CreationDate-proxyGroup2Ptr.CreationDate != 0 {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same CreationDate (%d) as stored proxyGroup2Ptr (%d)\n", proxyGroupUpdatePtr.CreationDate, proxyGroup2Ptr.CreationDate)
+			}
+			if proxyGroupUpdatePtr.Name != proxyGroupUpdate.Name {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same Name (%s) as proxyGroupUpdate (%s)\n", proxyGroupUpdatePtr.Name, proxyGroupUpdate.Name)
+			}
+			if len(proxyGroupUpdatePtr.Proxies) != len(proxyGroupUpdate.Proxies) {
+				t.Fatalf("ProxyGroup returned by UpdateProxyGroup does not have same number of proxies (%d) as proxyGroupUpdate (%d)\n", len(proxyGroupUpdatePtr.Proxies), len(proxyGroupUpdate.Proxies))
+			}
+			for i := 0; i < len(proxyGroup3.Proxies); i++ {
+				if proxyGroupUpdatePtr.Proxies[i] != proxyGroupUpdate.Proxies[i] {
+					t.Fatalf("Proxy #%d in the ProxyGroup returned by UpdateProxyGroup does not have same pointer (%p) as Proxy #%d in proxyGroupUpdate (%p)\n", i, proxyGroupUpdatePtr.Proxies[i], i, proxyGroupUpdate.Proxies[i])
+				}
+			}
 		})
 		t.Run("UpdateProxyGroup doesn't change the ProxyGroup's pointer", func(t *testing.T) {
 
