@@ -448,96 +448,144 @@ func TestProfileStore(t *testing.T) {
 		})
 	})
 
+	addressUpdate := entities.Address{
+		FirstName:   "F UPDATE",
+		LastName:    "L UPDATE",
+		Address1:    "123 Main St UPDATE",
+		Address2:    "Apt 1A UPDATE",
+		City:        "Beverly Hills UPDATE",
+		ZipCode:     "90210 UPDATE",
+		StateCode:   "CA UPDATE",
+		CountryCode: "US UPDATE",
+	}
+	cardUpdate := entities.Card{
+		CardholderName: "F L UPDATE",
+		CardNumber:     "4242424242424242 UPDATE",
+		ExpMonth:       "12 UPDATE",
+		ExpYear:        "2022 UPDATE",
+		CVV:            "123 UPDATE",
+		CardType:       "VISA UPDATE",
+	}
+	profileUpdate := entities.Profile{
+		Name:            "UPDATE",
+		Email:           "email@email.com UPDATE",
+		PhoneNumber:     "1231231234 UPDATE",
+		ShippingAddress: addressUpdate,
+		BillingAddress:  addressUpdate,
+		CreditCard:      cardUpdate,
+	}
+	// var profileUpdatePtr *entities.Profile
 	t.Run("UpdateProfile", func(t *testing.T) {
 		t.Run("UpdateProfile returns ProfileNotFoundError for invalid profileID", func(t *testing.T) {
-
+			_, err := stores.UpdateProfile("INVALID_PROFILE_ID", profileUpdate)
+			if err == nil {
+				t.Fatal("GetProfile did not return an error on an invalid profileID\n")
+			}
+			if _, ok := err.(*stores.ProfileNotFoundError); !ok {
+				t.Fatalf("GetProfile did not return a ProfileNotFoundError (actual error: %v)\n", err)
+			}
 		})
 		t.Run("UpdateProfile updates the Profile's values as expected", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("UpdateProfile doesn't change the Profile's pointer", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("Tasks that use a Profile that has been updated by UpdateProfile have access to the latest Profile values", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("Monitors that use a Profile that has been updated by UpdateProfile have access to the latest Profile values", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("ProfileGroups that have a Profile that has been updated by UpdateProfile have access to the latest Profile values", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 
 	t.Run("RemoveProfile", func(t *testing.T) {
 		t.Run("RemoveProfile returns ProfileNotFoundError for invalid profileID", func(t *testing.T) {
-
+			_, err := stores.RemoveProfileGroup("INVALID_PROFILE_ID")
+			if err == nil {
+				t.Fatal("RemoveProfileGroup did not return an error on an invalid profileGroupID\n")
+			}
+			if _, ok := err.(*stores.ProfileGroupNotFoundError); !ok {
+				t.Fatalf("RemoveProfileGroup did not return a ProfileGroupNotFoundError (actual error: %v)\n", err)
+			}
+		})
+		t.Run("RemoveProxyGroup returns the correct ProxyGroup", func(t *testing.T) {
+			// TODO
 		})
 		t.Run("RemoveProfile removes the Profile from the profileStore", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveProfile removes the Profile from the database", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveProfile removes every Task that uses the deleted Profile from the taskStore", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveProfile removes every Task that uses the deleted Profile from the database", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveProfile removes the Profile and ProfileID for every ProfileGroup the deleted Profile was in in the profileGroupStore", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveProfile removes the ProfileID from every ProfileGroup the deleted Profile was in in the database", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 
 	t.Run("CloneProfile", func(t *testing.T) {
 		t.Run("CloneProfile returns ProfileNotFoundError for invalid profileID", func(t *testing.T) {
-
+			_, err := stores.CloneProfileGroup("INVALID_PROFILE_ID")
+			if err == nil {
+				t.Fatal("CloneProfileGroup did not return an error on an invalid profileGroupID\n")
+			}
+			if _, ok := err.(*stores.ProfileGroupNotFoundError); !ok {
+				t.Fatalf("CloneProfileGroup did not return a ProfileGroupNotFoundError (actual error: %v)\n", err)
+			}
 		})
 		t.Run("CloneProfile returns correct Profile", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("CloneProfile adds the new Profile to the profileStore", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("CloneProfile adds the new Profile to the database", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("CloneProfile returns a different pointer than the Profile it is cloning", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 
 	t.Run("AddGroupIDsToProfile", func(t *testing.T) {
 		t.Run("AddGroupIDsToProfile returns ProfileNotFoundError for invalid profileID", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("AddGroupIDsToProfile updates the Profile's ProfileGroupIDs in the profileStore", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("AddGroupIDsToProfile updates the Profile's ProfileGroupIDsJoined in the database", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("AddGroupIDToProfile doesn't change the Profile's pointer", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 
 	t.Run("RemoveGroupIDsFromProfile", func(t *testing.T) {
 		t.Run("RemoveGroupIDsFromProfile returns ProfileNotFoundError for invalid profileID", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveGroupIDsFromProfile updates the Profile's ProfileGroupIDs in the profileStore", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveGroupIDsFromProfile updates the Profile's ProfileGroupIDsJoined in the database", func(t *testing.T) {
-
+			// TODO
 		})
 		t.Run("RemoveGroupIDsFromProfile doesn't change the Profile's pointer", func(t *testing.T) {
-
+			// TODO
 		})
 	})
 }
