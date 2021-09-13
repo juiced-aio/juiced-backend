@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"backend.juicedbot.io/juiced.infrastructure/database"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/staticstores"
 	"backend.juicedbot.io/juiced.infrastructure/stores"
 )
@@ -17,6 +18,7 @@ func TestMain(m *testing.M) {
 		if err == nil {
 			err = stores.InitStores()
 			if err == nil {
+				enums.UserKey = "3745831FEE8C898EC88BA2C42740ED42"
 				os.Exit(m.Run())
 			} else {
 				log.Println("Error initializing stores: " + err.Error())
