@@ -10,10 +10,10 @@ func EnableRPC() {
 	client.Login("856936229223006248")
 }
 
-func SetActivity(ver string) error {
+func SetActivity(version, channel string) error {
 	start := time.Now()
 	return client.SetActivity(client.Activity{
-		Details:    "Beta - " + ver,
+		Details:    version + channel,
 		LargeImage: "main-juiced",
 		LargeText:  "Juiced",
 		SmallImage: "",

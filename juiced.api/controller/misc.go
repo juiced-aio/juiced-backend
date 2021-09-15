@@ -23,7 +23,15 @@ func SetVersion(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.SetVersionEmptyInputErrorResponse, nil)
 	}
 
-	if err := rpc.SetActivity(input.Version); err != nil {
+	channel := ""
+	switch input.Channel {
+	case "alpha":
+		channel = " (Alpha)"
+	case "beta":
+		channel = " (Beta)"
+	}
+
+	if err := rpc.SetActivity(input.Version, channel); err != nil {
 		return responses.ReturnResponse(c, responses.SetVersionStartRPCWarningResponse, nil)
 	}
 
