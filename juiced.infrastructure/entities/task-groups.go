@@ -30,9 +30,9 @@ type BaseMonitor struct {
 	MonitorInput MonitorInput `json:"monitorInput"`
 
 	// In-memory values, omitted in DB serialization but included in JSON
-	Status      enums.MonitorStatus `json:"status"`
-	Running     bool                `json:"running"`
-	ProductInfo ProductInfo         `json:"productInfo"`
+	Status       enums.MonitorStatus `json:"status"`
+	Running      bool                `json:"running"`
+	ProductInfos []ProductInfo       `json:"productInfo"`
 
 	// In-memory values, omitted in DB serialization and JSON
 	TaskGroup  *TaskGroup          `json:"-"`
@@ -53,7 +53,7 @@ type MonitorInput struct {
 }
 
 type Monitor interface {
-	GetProductInfo() (ProductInfo, error)
+	GetProductInfos() ([]ProductInfo, error)
 }
 
 func (monitor *BaseMonitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {

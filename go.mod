@@ -3,13 +3,17 @@ module backend.juicedbot.io
 go 1.16
 
 require (
+	github.com/EDDYCJY/fake-useragent v0.2.0 // indirect
 	github.com/Lazarus/lz-string-go v0.0.0-20210604111459-ed7cd5a66c48
+	github.com/PuerkitoBio/goquery v1.7.1 // indirect
 	github.com/Titanium-ctrl/utls v0.0.0-20210220142115-7c6ee6812971
 	github.com/anaskhan96/soup v1.2.4
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/denisbrodbeck/machineid v1.0.1
 	github.com/dsnet/compress v0.0.1
 	github.com/dvsekhvalnov/jose2go v1.5.0
+	github.com/eddycjy/fake-useragent v0.2.0
+	github.com/fatih/structs v1.1.0
 	github.com/go-rod/rod v0.99.1
 	github.com/gofiber/fiber/v2 v2.18.0
 	github.com/google/pprof v0.0.0-20210601050228-01bbb1931b22
@@ -26,7 +30,7 @@ require (
 	gitlab.com/yawning/bsaes.git v0.0.0-20190805113838-0a714cd429ec
 	gitlab.com/yawning/utls.git v0.0.12-1
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
-	golang.org/x/net v0.0.0-20210610132358-84b48f89b13b
+	golang.org/x/net v0.0.0-20210614182718-04defd469f4e
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 )

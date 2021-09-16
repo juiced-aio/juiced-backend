@@ -13,6 +13,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
 	u "backend.juicedbot.io/juiced.infrastructure/util"
+	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/google/uuid"
@@ -51,9 +52,10 @@ func InitTaskGroupStore() error {
 
 			var retailerMonitor entities.Monitor
 			switch taskGroup.Retailer {
+			case enums.HotTopic:
+				retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 			case enums.PokemonCenter:
 				retailerMonitor, err = pokemoncenter.CreateMonitor(monitor.MonitorInput, monitor)
-
 			}
 			if err != nil {
 				skip = true
@@ -139,6 +141,8 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 
 		var retailerMonitor entities.Monitor
 		switch taskGroup.Retailer {
+		case enums.HotTopic:
+			retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(monitor.MonitorInput, monitor)
 
@@ -205,7 +209,7 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 		newMonitor.MonitorID = uuid.New().String()
 		newMonitor.Status = enums.MonitorIdle
 		newMonitor.Running = false
-		newMonitor.ProductInfo = entities.ProductInfo{}
+		newMonitor.ProductInfos = []entities.ProductInfo{}
 
 		newMonitor.TaskGroup = &newTaskGroup
 		newMonitor.Proxy = nil
@@ -215,6 +219,8 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 
 		var retailerMonitor entities.Monitor
 		switch newTaskGroup.Retailer {
+		case enums.HotTopic:
+			retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 
@@ -335,7 +341,7 @@ func StopTaskGroup(groupID string, stopTasks bool) error {
 		monitor.StopFlag = true
 		monitor.Status = enums.MonitorIdle
 		monitor.Running = false
-		monitor.ProductInfo = entities.ProductInfo{}
+		monitor.ProductInfos = []entities.ProductInfo{}
 
 		monitor.Proxy = nil
 		monitor.Client = nil
@@ -417,10 +423,16 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 		}
 
 		retailerMonitor := *monitor.Monitor
-		productInfo, err := retailerMonitor.GetProductInfo()
-		if err == nil && productInfo.SKU != "" && !reflect.DeepEqual(monitor.ProductInfo, productInfo) {
-			events.GetEventBus().PublishMonitorEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, productInfo, monitor.TaskGroup.GroupID, monitor.MonitorID)
-			monitor.ProductInfo = productInfo
+		productInfos, err := retailerMonitor.GetProductInfos()
+		if err == nil {
+			for _, productInfo := range productInfos {
+				if productInfo.SKU != "" {
+					events.GetEventBus().PublishMonitorEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, productInfo, monitor.TaskGroup.GroupID, monitor.MonitorID)
+				}
+			}
+			if !reflect.DeepEqual(monitor.ProductInfos, productInfos) {
+				monitor.ProductInfos = productInfos
+			}
 		}
 
 		monitor.Sleep()

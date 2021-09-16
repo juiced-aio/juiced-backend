@@ -25,9 +25,9 @@ func CreateMonitor(input entities.MonitorInput, baseMonitor *entities.BaseMonito
 	return nil, &enums.UnsupportedMonitorTypeError{Retailer: enums.PokemonCenter, MonitorType: input.MonitorType}
 }
 
-func (monitor *SKUMonitor) GetProductInfo() (entities.ProductInfo, error) {
-	productInfo := entities.ProductInfo{}
-	return productInfo, nil
+func (monitor *SKUMonitor) GetProductInfos() ([]entities.ProductInfo, error) {
+	productInfos := []entities.ProductInfo{}
+	return productInfos, nil
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.BaseMonitor.Client,
@@ -48,28 +48,29 @@ func (monitor *SKUMonitor) GetProductInfo() (entities.ProductInfo, error) {
 		},
 	})
 	if err != nil {
-		return productInfo, err
+		return productInfos, err
 	}
 
 	switch resp.StatusCode {
 	case 403:
 		err = HandleDatadomeMonitor(monitor.BaseMonitor, body)
 		if err != nil {
-			return productInfo, err
+			return productInfos, err
 		}
 	case 200:
 		monitorResponse := MonitorResponse{}
 		responseBody := soup.HTMLParse(string(body))
 		nextData := responseBody.Find("script", "id", "__NEXT_DATA__")
 		if nextData.Error != nil {
-			return productInfo, nextData.Error
+			return productInfos, nextData.Error
 		}
 		nextDataString := nextData.Pointer.FirstChild.Data
 		err = json.Unmarshal([]byte(nextDataString), &monitorResponse)
 		if err != nil {
-			return productInfo, err
+			return productInfos, err
 		}
 
+		productInfo := entities.ProductInfo{}
 		productInfo.SKU = monitor.Input.Input
 		productInfo.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
 		productInfo.ItemName = monitorResponse.Props.InitialState.Product.Name
@@ -84,7 +85,9 @@ func (monitor *SKUMonitor) GetProductInfo() (entities.ProductInfo, error) {
 		if monitor.Input.MaxPrice == -1 || int(productInfo.Price) <= monitor.Input.MaxPrice {
 			productInfo.InPriceRange = true
 		}
+
+		productInfos = append(productInfos, productInfo)
 	}
 
-	return productInfo, nil
+	return productInfos, nil
 }

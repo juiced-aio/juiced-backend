@@ -107,9 +107,11 @@ func (task *BaseTask) WaitForMonitor() bool {
 		}
 		monitors := task.TaskGroup.Monitors
 		for _, monitor := range monitors {
-			if monitor.ProductInfo.InStock {
-				task.ProductInfo = monitor.ProductInfo
-				return true
+			for _, productInfo := range monitor.ProductInfos {
+				if productInfo.InStock {
+					task.ProductInfo = productInfo
+					return true
+				}
 			}
 		}
 

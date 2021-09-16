@@ -57,6 +57,8 @@ func InitTaskStore() error {
 
 			var retailerTask entities.RetailerTask
 			switch task.Retailer {
+			case enums.HotTopic:
+				retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.PokemonCenter:
 				retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
 
@@ -164,6 +166,8 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch task.Retailer {
+	case enums.HotTopic:
+		retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
 
@@ -265,6 +269,8 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch newTask.Retailer {
+	case enums.HotTopic:
+		retailerTask, err = pokemoncenter.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 
