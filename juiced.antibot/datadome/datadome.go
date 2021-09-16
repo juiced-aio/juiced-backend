@@ -16,9 +16,9 @@ import (
 	u "backend.juicedbot.io/juiced.sitescripts/util"
 )
 
-func HandleDatadome(monitor *entities.BaseMonitor, retailer enums.Retailer, baseURL *url.URL, referer, parentURL, domain string, body string) error {
+func HandleDatadomeMonitor(monitor *entities.BaseMonitor, retailer enums.Retailer, baseURL *url.URL, referer, parentURL, domain string, body string) error {
 	currentStatus := monitor.Status
-	monitor.PublishEvent(enums.WaitingForCaptchaMonitor, enums.MonitorUpdate)
+	monitor.PublishEvent(enums.WaitingForCaptchaMonitor, enums.MonitorUpdate, nil)
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
@@ -67,7 +67,63 @@ func HandleDatadome(monitor *entities.BaseMonitor, retailer enums.Retailer, base
 
 	err = SetDatadomeCookie(datadomeInfo, monitor.Client, monitor.Proxy, retailer, baseURL, referer, parentURL, domain, cancellationToken)
 	if err == nil {
-		monitor.PublishEvent(currentStatus, enums.MonitorUpdate)
+		monitor.PublishEvent(currentStatus, enums.MonitorUpdate, nil)
+	}
+	return err
+}
+
+func HandleDatadomeTask(task *entities.BaseTask, retailer enums.Retailer, baseURL *url.URL, referer, parentURL, domain string, body string) error {
+	currentStatus := task.Status
+	task.PublishEvent(enums.WaitingForCaptcha, 0, enums.TaskUpdate)
+	quit := make(chan bool)
+	defer func() {
+		quit <- true
+	}()
+
+	cancellationToken := &util.CancellationToken{Cancel: false}
+	go func() {
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				needToStop := task.CheckForStop()
+				if needToStop {
+					cancellationToken.Cancel = true
+					return
+				}
+			}
+			time.Sleep(util.MS_TO_WAIT)
+		}
+	}()
+
+	datadomeStr, err := util.FindInString(body, "<script>var dd=", "}")
+	if err != nil {
+		return err
+	}
+	datadomeStr += "}"
+	datadomeStr = strings.ReplaceAll(datadomeStr, "'", "\"")
+
+	datadomeInfo := DatadomeInfo{}
+	err = json.Unmarshal([]byte(datadomeStr), &datadomeInfo)
+	if err != nil {
+		return err
+	}
+
+	cookies := task.Client.Jar.Cookies(baseURL)
+	for _, cookie := range cookies {
+		if cookie.Name == "datadome" {
+			datadomeInfo.CID = cookie.Value
+		}
+	}
+
+	if datadomeInfo.CID == "" {
+		return errors.New("datadome cookie doesn't exist")
+	}
+
+	err = SetDatadomeCookie(datadomeInfo, task.Client, task.Proxy, retailer, baseURL, referer, parentURL, domain, cancellationToken)
+	if err == nil {
+		task.PublishEvent(currentStatus, 0, enums.TaskUpdate)
 	}
 	return err
 }
@@ -130,7 +186,7 @@ func SetDatadomeCookie(datadomeInfo DatadomeInfo, client *http.Client, proxy *en
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", DatadomeEndpoint},
+			{"referer", referer},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},

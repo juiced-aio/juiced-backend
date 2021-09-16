@@ -26,6 +26,7 @@ type BaseMonitor struct {
 	Monitor *Monitor `json:"-"`
 
 	// Monitor inputs, included in DB serialization and JSON
+	MonitorID    string       `json:"monitorID"`
 	MonitorInput MonitorInput `json:"monitorInput"`
 
 	// In-memory values, omitted in DB serialization but included in JSON
@@ -55,14 +56,14 @@ type Monitor interface {
 	GetProductInfo() (ProductInfo, error)
 }
 
-func (monitor *BaseMonitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType) {
+func (monitor *BaseMonitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
 	monitor.Status = status
-	events.GetEventBus().PublishMonitorEvent(status, eventType, nil, monitor.TaskGroup.GroupID)
+	events.GetEventBus().PublishMonitorEvent(status, eventType, data, monitor.TaskGroup.GroupID, monitor.MonitorID)
 }
 
 func (monitor *BaseMonitor) CheckForStop() bool {
 	if monitor.StopFlag {
-		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop)
+		monitor.PublishEvent(enums.MonitorIdle, enums.MonitorStop, nil)
 		return true
 	}
 	return false

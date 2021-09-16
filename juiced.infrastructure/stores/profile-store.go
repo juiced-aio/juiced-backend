@@ -52,6 +52,14 @@ func (e *ProfileNotFoundByNameError) Error() string {
 	return fmt.Sprintf("Profile with name %s not found", e.Name)
 }
 
+type ProfileAlreadyExistsError struct {
+	Name string
+}
+
+func (e *ProfileAlreadyExistsError) Error() string {
+	return fmt.Sprintf("Profile with name %s already exists", e.Name)
+}
+
 func GetAllProfiles() []*entities.Profile {
 	profiles := []*entities.Profile{}
 	for _, profile := range profileStore.Profiles {
@@ -100,6 +108,11 @@ func GetProfileByName(name string) (*entities.Profile, error) {
 }
 
 func CreateProfile(profile entities.Profile) (*entities.Profile, error) {
+	_, err := GetProfileByName(profile.Name)
+	if err == nil {
+		return nil, &ProfileAlreadyExistsError{profile.Name}
+	}
+
 	if profile.ID == "" {
 		profile.ID = uuid.New().String()
 	}
@@ -120,7 +133,7 @@ func CreateProfile(profile entities.Profile) (*entities.Profile, error) {
 	profile.BillingAddress.ProfileID = profile.ID
 	profile.CreditCard.ProfileID = profile.ID
 
-	err := database.CreateProfile(profile)
+	err = database.CreateProfile(profile)
 	if err != nil {
 		return nil, err
 	}

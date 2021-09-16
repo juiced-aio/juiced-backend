@@ -137,7 +137,7 @@ func RetrievePublicToken(keyId string, card entities.Card) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		dumpMap("", headerMap)
+		// dumpMap("", headerMap)
 
 		token__, err := jose.Encrypt(payload, jose.RSA_OAEP, jose.A256GCM, rsa___, jose.Headers(headerMap))
 		if err != nil {

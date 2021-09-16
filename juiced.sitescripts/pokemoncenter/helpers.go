@@ -23,6 +23,10 @@ func AddPokemonCenterHeaders(request *http.Request, referer ...string) {
 	}
 }
 
-func HandleDatadome(monitor *entities.BaseMonitor, body string) error {
-	return datadome.HandleDatadome(monitor, enums.PokemonCenter, BaseURL, "https://www.pokemoncenter.com/", "https://www.pokemoncenter.com", ".pokemoncenter.com", body)
+func HandleDatadomeMonitor(monitor *entities.BaseMonitor, body string) error {
+	return datadome.HandleDatadomeMonitor(monitor, enums.PokemonCenter, BaseURL, "https://www.pokemoncenter.com/", "https://www.pokemoncenter.com", ".pokemoncenter.com", body)
+}
+
+func HandleDatadomeTask(task *entities.BaseTask, body string) error {
+	return datadome.HandleDatadomeTask(task, enums.PokemonCenter, BaseURL, "https://www.pokemoncenter.com/", "https://www.pokemoncenter.com", ".pokemoncenter.com", body)
 }

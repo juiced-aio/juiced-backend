@@ -123,6 +123,7 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 			monitor.MonitorInput.MaxPrice = -1
 		}
 
+		monitor.MonitorID = uuid.New().String()
 		monitor.Status = enums.MonitorIdle
 		monitor.TaskGroup = taskGroupPtr
 
@@ -176,7 +177,7 @@ func RemoveTaskGroup(groupID string) (entities.TaskGroup, error) {
 		return entities.TaskGroup{}, err
 	}
 
-	err = StopTaskGroup(groupID)
+	err = StopTaskGroup(groupID, true)
 	if err != nil {
 		return entities.TaskGroup{}, err
 	}
@@ -201,6 +202,7 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 	var err_ error
 	for _, monitor := range newTaskGroup.Monitors {
 		newMonitor := *monitor
+		newMonitor.MonitorID = uuid.New().String()
 		newMonitor.Status = enums.MonitorIdle
 		newMonitor.Running = false
 		newMonitor.ProductInfo = entities.ProductInfo{}
@@ -290,7 +292,7 @@ func RemoveTasksFromGroup(groupID string, taskIDs []string) (*entities.TaskGroup
 	return UpdateTaskGroup(groupID, *taskGroupPtr)
 }
 
-func StartTaskGroup(groupID string) error {
+func StartTaskGroup(groupID string, startTasks bool) error {
 	taskGroupPtr, err := GetTaskGroup(groupID)
 	if err != nil {
 		return err
@@ -300,17 +302,30 @@ func StartTaskGroup(groupID string) error {
 		go RunMonitor(monitor)
 	}
 
-	for _, taskID := range taskGroupPtr.TaskIDs {
-		err_ := StartTask(taskID)
-		if err == nil {
-			err = err_
+	if startTasks {
+		for _, taskID := range taskGroupPtr.TaskIDs {
+			err_ := StartTask(taskID)
+			if err == nil {
+				err = err_
+			}
 		}
 	}
 
 	return err
 }
 
-func StopTaskGroup(groupID string) error {
+func CheckForTaskGroupStart(groupID string) {
+	taskGroupPtr, err := GetTaskGroup(groupID)
+	if err == nil {
+		runningTasks := TasksRunning(taskGroupPtr)
+
+		if runningTasks {
+			StartTaskGroup(groupID, false)
+		}
+	}
+}
+
+func StopTaskGroup(groupID string, stopTasks bool) error {
 	taskGroupPtr, err := GetTaskGroup(groupID)
 	if err != nil {
 		return err
@@ -349,15 +364,25 @@ func CheckForTaskGroupStop(groupID string) {
 	}
 
 	if !runningTasks {
-		StopTaskGroup(groupID)
+		StopTaskGroup(groupID, false)
 	}
+}
+
+func TasksRunning(taskGroup *entities.TaskGroup) bool {
+	runningTasks := false
+	for _, task := range taskGroup.Tasks {
+		if task.Task.Running && !task.Task.StopFlag {
+			runningTasks = true
+		}
+	}
+	return runningTasks
 }
 
 func RunMonitor(monitor *entities.BaseMonitor) {
 	defer func() {
 		if r := recover(); r != nil {
 			monitor.StopFlag = true
-			monitor.PublishEvent(enums.MonitorFail, fmt.Sprintf(enums.MonitorFailed, r))
+			monitor.PublishEvent(enums.MonitorFail, fmt.Sprintf(enums.MonitorFailed, r), nil)
 		}
 		monitor.Running = false
 	}()
@@ -368,7 +393,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 
 	monitor.StopFlag = false
 	monitor.Running = true
-	monitor.PublishEvent(enums.MonitorStart, enums.Searching)
+	monitor.PublishEvent(enums.MonitorStart, enums.Searching, nil)
 
 	monitorClient, err := util.CreateClient()
 	if err != nil {
@@ -394,7 +419,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 		retailerMonitor := *monitor.Monitor
 		productInfo, err := retailerMonitor.GetProductInfo()
 		if err == nil && productInfo.SKU != "" && !reflect.DeepEqual(monitor.ProductInfo, productInfo) {
-			events.GetEventBus().PublishMonitorEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, productInfo, monitor.TaskGroup.GroupID)
+			events.GetEventBus().PublishMonitorEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, productInfo, monitor.TaskGroup.GroupID, monitor.MonitorID)
 			monitor.ProductInfo = productInfo
 		}
 

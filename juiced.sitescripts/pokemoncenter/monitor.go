@@ -3,7 +3,6 @@ package pokemoncenter
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
@@ -28,6 +27,7 @@ func CreateMonitor(input entities.MonitorInput, baseMonitor *entities.BaseMonito
 
 func (monitor *SKUMonitor) GetProductInfo() (entities.ProductInfo, error) {
 	productInfo := entities.ProductInfo{}
+	return productInfo, nil
 
 	resp, body, err := util.MakeRequest(&util.Request{
 		Client: monitor.BaseMonitor.Client,
@@ -53,19 +53,17 @@ func (monitor *SKUMonitor) GetProductInfo() (entities.ProductInfo, error) {
 
 	switch resp.StatusCode {
 	case 403:
-		err = HandleDatadome(monitor.BaseMonitor, body)
+		err = HandleDatadomeMonitor(monitor.BaseMonitor, body)
 		if err != nil {
 			return productInfo, err
 		}
 	case 200:
 		monitorResponse := MonitorResponse{}
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return productInfo, err
-		}
-
 		responseBody := soup.HTMLParse(string(body))
 		nextData := responseBody.Find("script", "id", "__NEXT_DATA__")
+		if nextData.Error != nil {
+			return productInfo, nextData.Error
+		}
 		nextDataString := nextData.Pointer.FirstChild.Data
 		err = json.Unmarshal([]byte(nextDataString), &monitorResponse)
 		if err != nil {
@@ -76,12 +74,14 @@ func (monitor *SKUMonitor) GetProductInfo() (entities.ProductInfo, error) {
 		productInfo.Price = monitorResponse.Props.InitialState.Product.ListPrice.Amount
 		productInfo.ItemName = monitorResponse.Props.InitialState.Product.Name
 		productInfo.ItemURL = fmt.Sprintf(MonitorEndpoint, monitor.Input.Input)
-		productInfo.ImageURL = monitorResponse.Props.InitialState.Product.Images.Original
+		if len(monitorResponse.Props.InitialState.Product.Images) > 0 {
+			productInfo.ImageURL = monitorResponse.Props.InitialState.Product.Images[0].Original
+		}
 
 		if monitorResponse.Props.InitialState.Product.Availability == "AVAILABLE" {
 			productInfo.InStock = true
 		}
-		if int(productInfo.Price) <= monitor.Input.MaxPrice {
+		if monitor.Input.MaxPrice == -1 || int(productInfo.Price) <= monitor.Input.MaxPrice {
 			productInfo.InPriceRange = true
 		}
 	}

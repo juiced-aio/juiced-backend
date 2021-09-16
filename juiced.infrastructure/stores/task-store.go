@@ -2,16 +2,21 @@ package stores
 
 import (
 	"fmt"
+	"log"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"time"
 
+	"backend.juicedbot.io/juiced.antibot/cloudflare"
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/discord"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
+	u "backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
+	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/google/uuid"
 )
 
@@ -31,6 +36,7 @@ func InitTaskStore() error {
 		return err
 	}
 
+	var err_ error
 	for _, task := range tasks {
 		task := task
 		taskPtr := &task
@@ -49,11 +55,25 @@ func InitTaskStore() error {
 				}
 			}
 
+			var retailerTask entities.RetailerTask
+			switch task.Retailer {
+			case enums.PokemonCenter:
+				retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+
+			}
+			if err != nil {
+				if err_ == nil {
+					err_ = err
+				}
+			} else {
+				task.Task.RetailerTask = &retailerTask
+			}
+
 			taskStore.Tasks[task.ID] = taskPtr
 		}
 	}
 
-	return nil
+	return err_
 }
 
 type TaskNotFoundError struct {
@@ -306,8 +326,10 @@ func StopTask(taskID string) error {
 func RunRetailerTask(task *entities.BaseTask) {
 	defer func() {
 		if r := recover(); r != nil {
+			log.Println(r)
+			log.Println(string(debug.Stack()))
 			task.StopFlag = true
-			task.PublishEvent(enums.TaskFail, fmt.Sprintf(enums.TaskFailed, r))
+			task.PublishEvent(enums.TaskFail, 0, fmt.Sprintf(enums.TaskFailed, r))
 		}
 		task.Running = false
 		CheckForTaskGroupStop(task.Task.TaskGroupID)
@@ -323,7 +345,17 @@ func RunRetailerTask(task *entities.BaseTask) {
 
 	task.StopFlag = false
 	task.Running = true
-	task.PublishEvent(enums.TaskStart, enums.TaskStarted)
+
+	CheckForTaskGroupStart(task.Task.TaskGroupID)
+
+	taskClient, err := util.CreateClient()
+	if err != nil {
+		panic("could not create HTTP client")
+	}
+	task.Client = &taskClient
+	taskScraper := cloudflare.Init(taskClient, u.HAWK_KEY, false)
+	task.Scraper = &taskScraper
+	task.PublishEvent(enums.TaskStart, 5, enums.TaskStarted)
 
 	retailerTask := *task.RetailerTask
 	ranSetupFunctions := task.RunFunctions(retailerTask.GetSetupFunctions())

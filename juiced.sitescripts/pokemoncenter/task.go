@@ -153,7 +153,7 @@ func (task *Task) Login() (bool, string) {
 	params.Add("role", "REGISTERED")
 	params.Add("scope", "pokemon")
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "POST",
 		URL:    LoginEndpoint,
@@ -181,6 +181,12 @@ func (task *Task) Login() (bool, string) {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		task.AccessToken = loginResponse.AccessToken
 		return true, enums.LoginSuccess
@@ -192,7 +198,48 @@ func (task *Task) Login() (bool, string) {
 }
 
 func (task *Task) LoginGuest() (bool, string) {
-	resp, _, err := util.MakeRequest(&util.Request{
+	cookies := task.BaseTask.Client.Jar.Cookies(BaseURL)
+	for _, cookie := range cookies {
+		log.Println(cookie)
+	}
+
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "GET",
+		URL:    BaseEndpoint,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"origin", BaseEndpoint},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
+	}
+
+	cookies = task.BaseTask.Client.Jar.Cookies(BaseURL)
+	for _, cookie := range cookies {
+		log.Println(cookie)
+	}
+
+	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
+	}
+
+	resp, body, err = util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "GET",
 		URL:    AuthKeyEndpoint,
@@ -207,7 +254,7 @@ func (task *Task) LoginGuest() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-mode", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", AuthKeyRefererEndpoint},
+			{"referer", BaseEndpoint},
 			{"accept-encoding", "gzip, deflate, br"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -216,12 +263,20 @@ func (task *Task) LoginGuest() (bool, string) {
 		return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
 	}
 
+	log.Println(resp.StatusCode)
+	log.Println(body)
+
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		rawHeader := resp.Header.Get("Set-Cookie")
 		re := regexp.MustCompile("({)(.*?)(})")
 		match := re.FindStringSubmatch(rawHeader)
-		fmt.Println(match[0])
 
 		accessToken := AccessToken{}
 		json.Unmarshal([]byte(match[0]), &accessToken)
@@ -235,7 +290,7 @@ func (task *Task) LoginGuest() (bool, string) {
 func (task *Task) RetrievePublicKey() (bool, string) {
 	paymentKeyResponse := PaymentKeyResponse{}
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "GET",
 		URL:    PublicPaymentKeyEndpoint,
@@ -262,6 +317,12 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		task.CyberSecureInfo.PublicKey = paymentKeyResponse.KeyId
 		return true, ""
@@ -353,7 +414,7 @@ func (task *Task) AddToCart() (bool, string) {
 		return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 	}
 
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "POST",
 		URL:    AddToCartEndpoint,
@@ -382,6 +443,12 @@ func (task *Task) AddToCart() (bool, string) {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		if addToCartResponse.Type == "carts.line-item" {
 			if addToCartResponse.Quantity != task.Input.Quantity {
@@ -404,7 +471,7 @@ func (task *Task) SubmitEmailAddress() (bool, string) {
 	if err != nil {
 		return false, fmt.Sprintf(enums.SettingEmailAddressFailure, err.Error())
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "POST",
 		URL:    SubmitEmailEndpoint,
@@ -432,6 +499,12 @@ func (task *Task) SubmitEmailAddress() (bool, string) {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingEmailAddressFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		return true, enums.SettingEmailAddressSuccess
 	}
@@ -473,7 +546,7 @@ func (task *Task) SubmitAddressDetails() (bool, string) {
 	if err != nil {
 		return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "POST",
 		URL:    SubmitAddressEndpoint,
@@ -501,6 +574,12 @@ func (task *Task) SubmitAddressDetails() (bool, string) {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		return true, enums.SettingShippingInfoSuccess
 	}
@@ -520,7 +599,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	if err != nil {
 		return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "POST",
 		URL:    SubmitPaymentDetailsEndpoint,
@@ -549,6 +628,12 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		task.CheckoutUri = submitPaymentResponse.Self.Uri
 		return true, enums.SettingBillingInfoSuccess
@@ -564,7 +649,7 @@ func (task *Task) Checkout() (bool, string) {
 	if err != nil {
 		return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
-	resp, _, err := util.MakeRequest(&util.Request{
+	resp, body, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "POST",
 		URL:    CheckoutEndpoint,
@@ -592,6 +677,12 @@ func (task *Task) Checkout() (bool, string) {
 	}
 
 	switch resp.StatusCode {
+	case 403:
+		err = HandleDatadomeTask(task.BaseTask, body)
+		if err != nil {
+			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		}
+		return false, fmt.Sprintf(enums.SettingUpFailure, DatadomeError)
 	case 200:
 		return true, enums.CheckedOut
 	}

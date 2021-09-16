@@ -106,7 +106,7 @@ func StartTaskGroups(c *fiber.Ctx) error {
 
 	response := responses.TaskGroupsSuccessResponse{}
 	for _, taskGroupID := range input.TaskGroupIDs {
-		err_ := stores.StartTaskGroup(taskGroupID)
+		err_ := stores.StartTaskGroup(taskGroupID, true)
 		if err_ == nil {
 			response.SuccessTaskGroupIDs = append(response.SuccessTaskGroupIDs, taskGroupID)
 		} else {
@@ -138,7 +138,7 @@ func StopTaskGroups(c *fiber.Ctx) error {
 
 	response := responses.TaskGroupsSuccessResponse{}
 	for _, taskGroupID := range input.TaskGroupIDs {
-		err_ := stores.StopTaskGroup(taskGroupID)
+		err_ := stores.StopTaskGroup(taskGroupID, true)
 		if err_ == nil {
 			response.SuccessTaskGroupIDs = append(response.SuccessTaskGroupIDs, taskGroupID)
 		} else {

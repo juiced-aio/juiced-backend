@@ -2,6 +2,8 @@ package entities
 
 import (
 	"fmt"
+	"log"
+	"runtime/debug"
 	"time"
 
 	"backend.juicedbot.io/juiced.antibot/cloudflare"
@@ -83,14 +85,15 @@ type ProductInfo struct {
 	SiteSpecificInfo map[string]interface{} `json:"siteSpecificInfo"`
 }
 
-func (task *BaseTask) PublishEvent(status enums.TaskStatus, eventType enums.TaskEventType) {
+func (task *BaseTask) PublishEvent(status enums.TaskStatus, statusPercentage int, eventType enums.TaskEventType) {
 	task.Status = status
-	events.GetEventBus().PublishTaskEvent(status, eventType, nil, task.Task.ID)
+	log.Println(status)
+	events.GetEventBus().PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.TaskGroupID, task.Task.ID)
 }
 
 func (task *BaseTask) CheckForStop() bool {
 	if task.StopFlag {
-		task.PublishEvent(enums.TaskIdle, enums.TaskStop)
+		task.PublishEvent(enums.TaskIdle, 0, enums.TaskStop)
 		return true
 	}
 	return false
@@ -145,7 +148,7 @@ func (task *BaseTask) RunUntilSuccessful(function TaskFunction) bool {
 			var status string
 			success, status = function.Function()
 			if success && status != "" {
-				task.PublishEvent(status, enums.TaskUpdate)
+				task.PublishEvent(status, 0, enums.TaskUpdate) // TODO
 			}
 		}
 	} else {
@@ -154,7 +157,11 @@ func (task *BaseTask) RunUntilSuccessful(function TaskFunction) bool {
 			attempt = -1
 		}
 
-		for success = task.RunUntilSuccessfulHelper(function.Function, attempt); !success; {
+		for !success {
+			success = task.RunUntilSuccessfulHelper(function.Function, attempt)
+			if success {
+				break
+			}
 			needToStop := task.CheckForStop()
 			if needToStop || attempt > function.MaxRetries {
 				task.StopFlag = true
@@ -181,18 +188,18 @@ func (task *BaseTask) RunUntilSuccessfulHelper(fn func() (bool, string), attempt
 	if !success {
 		if attempt > 0 {
 			if status != "" {
-				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), enums.TaskUpdate)
+				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), 0, enums.TaskUpdate) // TODO
 			}
 		} else {
 			if status != "" {
-				task.PublishEvent(fmt.Sprint("(Retrying) ", status), enums.TaskUpdate)
+				task.PublishEvent(fmt.Sprint("(Retrying) ", status), 0, enums.TaskUpdate) // TODO
 			}
 		}
 		return false
 	}
 
 	if status != "" {
-		task.PublishEvent(status, enums.TaskUpdate)
+		task.PublishEvent(status, 0, enums.TaskUpdate) // TODO
 	}
 	return true
 }
@@ -200,6 +207,8 @@ func (task *BaseTask) RunUntilSuccessfulHelper(fn func() (bool, string), attempt
 func (task *BaseTask) RefreshWrapper(function TaskFunction) {
 	defer func() {
 		if r := recover(); r != nil {
+			log.Println(r)
+			log.Println(string(debug.Stack()))
 			task.RefreshWrapper(function)
 		}
 	}()

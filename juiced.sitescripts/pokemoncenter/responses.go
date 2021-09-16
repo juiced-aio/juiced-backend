@@ -7,7 +7,8 @@ type MonitorResponse struct {
 			Product struct {
 				AddToCartForm string
 				Availability  string
-				Images        struct {
+				Images        []struct {
+					High     string
 					Original string
 				}
 				ListPrice struct {

@@ -25,17 +25,19 @@ const (
 	CheckoutRefererEndpoint             = "https://www.pokemoncenter.com/checkout/summary"
 	PublicPaymentKeyEndpoint            = "https://www.pokemoncenter.com/tpci-ecommweb-api/payment/key?microform=true&locale=en-US"
 	PublicPaymentKeyRefererEndpoint     = "https://www.pokemoncenter.com/"
-	AuthKeyEndpoint                     = "https://www.pokemoncenter.com/tpci-ecommweb-api/cart?format=zoom.nodatalinks"
-	AuthKeyRefererEndpoint              = "https://www.pokemoncenter.com/cart"
-	CyberSourceTokenEndpoint            = "https://flex.cybersource.com/flex/v2/tokens"
-	CyberSourceTokenRefererEndpoint     = "https://www.pokemoncenter.com/cart"
-	LoginEndpoint                       = "https://www.pokemoncenter.com/tpci-ecommweb-api/auth?format=zoom.nodatalinks"
-	LoginRefererEndpoint                = "https://www.pokemoncenter.com/cart"
+	AuthKeyEndpoint                     = "https://www.pokemoncenter.com/tpci-ecommweb-api/order?type=status&format=nodatalinks"
+	// AuthKeyRefererEndpoint              = "https://www.pokemoncenter.com/cart"
+	CyberSourceTokenEndpoint        = "https://flex.cybersource.com/flex/v2/tokens"
+	CyberSourceTokenRefererEndpoint = "https://www.pokemoncenter.com/cart"
+	LoginEndpoint                   = "https://www.pokemoncenter.com/tpci-ecommweb-api/auth?format=zoom.nodatalinks"
+	LoginRefererEndpoint            = "https://www.pokemoncenter.com/cart"
 )
 
 // Errors
 const (
 	UnknownError = "unknown error"
+
+	DatadomeError = "hit datadome"
 
 	RetrieveCyberSourcePublicKeyError    = "could not retrieve CyberSource public key"
 	CyberSourceEncryptionError           = "could not perform CyberSource encryption"
