@@ -25,6 +25,18 @@ const (
 	AddingToCartSuccess TaskStatus = "Added to cart"
 	AddingToCartFailure TaskStatus = "Error adding to cart: %s"
 
+	GettingCartInfo        TaskStatus = "Getting cart info"
+	GettingCartInfoSuccess TaskStatus = "Got cart info"
+	GettingCartInfoFailure TaskStatus = "Error getting cart info: %s"
+
+	SettingCartInfo        TaskStatus = "Setting cart info"
+	SettingCartInfoSuccess TaskStatus = "Set cart info"
+	SettingCartInfoFailure TaskStatus = "Error setting cart info: %s"
+
+	GettingOrderInfo        TaskStatus = "Getting order info"
+	GettingOrderInfoSuccess TaskStatus = "Got order info"
+	GettingOrderInfoFailure TaskStatus = "Error getting order info: %s"
+
 	SettingEmailAddress        TaskStatus = "Setting email address"
 	SettingEmailAddressSuccess TaskStatus = "Set email address"
 	SettingEmailAddressFailure TaskStatus = "Error setting email address: %s"
@@ -37,6 +49,10 @@ const (
 	SettingBillingInfoSuccess TaskStatus = "Set billing info"
 	SettingBillingInfoFailure TaskStatus = "Error setting billing info: %s"
 
+	SettingOrderInfo        TaskStatus = "Setting order info"
+	SettingOrderInfoSuccess TaskStatus = "Set order info"
+	SettingOrderInfoFailure TaskStatus = "Error setting order info: %s"
+
 	CheckingOut        TaskStatus = "Checking out"
 	CheckingOutSuccess TaskStatus = "Checked out!"
 	CheckingOutFailure TaskStatus = "Error checking out: %s"
@@ -46,14 +62,14 @@ const (
 	WaitingForMonitor   TaskStatus = "Waiting for monitor"
 	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
 	BypassingPX         TaskStatus = "Bypassing PX"
-	GettingCartInfo     TaskStatus = "Getting cart info"
-	SettingCartInfo     TaskStatus = "Setting cart info"
 	GettingShippingInfo TaskStatus = "Getting shipping info"
 	GettingBillingInfo  TaskStatus = "Getting billing info"
-	GettingOrderInfo    TaskStatus = "Getting order info"
-	SettingOrderInfo    TaskStatus = "Setting order info"
 	CheckoutFailed      TaskStatus = "Checkout failed"
 	CheckedOut          TaskStatus = "Checked out!"
+)
+
+const (
+	UnknownError = "unknown error (status code: %d)"
 )
 
 type TaskEventType = string

@@ -35,8 +35,6 @@ const (
 
 // Errors
 const (
-	UnknownError = "unknown error"
-
 	DatadomeError = "hit datadome"
 
 	RetrieveCyberSourcePublicKeyError    = "could not retrieve CyberSource public key"

@@ -105,7 +105,7 @@ func (task *Task) GetMainFunctions() []entities.TaskFunction {
 		// 4. AddToCart
 		{
 			Function:         task.AddToCart,
-			StatusBegin:      enums.WaitingForMonitor,
+			StatusBegin:      enums.AddingToCart,
 			MsBetweenRetries: int(u.MS_TO_WAIT),
 		},
 	}
@@ -194,7 +194,7 @@ func (task *Task) Login() (bool, string) {
 		return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 
-	return false, fmt.Sprintf(enums.LoginFailure, UnknownError)
+	return false, fmt.Sprintf(enums.LoginFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) LoginGuest() (bool, string) {
@@ -284,7 +284,7 @@ func (task *Task) LoginGuest() (bool, string) {
 		return true, enums.SettingUpSuccess
 	}
 
-	return false, fmt.Sprintf(enums.SettingUpFailure, UnknownError)
+	return false, fmt.Sprintf(enums.SettingUpFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) RetrievePublicKey() (bool, string) {
@@ -328,7 +328,7 @@ func (task *Task) RetrievePublicKey() (bool, string) {
 		return true, ""
 	}
 
-	return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, UnknownError)
+	return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) RetrievePrivateKey() (bool, string) {
@@ -381,7 +381,7 @@ func (task *Task) RetrieveToken() (bool, string) {
 		return true, ""
 	}
 
-	return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, UnknownError)
+	return false, fmt.Sprintf(enums.EncryptingCardInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) RetrieveJTI() (bool, string) {
@@ -459,7 +459,7 @@ func (task *Task) AddToCart() (bool, string) {
 		}
 	}
 
-	return false, fmt.Sprintf(enums.AddingToCartFailure, UnknownError)
+	return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) SubmitEmailAddress() (bool, string) {
@@ -509,7 +509,7 @@ func (task *Task) SubmitEmailAddress() (bool, string) {
 		return true, enums.SettingEmailAddressSuccess
 	}
 
-	return false, fmt.Sprintf(enums.SettingEmailAddressFailure, UnknownError)
+	return false, fmt.Sprintf(enums.SettingEmailAddressFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) SubmitAddressDetails() (bool, string) {
@@ -584,7 +584,7 @@ func (task *Task) SubmitAddressDetails() (bool, string) {
 		return true, enums.SettingShippingInfoSuccess
 	}
 
-	return false, fmt.Sprintf(enums.SettingShippingInfoFailure, UnknownError)
+	return false, fmt.Sprintf(enums.SettingShippingInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) SubmitPaymentDetails() (bool, string) {
@@ -639,7 +639,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 		return true, enums.SettingBillingInfoSuccess
 	}
 
-	return false, fmt.Sprintf(enums.SettingBillingInfoFailure, UnknownError)
+	return false, fmt.Sprintf(enums.SettingBillingInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) Checkout() (bool, string) {
@@ -687,7 +687,7 @@ func (task *Task) Checkout() (bool, string) {
 		return true, enums.CheckedOut
 	}
 
-	return false, fmt.Sprintf(enums.CheckingOutFailure, UnknownError)
+	return false, fmt.Sprintf(enums.CheckingOutFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 ////////////

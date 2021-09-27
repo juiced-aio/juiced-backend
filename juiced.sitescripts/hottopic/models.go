@@ -62,6 +62,9 @@ type Task struct {
 	Input         entities.TaskInput
 	HotTopicInput TaskInput
 	BaseTask      *entities.BaseTask
+	PrevDwcont    string
+	Dwcont        string
+	SecureKey     string
 }
 
 type TaskInput struct{}

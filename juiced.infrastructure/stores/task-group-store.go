@@ -430,7 +430,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 					events.GetEventBus().PublishMonitorEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, productInfo, monitor.TaskGroup.GroupID, monitor.MonitorID)
 				}
 			}
-			if !reflect.DeepEqual(monitor.ProductInfos, productInfos) {
+			if len(productInfos) > 0 && !reflect.DeepEqual(monitor.ProductInfos, productInfos) {
 				monitor.ProductInfos = productInfos
 			}
 		}
