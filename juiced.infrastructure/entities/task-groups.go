@@ -32,7 +32,7 @@ type BaseMonitor struct {
 	// In-memory values, omitted in DB serialization but included in JSON
 	Status       enums.MonitorStatus `json:"status"`
 	Running      bool                `json:"running"`
-	ProductInfos []ProductInfo       `json:"productInfo"`
+	ProductInfos []ProductInfo       `json:"productInfos"`
 
 	// In-memory values, omitted in DB serialization and JSON
 	TaskGroup  *TaskGroup          `json:"-"`

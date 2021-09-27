@@ -75,7 +75,7 @@ func CreateDiscordEmbed(retailer, proxy, profile, status string, productInfo ent
 		},
 		{
 			Name:   "Price:",
-			Value:  "$" + fmt.Sprintf("%f", productInfo.Price),
+			Value:  "$" + fmt.Sprintf("%.2f", productInfo.Price),
 			Inline: true,
 		},
 		{
@@ -109,21 +109,19 @@ func CreateDiscordEmbed(retailer, proxy, profile, status string, productInfo ent
 		},
 	}
 
-	if strings.Contains(status, enums.OrderStatusSuccess) {
+	if strings.Contains(status, enums.CheckedOut) {
 		embeds[0].Title = ":tangerine: Checkout! :tangerine:"
 		embeds[0].Color = 16742912
 		embeds[0].Thumbnail = DiscordThumbnail{
 			URL: productInfo.ImageURL,
 		}
-	}
-	if strings.Contains(status, enums.OrderStatusDeclined) {
+	} else if strings.Contains(status, enums.CardDeclined) {
 		embeds[0].Title = ":lemon: Card Declined :lemon:"
 		embeds[0].Color = 16766464
 		embeds[0].Thumbnail = DiscordThumbnail{
 			URL: productInfo.ImageURL,
 		}
-	}
-	if strings.Contains(status, enums.OrderStatusFailed) {
+	} else {
 		embeds[0].Title = ":apple: Failed to Place Order :apple:"
 		embeds[0].Color = 14495044
 		embeds[0].Thumbnail = DiscordThumbnail{

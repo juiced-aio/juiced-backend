@@ -388,7 +388,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 	defer func() {
 		if r := recover(); r != nil {
 			monitor.StopFlag = true
-			monitor.PublishEvent(enums.MonitorFail, fmt.Sprintf(enums.MonitorFailed, r), nil)
+			monitor.PublishEvent(fmt.Sprintf(enums.MonitorFailed, r), enums.MonitorFail, nil)
 		}
 		monitor.Running = false
 	}()
@@ -399,7 +399,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 
 	monitor.StopFlag = false
 	monitor.Running = true
-	monitor.PublishEvent(enums.SettingUpMonitor, enums.Searching, nil)
+	monitor.PublishEvent(enums.Searching, enums.MonitorStart, nil)
 
 	monitorClient, err := util.CreateClient()
 	if err != nil {
@@ -425,12 +425,8 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 		retailerMonitor := *monitor.Monitor
 		productInfos, err := retailerMonitor.GetProductInfos()
 		if err == nil {
-			for _, productInfo := range productInfos {
-				if productInfo.SKU != "" {
-					events.GetEventBus().PublishMonitorEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, productInfo, monitor.TaskGroup.GroupID, monitor.MonitorID)
-				}
-			}
 			if len(productInfos) > 0 && !reflect.DeepEqual(monitor.ProductInfos, productInfos) {
+				events.GetEventBus().PublishMonitorEvent(enums.SendingProductInfoToTasks, enums.MonitorUpdate, productInfos, monitor.TaskGroup.GroupID, monitor.MonitorID)
 				monitor.ProductInfos = productInfos
 			}
 		}

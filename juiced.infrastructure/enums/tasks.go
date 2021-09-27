@@ -5,9 +5,10 @@ import "fmt"
 type TaskStatus = string
 
 const (
-	TaskIdle    TaskStatus = "Idle"
-	TaskStarted TaskStatus = "Started"
-	TaskFailed  TaskStatus = "Fatal error: %s"
+	TaskIdle               TaskStatus = "Idle"
+	TaskStarted            TaskStatus = "Started"
+	TaskFailed             TaskStatus = "Fatal error: %s"
+	TaskMaxRetriesExceeded TaskStatus = "Task failed (max retries exceeded): %s"
 
 	SettingUp        TaskStatus = "Setting up task"
 	SettingUpSuccess TaskStatus = "Set up task"

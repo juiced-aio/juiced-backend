@@ -165,14 +165,14 @@ func (task *BaseTask) RunUntilSuccessful(function TaskFunction) bool {
 		}
 
 		for !success {
-			success = task.RunUntilSuccessfulHelper(function, attempt)
-			if success {
-				break
-			}
 			needToStop := task.CheckForStop()
 			if needToStop || attempt > function.MaxRetries {
 				task.StopFlag = true
 				return false
+			}
+			success = task.RunUntilSuccessfulHelper(function, attempt)
+			if success {
+				break
 			}
 			if attempt >= 0 {
 				attempt++
@@ -200,18 +200,25 @@ func (task *BaseTask) RunUntilSuccessfulHelper(function TaskFunction, attempt in
 
 		if attempt > 0 {
 			if status != "" {
-				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), 0, enums.TaskUpdate) // TODO
+				if attempt >= function.MaxRetries {
+					task.PublishEvent(fmt.Sprintf(enums.TaskMaxRetriesExceeded, status), 100, enums.TaskFail)
+					if function.CheckoutFunction {
+						return true
+					}
+				} else {
+					task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), function.StatusPercentage, enums.TaskUpdate)
+				}
 			}
 		} else {
 			if status != "" {
-				task.PublishEvent(fmt.Sprint("(Retrying) ", status), 0, enums.TaskUpdate) // TODO
+				task.PublishEvent(fmt.Sprint("(Retrying) ", status), function.StatusPercentage, enums.TaskUpdate)
 			}
 		}
 		return false
 	}
 
 	if status != "" {
-		task.PublishEvent(status, 0, enums.TaskUpdate) // TODO
+		task.PublishEvent(status, function.StatusPercentage, enums.TaskUpdate)
 	}
 	return true
 }
