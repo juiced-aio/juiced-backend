@@ -35,49 +35,57 @@ func (task *Task) GetMainFunctions() []entities.TaskFunction {
 		{
 			Function:         task.AddToCart,
 			StatusBegin:      enums.AddingToCart,
+			StatusPercentage: 50,
 			MsBetweenRetries: int(u.MS_TO_WAIT),
 		},
 		// 2. GetCheckoutInfo
 		{
-			Function:    task.GetCheckoutInfo,
-			StatusBegin: enums.GettingCartInfo,
-			MaxRetries:  MAX_RETRIES,
+			Function:         task.GetCheckoutInfo,
+			StatusBegin:      enums.GettingCartInfo,
+			StatusPercentage: 55,
+			MaxRetries:       MAX_RETRIES,
 		},
 		// 3. PrepareCheckout
 		{
-			Function:    task.PrepareCheckout,
-			StatusBegin: enums.SettingCartInfo,
-			MaxRetries:  MAX_RETRIES,
+			Function:         task.PrepareCheckout,
+			StatusBegin:      enums.SettingCartInfo,
+			StatusPercentage: 60,
+			MaxRetries:       MAX_RETRIES,
 		},
 		// 4. ProceedToGuestCheckout
 		{
-			Function:    task.ProceedToGuestCheckout,
-			StatusBegin: enums.GettingOrderInfo,
-			MaxRetries:  MAX_RETRIES,
+			Function:         task.ProceedToGuestCheckout,
+			StatusBegin:      enums.GettingOrderInfo,
+			StatusPercentage: 65,
+			MaxRetries:       MAX_RETRIES,
 		},
 		// 5. SubmitShippingDetails
 		{
-			Function:    task.SubmitShippingDetails,
-			StatusBegin: enums.SettingShippingInfo,
-			MaxRetries:  MAX_RETRIES,
+			Function:         task.SubmitShippingDetails,
+			StatusBegin:      enums.SettingShippingInfo,
+			StatusPercentage: 70,
+			MaxRetries:       MAX_RETRIES,
 		},
 		// 6. UseOriginalAddress
 		{
-			Function:    task.UseOriginalAddress,
-			StatusBegin: enums.SettingBillingInfo,
-			MaxRetries:  MAX_RETRIES,
+			Function:         task.UseOriginalAddress,
+			StatusBegin:      enums.SettingBillingInfo,
+			StatusPercentage: 75,
+			MaxRetries:       MAX_RETRIES,
 		},
 		// 7. SubmitPaymentDetails
 		{
-			Function:    task.SubmitPaymentDetails,
-			StatusBegin: enums.SettingOrderInfo,
-			MaxRetries:  MAX_RETRIES,
+			Function:         task.SubmitPaymentDetails,
+			StatusBegin:      enums.SettingOrderInfo,
+			StatusPercentage: 85,
+			MaxRetries:       MAX_RETRIES,
 		},
 		// 8. SubmitOrder
 		{
 			Function:         task.SubmitOrder,
 			StatusBegin:      enums.CheckingOut,
 			MaxRetries:       MAX_RETRIES,
+			StatusPercentage: 95,
 			CheckoutFunction: true,
 		},
 	}
@@ -400,7 +408,7 @@ func (task *Task) SubmitOrder() (bool, string) {
 		if !strings.Contains(body, "Your order could not be submitted") {
 			return true, enums.CheckingOutSuccess
 		} else {
-			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+			return false, enums.CardDeclined
 		}
 	}
 

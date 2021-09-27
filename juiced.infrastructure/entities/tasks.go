@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"runtime/debug"
+	"strings"
 	"time"
 
 	"backend.juicedbot.io/juiced.antibot/cloudflare"
@@ -29,10 +30,11 @@ type BaseTask struct {
 	TaskInput TaskInput `json:"taskInput"`
 
 	// In-memory values, omitted in DB serialization but included in JSON
-	Status         enums.TaskStatus `json:"status"`
-	Running        bool             `json:"running"`
-	ProductInfo    ProductInfo      `json:"productInfo"`
-	ActualQuantity int              `json:"actualQuantity"`
+	Status           enums.TaskStatus `json:"status"`
+	StatusPercentage int              `json:"statusPercentage"`
+	Running          bool             `json:"running"`
+	ProductInfo      ProductInfo      `json:"productInfo"`
+	ActualQuantity   int              `json:"actualQuantity"`
 
 	// In-memory values, omitted in DB serialization and JSON
 	Task       *Task               `json:"-"`
@@ -61,6 +63,7 @@ type RetailerTask interface {
 type TaskFunction struct {
 	Function         func() (bool, string)
 	StatusBegin      enums.TaskStatus
+	StatusPercentage int
 	MaxRetries       int
 	MsBetweenRetries int
 
@@ -87,6 +90,7 @@ type ProductInfo struct {
 
 func (task *BaseTask) PublishEvent(status enums.TaskStatus, statusPercentage int, eventType enums.TaskEventType) {
 	task.Status = status
+	task.StatusPercentage = statusPercentage
 	log.Println(status)
 	events.GetEventBus().PublishTaskEvent(status, statusPercentage, eventType, nil, task.Task.TaskGroupID, task.Task.ID)
 }
@@ -138,6 +142,7 @@ func (task *BaseTask) RunFunctions(functions []TaskFunction) bool {
 // 		Passing in 0 for maxRetries will retry the function indefinitely.
 //		Returns true if the function was successful, false if the function failed (and the task should stop)
 func (task *BaseTask) RunUntilSuccessful(function TaskFunction) bool {
+	task.PublishEvent(function.StatusBegin, function.StatusPercentage, enums.TaskUpdate)
 	var success bool
 	if function.RefreshFunction {
 		go task.RefreshWrapper(function)
@@ -160,7 +165,7 @@ func (task *BaseTask) RunUntilSuccessful(function TaskFunction) bool {
 		}
 
 		for !success {
-			success = task.RunUntilSuccessfulHelper(function.Function, attempt)
+			success = task.RunUntilSuccessfulHelper(function, attempt)
 			if success {
 				break
 			}
@@ -184,10 +189,15 @@ func (task *BaseTask) RunUntilSuccessful(function TaskFunction) bool {
 	return success
 }
 
-func (task *BaseTask) RunUntilSuccessfulHelper(fn func() (bool, string), attempt int) bool {
-	success, status := fn()
+func (task *BaseTask) RunUntilSuccessfulHelper(function TaskFunction, attempt int) bool {
+	success, status := function.Function()
 
 	if !success {
+		if function.CheckoutFunction && strings.Contains(status, enums.CardDeclined) || strings.Contains(status, enums.CheckedOut) {
+			task.PublishEvent(status, 100, enums.TaskComplete)
+			return true
+		}
+
 		if attempt > 0 {
 			if status != "" {
 				task.PublishEvent(fmt.Sprint(fmt.Sprintf("(Attempt #%d) ", attempt), status), 0, enums.TaskUpdate) // TODO

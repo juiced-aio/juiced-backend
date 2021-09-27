@@ -57,8 +57,6 @@ func main() {
 	// Start the websocket server
 	go ws.StartWebsocketServer(eventBus)
 
-	log.Println(1)
-
 	go func() {
 		// Wait for the client to connect to the websocket server
 		channel := make(chan events.Event)
@@ -70,7 +68,6 @@ func main() {
 				break
 			}
 		}
-		log.Println(2)
 
 		// Initalize the database
 		err := database.InitDatabase()

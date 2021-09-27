@@ -74,7 +74,8 @@ func HandleDatadomeMonitor(monitor *entities.BaseMonitor, retailer enums.Retaile
 
 func HandleDatadomeTask(task *entities.BaseTask, retailer enums.Retailer, baseURL *url.URL, referer, parentURL, domain string, body string) error {
 	currentStatus := task.Status
-	task.PublishEvent(enums.WaitingForCaptcha, 0, enums.TaskUpdate)
+	currentStatusPercentage := task.StatusPercentage
+	task.PublishEvent(enums.WaitingForCaptcha, currentStatusPercentage, enums.TaskUpdate)
 	quit := make(chan bool)
 	defer func() {
 		quit <- true
@@ -123,7 +124,7 @@ func HandleDatadomeTask(task *entities.BaseTask, retailer enums.Retailer, baseUR
 
 	err = SetDatadomeCookie(datadomeInfo, task.Client, task.Proxy, retailer, baseURL, referer, parentURL, domain, cancellationToken)
 	if err == nil {
-		task.PublishEvent(currentStatus, 0, enums.TaskUpdate)
+		task.PublishEvent(currentStatus, currentStatusPercentage, enums.TaskUpdate)
 	}
 	return err
 }

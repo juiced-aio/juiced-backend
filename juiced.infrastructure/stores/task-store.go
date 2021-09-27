@@ -15,8 +15,11 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	u "backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
+
+	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/util"
+
 	"github.com/google/uuid"
 )
 
@@ -42,6 +45,7 @@ func InitTaskStore() error {
 		taskPtr := &task
 
 		taskPtr.Task.Status = enums.TaskIdle
+		taskPtr.Task.StatusPercentage = 0
 		taskPtr.Task.Task = taskPtr
 
 		profilePtr, err := GetProfile(taskPtr.Task.TaskInput.ProfileID)
@@ -58,7 +62,7 @@ func InitTaskStore() error {
 			var retailerTask entities.RetailerTask
 			switch task.Retailer {
 			case enums.HotTopic:
-				retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+				retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.PokemonCenter:
 				retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
 
@@ -152,6 +156,7 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	}
 
 	task.Task.Status = enums.TaskIdle
+	task.Task.StatusPercentage = 0
 	task.Task.Task = taskPtr
 	task.Task.TaskGroup = taskGroupPtr
 	task.Task.Profile = profilePtr
@@ -167,7 +172,7 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	var retailerTask entities.RetailerTask
 	switch task.Retailer {
 	case enums.HotTopic:
-		retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+		retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
 
@@ -235,6 +240,7 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 
 	newBaseTask := *taskPtr.Task
 	newBaseTask.Status = enums.TaskIdle
+	newBaseTask.StatusPercentage = 0
 	newBaseTask.Running = false
 	newBaseTask.ProductInfo = entities.ProductInfo{}
 	newBaseTask.ActualQuantity = 0
@@ -270,7 +276,7 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 	var retailerTask entities.RetailerTask
 	switch newTask.Retailer {
 	case enums.HotTopic:
-		retailerTask, err = pokemoncenter.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
+		retailerTask, err = hottopic.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 
@@ -318,6 +324,7 @@ func StopTask(taskID string) error {
 
 	task.Task.StopFlag = true
 	task.Task.Status = enums.TaskIdle
+	task.Task.StatusPercentage = 0
 	task.Task.Running = false
 	task.Task.ProductInfo = entities.ProductInfo{}
 	task.Task.ActualQuantity = 0
@@ -361,7 +368,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 	task.Client = &taskClient
 	taskScraper := cloudflare.Init(taskClient, u.HAWK_KEY, false)
 	task.Scraper = &taskScraper
-	task.PublishEvent(enums.TaskStart, 5, enums.TaskStarted)
+	task.PublishEvent(enums.TaskStarted, 5, enums.TaskStart)
 
 	retailerTask := *task.RetailerTask
 	ranSetupFunctions := task.RunFunctions(retailerTask.GetSetupFunctions())

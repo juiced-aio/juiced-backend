@@ -399,7 +399,7 @@ func RunMonitor(monitor *entities.BaseMonitor) {
 
 	monitor.StopFlag = false
 	monitor.Running = true
-	monitor.PublishEvent(enums.MonitorStart, enums.Searching, nil)
+	monitor.PublishEvent(enums.SettingUpMonitor, enums.Searching, nil)
 
 	monitorClient, err := util.CreateClient()
 	if err != nil {
