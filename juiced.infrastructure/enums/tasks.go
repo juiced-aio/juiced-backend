@@ -70,7 +70,9 @@ const (
 )
 
 const (
-	UnknownError = "unknown error (status code: %d)"
+	UnknownError         = "unknown error (status code: %d)"
+	CaptchaRequiredError = "captcha required"
+	BadCaptchaTokenError = "bad captcha token"
 )
 
 type TaskEventType = string

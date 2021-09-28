@@ -16,6 +16,7 @@ import (
 	u "backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 
+	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
 	"backend.juicedbot.io/juiced.sitescripts/util"
@@ -61,6 +62,8 @@ func InitTaskStore() error {
 
 			var retailerTask entities.RetailerTask
 			switch task.Retailer {
+			case enums.GameStop:
+				retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.HotTopic:
 				retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.PokemonCenter:
@@ -171,6 +174,8 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch task.Retailer {
+	case enums.GameStop:
+		retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.HotTopic:
 		retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.PokemonCenter:
@@ -275,6 +280,8 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch newTask.Retailer {
+	case enums.GameStop:
+		retailerTask, err = gamestop.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.HotTopic:
 		retailerTask, err = hottopic.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.PokemonCenter:
@@ -376,6 +383,12 @@ func RunRetailerTask(task *entities.BaseTask) {
 		return
 	}
 
+	mainFunctions := retailerTask.GetMainFunctions()
+	firstFunctionPercentage := 50
+	if len(mainFunctions) > 0 {
+		firstFunctionPercentage = mainFunctions[len(mainFunctions)-1].StatusPercentage
+	}
+	task.PublishEvent(enums.WaitingForMonitor, firstFunctionPercentage-5, enums.TaskUpdate)
 	gotProductInfo := task.WaitForMonitor()
 	if !gotProductInfo {
 		return
@@ -383,7 +396,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 
 	startTime := time.Now().Unix()
 
-	ranMainFunctions := task.RunFunctions(retailerTask.GetMainFunctions())
+	ranMainFunctions := task.RunFunctions(mainFunctions)
 	if !ranMainFunctions {
 		return
 	}

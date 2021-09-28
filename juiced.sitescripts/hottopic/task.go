@@ -7,7 +7,6 @@ import (
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	u "backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
@@ -36,7 +35,7 @@ func (task *Task) GetMainFunctions() []entities.TaskFunction {
 			Function:         task.AddToCart,
 			StatusBegin:      enums.AddingToCart,
 			StatusPercentage: 50,
-			MsBetweenRetries: int(u.MS_TO_WAIT),
+			MsBetweenRetries: task.Input.DelayMS,
 		},
 		// 2. GetCheckoutInfo
 		{

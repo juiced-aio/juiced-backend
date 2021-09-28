@@ -55,6 +55,20 @@ func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
 	return cClient, err
 }
 
+func BecomeGuest(client *http.Client, baseEndpoint string) bool {
+	resp, _, err := MakeRequest(&Request{
+		Client:     client,
+		Method:     "GET",
+		URL:        baseEndpoint,
+		RawHeaders: DefaultRawHeaders,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+
+	return true
+}
+
 func HandleErrors(err error, errorType ErrorType) bool {
 	if err != nil {
 		switch errorType {

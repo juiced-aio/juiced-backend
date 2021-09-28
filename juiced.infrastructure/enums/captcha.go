@@ -22,18 +22,20 @@ type ReCaptchaSitekey = string
 
 const (
 	DisneySiteKey        ReCaptchaSitekey = "6Le2CasZAAAAAIVarP3wVo8isBezMJODg68gegRg"
+	GamestopSiteKey      ReCaptchaSitekey = "6LfW5QQTAAAAAA3dNAQxY-moKXlb6Ok8hhxkEhNz"
 	HotWheelsSitekey     ReCaptchaSitekey = "6LeXJ7oUAAAAAHIpfRvgjs3lcJiO_zMC1LAZWlSz"
+	PokemonCenterSitekey ReCaptchaSitekey = "6LcSzk8bAAAAAOTkPCjprgWDMPzo_kgGC3E5Vn-T"
 	ToppsSiteKey         ReCaptchaSitekey = "6LeBF1oaAAAAAOE7aQAZOLBjA1AVAYjVc9ulo4xh"
 	WalmartSitekey       ReCaptchaSitekey = "6Lc8-RIaAAAAAPWSm2FVTyBg-Zkz2UjsWWfrkgYN"
-	PokemonCenterSitekey ReCaptchaSitekey = "6LcSzk8bAAAAAOTkPCjprgWDMPzo_kgGC3E5Vn-T"
 )
 
 var ReCaptchaSitekeys = map[Retailer]ReCaptchaSitekey{
 	Disney:        DisneySiteKey,
 	HotWheels:     HotWheelsSitekey,
+	GameStop:      GamestopSiteKey,
+	PokemonCenter: PokemonCenterSitekey,
 	Topps:         ToppsSiteKey,
 	Walmart:       WalmartSitekey,
-	PokemonCenter: PokemonCenterSitekey,
 }
 
 type HCaptchaSitekey = string
