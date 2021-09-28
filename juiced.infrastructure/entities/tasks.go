@@ -89,6 +89,9 @@ type ProductInfo struct {
 }
 
 func (task *BaseTask) PublishEvent(status enums.TaskStatus, statusPercentage int, eventType enums.TaskEventType) {
+	if task.StopFlag && (statusPercentage != 0 && statusPercentage != 100) {
+		return
+	}
 	task.Status = status
 	task.StatusPercentage = statusPercentage
 	log.Println(status)
