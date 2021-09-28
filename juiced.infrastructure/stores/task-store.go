@@ -361,7 +361,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 
 	CheckForTaskGroupStart(task.Task.TaskGroupID)
 
-	taskClient, err := util.CreateClient()
+	taskClient, err := util.CreateClient(task.Proxy)
 	if err != nil {
 		panic("could not create HTTP client")
 	}
