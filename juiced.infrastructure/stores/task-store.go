@@ -16,6 +16,7 @@ import (
 	u "backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
@@ -62,6 +63,8 @@ func InitTaskStore() error {
 
 			var retailerTask entities.RetailerTask
 			switch task.Retailer {
+			case enums.BoxLunch:
+				retailerTask, err = boxlunch.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.GameStop:
 				retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.HotTopic:
@@ -174,6 +177,8 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch task.Retailer {
+	case enums.BoxLunch:
+		retailerTask, err = boxlunch.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.GameStop:
 		retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.HotTopic:
@@ -280,6 +285,8 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch newTask.Retailer {
+	case enums.BoxLunch:
+		retailerTask, err = boxlunch.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.GameStop:
 		retailerTask, err = gamestop.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.HotTopic:
@@ -386,7 +393,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 	mainFunctions := retailerTask.GetMainFunctions()
 	firstFunctionPercentage := 50
 	if len(mainFunctions) > 0 {
-		firstFunctionPercentage = mainFunctions[len(mainFunctions)-1].StatusPercentage
+		firstFunctionPercentage = mainFunctions[0].StatusPercentage
 	}
 	task.PublishEvent(enums.WaitingForMonitor, firstFunctionPercentage-5, enums.TaskUpdate)
 	gotProductInfo := task.WaitForMonitor()
