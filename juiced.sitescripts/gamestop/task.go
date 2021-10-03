@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"time"
+	"strings"
 
 	"backend.juicedbot.io/juiced.antibot/akamai"
-	"backend.juicedbot.io/juiced.infrastructure/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	u "backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
+	"github.com/anaskhan96/soup"
 	browser "github.com/eddycjy/fake-useragent"
 )
 
@@ -80,8 +80,37 @@ func (task *Task) GetMainFunctions() []entities.TaskFunction {
 		{
 			Function:         task.AddToCart,
 			StatusBegin:      enums.AddingToCart,
-			StatusPercentage: 50,
+			StatusPercentage: 55,
 			MsBetweenRetries: task.Input.DelayMS,
+		},
+		// 4. GetCartInfo
+		{
+			Function:         task.GetCartInfo,
+			StatusBegin:      enums.GettingCartInfo,
+			StatusPercentage: 65,
+			MaxRetries:       MAX_RETRIES,
+		},
+		// 5. SubmitShippingDetails
+		{
+			Function:         task.SubmitShippingDetails,
+			StatusBegin:      enums.SettingShippingInfo,
+			StatusPercentage: 75,
+			MaxRetries:       MAX_RETRIES,
+		},
+		// 6. SubmitPaymentDetails
+		{
+			Function:         task.SubmitPaymentDetails,
+			StatusBegin:      enums.SettingBillingInfo,
+			StatusPercentage: 85,
+			MaxRetries:       MAX_RETRIES,
+		},
+		// 7. SubmitOrder
+		{
+			Function:         task.SubmitOrder,
+			StatusBegin:      enums.CheckingOut,
+			StatusPercentage: 95,
+			MaxRetries:       MAX_RETRIES,
+			CheckoutFunction: true,
 		},
 	}
 	return mainTaskFunctions
@@ -262,7 +291,7 @@ func (task *Task) AddToCart() (bool, string) {
 	resp, _, err := util.MakeRequest(&util.Request{
 		Client: task.BaseTask.Client,
 		Method: "POST",
-		URL:    fmt.Sprintf(AddToCartEndpoint, task.BaseTask.ProductInfo.SKU),
+		URL:    fmt.Sprintf(AddToCartEndpoint, pid),
 		RawHeaders: [][2]string{
 			{"content-length", fmt.Sprint(len(form.Encode()))},
 			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
@@ -293,27 +322,13 @@ func (task *Task) AddToCart() (bool, string) {
 			if addToCartResponse.CaptchaProtected {
 				task.BaseTask.PublishEvent(enums.WaitingForCaptcha, 50, enums.TaskUpdate)
 				task.CaptchaProtected = true
-				proxy := entities.Proxy{}
-				if task.BaseTask.Proxy != nil {
-					proxy = *task.BaseTask.Proxy
-				}
-				token, err := captcha.RequestCaptchaToken(enums.ReCaptchaV2, enums.GameStop, task.BaseTask.ProductInfo.ItemURL, "atc", 0.8, proxy)
+
+				token, err := task.RequestCaptchaToken(task.BaseTask.ProductInfo.ItemURL, "atc", 0.8)
 				if err != nil {
 					return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 				}
-				for token == nil {
-					needToStop := task.BaseTask.CheckForStop()
-					if needToStop {
-						return false, ""
-					}
-					token = captcha.PollCaptchaTokens(enums.ReCaptchaV2, enums.GameStop, task.BaseTask.ProductInfo.ItemURL, proxy)
-					time.Sleep(1 * time.Second / 10)
-				}
-				tokenInfo, ok := token.(entities.ReCaptchaToken)
-				if !ok {
-					return false, fmt.Sprintf(enums.AddingToCartFailure, enums.BadCaptchaTokenError)
-				}
-				task.CaptchaToken = tokenInfo.Token
+
+				task.CaptchaToken = token
 
 				needToStop := task.BaseTask.CheckForStop()
 				if needToStop {
@@ -331,10 +346,296 @@ func (task *Task) AddToCart() (bool, string) {
 	case 403:
 		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
 		if err != nil {
-			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+			return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 		}
 		return false, ""
 	}
 
 	return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
+}
+
+func (task *Task) GetCartInfo() (bool, string) {
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "GET",
+		URL:    CheckoutEndpoint + "/",
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"sec-ch-ua-mobile", "?0"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-user", "?1"},
+			{"sec-fetch-dest", "document"},
+			{"referer", CheckoutLoginEndpoint + "/"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err != nil {
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		doc := soup.HTMLParse(string(body))
+		shipmentUUIDInput := doc.Find("input", "name", "shipmentUUID")
+		if shipmentUUIDInput.Error != nil {
+			return false, fmt.Sprintf(enums.GettingCartInfoFailure, shipmentUUIDInput.Error.Error())
+		}
+		task.ShipmentUUID = shipmentUUIDInput.Attrs()["value"]
+		originalShipmentUUIDInput := doc.Find("input", "name", "originalShipmentUUID")
+		if originalShipmentUUIDInput.Error != nil {
+			return false, fmt.Sprintf(enums.GettingCartInfoFailure, originalShipmentUUIDInput.Error.Error())
+		}
+		task.OriginalShipmentUUID = originalShipmentUUIDInput.Attrs()["value"]
+		csrfInput := doc.Find("input", "name", "csrf_token")
+		if csrfInput.Error != nil {
+			return false, fmt.Sprintf(enums.GettingCartInfoFailure, csrfInput.Error.Error())
+		}
+		task.CSRF = csrfInput.Attrs()["value"]
+		if task.ShipmentUUID != "" && task.OriginalShipmentUUID != "" && task.CSRF != "" {
+			return true, enums.GettingCartInfoSuccess
+		}
+		return false, fmt.Sprintf(enums.GettingCartInfoFailure, EmptyCSRFValuesError)
+
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.GettingCartInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
+}
+
+func (task *Task) SubmitShippingDetails() (bool, string) {
+	form := url.Values{
+		"originalShipmentUUID":             {task.OriginalShipmentUUID},
+		"shipmentUUID":                     {task.ShipmentUUID},
+		"shippingAddressUpdateLinkClicked": {"false"},
+		"dwfrm_shipping_shippingAddress_addressFields_firstName":        {task.BaseTask.Profile.ShippingAddress.FirstName},
+		"dwfrm_shipping_shippingAddress_addressFields_lastName":         {task.BaseTask.Profile.ShippingAddress.LastName},
+		"dwfrm_shipping_shippingAddress_addressFields_address1":         {task.BaseTask.Profile.ShippingAddress.Address1},
+		"dwfrm_shipping_shippingAddress_addressFields_address2":         {task.BaseTask.Profile.ShippingAddress.Address2},
+		"dwfrm_shipping_shippingAddress_addressFields_country":          {task.BaseTask.Profile.ShippingAddress.CountryCode},
+		"dwfrm_shipping_shippingAddress_addressFields_postalCode":       {task.BaseTask.Profile.ShippingAddress.ZipCode},
+		"dwfrm_shipping_shippingAddress_addressFields_city":             {task.BaseTask.Profile.ShippingAddress.City},
+		"dwfrm_shipping_shippingAddress_addressFields_states_stateCode": {task.BaseTask.Profile.ShippingAddress.StateCode},
+		"dwfrm_billing_email_emailAddress":                              {task.BaseTask.Profile.Email},
+		"dwfrm_shipping_shippingAddress_addressFields_phone":            {task.BaseTask.Profile.PhoneNumber},
+		"dwfrm_shipping_shippingAddress_shippingMethodID":               {"16"},
+		"csrf_token": {task.CSRF},
+	}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "POST",
+		URL:    ShippingEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(form.Encode()))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "application/json, text/javascript, */*; q=0.01"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", CheckoutEndpoint + "/"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: []byte(form.Encode()),
+	})
+	if err != nil {
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		return true, enums.SettingShippingInfoSuccess
+
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.SettingShippingInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
+}
+
+func (task *Task) SubmitPaymentDetails() (bool, string) {
+	err := akamai.HandleAkamaiTask(task.BaseTask, PaymentEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+	if err != nil {
+		return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+	}
+
+	cardType := util.DetectRetailerCardType([]byte(task.BaseTask.Profile.CreditCard.CardNumber), enums.GameStop)
+
+	expMonth := task.BaseTask.Profile.CreditCard.ExpMonth
+	if task.BaseTask.Profile.CreditCard.ExpMonth[0:1] == "0" {
+		expMonth = task.BaseTask.Profile.CreditCard.ExpMonth[1:]
+	}
+	form := url.Values{
+		"dwfrm_giftCard_balance_accountNumber":               {""},
+		"dwfrm_giftCard_balance_pinNumber":                   {""},
+		"g-recaptcha-response":                               {""},
+		"dwfrm_billing_paymentMethod":                        {"CREDIT_CARD"},
+		"dwfrm_billing_creditCardFields_cardType":            {cardType},
+		"dwfrm_billing_creditCardFields_cardNumber":          {task.BaseTask.Profile.CreditCard.CardNumber},
+		"dwfrm_billing_creditCardFields_expirationMonth":     {expMonth},
+		"dwfrm_billing_creditCardFields_expirationYear":      {task.BaseTask.Profile.CreditCard.ExpYear},
+		"dwfrm_billing_creditCardFields_securityCode":        {task.BaseTask.Profile.CreditCard.CVV},
+		"addressSelector":                                    {"new"},
+		"dwfrm_billing_addressFields_firstName":              {task.BaseTask.Profile.BillingAddress.FirstName},
+		"dwfrm_billing_addressFields_lastName":               {task.BaseTask.Profile.BillingAddress.LastName},
+		"dwfrm_billing_addressFields_address1":               {strings.ToUpper(task.BaseTask.Profile.BillingAddress.Address1)},
+		"dwfrm_billing_addressFields_address2":               {strings.ToUpper(task.BaseTask.Profile.BillingAddress.Address2)},
+		"dwfrm_billing_addressFields_country":                {task.BaseTask.Profile.BillingAddress.CountryCode},
+		"dwfrm_billing_addressFields_postalCode":             {task.BaseTask.Profile.BillingAddress.ZipCode},
+		"dwfrm_billing_addressFields_city":                   {strings.ToUpper(task.BaseTask.Profile.BillingAddress.City)},
+		"dwfrm_billing_addressFields_states_stateCode":       {task.BaseTask.Profile.BillingAddress.StateCode},
+		"dwfrm_billing_email_emailAddress":                   {task.BaseTask.Profile.Email},
+		"dwfrm_billing_addressFields_phone":                  {task.BaseTask.Profile.PhoneNumber},
+		"dwfrm_billing_purCreditCardFields_purAccountNumber": {""},
+		"flexPay":              {"nonFlexPayment"},
+		"flexPayImgUrls":       {""},
+		"flexPayEnable":        {"true"},
+		"flexPayEnableQuadPay": {""},
+		"flexPayEnableKlarna":  {""},
+		"flexPayEnableSezzle":  {""},
+		"csrf_token":           {task.CSRF},
+		"flexpay":              {"nonFlexPayment"},
+		"dwfrm_billing_accertify_accertifyDeviceFingerprint": {""},
+	}
+
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "POST",
+		URL:    PaymentEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(form.Encode()))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", CheckoutEndpoint + "/"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data: []byte(form.Encode()),
+	})
+	if err != nil {
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		return true, enums.SettingBillingInfoSuccess
+
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.SettingBillingInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
+}
+
+func (task *Task) SubmitOrder() (bool, string) {
+	placeOrderResponse := PlaceOrderResponse{}
+	form := url.Values{
+		"klarnaOrderId":              {""},
+		"accertifyDeviceFingerprint": {""},
+	}
+
+	if task.CaptchaProtected {
+		task.BaseTask.PublishEvent(enums.WaitingForCaptcha, 95, enums.TaskUpdate)
+		task.CaptchaProtected = true
+
+		token, err := task.RequestCaptchaToken(CheckoutEndpoint+"/", "checkout", 0.8)
+		if err != nil {
+			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		}
+		form.Add("g-recaptcha-response", token)
+
+		needToStop := task.BaseTask.CheckForStop()
+		if needToStop {
+			return false, ""
+		}
+
+		task.BaseTask.PublishEvent(enums.CheckingOut, 95, enums.TaskUpdate)
+	}
+
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "POST",
+		URL:    PlaceOrderEndpoint,
+		RawHeaders: [][2]string{
+			{"content-length", fmt.Sprint(len(form.Encode()))},
+			{"sec-ch-ua", "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""},
+			{"accept", "*/*"},
+			{"x-requested-with", "XMLHttpRequest"},
+			{"sec-ch-ua-mobile", "?0"},
+			{"user-agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"},
+			{"content-type", "application/x-www-form-urlencoded; charset=UTF-8"},
+			{"origin", BaseEndpoint},
+			{"sec-fetch-site", "same-origin"},
+			{"sec-fetch-mode", "cors"},
+			{"sec-fetch-dest", "empty"},
+			{"referer", CheckoutEndpoint + "/"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+		Data:               []byte(form.Encode()),
+		ResponseBodyStruct: &placeOrderResponse,
+	})
+	// ok := util.HandleErrors(err, util.RequestDoError)
+	// if !ok {
+	// 	return false, status
+	// }
+	if err != nil {
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		if placeOrderResponse.Error {
+			if strings.Contains(placeOrderResponse.ErrorMessage, "another form of payment") ||
+				strings.Contains(placeOrderResponse.ErrorMessage, "The payment you submitted is not valid") {
+				return false, enums.CardDeclined
+			}
+			return false, fmt.Sprintf(enums.CheckingOutFailure, placeOrderResponse.ErrorMessage)
+		} else {
+			return true, enums.CheckingOutSuccess
+		}
+
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.CheckingOutFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }

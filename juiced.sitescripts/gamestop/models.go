@@ -24,6 +24,11 @@ const (
 	PlaceOrderEndpoint    = "https://www.gamestop.com/on/demandware.store/Sites-gamestop-us-Site/default/CheckoutServices-PlaceOrder"
 )
 
+// Errors
+const (
+	EmptyCSRFValuesError = "empty csrf input value(s)"
+)
+
 type SKUMonitor struct {
 	Input         entities.MonitorInput
 	GameStopInput MonitorInput

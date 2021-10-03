@@ -82,9 +82,9 @@ type AddToCartResponse struct {
 
 type PlaceOrderResponse struct {
 	Action       string          `json:"action"`
-	Querystring  string          `json:"queryString"`
+	QueryString  string          `json:"queryString"`
 	Locale       string          `json:"locale"`
 	Error        bool            `json:"error"`
-	Errormessage string          `json:"errorMessage"`
-	Mccevents    [][]interface{} `json:"__mccEvents"`
+	ErrorMessage string          `json:"errorMessage"`
+	MccEvents    [][]interface{} `json:"__mccEvents"`
 }

@@ -16,6 +16,7 @@ import (
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
 	"backend.juicedbot.io/juiced.client/utls"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 )
 
 func AddBaseHeaders(request *http.Request) {
@@ -226,6 +227,76 @@ func DetectCardType(cardNumber []byte) string {
 	matched, _ = regexp.Match(`^(4026|417500|4508|4844|491(3|7))`, cardNumber)
 	if matched {
 		return "Visa Electron"
+	}
+
+	return ""
+}
+
+func DetectRetailerCardType(cardNumber []byte, retailer enums.Retailer) string {
+	cardType := DetectCardType(cardNumber)
+	switch cardType {
+	case "Visa":
+		switch retailer {
+		case enums.Walmart:
+			return "VISA"
+		default:
+			return "Visa"
+		}
+	case "Mastercard":
+		switch retailer {
+		case enums.GameStop:
+			return "MasterCard"
+		case enums.Walmart:
+			return "MASTERCARD"
+		default:
+			return "Mastercard"
+		}
+	case "AMEX":
+		switch retailer {
+		default:
+			return "AMEX"
+		}
+	case "Discover":
+		switch retailer {
+		case enums.Walmart:
+			return "DISCOVER"
+		default:
+			return "Discover"
+		}
+	case "Diners":
+		switch retailer {
+		case enums.GameStop:
+		case enums.Walmart:
+		default:
+			return "Diners"
+		}
+	case "Diners - Carte Blanche":
+		switch retailer {
+		case enums.BestBuy:
+		case enums.BoxLunch:
+		case enums.GameStop:
+			return "MasterCard"
+		case enums.HotTopic:
+		case enums.Walmart:
+		default:
+			return "Diners - Carte Blanche"
+		}
+	case "JCB":
+		switch retailer {
+		case enums.BoxLunch:
+		case enums.GameStop:
+			return "Unknown"
+		case enums.HotTopic:
+		case enums.Target:
+		case enums.Walmart:
+		default:
+			return "JCB"
+		}
+	case "Visa Electron":
+		switch retailer {
+		default:
+			return "Visa Electron"
+		}
 	}
 
 	return ""
