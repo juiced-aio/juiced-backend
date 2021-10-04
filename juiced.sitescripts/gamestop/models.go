@@ -68,6 +68,6 @@ type TaskInput struct {
 }
 
 type SizeInfo struct {
-	SizePID string
-	Size    string
+	VID  string
+	Size string
 }

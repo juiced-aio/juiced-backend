@@ -124,7 +124,8 @@ func (task *Task) Login() (bool, string) {
 		RawHeaders: util.DefaultRawHeaders,
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 	switch resp.StatusCode {
 	case 200:
@@ -323,7 +324,7 @@ func (task *Task) AddToCart() (bool, string) {
 				task.BaseTask.PublishEvent(enums.WaitingForCaptcha, 50, enums.TaskUpdate)
 				task.CaptchaProtected = true
 
-				token, err := task.RequestCaptchaToken(task.BaseTask.ProductInfo.ItemURL, "atc", 0.8)
+				token, err := util.RequestCaptchaToken(task.BaseTask, enums.ReCaptchaV2, enums.GameStop, task.BaseTask.ProductInfo.ItemURL, "atc", 0.8)
 				if err != nil {
 					return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 				}
@@ -571,7 +572,7 @@ func (task *Task) SubmitOrder() (bool, string) {
 		task.BaseTask.PublishEvent(enums.WaitingForCaptcha, 95, enums.TaskUpdate)
 		task.CaptchaProtected = true
 
-		token, err := task.RequestCaptchaToken(CheckoutEndpoint+"/", "checkout", 0.8)
+		token, err := util.RequestCaptchaToken(task.BaseTask, enums.ReCaptchaV2, enums.GameStop, CheckoutEndpoint+"/", "checkout", 0.8)
 		if err != nil {
 			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 		}

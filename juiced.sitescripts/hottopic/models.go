@@ -53,9 +53,9 @@ type MonitorInput struct {
 }
 
 type HotTopicProductInfo struct {
-	SizePID string
-	Size    string
-	Color   string
+	VID   string
+	Size  string
+	Color string
 }
 
 type Task struct {
@@ -71,6 +71,6 @@ type Task struct {
 type TaskInput struct{}
 
 type SizeInfo struct {
-	SizePID string
-	Size    string
+	VID  string
+	Size string
 }

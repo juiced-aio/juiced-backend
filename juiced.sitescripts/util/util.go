@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,11 +11,13 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
 	"backend.juicedbot.io/juiced.client/utls"
+	"backend.juicedbot.io/juiced.infrastructure/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 )
@@ -186,6 +189,31 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	newBody = strings.ReplaceAll(newBody, "\t", "")
 
 	return response, newBody, nil
+}
+
+func RequestCaptchaToken(baseTask *entities.BaseTask, retailer enums.Retailer, captchaType enums.CaptchaType, url, action string, score float32) (string, error) {
+	proxy := entities.Proxy{}
+	if baseTask.Proxy != nil {
+		proxy = *baseTask.Proxy
+	}
+	token, err := captcha.RequestCaptchaToken(captchaType, retailer, url, action, score, proxy)
+	if err != nil {
+		return "", err
+	}
+	for token == nil {
+		needToStop := baseTask.CheckForStop()
+		if needToStop {
+			return "", nil
+		}
+		token = captcha.PollCaptchaTokens(captchaType, retailer, url, proxy)
+		time.Sleep(1 * time.Second / 10)
+	}
+	tokenInfo, ok := token.(entities.ReCaptchaToken)
+	if !ok {
+		return "", errors.New(enums.BadCaptchaTokenError)
+	}
+
+	return tokenInfo.Token, nil
 }
 
 func DetectCardType(cardNumber []byte) string {

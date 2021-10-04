@@ -204,9 +204,9 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 			ItemURL:      fmt.Sprintf(ProductEndpoint, pid),
 			ImageURL:     imageURL,
 			SiteSpecificInfo: structs.Map(HotTopicProductInfo{
-				SizePID: pid,
-				Size:    "",
-				Color:   defaultColor,
+				VID:   pid,
+				Size:  "",
+				Color: defaultColor,
 			}),
 		})
 		return sizes, colors, productInfos, nil
@@ -243,8 +243,8 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 						size := sizeListLink.Attrs()["title"]
 						if len(colors) > 1 || !strings.Contains(sizeListItem.Attrs()["class"], "unselectable") {
 							sizes = append(sizes, SizeInfo{
-								SizePID: fmt.Sprint(intPid + index + 1),
-								Size:    size,
+								VID:  fmt.Sprint(intPid + index + 1),
+								Size: size,
 							})
 						}
 					}
@@ -253,7 +253,7 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 		}
 	} else {
 		sizes = append(sizes, SizeInfo{
-			SizePID: pid,
+			VID: pid,
 		})
 	}
 
@@ -282,9 +282,9 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 				ItemURL:      fmt.Sprintf(ProductEndpoint, pid),
 				ImageURL:     imageURL,
 				SiteSpecificInfo: structs.Map(HotTopicProductInfo{
-					SizePID: size.SizePID,
-					Size:    size.Size,
-					Color:   colors[0],
+					VID:   size.VID,
+					Size:  size.Size,
+					Color: colors[0],
 				}),
 			})
 		}
@@ -353,13 +353,13 @@ func (monitor *SKUMonitor) GetInStockSizesForColor(pid string, sizes []SizeInfo,
 
 func (monitor *SKUMonitor) GetColorVariationInfo(body, pid, color string, sizes []SizeInfo) []entities.ProductInfo {
 	var productInfos []entities.ProductInfo
-	var sizePID string
+	var vid string
 
 	doc := soup.HTMLParse(body)
 
 	pidItem := doc.Find("input", "id", "pid")
 	if pidItem.Error == nil {
-		sizePID = pidItem.Attrs()["value"]
+		vid = pidItem.Attrs()["value"]
 	}
 
 	priceText := doc.Find("span", "class", "productdetail__info-pricing-sale")
@@ -407,9 +407,9 @@ func (monitor *SKUMonitor) GetColorVariationInfo(body, pid, color string, sizes 
 						ItemURL:      fmt.Sprintf(ProductEndpoint, pid),
 						ImageURL:     imageURL,
 						SiteSpecificInfo: structs.Map(HotTopicProductInfo{
-							SizePID: sizePID,
-							Size:    size,
-							Color:   color,
+							VID:   vid,
+							Size:  size,
+							Color: color,
 						}),
 					})
 				}
