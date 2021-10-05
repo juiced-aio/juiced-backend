@@ -41,8 +41,10 @@ const (
 
 	PlaceOrderEndpoint = "https://paymentsheet.wdprapps.disney.com/api/v3/process/%v"
 
-	MonitorEndpoint  = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
-	MonitorEndpoint2 = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color=%s&dwvar_%s_size=%s"
+	MonitorEndpoint         = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax"
+	MonitorEndpoint2        = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color=%s&dwvar_%s_size=%s"
+	MonitorEndpoint2NoColor = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_size=%s"
+	MonitorEndpoint2NoSize  = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Product-Variation?pid=%s&Quantity=1&format=ajax&dwvar_%s_color=%s"
 )
 
 // Errors
@@ -92,7 +94,7 @@ type TaskInput struct {
 	TaskType enums.TaskType
 }
 
-type SizeInfo struct {
-	VID  string
-	Size string
+type Combination struct {
+	Size  string
+	Color string
 }

@@ -30,6 +30,12 @@ type ImageResponse struct {
 }
 
 type PriceResponse struct {
+	Sales SalesResponse        `json:"sales"`
+	Min   SalesResponseWrapper `json:"min"`
+	Max   SalesResponseWrapper `json:"max"`
+}
+
+type SalesResponseWrapper struct {
 	Sales SalesResponse `json:"sales"`
 }
 

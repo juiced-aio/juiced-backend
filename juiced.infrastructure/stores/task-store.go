@@ -17,6 +17,7 @@ import (
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 
 	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
+	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
@@ -65,6 +66,8 @@ func InitTaskStore() error {
 			switch task.Retailer {
 			case enums.BoxLunch:
 				retailerTask, err = boxlunch.CreateTask(task.Task.TaskInput, task.Task)
+			case enums.Disney:
+				retailerTask, err = disney.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.GameStop:
 				retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.HotTopic:
@@ -179,6 +182,8 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	switch task.Retailer {
 	case enums.BoxLunch:
 		retailerTask, err = boxlunch.CreateTask(task.Task.TaskInput, task.Task)
+	case enums.Disney:
+		retailerTask, err = disney.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.GameStop:
 		retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.HotTopic:
@@ -287,6 +292,8 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 	switch newTask.Retailer {
 	case enums.BoxLunch:
 		retailerTask, err = boxlunch.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
+	case enums.Disney:
+		retailerTask, err = disney.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.GameStop:
 		retailerTask, err = gamestop.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.HotTopic:

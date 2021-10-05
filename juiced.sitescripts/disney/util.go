@@ -6,13 +6,13 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 )
 
-const SKU_FORMAT = "XXXXXXXX"
+const SKU_FORMAT = "XXXXXXXXXXXX"
 
 func ValidateMonitorInput(input string, monitorType enums.MonitorType, info map[string]interface{}) (MonitorInput, error) {
 	disneyMonitorInput := MonitorInput{}
 	switch monitorType {
 	case enums.SKUMonitor:
-		if len(input) != 8 {
+		if len(input) < len(SKU_FORMAT) {
 			return disneyMonitorInput, &enums.InvalidSKUError{Retailer: enums.Disney, Format: SKU_FORMAT}
 		}
 

@@ -14,6 +14,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/events"
 	u "backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
+	"backend.juicedbot.io/juiced.sitescripts/disney"
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
@@ -56,6 +57,8 @@ func InitTaskGroupStore() error {
 			switch taskGroup.Retailer {
 			case enums.BoxLunch:
 				retailerMonitor, err = boxlunch.CreateMonitor(monitor.MonitorInput, monitor)
+			case enums.Disney:
+				retailerMonitor, err = disney.CreateMonitor(monitor.MonitorInput, monitor)
 			case enums.GameStop:
 				retailerMonitor, err = gamestop.CreateMonitor(monitor.MonitorInput, monitor)
 			case enums.HotTopic:
@@ -149,6 +152,8 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 		switch taskGroup.Retailer {
 		case enums.BoxLunch:
 			retailerMonitor, err = boxlunch.CreateMonitor(monitor.MonitorInput, monitor)
+		case enums.Disney:
+			retailerMonitor, err = disney.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.GameStop:
 			retailerMonitor, err = gamestop.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.HotTopic:
@@ -231,6 +236,8 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 		switch newTaskGroup.Retailer {
 		case enums.BoxLunch:
 			retailerMonitor, err = boxlunch.CreateMonitor(monitor.MonitorInput, monitor)
+		case enums.Disney:
+			retailerMonitor, err = disney.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.GameStop:
 			retailerMonitor, err = gamestop.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.HotTopic:

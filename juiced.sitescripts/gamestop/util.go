@@ -12,7 +12,7 @@ func ValidateMonitorInput(input string, monitorType enums.MonitorType, info map[
 	gameStopMonitorInput := MonitorInput{}
 	switch monitorType {
 	case enums.SKUMonitor:
-		if len(input) != 8 {
+		if len(input) != len(SKU_FORMAT) {
 			return gameStopMonitorInput, &enums.InvalidSKUError{Retailer: enums.GameStop, Format: SKU_FORMAT}
 		}
 

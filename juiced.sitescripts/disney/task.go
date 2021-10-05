@@ -443,9 +443,14 @@ func (task *Task) AddToCart() (bool, string) {
 		pid = vid
 	}
 
+	quantity := task.Input.Quantity
+	if quantityLimit, ok := task.BaseTask.ProductInfo.SiteSpecificInfo["QuantityLimit"].(int); ok && quantityLimit > 0 && quantity > quantityLimit {
+		quantity = quantityLimit
+	}
+
 	data := []byte(u.CreateParams(map[string]string{
 		"pid":      pid,
-		"quantity": fmt.Sprint(task.Input.Quantity),
+		"quantity": fmt.Sprint(quantity),
 	}))
 	addToCartResponse := AddToCartResponse{}
 

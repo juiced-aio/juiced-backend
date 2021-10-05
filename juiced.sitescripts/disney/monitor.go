@@ -16,13 +16,6 @@ import (
 	"github.com/fatih/structs"
 )
 
-// Test
-//	1. Standard
-// 	2. Size variants
-// 	3. Color variants
-//	4. Size and color variants
-// 	5. Non-standard but still no variants
-
 func CreateMonitor(input entities.MonitorInput, baseMonitor *entities.BaseMonitor) (entities.Monitor, error) {
 	switch input.MonitorType {
 	case enums.SKUMonitor:
@@ -57,9 +50,9 @@ func (monitor *SKUMonitor) GetProductInfos() ([]entities.ProductInfo, error) {
 	// Filter the sizes we found with the ones the monitor has been provided
 	sizesJoined := monitor.DisneyInput.Size
 	if sizesJoined != "" {
-		filteredSizes := []SizeInfo{}
+		filteredSizes := []string{}
 		for _, size := range sizes {
-			if strings.Contains(strings.ToLower(sizesJoined), strings.ToLower(size.Size)) {
+			if strings.Contains(strings.ToLower(sizesJoined), strings.ToLower(size)) {
 				filteredSizes = append(filteredSizes, size)
 			}
 		}
@@ -77,7 +70,7 @@ func (monitor *SKUMonitor) GetProductInfos() ([]entities.ProductInfo, error) {
 		colors = filteredColors
 	}
 
-	if len(sizes) > 0 && len(colors) > 0 {
+	if len(sizes) > 0 || len(colors) > 0 {
 		productInfos = monitor.GetInStockVariations(monitor.Input.Input, sizes, colors)
 		if len(productInfos) > 0 {
 			return productInfos, nil
@@ -97,7 +90,7 @@ func (monitor *SKUMonitor) GetProductInfos() ([]entities.ProductInfo, error) {
 	return productInfos, nil
 }
 
-func (monitor *SKUMonitor) GetSizeAndColor(pid string) ([]SizeInfo, []string, []entities.ProductInfo, error) {
+func (monitor *SKUMonitor) GetSizeAndColor(pid string) ([]string, []string, []entities.ProductInfo, error) {
 	var productInfos []entities.ProductInfo
 	endpoint := fmt.Sprintf(MonitorEndpoint, pid)
 
@@ -120,22 +113,22 @@ func (monitor *SKUMonitor) GetSizeAndColor(pid string) ([]SizeInfo, []string, []
 		},
 	})
 	if err != nil {
-		return []SizeInfo{}, []string{}, productInfos, err
+		return []string{}, []string{}, productInfos, err
 	}
 
 	switch resp.StatusCode {
 	case 200:
 		return monitor.GetVariationInfo(body, pid)
 	case 404:
-		return []SizeInfo{}, []string{}, productInfos, errors.New("404 product not found")
+		return []string{}, []string{}, productInfos, errors.New("404 product not found")
 	}
 
-	return []SizeInfo{}, []string{}, productInfos, errors.New("unknown error")
+	return []string{}, []string{}, productInfos, errors.New("unknown error")
 }
 
-func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []string, []entities.ProductInfo, error) {
+func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]string, []string, []entities.ProductInfo, error) {
 	var productInfos []entities.ProductInfo
-	var sizes []SizeInfo
+	var sizes []string
 	var colors []string
 
 	monitorResponse := MonitorResponse{}
@@ -148,11 +141,19 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 	if productInfo.ID == "" || productInfo.ProductName == "" || productInfo.ProductType == "" {
 		return sizes, colors, productInfos, nil
 	}
+	monitor.ItemName = productInfo.ProductName
 
 	price, err := strconv.ParseFloat(productInfo.Price.Sales.Price, 64)
 	if err != nil {
-		return sizes, colors, productInfos, nil
+		price, err = strconv.ParseFloat(productInfo.Price.Min.Sales.Price, 64)
+		if err != nil {
+			price, err = strconv.ParseFloat(productInfo.Price.Max.Sales.Price, 64)
+			if err != nil {
+				return sizes, colors, productInfos, nil
+			}
+		}
 	}
+	monitor.Price = price
 
 	imageURL := ""
 	for _, image := range productInfo.Images.HighResImages {
@@ -177,11 +178,12 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 			}
 		}
 	}
+	monitor.ImageURL = imageURL
 	// if imageURL == "" {
 	// 	return sizes, colors, productInfos, nil
 	// }
 
-	if productInfo.ProductType == "standard" {
+	if len(productInfo.Variants) == 0 {
 		productInfos = append(productInfos, entities.ProductInfo{
 			InStock:      productInfo.Available || !monitorResponse.ATCState.IsDisabled || !monitorResponse.ATCState.IsSoldOut,
 			InPriceRange: monitor.Input.MaxPrice == -1 || int(price) <= monitor.Input.MaxPrice,
@@ -205,10 +207,7 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 			if variant.Attribute == "size" {
 				for _, size := range variant.Values {
 					if size.Selectable {
-						sizes = append(sizes, SizeInfo{
-							VID:  size.Value,
-							Size: size.Value,
-						})
+						sizes = append(sizes, size.Value)
 					}
 				}
 			}
@@ -222,99 +221,91 @@ func (monitor *SKUMonitor) GetVariationInfo(body, pid string) ([]SizeInfo, []str
 		}
 	}
 
-	// productInfos = append(productInfos, entities.ProductInfo{
-	// 	InStock:      productInfo.Available || !monitorResponse.ATCState.IsDisabled || !monitorResponse.ATCState.IsSoldOut,
-	// 	InPriceRange: monitor.Input.MaxPrice == -1 || int(price) <= monitor.Input.MaxPrice,
-	// 	SKU:          productInfo.ID,
-	// 	Price:        price,
-	// 	ItemName:     productInfo.ProductName,
-	// 	ItemURL:      BaseEndpoint + productInfo.ProductURL,
-	// 	ImageURL:     imageURL,
-	// 	SiteSpecificInfo: structs.Map(DisneyProductInfo{
-	// 		VID:           "",
-	// 		Size:          "",
-	// 		Color:         "",
-	// 		QuantityLimit: productInfo.QuantityLimit,
-	// 		IsPreOrder:    productInfo.Availability.IsPreOrder,
-	// 		IsBackOrder:   productInfo.Availability.IsBackOrder,
-	// 	}),
-	// })
-
-	// // Filling VID just incase the ProductType is not standard but still has no variants like this product for some reason https://www.shopdisney.com/elsa-costume-wig-for-kids-frozen-2-428423206036.html?isProductSearch=0&plpPosition=9&guestFacing=Halloween%2520Shop-Costume%2520Accessories
-	// stockData = DisneyInStockData{
-	// 	VID:           productInfo.ID,
-	// 	Price:         int(price),
-	// 	ProductName:   productInfo.ProductName,
-	// 	ItemURL:       BaseEndpoint + productInfo.ProductURL,
-	// 	ImageURL:      imageURL,
-	// 	QuantityLimit: productInfo.QuantityLimit,
-	// 	IsPreOrder:    productInfo.Availability.IsPreOrder,
-	// 	IsBackOrder:   productInfo.Availability.IsBackOrder,
-	// }
-
 	return sizes, colors, productInfos, nil
 }
 
-func (monitor *SKUMonitor) GetInStockVariations(pid string, sizes []SizeInfo, colors []string) []entities.ProductInfo {
+func (monitor *SKUMonitor) GetInStockVariations(pid string, sizes []string, colors []string) []entities.ProductInfo {
 	var productInfos []entities.ProductInfo
+	var combinations []Combination
 
 	wg := sync.WaitGroup{}
-	wg.Add(len(colors))
-
-	for _, color := range colors {
-		go func(x string, y []SizeInfo, z string) {
-			productInfos = append(productInfos, monitor.GetInStockSizesForColor(x, y, z)...)
-			wg.Done()
-		}(pid, sizes, color)
-	}
-	wg.Wait()
-	return productInfos
-}
-
-func (monitor *SKUMonitor) GetInStockSizesForColor(pid string, sizes []SizeInfo, color string) []entities.ProductInfo {
-	var productInfos []entities.ProductInfo
-
-	wg := sync.WaitGroup{}
-	wg.Add(len(sizes))
-
-	for _, size := range sizes {
-		go func(s string) {
-			defer wg.Done()
-
-			endpoint := fmt.Sprintf(MonitorEndpoint2, pid, pid, color, pid, s)
-			resp, body, err := util.MakeRequest(&util.Request{
-				Client: monitor.BaseMonitor.Client,
-				Method: "GET",
-				URL:    endpoint,
-				RawHeaders: [][2]string{
-					{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
-					{"sec-ch-ua-mobile", "?0"},
-					{"upgrade-insecure-requests", "1"},
-					{"user-agent", browser.Chrome()},
-					{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
-					{"sec-fetch-site", "none"},
-					{"sec-fetch-mode", "navigate"},
-					{"sec-fetch-user", "?1"},
-					{"sec-fetch-dest", "document"},
-					{"accept-encoding", "gzip, deflate, br"},
-					{"accept-language", "en-US,en;q=0.9"},
-				},
+	if len(sizes) > 0 && len(colors) == 0 {
+		for _, size := range sizes {
+			combinations = append(combinations, Combination{
+				Size: size,
 			})
-			if err == nil {
-				switch resp.StatusCode {
-				case 200:
-					productInfos = append(productInfos, monitor.GetColorVariationInfo(body, pid, color, sizes)...)
-				}
+		}
+		wg.Add(len(sizes))
+	}
+	if len(sizes) == 0 && len(colors) > 0 {
+		for _, color := range colors {
+			combinations = append(combinations, Combination{
+				Color: color,
+			})
+		}
+		wg.Add(len(colors))
+	}
+	if len(sizes) > 0 && len(colors) > 0 {
+		for _, size := range sizes {
+			for _, color := range colors {
+				combinations = append(combinations, Combination{
+					Size:  size,
+					Color: color,
+				})
 			}
-		}(size.Size)
+		}
+		wg.Add(len(sizes) * len(colors))
 	}
 
+	for _, combination := range combinations {
+		go func(x string, y Combination) {
+			productInfos = append(productInfos, monitor.GetProductInfosForCombination(x, y)...)
+			wg.Done()
+		}(pid, combination)
+	}
 	wg.Wait()
+	return productInfos
+}
+
+func (monitor *SKUMonitor) GetProductInfosForCombination(pid string, combination Combination) []entities.ProductInfo {
+	var productInfos []entities.ProductInfo
+
+	endpoint := fmt.Sprintf(MonitorEndpoint2, pid, pid, combination.Color, pid, combination.Size)
+	if combination.Color == "" {
+		endpoint = fmt.Sprintf(MonitorEndpoint2NoColor, pid, pid, combination.Size)
+	}
+	if combination.Size == "" {
+		endpoint = fmt.Sprintf(MonitorEndpoint2NoSize, pid, pid, combination.Color)
+	}
+	resp, body, err := util.MakeRequest(&util.Request{
+		Client: monitor.BaseMonitor.Client,
+		Method: "GET",
+		URL:    endpoint,
+		RawHeaders: [][2]string{
+			{"sec-ch-ua", `" Not A;Brand";v="99", "Chromium";v="90", "Google Chrome";v="90"`},
+			{"sec-ch-ua-mobile", "?0"},
+			{"upgrade-insecure-requests", "1"},
+			{"user-agent", browser.Chrome()},
+			{"accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9"},
+			{"sec-fetch-site", "none"},
+			{"sec-fetch-mode", "navigate"},
+			{"sec-fetch-user", "?1"},
+			{"sec-fetch-dest", "document"},
+			{"accept-encoding", "gzip, deflate, br"},
+			{"accept-language", "en-US,en;q=0.9"},
+		},
+	})
+	if err == nil {
+		switch resp.StatusCode {
+		case 200:
+			productInfos = append(productInfos, monitor.GetCombinationVariationInfo(body, pid, combination)...)
+		}
+	}
 
 	return productInfos
 }
 
-func (monitor *SKUMonitor) GetColorVariationInfo(body, pid, color string, sizes []SizeInfo) []entities.ProductInfo {
+func (monitor *SKUMonitor) GetCombinationVariationInfo(body, pid string, combination Combination) []entities.ProductInfo {
 	var productInfos []entities.ProductInfo
 
 	monitorResponse := MonitorResponse{}
@@ -323,23 +314,32 @@ func (monitor *SKUMonitor) GetColorVariationInfo(body, pid, color string, sizes 
 		return productInfos
 	}
 
-	price := float64(0)
-	imageURL := ""
-
 	productInfo := monitorResponse.Product
+
+	price, err := strconv.ParseFloat(productInfo.Price.Sales.Price, 64)
+	if err != nil {
+		price, err = strconv.ParseFloat(productInfo.Price.Min.Sales.Price, 64)
+		if err != nil {
+			price, err = strconv.ParseFloat(productInfo.Price.Max.Sales.Price, 64)
+			if err != nil {
+				price = monitor.Price
+			}
+		}
+	}
+
 	if productInfo.Available || !monitorResponse.ATCState.IsDisabled || !monitorResponse.ATCState.IsSoldOut {
 		productInfos = append(productInfos, entities.ProductInfo{
 			InStock:      productInfo.Available || !monitorResponse.ATCState.IsDisabled || !monitorResponse.ATCState.IsSoldOut,
 			InPriceRange: monitor.Input.MaxPrice == -1 || int(price) <= monitor.Input.MaxPrice,
-			SKU:          productInfo.ID,
+			SKU:          pid,
 			Price:        price,
 			ItemName:     productInfo.ProductName,
 			ItemURL:      BaseEndpoint + productInfo.ProductURL,
-			ImageURL:     imageURL,
+			ImageURL:     monitor.ImageURL,
 			SiteSpecificInfo: structs.Map(DisneyProductInfo{
 				VID:           productInfo.ID,
-				Size:          "",
-				Color:         "",
+				Size:          combination.Size,
+				Color:         combination.Color,
 				QuantityLimit: productInfo.QuantityLimit,
 				IsPreOrder:    productInfo.Availability.IsPreOrder,
 				IsBackOrder:   productInfo.Availability.IsBackOrder,
