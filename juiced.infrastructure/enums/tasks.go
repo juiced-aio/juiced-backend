@@ -34,6 +34,10 @@ const (
 	SettingCartInfoSuccess TaskStatus = "Set cart info"
 	SettingCartInfoFailure TaskStatus = "Error setting cart info: %s"
 
+	HandlingQueue        TaskStatus = "Handling queue"
+	HandlingQueueSuccess TaskStatus = "Handled queue"
+	HandlingQueueFailure TaskStatus = "Error handling queue: %s"
+
 	GettingOrderInfo        TaskStatus = "Getting order info"
 	GettingOrderInfoSuccess TaskStatus = "Got order info"
 	GettingOrderInfoFailure TaskStatus = "Error getting order info: %s"
@@ -153,5 +157,5 @@ type InvalidAddressTypeError struct {
 }
 
 func (e *InvalidAddressTypeError) Error() string {
-	return fmt.Sprintf("cannot use saved address in guest mode")
+	return "cannot use saved address in guest mode"
 }

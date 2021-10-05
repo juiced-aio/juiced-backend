@@ -26,12 +26,12 @@ const (
 type ShopifyRetailer = string
 
 const (
-	GenericShopify ShopifyRetailer = "GenericShopify"
-	HotWheels      ShopifyRetailer = "HotWheels"
+	GenericShopify  ShopifyRetailer = "GenericShopify"
+	MattelCreations ShopifyRetailer = "Mattel Creations"
 )
 
 var ShopifySiteURLs = map[ShopifyRetailer]string{
-	HotWheels: "https://creations.mattel.com",
+	MattelCreations: "https://creations.mattel.com",
 }
 
 var validRetailers = []Retailer{
@@ -48,7 +48,7 @@ var validRetailers = []Retailer{
 	Walmart,
 
 	GenericShopify,
-	HotWheels,
+	MattelCreations,
 }
 
 type InvalidRetailerError struct {
