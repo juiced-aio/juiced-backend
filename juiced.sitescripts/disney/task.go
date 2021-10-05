@@ -617,7 +617,7 @@ func (task *Task) SubmitShippingDetails() (bool, string) {
 			{"sec-fetch-site", "same-origin"},
 			{"sec-fetch-site", "cors"},
 			{"sec-fetch-dest", "empty"},
-			{"referer", CheckoutEndpoint + "?stage=shipping"},
+			{"referer", SubmitShippingInfoReferer},
 			{"accept-encoding", "gzip, deflate"},
 			{"accept-language", "en-US,en;q=0.9"},
 		},
@@ -643,17 +643,245 @@ func (task *Task) SubmitShippingDetails() (bool, string) {
 }
 
 func (task *Task) EstablishAppSession() (bool, string) {
-	return true, ""
+	establishAppSessionResponse := EstablishAppSessionResponse{}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "GET",
+		URL:    EstablishAppSessionEndpoint,
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"upgrade-insecure-requests", `1`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`},
+			{"accept", `text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9`},
+			{"sec-fetch-site", `cross-site`},
+			{"sec-fetch-mode", `navigate`},
+			{"sec-fetch-dest", `iframe`},
+			{"referer", EstablishAppSessionReferer},
+			{"accept-encoding", `gzip, deflate, br`},
+			{"accept-language", `en-US,en;q=0.9`},
+		},
+		ResponseBodyStruct: &establishAppSessionResponse,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+		// return false, fmt.Sprintf(enums.GettingBillingInfoFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		task.PaymentData = establishAppSessionResponse.PaymentData
+		task.Total = establishAppSessionResponse.Order.Totals.GrandTotalValue.Value
+		return true, enums.GettingBillingInfoSuccess
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.GettingBillingInfoFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.GettingBillingInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) GetPaysheetAE() (bool, string) {
-	return true, ""
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "GET",
+		URL:    fmt.Sprintf(GetPaysheetAEEndpoint, task.PaymentData.Config.Session),
+		RawHeaders: http.RawHeader{
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"x-disney-paysheet-client", task.PaymentData.Config.Client},
+			{"accept-language", `en-us`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"authorization", `BEARER ` + task.PaymentData.Config.Oauth},
+			{"x-disney-paysheet-session", task.PaymentData.Config.Session},
+			{"x-client-conversation-id", task.PaymentData.Config.ConversationID},
+			{"accept", `application/json, text/plain, */*`},
+			{"x-disney-paysheet-interface", `web-embedded`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`},
+			{"__h", task.PaymentData.Config.Hmac},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", `https://paymentsheet.wdprapps.disney.com/embedded/web?fromOrigin=https:%2F%2Fwww.shopdisney.com`},
+			{"accept-encoding", `gzip, deflate, br`},
+		},
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+		// return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		task.PaymentData.Config.PaymentAE = resp.Header.Get("x-disney-paysheet-ae")
+		return true, enums.SettingBillingInfoSuccess
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.SettingBillingInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) GetCardToken() (bool, string) {
-	return true, ""
+	getCardTokenRequest := GetCardTokenRequest{
+		Pan:  task.BaseTask.Profile.CreditCard.CardNumber,
+		Type: "CREDIT_CARD",
+	}
+	getCardTokenResponse := GetCardTokenResponse{}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "POST",
+		URL:    GetCardTokenEndpoint,
+		RawHeaders: http.RawHeader{
+			{"pragma", `no-cache`},
+			{"cache-control", `no-cache`},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"x-disney-paysheet-ae", task.PaymentData.Config.PaymentAE},
+			{"x-disney-paysheet-client", task.PaymentData.Config.Client},
+			{"accept-language", `en-us`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"authorization", `BEARER ` + task.PaymentData.Config.Oauth},
+			{"x-disney-paysheet-purl", `ent`},
+			{"content-type", `application/json`},
+			{"x-client-conversation-id", task.PaymentData.Config.ConversationID},
+			{"accept", `application/json, text/plain, */*`},
+			{"x-disney-paysheet-interface", `web-embedded`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`},
+			{"x-disney-paysheet-session", task.PaymentData.Config.Session},
+			{"origin", `https://paymentsheet.wdprapps.disney.com`},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", GetCardTokenReferer},
+			{"accept-encoding", `gzip, deflate, br`},
+		},
+		RequestBodyStruct:  getCardTokenRequest,
+		ResponseBodyStruct: &getCardTokenResponse,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+		// return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		task.PaymentData.CardInfo = getCardTokenResponse
+		return true, enums.GettingOrderInfoSuccess
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.GettingOrderInfoFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) SubmitOrder() (bool, string) {
-	return true, ""
+	placeOrderRequest := PlaceOrderRequest{
+		Cards: []Cards{
+			{
+				SecurityCode:      task.BaseTask.Profile.CreditCard.CVV,
+				CardProductName:   task.PaymentData.CardInfo.CardProductName,
+				IsDisneyVisa:      task.PaymentData.CardInfo.IsDisneyVisa,
+				CardToken:         task.PaymentData.CardInfo.Token,
+				CardDisplayNumber: task.PaymentData.CardInfo.Masked[len(task.PaymentData.CardInfo.Masked)-8:],
+				Expiration:        task.BaseTask.Profile.CreditCard.ExpMonth + task.BaseTask.Profile.CreditCard.ExpYear,
+				CardholderName:    task.BaseTask.Profile.CreditCard.CardholderName,
+				ProfileName:       ProfileName{},
+				ProfilePhone:      ProfilePhone{},
+				BillingAddress: BillingAddress{
+					Country:    task.BaseTask.Profile.BillingAddress.CountryCode,
+					Line1:      task.BaseTask.Profile.BillingAddress.Address1,
+					Line2:      task.BaseTask.Profile.BillingAddress.Address2,
+					City:       task.BaseTask.Profile.BillingAddress.City,
+					State:      task.BaseTask.Profile.BillingAddress.StateCode,
+					PostalCode: task.BaseTask.Profile.BillingAddress.ZipCode,
+				},
+				SaveToProfile:   false,
+				IsWalletDefault: false,
+				IsWalletEdit:    false,
+				Issuer:          task.PaymentData.CardInfo.Issuer,
+				Type:            task.PaymentData.CardInfo.Type,
+				IsStoredCard:    false,
+				Amount:          task.Total,
+			},
+		},
+		FraudParameters: []FraudParameters{
+			{
+				Group: "identification_info",
+				Params: Params{
+					EmailAddress: task.BaseTask.Profile.Email,
+				},
+			},
+			{
+				Group: "billing_info",
+				Params: Params{
+					DayPhone: task.BaseTask.Profile.PhoneNumber,
+				},
+			},
+		},
+	}
+	data, _ := json.Marshal(placeOrderRequest)
+	placeOrderResponse := PlaceOrderResponse{}
+	resp, _, err := util.MakeRequest(&util.Request{
+		Client: task.BaseTask.Client,
+		Method: "POST",
+		URL:    fmt.Sprintf(PlaceOrderEndpoint, task.PaymentData.Config.Session),
+		RawHeaders: http.RawHeader{
+			{"content-length", fmt.Sprint(len(data))},
+			{"pragma", `no-cache`},
+			{"cache-control", `no-cache`},
+			{"sec-ch-ua", `" Not;A Brand";v="99", "Google Chrome";v="91", "Chromium";v="91"`},
+			{"x-disney-paysheet-ae", task.PaymentData.Config.PaymentAE},
+			{"x-disney-paysheet-client", task.PaymentData.Config.Client},
+			{"accept-language", `en-us`},
+			{"sec-ch-ua-mobile", `?0`},
+			{"authorization", `BEARER ` + task.PaymentData.Config.Oauth},
+			{"x-disney-paysheet-purl", `ent`},
+			{"content-type", `application/json`},
+			{"x-client-conversation-id", task.PaymentData.Config.ConversationID},
+			{"accept", `application/json, text/plain, */*`},
+			{"x-disney-paysheet-interface", `web-embedded`},
+			{"user-agent", `Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36`},
+			{"x-disney-paysheet-session", task.PaymentData.Config.Session},
+			{"origin", `https://paymentsheet.wdprapps.disney.com`},
+			{"sec-fetch-site", `same-origin`},
+			{"sec-fetch-mode", `cors`},
+			{"sec-fetch-dest", `empty`},
+			{"referer", `https://paymentsheet.wdprapps.disney.com/embedded/web?fromOrigin=https:%2F%2Fwww.shopdisney.com`},
+			{"accept-encoding", `gzip, deflate, br`},
+		},
+		Data:               data,
+		ResponseBodyStruct: &placeOrderResponse,
+	})
+	if err != nil {
+		fmt.Println(err.Error())
+		// return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+	}
+
+	if placeOrderResponse.SuggestedErrorKey == "d_credit_card" {
+		return false, enums.CardDeclined
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		return true, enums.CheckingOutSuccess
+	case 403:
+		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
+		if err != nil {
+			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		}
+		return false, ""
+	}
+
+	return false, fmt.Sprintf(enums.CheckingOutFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
+
 }

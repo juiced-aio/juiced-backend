@@ -27,12 +27,15 @@ const (
 	ValidateAddressEndpoint = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/CheckoutAddressServices-ValidateAddress"
 
 	SubmitShippingInfoEndpoint = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/CheckoutShippingServices-SubmitShipping"
+	SubmitShippingInfoReferer  = "https://www.shopdisney.com/checkout?stage=shipping"
 
 	EstablishAppSessionEndpoint = "https://www.shopdisney.com/ocapi/cc/establishappsession"
+	EstablishAppSessionReferer  = "https://www.shopdisney.com/checkout?stage=shipping"
 
 	GetPaysheetAEEndpoint = "https://paymentsheet.wdprapps.disney.com/api/v1/checkout/%v"
 
 	GetCardTokenEndpoint = "https://paymentsheet.wdprapps.disney.com/api/v1/card/token"
+	GetCardTokenReferer  = "https://paymentsheet.wdprapps.disney.com/embedded/web?fromOrigin=https:%2F%2Fwww.shopdisney.com"
 
 	ValidateBasketEndpoint = "https://www.shopdisney.com/on/demandware.store/Sites-shopDisney-Site/default/Checkout-ValidateBasket"
 
@@ -80,6 +83,7 @@ type Task struct {
 	ShippingMethod string
 	CSRF           string
 	Total          float64
+	PaymentData    PaymentData
 }
 
 type TaskInput struct {

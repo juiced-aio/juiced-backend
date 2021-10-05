@@ -46,6 +46,10 @@ const (
 	SettingShippingInfoSuccess TaskStatus = "Set shipping info"
 	SettingShippingInfoFailure TaskStatus = "Error setting shipping info: %s"
 
+	GettingBillingInfo        TaskStatus = "Getting billing info"
+	GettingBillingInfoSuccess TaskStatus = "Got billing info"
+	GettingBillingInfoFailure TaskStatus = "Error getting billing info: %s"
+
 	SettingBillingInfo        TaskStatus = "Setting billing info"
 	SettingBillingInfoSuccess TaskStatus = "Set billing info"
 	SettingBillingInfoFailure TaskStatus = "Error setting billing info: %s"
@@ -64,7 +68,6 @@ const (
 	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
 	BypassingPX         TaskStatus = "Bypassing PX"
 	GettingShippingInfo TaskStatus = "Getting shipping info"
-	GettingBillingInfo  TaskStatus = "Getting billing info"
 	CheckoutFailed      TaskStatus = "Checkout failed"
 	CheckedOut          TaskStatus = "Checked out!"
 )

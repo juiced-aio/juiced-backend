@@ -618,13 +618,15 @@ func (task *Task) SubmitOrder() (bool, string) {
 		// return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
 
+	if placeOrderResponse.Error &&
+		(strings.Contains(placeOrderResponse.ErrorMessage, "another form of payment") ||
+			strings.Contains(placeOrderResponse.ErrorMessage, "The payment you submitted is not valid")) {
+		return false, enums.CardDeclined
+	}
+
 	switch resp.StatusCode {
 	case 200:
 		if placeOrderResponse.Error {
-			if strings.Contains(placeOrderResponse.ErrorMessage, "another form of payment") ||
-				strings.Contains(placeOrderResponse.ErrorMessage, "The payment you submitted is not valid") {
-				return false, enums.CardDeclined
-			}
 			return false, fmt.Sprintf(enums.CheckingOutFailure, placeOrderResponse.ErrorMessage)
 		} else {
 			return true, enums.CheckingOutSuccess

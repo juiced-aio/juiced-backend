@@ -164,17 +164,17 @@ type GetCardTokenResponse struct {
 	Issuer          string `json:"issuer"`
 	Masked          string `json:"masked"`
 	Type            string `json:"type"`
-	Iswalletdefault bool   `json:"isWalletDefault"`
-	Cardproductname string `json:"cardProductName"`
-	Isdisneyvisa    bool   `json:"isDisneyVisa"`
+	IsWalletDefault bool   `json:"isWalletDefault"`
+	CardProductName string `json:"cardProductName"`
+	IsDisneyVisa    bool   `json:"isDisneyVisa"`
 }
 
 // PlaceOrder
 type PlaceOrderResponse struct {
-	Paidamount        int     `json:"paidAmount"`
-	Unpaidamount      float64 `json:"unpaidAmount"`
-	Paidthisrequest   int     `json:"paidThisRequest"`
-	Suggestederrorkey string  `json:"suggestedErrorKey"`
+	PaidAmount        int     `json:"paidAmount"`
+	UnpaidAmount      float64 `json:"unpaidAmount"`
+	PaidThisRequest   int     `json:"paidThisRequest"`
+	SuggestedErrorKey string  `json:"suggestedErrorKey"`
 	Errors            Errors  `json:"errors"`
 }
 type Errors struct{}
