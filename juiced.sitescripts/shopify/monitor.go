@@ -3,7 +3,6 @@ package shopify
 import (
 	"errors"
 	"fmt"
-	"log"
 
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
@@ -55,7 +54,7 @@ func (monitor *SKUMonitor) GetVIDStock(vid string) ([]entities.ProductInfo, erro
 		"quantity":  "1",
 	})
 	monitorResponse := AddToCartResponse{}
-	resp, body, err := util.MakeRequest(&util.Request{
+	resp, _, err := util.MakeRequest(&util.Request{
 		Client: monitor.BaseMonitor.Client,
 		Method: "POST",
 		URL:    monitor.ShopifyInput.SiteURL + AddToCartEndpoint,
@@ -79,9 +78,6 @@ func (monitor *SKUMonitor) GetVIDStock(vid string) ([]entities.ProductInfo, erro
 		ResponseBodyStruct: &monitorResponse,
 	})
 	if err != nil {
-		log.Println(err.Error())
-		log.Println(resp.Status)
-		log.Println(body)
 		return productInfos, err
 	}
 
@@ -104,9 +100,6 @@ func (monitor *SKUMonitor) GetVIDStock(vid string) ([]entities.ProductInfo, erro
 	case 404:
 		return productInfos, errors.New("404 product not found")
 	}
-
-	log.Println(resp.Status)
-	log.Println(body)
 
 	return productInfos, errors.New("unknown error")
 }

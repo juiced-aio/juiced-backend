@@ -18,6 +18,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
+	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/google/uuid"
 )
@@ -65,6 +66,8 @@ func InitTaskGroupStore() error {
 				retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 			case enums.PokemonCenter:
 				retailerMonitor, err = pokemoncenter.CreateMonitor(monitor.MonitorInput, monitor)
+			case enums.Shopify:
+				retailerMonitor, err = shopify.CreateMonitor(monitor.MonitorInput, monitor)
 			}
 			if err != nil {
 				skip = true
@@ -160,6 +163,8 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 			retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(monitor.MonitorInput, monitor)
+		case enums.Shopify:
+			retailerMonitor, err = shopify.CreateMonitor(monitor.MonitorInput, monitor)
 
 		}
 		if err != nil {
@@ -244,6 +249,8 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 			retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
+		case enums.Shopify:
+			retailerMonitor, err = shopify.CreateMonitor(monitor.MonitorInput, monitor)
 
 		}
 		if err == nil {

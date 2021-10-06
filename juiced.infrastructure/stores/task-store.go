@@ -21,6 +21,7 @@ import (
 	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
+	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/google/uuid"
@@ -74,6 +75,8 @@ func InitTaskStore() error {
 				retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.PokemonCenter:
 				retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+			case enums.Shopify:
+				retailerTask, err = shopify.CreateTask(task.Task.TaskInput, task.Task)
 
 			}
 			if err != nil {
@@ -190,6 +193,8 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 		retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+	case enums.Shopify:
+		retailerTask, err = shopify.CreateTask(task.Task.TaskInput, task.Task)
 
 	}
 	if err != nil {
@@ -300,6 +305,8 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 		retailerTask, err = hottopic.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
+	case enums.Shopify:
+		retailerTask, err = shopify.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 
 	}
 	if err != nil {

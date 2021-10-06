@@ -38,8 +38,15 @@ func ValidateMonitorInput(input string, monitorType enums.MonitorType, info map[
 		return shopifyMonitorInput, &enums.InvalidInputTypeError{Field: "siteURL", ShouldBe: "string"}
 	}
 	shopifyMonitorInput.SiteURL = siteURL
-	if shopifyRetailer == enums.GenericShopify && siteURL == "" {
-		return shopifyMonitorInput, &enums.EmptyInputFieldError{Field: "siteURL"}
+	if shopifyRetailer == enums.GenericShopify {
+		if siteURL == "" {
+			return shopifyMonitorInput, &enums.EmptyInputFieldError{Field: "siteURL"}
+		}
+	} else {
+		shopifyMonitorInput.SiteURL = enums.ShopifySiteURLs[shopifyRetailer]
+		if shopifyMonitorInput.SiteURL == "" {
+			return shopifyMonitorInput, &enums.InvalidRetailerError{Retailer: shopifyRetailer}
+		}
 	}
 
 	sitePassword, ok := info["sitePassword"].(string)
@@ -68,8 +75,15 @@ func ValidateTaskInput(info map[string]interface{}) (TaskInput, error) {
 		return shopifyTaskInput, &enums.InvalidInputTypeError{Field: "siteURL", ShouldBe: "string"}
 	}
 	shopifyTaskInput.SiteURL = siteURL
-	if shopifyRetailer == enums.GenericShopify && siteURL == "" {
-		return shopifyTaskInput, &enums.EmptyInputFieldError{Field: "siteURL"}
+	if shopifyRetailer == enums.GenericShopify {
+		if siteURL == "" {
+			return shopifyTaskInput, &enums.EmptyInputFieldError{Field: "siteURL"}
+		}
+	} else {
+		shopifyTaskInput.SiteURL = enums.ShopifySiteURLs[shopifyRetailer]
+		if shopifyTaskInput.SiteURL == "" {
+			return shopifyTaskInput, &enums.InvalidRetailerError{Retailer: shopifyRetailer}
+		}
 	}
 
 	sitePassword, ok := info["sitePassword"].(string)

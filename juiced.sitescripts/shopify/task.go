@@ -111,7 +111,7 @@ func (task *Task) GetSetupFunctions() []entities.TaskFunction {
 				// 2. LoginGuest
 				{
 					Function:         task.LoginGuest,
-					StatusBegin:      enums.Preloading,
+					StatusBegin:      enums.SettingUp,
 					StatusPercentage: 30,
 					MaxRetries:       MAX_RETRIES,
 				},
@@ -130,7 +130,7 @@ func (task *Task) GetSetupFunctions() []entities.TaskFunction {
 		// 4. Preload
 		{
 			Function:         task.Preload,
-			StatusBegin:      enums.SettingUp,
+			StatusBegin:      enums.Preloading,
 			StatusPercentage: 40,
 			MaxRetries:       MAX_RETRIES,
 		},
@@ -358,7 +358,6 @@ func (task *Task) Preload() (bool, string) {
 	case 200:
 		authToken, err := u.FindInString(body, `"authenticity_token" value="`, `"`)
 		if err != nil {
-			// Couldn't find authToken
 			// Just skip preloading if it doesn't work
 			return true, enums.PreloadingSuccess
 		}
@@ -414,7 +413,26 @@ func (task *Task) ClearCart() (bool, string) {
 }
 
 func (task *Task) AddToCart() (bool, string) {
-	return true, ""
+	variantID := task.BaseTask.ProductInfo.SKU
+
+	if vid, ok := task.BaseTask.ProductInfo.SiteSpecificInfo["VID"].(string); ok && vid != task.BaseTask.ProductInfo.SKU {
+		variantID = vid
+	}
+
+	_, resp, _, err := task.AddToCartRequest(variantID)
+	if err != nil {
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+	}
+
+	switch resp.StatusCode {
+	case 200:
+		return true, enums.AddingToCartSuccess
+	case 422:
+		return false, fmt.Sprintf(enums.AddingToCartFailure, enums.ProductOutOfStockError)
+	}
+
+	return false, fmt.Sprintf(enums.AddingToCartFailure, fmt.Sprintf(enums.UnknownError, resp.StatusCode))
 }
 
 func (task *Task) GoToCheckout() (bool, string) {
