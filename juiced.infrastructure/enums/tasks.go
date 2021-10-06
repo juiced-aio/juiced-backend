@@ -14,6 +14,18 @@ const (
 	SettingUpSuccess TaskStatus = "Set up task"
 	SettingUpFailure TaskStatus = "Error setting up task: %s"
 
+	EnteringPassword        TaskStatus = "Entering password"
+	EnteringPasswordSuccess TaskStatus = "Entered password"
+	EnteringPasswordFailure TaskStatus = "Error entering password: %s"
+
+	Preloading        TaskStatus = "Preloading"
+	PreloadingSuccess TaskStatus = "Preloaded"
+	PreloadingFailure TaskStatus = "Error preloading: %s"
+
+	ClearingCart        TaskStatus = "Clearing cart"
+	ClearingCartSuccess TaskStatus = "Cleared cart"
+	ClearingCartFailure TaskStatus = "Error clearing cart: %s"
+
 	LoggingIn    TaskStatus = "Logging in"
 	LoginSuccess TaskStatus = "Logged in"
 	LoginFailure TaskStatus = "Error logging in: %s"
@@ -33,6 +45,10 @@ const (
 	SettingCartInfo        TaskStatus = "Setting cart info"
 	SettingCartInfoSuccess TaskStatus = "Set cart info"
 	SettingCartInfoFailure TaskStatus = "Error setting cart info: %s"
+
+	HandlingCheckpoint        TaskStatus = "Handling checkpoint"
+	HandlingCheckpointSuccess TaskStatus = "Handled checkpoint"
+	HandlingCheckpointFailure TaskStatus = "Error handling checkpoint: %s"
 
 	HandlingQueue        TaskStatus = "Handling queue"
 	HandlingQueueSuccess TaskStatus = "Handled queue"
@@ -77,9 +93,10 @@ const (
 )
 
 const (
-	UnknownError         = "unknown error (status code: %d)"
-	CaptchaRequiredError = "captcha required"
-	BadCaptchaTokenError = "bad captcha token"
+	UnknownError           = "unknown error (status code: %d)"
+	CaptchaRequiredError   = "captcha required"
+	BadCaptchaTokenError   = "bad captcha token"
+	ProductOutOfStockError = "product out of stock"
 )
 
 type TaskEventType = string

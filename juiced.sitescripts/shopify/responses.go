@@ -2,8 +2,8 @@ package shopify
 
 import "time"
 
-// Monitor
-type MonitorResponse struct {
+// Preload
+type ProductsResponse struct {
 	Products []Products `json:"products"`
 }
 type Products struct {
