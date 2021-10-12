@@ -67,9 +67,8 @@ func StartServer() {
 
 	tasks := v1.Group("/task")
 	tasks.Post("/", controller.CreateTasks)
-	// tasks.Post("/update", controller.UpdateTasks)
+	tasks.Post("/update", controller.UpdateTasks)
 	tasks.Post("/delete", controller.DeleteTasks)
-	// 		TEST AFTER START/STOP FUNCTIONALITY
 	tasks.Post("/clone", controller.CloneTasks)
 	tasks.Post("/start", controller.StartTasks)
 	tasks.Post("/stop", controller.StopTasks)
@@ -77,9 +76,8 @@ func StartServer() {
 	taskGroups := tasks.Group("/group")
 	taskGroups.Get("/", controller.GetTaskGroups)
 	taskGroups.Post("/", controller.CreateTaskGroup)
-	// taskGroups.Post("/update", controller.UpdateTaskGroups)
+	taskGroups.Post("/update", controller.UpdateTaskGroups)
 	taskGroups.Post("/delete", controller.DeleteTaskGroups)
-	// 		TEST AFTER START/STOP FUNCTIONALITY
 	taskGroups.Post("/clone", controller.CloneTaskGroups)
 	taskGroups.Post("/start", controller.StartTaskGroups)
 	taskGroups.Post("/stop", controller.StopTaskGroups)
