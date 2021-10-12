@@ -212,13 +212,47 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	return taskPtr, nil
 }
 
-func UpdateTask(taskID string, newTask entities.Task) (*entities.Task, error) {
+func UpdateTask(taskID string, newTaskInput entities.TaskInput) (*entities.Task, error) {
 	task, err := GetTask(taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO
+	taskRunning := task.Task.Running
+	if taskRunning {
+		err = StopTask(taskID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	proxyGroupID := task.Task.TaskInput.ProxyGroupID
+	profileID := task.Task.TaskInput.ProfileID
+	task.Task.TaskInput = newTaskInput
+	if newTaskInput.ProxyGroupID != proxyGroupID {
+		proxyGroup, err := GetProxyGroup(newTaskInput.ProxyGroupID)
+		if err == nil {
+			task.Task.ProxyGroup = proxyGroup
+		} else {
+			task.Task.ProxyGroup = nil
+		}
+	}
+
+	if newTaskInput.ProfileID != profileID {
+		profile, err := GetProfile(newTaskInput.ProfileID)
+		if err == nil {
+			task.Task.Profile = profile
+		} else {
+			return nil, err
+		}
+	}
+
+	if taskRunning {
+		err = StartTask(taskID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return task, database.UpdateTask(taskID, *task)
 }
