@@ -189,8 +189,100 @@ func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (*entities
 	}
 
 	taskGroup.Name = newTaskGroup.Name
+	monitorsRunning := false
+	for _, newMonitor := range newTaskGroup.Monitors {
+		found := false
+		for _, monitor := range taskGroup.Monitors {
+			if monitor.Running {
+				monitorsRunning = true
+			}
+			if newMonitor.MonitorID == monitor.MonitorID {
+				// Clear the monitor's ProductInfos if there's a new monitor input (e.g. new SKU)
+				if newMonitor.MonitorInput.Input != monitor.MonitorInput.Input {
+					monitor.ProductInfos = []entities.ProductInfo{}
+				}
 
-	// TODO
+				// Remove any out-of-price-range ProductInfos if there's a new max price
+				if newMonitor.MonitorInput.MaxPrice != monitor.MonitorInput.MaxPrice {
+					newProductInfos := []entities.ProductInfo{}
+					for _, productInfo := range monitor.ProductInfos {
+						if newMonitor.MonitorInput.MaxPrice == -1 || int(productInfo.Price) <= newMonitor.MonitorInput.MaxPrice {
+							newProductInfos = append(newProductInfos, productInfo)
+						}
+					}
+					monitor.ProductInfos = newProductInfos
+				}
+
+				// Update the ProxyGroup, Proxy, Client, and Scraper if there's a new ProxyGroupID
+				proxyGroupID := monitor.MonitorInput.ProxyGroupID
+				monitor.MonitorInput = newMonitor.MonitorInput
+				if newMonitor.MonitorInput.ProxyGroupID != proxyGroupID {
+					proxyGroup, err := GetProxyGroup(newMonitor.MonitorInput.ProxyGroupID)
+					if err == nil {
+						monitor.ProxyGroup = proxyGroup
+					} else {
+						monitor.ProxyGroup = nil
+					}
+
+					monitor.Proxy = nil // Will automatically update on next monitor request
+
+					monitorClient, err := util.CreateClient()
+					if err != nil {
+						panic("could not create HTTP client")
+					}
+					monitor.Client = &monitorClient
+					monitorScraper := cloudflare.Init(monitorClient, u.HAWK_KEY, false)
+					monitor.Scraper = &monitorScraper
+				}
+				found = true
+				break
+			}
+		}
+
+		// If this is a new monitor, add it
+		if !found {
+			var newRetailerMonitor entities.Monitor
+			switch newTaskGroup.Retailer {
+			case enums.BoxLunch:
+				newRetailerMonitor, err = boxlunch.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+			case enums.Disney:
+				newRetailerMonitor, err = disney.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+			case enums.GameStop:
+				newRetailerMonitor, err = gamestop.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+			case enums.HotTopic:
+				newRetailerMonitor, err = hottopic.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+			case enums.PokemonCenter:
+				newRetailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+			case enums.Shopify:
+				newRetailerMonitor, err = shopify.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+
+			}
+
+			if err == nil {
+				var proxyGroupPtr *entities.ProxyGroup
+
+				if newMonitor.MonitorInput.ProxyGroupID != "" {
+					proxyGroupPtr, _ = GetProxyGroup(newMonitor.MonitorInput.ProxyGroupID)
+				}
+
+				newBaseMonitor := entities.BaseMonitor{
+					Monitor:    &newRetailerMonitor,
+					MonitorID:  uuid.New().String(),
+					Status:     enums.MonitorIdle,
+					TaskGroup:  taskGroup,
+					ProxyGroup: proxyGroupPtr,
+				}
+				taskGroup.Monitors = append(taskGroup.Monitors, &newBaseMonitor)
+
+				// If the other monitors are running, start this one as well
+				if monitorsRunning {
+					go RunMonitor(&newBaseMonitor)
+				}
+			} else {
+				return nil, err
+			}
+		}
+	}
 
 	return taskGroup, database.UpdateTaskGroup(groupID, *taskGroup)
 }
@@ -240,17 +332,17 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 		var retailerMonitor entities.Monitor
 		switch newTaskGroup.Retailer {
 		case enums.BoxLunch:
-			retailerMonitor, err = boxlunch.CreateMonitor(monitor.MonitorInput, monitor)
+			retailerMonitor, err = boxlunch.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 		case enums.Disney:
-			retailerMonitor, err = disney.CreateMonitor(monitor.MonitorInput, monitor)
+			retailerMonitor, err = disney.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 		case enums.GameStop:
-			retailerMonitor, err = gamestop.CreateMonitor(monitor.MonitorInput, monitor)
+			retailerMonitor, err = gamestop.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 		case enums.HotTopic:
-			retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
+			retailerMonitor, err = hottopic.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 		case enums.Shopify:
-			retailerMonitor, err = shopify.CreateMonitor(monitor.MonitorInput, monitor)
+			retailerMonitor, err = shopify.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 
 		}
 		if err == nil {

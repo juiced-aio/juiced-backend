@@ -24,6 +24,10 @@ var StopTaskGroupsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode:
 var StopTaskGroupsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 7501, Message: "Could not parse task group IDs: "}
 var StopTaskGroupsStopErrorResponse = Response{StatusCode: 500, ErrorCode: 7502, Message: "Could not stop task group(s): "}
 
+var UpdateTaskGroupsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 7600, Message: "TaskGroupIDs field was empty"}
+var UpdateTaskGroupsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 7601, Message: "Could not parse task group IDs: "}
+var UpdateTaskGroupsStopErrorResponse = Response{StatusCode: 500, ErrorCode: 7602, Message: "Could not stop task group(s): "}
+
 type TaskGroupsSuccessResponse struct {
 	SuccessTaskGroupIDs []string `json:"successTaskGroupIDs"`
 	FailureTaskGroupIDs []string `json:"failureTaskGroupIDs"`
