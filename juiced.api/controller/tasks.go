@@ -225,7 +225,7 @@ func UpdateTasks(c *fiber.Ctx) error {
 	}
 
 	if len(response.SuccessTaskIDs) == 0 {
-		return responses.ReturnResponse(c, responses.UpdateTasksStopErrorResponse, err)
+		return responses.ReturnResponse(c, responses.UpdateTasksUpdateErrorResponse, err)
 	}
 
 	return c.Status(200).JSON(response)

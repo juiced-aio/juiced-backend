@@ -42,8 +42,9 @@ func InitTaskGroupStore() error {
 	for _, taskGroup := range taskGroups {
 		taskGroup := taskGroup
 		taskGroupPtr := &taskGroup
-		skip := false
+		validMonitors := []*entities.BaseMonitor{}
 		for _, monitor := range taskGroupPtr.Monitors {
+			monitor.Running = false
 			monitor.Status = enums.MonitorIdle
 			monitor.TaskGroup = taskGroupPtr
 
@@ -69,13 +70,15 @@ func InitTaskGroupStore() error {
 			case enums.Shopify:
 				retailerMonitor, err = shopify.CreateMonitor(monitor.MonitorInput, monitor)
 			}
-			if err != nil {
-				skip = true
+			if err == nil {
+				monitor.Monitor = &retailerMonitor
+				validMonitors = append(validMonitors, monitor)
 			}
-			monitor.Monitor = &retailerMonitor
 		}
 
-		if !skip {
+		taskGroupPtr.Monitors = validMonitors
+
+		if len(taskGroupPtr.Monitors) > 0 {
 			taskGroupPtr.Tasks = GetTasks(taskGroupPtr.TaskIDs)
 			for _, task := range taskGroupPtr.Tasks {
 				task.Task.TaskGroup = taskGroupPtr
@@ -190,6 +193,7 @@ func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (*entities
 
 	taskGroup.Name = newTaskGroup.Name
 	monitorsRunning := false
+	foundMonitorIDs := []string{}
 	for _, newMonitor := range newTaskGroup.Monitors {
 		found := false
 		for _, monitor := range taskGroup.Monitors {
@@ -197,9 +201,17 @@ func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (*entities
 				monitorsRunning = true
 			}
 			if newMonitor.MonitorID == monitor.MonitorID {
+				foundMonitorIDs = append(foundMonitorIDs, monitor.MonitorID)
 				// Clear the monitor's ProductInfos if there's a new monitor input (e.g. new SKU)
 				if newMonitor.MonitorInput.Input != monitor.MonitorInput.Input {
 					monitor.ProductInfos = []entities.ProductInfo{}
+				}
+
+				if newMonitor.MonitorInput.DelayMS <= 0 {
+					newMonitor.MonitorInput.DelayMS = 2000
+				}
+				if newMonitor.MonitorInput.MaxPrice <= 0 {
+					newMonitor.MonitorInput.MaxPrice = -1
 				}
 
 				// Remove any out-of-price-range ProductInfos if there's a new max price
@@ -241,46 +253,77 @@ func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (*entities
 
 		// If this is a new monitor, add it
 		if !found {
+			newMonitorID := uuid.New().String()
+
+			var proxyGroupPtr *entities.ProxyGroup
+
+			if newMonitor.MonitorInput.ProxyGroupID != "" {
+				proxyGroupPtr, _ = GetProxyGroup(newMonitor.MonitorInput.ProxyGroupID)
+			}
+
+			newBaseMonitor := &entities.BaseMonitor{
+				MonitorID:    newMonitorID,
+				MonitorInput: newMonitor.MonitorInput,
+				Status:       enums.MonitorIdle,
+				TaskGroup:    taskGroup,
+				ProxyGroup:   proxyGroupPtr,
+			}
+
 			var newRetailerMonitor entities.Monitor
 			switch newTaskGroup.Retailer {
 			case enums.BoxLunch:
-				newRetailerMonitor, err = boxlunch.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+				newRetailerMonitor, err = boxlunch.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
 			case enums.Disney:
-				newRetailerMonitor, err = disney.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+				newRetailerMonitor, err = disney.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
 			case enums.GameStop:
-				newRetailerMonitor, err = gamestop.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+				newRetailerMonitor, err = gamestop.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
 			case enums.HotTopic:
-				newRetailerMonitor, err = hottopic.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+				newRetailerMonitor, err = hottopic.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
 			case enums.PokemonCenter:
-				newRetailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+				newRetailerMonitor, err = pokemoncenter.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
 			case enums.Shopify:
-				newRetailerMonitor, err = shopify.CreateMonitor(newMonitor.MonitorInput, newMonitor)
+				newRetailerMonitor, err = shopify.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
 
 			}
 
 			if err == nil {
-				var proxyGroupPtr *entities.ProxyGroup
-
-				if newMonitor.MonitorInput.ProxyGroupID != "" {
-					proxyGroupPtr, _ = GetProxyGroup(newMonitor.MonitorInput.ProxyGroupID)
-				}
-
-				newBaseMonitor := entities.BaseMonitor{
-					Monitor:    &newRetailerMonitor,
-					MonitorID:  uuid.New().String(),
-					Status:     enums.MonitorIdle,
-					TaskGroup:  taskGroup,
-					ProxyGroup: proxyGroupPtr,
-				}
-				taskGroup.Monitors = append(taskGroup.Monitors, &newBaseMonitor)
+				newBaseMonitor.Monitor = &newRetailerMonitor
+				taskGroup.Monitors = append(taskGroup.Monitors, newBaseMonitor)
+				foundMonitorIDs = append(foundMonitorIDs, newBaseMonitor.MonitorID)
 
 				// If the other monitors are running, start this one as well
 				if monitorsRunning {
-					go RunMonitor(&newBaseMonitor)
+					go RunMonitor(newBaseMonitor)
 				}
-			} else {
-				return nil, err
 			}
+		}
+	}
+
+	// Kill any monitors that no longer exist
+	for _, monitor := range taskGroup.Monitors {
+		found := false
+		for _, foundMonitorID := range foundMonitorIDs {
+			if foundMonitorID == monitor.MonitorID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			monitor.StopFlag = true
+			monitor.Status = enums.MonitorIdle
+			monitor.Running = false
+			monitor.ProductInfos = []entities.ProductInfo{}
+
+			monitor.Proxy = nil
+			monitor.Client = nil
+			monitor.Scraper = nil
+			monitorsWithoutThisOne := []*entities.BaseMonitor{}
+			for _, monitor_ := range taskGroup.Monitors {
+				if monitor_.MonitorID != monitor.MonitorID {
+					monitorsWithoutThisOne = append(monitorsWithoutThisOne, monitor_)
+				}
+			}
+			taskGroup.Monitors = monitorsWithoutThisOne
 		}
 	}
 

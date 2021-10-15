@@ -28,7 +28,7 @@ var StopTasksStopErrorResponse = Response{StatusCode: 500, ErrorCode: 6502, Mess
 
 var UpdateTasksEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 6600, Message: "TaskIDs field was empty"}
 var UpdateTasksParseErrorResponse = Response{StatusCode: 400, ErrorCode: 6601, Message: "Could not parse task IDs: "}
-var UpdateTasksStopErrorResponse = Response{StatusCode: 500, ErrorCode: 6602, Message: "Could not update task(s): "}
+var UpdateTasksUpdateErrorResponse = Response{StatusCode: 500, ErrorCode: 6602, Message: "Could not update task(s): "}
 
 type TasksSuccessResponse struct {
 	SuccessTaskIDs []string `json:"successTaskIDs"`

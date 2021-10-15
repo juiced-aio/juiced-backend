@@ -168,9 +168,10 @@ func UpdateTaskGroups(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.UpdateTaskGroupsEmptyInputErrorResponse, nil)
 	}
 
-	response := responses.TaskGroupsSuccessResponse{}
+	response := responses.TaskGroupsResponse{}
 	for _, taskGroupID := range input.TaskGroupIDs {
-		newTaskGroup, err_ := stores.GetTaskGroup(taskGroupID)
+		oldTaskGroup, err_ := stores.GetTaskGroup(taskGroupID)
+		newTaskGroup := *oldTaskGroup
 		if err_ == nil {
 			if input.UpdateName {
 				newTaskGroup.Name = input.Name
@@ -178,25 +179,23 @@ func UpdateTaskGroups(c *fiber.Ctx) error {
 			if input.UpdateMonitors {
 				newTaskGroup.Monitors = input.Monitors
 			}
-			_, err_ = stores.UpdateTaskGroup(taskGroupID, *newTaskGroup)
+			taskGroup, err_ := stores.UpdateTaskGroup(taskGroupID, newTaskGroup)
 			if err_ == nil {
-				response.SuccessTaskGroupIDs = append(response.SuccessTaskGroupIDs, taskGroupID)
+				response.Data = append(response.Data, *taskGroup)
 			} else {
 				if err == nil {
 					err = err_
 				}
-				response.FailureTaskGroupIDs = append(response.FailureTaskGroupIDs, taskGroupID)
 			}
 		} else {
 			if err == nil {
 				err = err_
 			}
-			response.FailureTaskGroupIDs = append(response.FailureTaskGroupIDs, taskGroupID)
 		}
 	}
 
-	if len(response.SuccessTaskGroupIDs) == 0 {
-		return responses.ReturnResponse(c, responses.UpdateTaskGroupsStopErrorResponse, err)
+	if len(response.Data) == 0 {
+		return responses.ReturnResponse(c, responses.UpdateTaskGroupsUpdateErrorResponse, err)
 	}
 
 	return c.Status(200).JSON(response)
