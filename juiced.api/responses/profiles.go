@@ -28,7 +28,7 @@ var ExportProfilesEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode:
 var ExportProfilesEmptyProfilesErrorResponse = Response{StatusCode: 400, ErrorCode: 4501, Message: "No valid profiles detected"}
 var ExportProfilesFilePathNotJSONErrorResponse = Response{StatusCode: 400, ErrorCode: 4502, Message: "FilePath must end in .json"}
 var ExportProfilesParseErrorResponse = Response{StatusCode: 400, ErrorCode: 4503, Message: "Could not parse input: "}
-var ExportProfilesFileAlreadyExists = Response{StatusCode: 400, ErrorCode: 4504, Message: "File already exists"}
+var ExportProfilesFileAlreadyExistsErrorResponse = Response{StatusCode: 400, ErrorCode: 4504, Message: "File already exists"}
 var ExportProfilesExportErrorResponse = Response{StatusCode: 500, ErrorCode: 4505, Message: "Could not export profile(s): "}
 
 type ProfilesSuccessResponse struct {

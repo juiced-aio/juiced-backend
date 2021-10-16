@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
 
 	"backend.juicedbot.io/juiced.api/requests"
@@ -149,7 +151,7 @@ func ImportProfiles(c *fiber.Ctx) error {
 	if err != nil {
 		return responses.ReturnResponse(c, responses.ImportProfilesImportErrorResponse, err)
 	}
-	parsedProfiles := requests.ProfilesFileFormat{}
+	parsedProfiles := requests.ImportProfilesFileFormat{}
 	if err = json.Unmarshal(byteValue, &parsedProfiles); err != nil {
 		return responses.ReturnResponse(c, responses.ImportProfilesImportErrorResponse, err)
 	}
@@ -232,10 +234,36 @@ func ExportProfiles(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.ExportProfilesFilePathNotJSONErrorResponse, nil)
 	}
 
-	profilesToExport := []entities.Profile{}
+	profilesToExport := []requests.ExportProfile{}
 	for _, profileID := range input.ProfileIDs {
 		if profilePtr, err := stores.GetProfile(profileID); err == nil {
-			profilesToExport = append(profilesToExport, *profilePtr)
+			exportProfile := requests.ExportProfile{}
+			exportProfile.Name = profilePtr.Name
+			exportProfile.Email = profilePtr.Email
+			exportProfile.PhoneNumber = profilePtr.PhoneNumber
+			exportProfile.ShippingAddress.FirstName = profilePtr.ShippingAddress.FirstName
+			exportProfile.ShippingAddress.LastName = profilePtr.ShippingAddress.LastName
+			exportProfile.ShippingAddress.Address1 = profilePtr.ShippingAddress.Address1
+			exportProfile.ShippingAddress.Address2 = profilePtr.ShippingAddress.Address2
+			exportProfile.ShippingAddress.City = profilePtr.ShippingAddress.City
+			exportProfile.ShippingAddress.ZipCode = profilePtr.ShippingAddress.ZipCode
+			exportProfile.ShippingAddress.StateCode = profilePtr.ShippingAddress.StateCode
+			exportProfile.ShippingAddress.CountryCode = profilePtr.ShippingAddress.CountryCode
+			exportProfile.BillingAddress.FirstName = profilePtr.BillingAddress.FirstName
+			exportProfile.BillingAddress.LastName = profilePtr.BillingAddress.LastName
+			exportProfile.BillingAddress.Address1 = profilePtr.BillingAddress.Address1
+			exportProfile.BillingAddress.Address2 = profilePtr.BillingAddress.Address2
+			exportProfile.BillingAddress.City = profilePtr.BillingAddress.City
+			exportProfile.BillingAddress.ZipCode = profilePtr.BillingAddress.ZipCode
+			exportProfile.BillingAddress.StateCode = profilePtr.BillingAddress.StateCode
+			exportProfile.BillingAddress.CountryCode = profilePtr.BillingAddress.CountryCode
+			exportProfile.CreditCard.CardholderName = profilePtr.CreditCard.CardholderName
+			exportProfile.CreditCard.CardNumber = profilePtr.CreditCard.CardNumber
+			exportProfile.CreditCard.ExpMonth = profilePtr.CreditCard.ExpMonth
+			exportProfile.CreditCard.ExpYear = profilePtr.CreditCard.ExpYear
+			exportProfile.CreditCard.CVV = profilePtr.CreditCard.CVV
+			exportProfile.CreditCard.CardType = profilePtr.CreditCard.CardType
+			profilesToExport = append(profilesToExport, exportProfile)
 		}
 	}
 
@@ -243,19 +271,27 @@ func ExportProfiles(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.ExportProfilesEmptyProfilesErrorResponse, nil)
 	}
 
-	if _, err := os.Stat(input.FilePath); !(os.IsNotExist(err)) {
-		return responses.ReturnResponse(c, responses.ExportProfilesFileAlreadyExists, nil)
+	u, err := user.Current()
+	if err != nil {
+		return responses.ReturnResponse(c, responses.ExportProfilesExportErrorResponse, err)
+	}
+	path := filepath.Join(u.HomeDir, "Desktop", input.FilePath)
+
+	if _, err := os.Stat(path); !(os.IsNotExist(err)) {
+		return responses.ReturnResponse(c, responses.ExportProfilesFileAlreadyExistsErrorResponse, nil)
 	}
 
-	data, err := json.MarshalIndent(requests.ProfilesFileFormat{
+	profiles := requests.ExportProfilesFileFormat{
 		Profiles: profilesToExport,
-	}, "", "\t")
+	}
+
+	data, err := json.MarshalIndent(profiles, "", "\t")
 
 	if err != nil {
 		return responses.ReturnResponse(c, responses.ExportProfilesExportErrorResponse, err)
 	}
 
-	if err := ioutil.WriteFile(input.FilePath, data, 0644); err != nil {
+	if err := ioutil.WriteFile(path, data, 0644); err != nil {
 		return responses.ReturnResponse(c, responses.ExportProfilesExportErrorResponse, err)
 	}
 
