@@ -211,20 +211,19 @@ func UpdateTasks(c *fiber.Ctx) error {
 		return responses.ReturnResponse(c, responses.UpdateTasksEmptyInputErrorResponse, nil)
 	}
 
-	response := responses.TasksSuccessResponse{}
+	response := responses.TasksResponse{}
 	for _, taskID := range input.TaskIDs {
-		_, err_ := stores.UpdateTask(taskID, input.TaskInput)
+		newTask, err_ := stores.UpdateTask(taskID, input.TaskInput)
 		if err_ == nil {
-			response.SuccessTaskIDs = append(response.SuccessTaskIDs, taskID)
+			response.Data = append(response.Data, *newTask)
 		} else {
 			if err == nil {
 				err = err_
 			}
-			response.FailureTaskIDs = append(response.FailureTaskIDs, taskID)
 		}
 	}
 
-	if len(response.SuccessTaskIDs) == 0 {
+	if len(response.Data) == 0 {
 		return responses.ReturnResponse(c, responses.UpdateTasksUpdateErrorResponse, err)
 	}
 
