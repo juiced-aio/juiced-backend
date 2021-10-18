@@ -3,6 +3,7 @@ package util
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -10,12 +11,15 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"backend.juicedbot.io/juiced.client/client"
 	"backend.juicedbot.io/juiced.client/http"
 	"backend.juicedbot.io/juiced.client/http/cookiejar"
 	"backend.juicedbot.io/juiced.client/utls"
+	"backend.juicedbot.io/juiced.infrastructure/captcha"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
+	"backend.juicedbot.io/juiced.infrastructure/enums"
 )
 
 func AddBaseHeaders(request *http.Request) {
@@ -53,6 +57,20 @@ func CreateClient(proxy ...*entities.Proxy) (http.Client, error) {
 	}
 	cClient.Jar = cookieJar
 	return cClient, err
+}
+
+func BecomeGuest(client *http.Client, baseEndpoint string) bool {
+	resp, _, err := MakeRequest(&Request{
+		Client:     client,
+		Method:     "GET",
+		URL:        baseEndpoint,
+		RawHeaders: DefaultRawHeaders,
+	})
+	if err != nil || resp.StatusCode != 200 {
+		return false
+	}
+
+	return true
 }
 
 func HandleErrors(err error, errorType ErrorType) bool {
@@ -173,6 +191,31 @@ func MakeRequest(requestInfo *Request) (*http.Response, string, error) {
 	return response, newBody, nil
 }
 
+func RequestCaptchaToken(baseTask *entities.BaseTask, retailer enums.Retailer, captchaType enums.CaptchaType, url, action string, score float32) (string, error) {
+	proxy := entities.Proxy{}
+	if baseTask.Proxy != nil {
+		proxy = *baseTask.Proxy
+	}
+	token, err := captcha.RequestCaptchaToken(captchaType, retailer, url, action, score, proxy)
+	if err != nil {
+		return "", err
+	}
+	for token == nil {
+		needToStop := baseTask.CheckForStop()
+		if needToStop {
+			return "", nil
+		}
+		token = captcha.PollCaptchaTokens(captchaType, retailer, url, proxy)
+		time.Sleep(1 * time.Second / 10)
+	}
+	tokenInfo, ok := token.(entities.ReCaptchaToken)
+	if !ok {
+		return "", errors.New(enums.BadCaptchaTokenError)
+	}
+
+	return tokenInfo.Token, nil
+}
+
 func DetectCardType(cardNumber []byte) string {
 	matched, _ := regexp.Match(`^4`, cardNumber)
 	if matched {
@@ -212,6 +255,76 @@ func DetectCardType(cardNumber []byte) string {
 	matched, _ = regexp.Match(`^(4026|417500|4508|4844|491(3|7))`, cardNumber)
 	if matched {
 		return "Visa Electron"
+	}
+
+	return ""
+}
+
+func DetectRetailerCardType(cardNumber []byte, retailer enums.Retailer) string {
+	cardType := DetectCardType(cardNumber)
+	switch cardType {
+	case "Visa":
+		switch retailer {
+		case enums.Walmart:
+			return "VISA"
+		default:
+			return "Visa"
+		}
+	case "Mastercard":
+		switch retailer {
+		case enums.GameStop:
+			return "MasterCard"
+		case enums.Walmart:
+			return "MASTERCARD"
+		default:
+			return "Mastercard"
+		}
+	case "AMEX":
+		switch retailer {
+		default:
+			return "AMEX"
+		}
+	case "Discover":
+		switch retailer {
+		case enums.Walmart:
+			return "DISCOVER"
+		default:
+			return "Discover"
+		}
+	case "Diners":
+		switch retailer {
+		case enums.GameStop:
+		case enums.Walmart:
+		default:
+			return "Diners"
+		}
+	case "Diners - Carte Blanche":
+		switch retailer {
+		case enums.BestBuy:
+		case enums.BoxLunch:
+		case enums.GameStop:
+			return "MasterCard"
+		case enums.HotTopic:
+		case enums.Walmart:
+		default:
+			return "Diners - Carte Blanche"
+		}
+	case "JCB":
+		switch retailer {
+		case enums.BoxLunch:
+		case enums.GameStop:
+			return "Unknown"
+		case enums.HotTopic:
+		case enums.Target:
+		case enums.Walmart:
+		default:
+			return "JCB"
+		}
+	case "Visa Electron":
+		switch retailer {
+		default:
+			return "Visa Electron"
+		}
 	}
 
 	return ""

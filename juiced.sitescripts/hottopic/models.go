@@ -53,23 +53,24 @@ type MonitorInput struct {
 }
 
 type HotTopicProductInfo struct {
-	SizePID string
-	Size    string
-	Color   string
+	VID   string
+	Size  string
+	Color string
 }
 
 type Task struct {
 	Input         entities.TaskInput
 	HotTopicInput TaskInput
 	BaseTask      *entities.BaseTask
-	PrevDwcont    string
-	Dwcont        string
-	SecureKey     string
+
+	PrevDwcont string
+	Dwcont     string
+	SecureKey  string
 }
 
 type TaskInput struct{}
 
 type SizeInfo struct {
-	SizePID string
-	Size    string
+	VID  string
+	Size string
 }

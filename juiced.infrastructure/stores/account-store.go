@@ -9,6 +9,7 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/database"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
+	"backend.juicedbot.io/juiced.infrastructure/events"
 	"github.com/google/uuid"
 )
 
@@ -119,6 +120,21 @@ func CreateAccount(account entities.Account) (*entities.Account, error) {
 	return accountPtr, nil
 }
 
+func CreateTempAccount(account entities.Account) (*entities.Account, error) {
+	if account.ID == "" {
+		account.ID = uuid.New().String()
+	}
+	if account.CreationDate == 0 {
+		account.CreationDate = time.Now().Unix()
+	}
+	account.IsTemp = true
+
+	accountPtr := &account
+	accountStore.Accounts[account.ID] = accountPtr
+
+	return accountPtr, nil
+}
+
 func UpdateAccount(accountID string, newAccount entities.Account) (*entities.Account, error) {
 	account, err := GetAccount(accountID)
 	if err != nil {
@@ -131,6 +147,18 @@ func UpdateAccount(accountID string, newAccount entities.Account) (*entities.Acc
 	return account, database.UpdateAccount(accountID, *account)
 }
 
+func UpdateTempAccount(accountID string, newAccount entities.Account) (*entities.Account, error) {
+	account, err := GetAccount(accountID)
+	if err != nil {
+		return nil, err
+	}
+
+	account.Email = newAccount.Email
+	account.Password = newAccount.Password
+
+	return account, nil
+}
+
 func RemoveAccount(accountID string) (entities.Account, error) {
 	account, err := GetAccount(accountID)
 	if err != nil {
@@ -139,6 +167,16 @@ func RemoveAccount(accountID string) (entities.Account, error) {
 
 	delete(accountStore.Accounts, accountID)
 	return *account, database.RemoveAccount(accountID)
+}
+
+func RemoveTempAccount(accountID string) (entities.Account, error) {
+	account, err := GetAccount(accountID)
+	if err != nil {
+		return entities.Account{}, err
+	}
+
+	delete(accountStore.Accounts, accountID)
+	return *account, nil
 }
 
 func AccessAccountCookies(accountID string) ([]*http.Cookie, error) {
@@ -153,12 +191,27 @@ func AccessAccountCookies(accountID string) ([]*http.Cookie, error) {
 		}
 	}
 
-	return AccountLogin(account)
+	AccountLogin(account)
+	return []*http.Cookie{}, nil
 }
 
-func AccountLogin(account *entities.Account) ([]*http.Cookie, error) {
-	// TODO
-	return []*http.Cookie{}, nil
+func AccountLogin(account *entities.Account) error {
+	if AccountIsLoggedIn(account) {
+		return nil
+	}
+
+	switch account.Retailer {
+	case enums.GameStop:
+		go func() {
+			events.GetEventBus().PublishAccountEvent(enums.AccountLoggingIn, enums.AccountStart, nil, account.ID)
+			time.Sleep(5 * time.Second)
+			events.GetEventBus().PublishAccountEvent(enums.AccountLoggedIn, enums.AccountComplete, nil, account.ID)
+		}()
+	default:
+		return &enums.UnsupportedRetailerError{Retailer: account.Retailer}
+	}
+
+	return nil
 }
 
 func AccountIsLoggedIn(account *entities.Account) bool {

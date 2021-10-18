@@ -12,6 +12,10 @@ var DeleteAccountsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode:
 var DeleteAccountsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 2201, Message: "Could not parse account IDs: "}
 var DeleteAccountsDeleteErrorResponse = Response{StatusCode: 500, ErrorCode: 2202, Message: "Could not delete account(s): "}
 
+var LogIntoAccountsEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 2300, Message: "AccountIDs field was empty"}
+var LogIntoAccountsParseErrorResponse = Response{StatusCode: 400, ErrorCode: 2301, Message: "Could not parse account IDs: "}
+var LogIntoAccountsLogInErrorResponse = Response{StatusCode: 500, ErrorCode: 2302, Message: "Could not log into account(s): "}
+
 type AccountsSuccessResponse struct {
 	SuccessAccountIDs []string `json:"successAccountIDs"`
 	FailureAccountIDs []string `json:"failureAccountIDs"`

@@ -16,8 +16,12 @@ import (
 	u "backend.juicedbot.io/juiced.infrastructure/util"
 	sec "backend.juicedbot.io/juiced.security/auth/util"
 
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
+	"backend.juicedbot.io/juiced.sitescripts/disney"
+	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
+	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 
 	"github.com/google/uuid"
@@ -61,10 +65,18 @@ func InitTaskStore() error {
 
 			var retailerTask entities.RetailerTask
 			switch task.Retailer {
+			case enums.BoxLunch:
+				retailerTask, err = boxlunch.CreateTask(task.Task.TaskInput, task.Task)
+			case enums.Disney:
+				retailerTask, err = disney.CreateTask(task.Task.TaskInput, task.Task)
+			case enums.GameStop:
+				retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.HotTopic:
 				retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 			case enums.PokemonCenter:
 				retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+			case enums.Shopify:
+				retailerTask, err = shopify.CreateTask(task.Task.TaskInput, task.Task)
 
 			}
 			if err != nil {
@@ -171,10 +183,18 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch task.Retailer {
+	case enums.BoxLunch:
+		retailerTask, err = boxlunch.CreateTask(task.Task.TaskInput, task.Task)
+	case enums.Disney:
+		retailerTask, err = disney.CreateTask(task.Task.TaskInput, task.Task)
+	case enums.GameStop:
+		retailerTask, err = gamestop.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.HotTopic:
 		retailerTask, err = hottopic.CreateTask(task.Task.TaskInput, task.Task)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(task.Task.TaskInput, task.Task)
+	case enums.Shopify:
+		retailerTask, err = shopify.CreateTask(task.Task.TaskInput, task.Task)
 
 	}
 	if err != nil {
@@ -192,13 +212,47 @@ func CreateTask(task entities.Task) (*entities.Task, error) {
 	return taskPtr, nil
 }
 
-func UpdateTask(taskID string, newTask entities.Task) (*entities.Task, error) {
+func UpdateTask(taskID string, newTaskInput entities.TaskInput) (*entities.Task, error) {
 	task, err := GetTask(taskID)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO
+	taskRunning := task.Task.Running
+	if taskRunning {
+		err = StopTask(taskID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	proxyGroupID := task.Task.TaskInput.ProxyGroupID
+	profileID := task.Task.TaskInput.ProfileID
+	task.Task.TaskInput = newTaskInput
+	if newTaskInput.ProxyGroupID != proxyGroupID {
+		proxyGroup, err := GetProxyGroup(newTaskInput.ProxyGroupID)
+		if err == nil {
+			task.Task.ProxyGroup = proxyGroup
+		} else {
+			task.Task.ProxyGroup = nil
+		}
+	}
+
+	if newTaskInput.ProfileID != profileID {
+		profile, err := GetProfile(newTaskInput.ProfileID)
+		if err == nil {
+			task.Task.Profile = profile
+		} else {
+			return nil, err
+		}
+	}
+
+	if taskRunning {
+		err = StartTask(taskID)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return task, database.UpdateTask(taskID, *task)
 }
@@ -275,10 +329,18 @@ func CloneTask(taskID, taskGroupID string) (*entities.Task, error) {
 
 	var retailerTask entities.RetailerTask
 	switch newTask.Retailer {
+	case enums.BoxLunch:
+		retailerTask, err = boxlunch.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
+	case enums.Disney:
+		retailerTask, err = disney.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
+	case enums.GameStop:
+		retailerTask, err = gamestop.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.HotTopic:
 		retailerTask, err = hottopic.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 	case enums.PokemonCenter:
 		retailerTask, err = pokemoncenter.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
+	case enums.Shopify:
+		retailerTask, err = shopify.CreateTask(newBaseTask.TaskInput, newBaseTaskPtr)
 
 	}
 	if err != nil {
@@ -361,7 +423,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 
 	CheckForTaskGroupStart(task.Task.TaskGroupID)
 
-	taskClient, err := util.CreateClient()
+	taskClient, err := util.CreateClient(task.Proxy)
 	if err != nil {
 		panic("could not create HTTP client")
 	}
@@ -376,6 +438,12 @@ func RunRetailerTask(task *entities.BaseTask) {
 		return
 	}
 
+	mainFunctions := retailerTask.GetMainFunctions()
+	firstFunctionPercentage := 50
+	if len(mainFunctions) > 0 {
+		firstFunctionPercentage = mainFunctions[0].StatusPercentage
+	}
+	task.PublishEvent(enums.WaitingForMonitor, firstFunctionPercentage-5, enums.TaskUpdate)
 	gotProductInfo := task.WaitForMonitor()
 	if !gotProductInfo {
 		return
@@ -383,7 +451,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 
 	startTime := time.Now().Unix()
 
-	ranMainFunctions := task.RunFunctions(retailerTask.GetMainFunctions())
+	ranMainFunctions := task.RunFunctions(mainFunctions)
 	if !ranMainFunctions {
 		return
 	}

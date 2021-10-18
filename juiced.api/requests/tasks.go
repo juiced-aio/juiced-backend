@@ -1,5 +1,7 @@
 package requests
 
+import "backend.juicedbot.io/juiced.infrastructure/entities"
+
 type CreateTasksRequest struct {
 	NumTasksPerProfile int                    `json:"numTasksPerProfile"`
 	TaskGroupID        string                 `json:"taskGroupID"`
@@ -14,4 +16,9 @@ type CreateTasksRequest struct {
 
 type TasksRequest struct {
 	TaskIDs []string `json:"taskIDs"`
+}
+
+type UpdateTasksRequest struct {
+	TaskIDs   []string           `json:"taskIDs"`
+	TaskInput entities.TaskInput `json:"taskInput"`
 }

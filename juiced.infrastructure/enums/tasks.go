@@ -14,6 +14,18 @@ const (
 	SettingUpSuccess TaskStatus = "Set up task"
 	SettingUpFailure TaskStatus = "Error setting up task: %s"
 
+	EnteringPassword        TaskStatus = "Entering password"
+	EnteringPasswordSuccess TaskStatus = "Entered password"
+	EnteringPasswordFailure TaskStatus = "Error entering password: %s"
+
+	Preloading        TaskStatus = "Preloading"
+	PreloadingSuccess TaskStatus = "Preloaded"
+	PreloadingFailure TaskStatus = "Error preloading: %s"
+
+	ClearingCart        TaskStatus = "Clearing cart"
+	ClearingCartSuccess TaskStatus = "Cleared cart"
+	ClearingCartFailure TaskStatus = "Error clearing cart: %s"
+
 	LoggingIn    TaskStatus = "Logging in"
 	LoginSuccess TaskStatus = "Logged in"
 	LoginFailure TaskStatus = "Error logging in: %s"
@@ -34,6 +46,14 @@ const (
 	SettingCartInfoSuccess TaskStatus = "Set cart info"
 	SettingCartInfoFailure TaskStatus = "Error setting cart info: %s"
 
+	HandlingCheckpoint        TaskStatus = "Handling checkpoint"
+	HandlingCheckpointSuccess TaskStatus = "Handled checkpoint"
+	HandlingCheckpointFailure TaskStatus = "Error handling checkpoint: %s"
+
+	HandlingQueue        TaskStatus = "Handling queue"
+	HandlingQueueSuccess TaskStatus = "Handled queue"
+	HandlingQueueFailure TaskStatus = "Error handling queue: %s"
+
 	GettingOrderInfo        TaskStatus = "Getting order info"
 	GettingOrderInfoSuccess TaskStatus = "Got order info"
 	GettingOrderInfoFailure TaskStatus = "Error getting order info: %s"
@@ -45,6 +65,10 @@ const (
 	SettingShippingInfo        TaskStatus = "Setting shipping info"
 	SettingShippingInfoSuccess TaskStatus = "Set shipping info"
 	SettingShippingInfoFailure TaskStatus = "Error setting shipping info: %s"
+
+	GettingBillingInfo        TaskStatus = "Getting billing info"
+	GettingBillingInfoSuccess TaskStatus = "Got billing info"
+	GettingBillingInfoFailure TaskStatus = "Error getting billing info: %s"
 
 	SettingBillingInfo        TaskStatus = "Setting billing info"
 	SettingBillingInfoSuccess TaskStatus = "Set billing info"
@@ -64,13 +88,15 @@ const (
 	WaitingForCaptcha   TaskStatus = "Waiting for Captcha"
 	BypassingPX         TaskStatus = "Bypassing PX"
 	GettingShippingInfo TaskStatus = "Getting shipping info"
-	GettingBillingInfo  TaskStatus = "Getting billing info"
 	CheckoutFailed      TaskStatus = "Checkout failed"
 	CheckedOut          TaskStatus = "Checked out!"
 )
 
 const (
-	UnknownError = "unknown error (status code: %d)"
+	UnknownError           = "unknown error (status code: %d)"
+	CaptchaRequiredError   = "captcha required"
+	BadCaptchaTokenError   = "bad captcha token"
+	ProductOutOfStockError = "product out of stock"
 )
 
 type TaskEventType = string
@@ -148,5 +174,5 @@ type InvalidAddressTypeError struct {
 }
 
 func (e *InvalidAddressTypeError) Error() string {
-	return fmt.Sprintf("cannot use saved address in guest mode")
+	return "cannot use saved address in guest mode"
 }

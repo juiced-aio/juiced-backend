@@ -62,8 +62,8 @@ var supportedMonitorTypes = map[Retailer][]MonitorType{
 	Topps:         {URLMonitor},
 	Walmart:       {SKUMonitor, FastSKUMonitor},
 
-	GenericShopify: {SKUMonitor},
-	HotWheels:      {SKUMonitor},
+	GenericShopify:  {SKUMonitor, URLMonitor},
+	MattelCreations: {SKUMonitor, URLMonitor},
 }
 
 type InvalidMonitorTypeError struct {

@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"log"
 	"time"
 
 	"backend.juicedbot.io/juiced.antibot/cloudflare"
@@ -57,6 +58,7 @@ type Monitor interface {
 }
 
 func (monitor *BaseMonitor) PublishEvent(status enums.MonitorStatus, eventType enums.MonitorEventType, data interface{}) {
+	log.Println("Monitor", status)
 	monitor.Status = status
 	events.GetEventBus().PublishMonitorEvent(status, eventType, data, monitor.TaskGroup.GroupID, monitor.MonitorID)
 }

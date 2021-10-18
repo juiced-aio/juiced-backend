@@ -2,12 +2,12 @@ package hottopic
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"strings"
 
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	u "backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
@@ -36,7 +36,7 @@ func (task *Task) GetMainFunctions() []entities.TaskFunction {
 			Function:         task.AddToCart,
 			StatusBegin:      enums.AddingToCart,
 			StatusPercentage: 50,
-			MsBetweenRetries: int(u.MS_TO_WAIT),
+			MsBetweenRetries: task.Input.DelayMS,
 		},
 		// 2. GetCheckoutInfo
 		{
@@ -104,10 +104,10 @@ func (task *Task) AddToCart() (bool, string) {
 	if color, ok = task.BaseTask.ProductInfo.SiteSpecificInfo["Color"].(string); ok && color != "" {
 		colorSelected = "true"
 	}
-	if sizePID, ok := task.BaseTask.ProductInfo.SiteSpecificInfo["SizePID"].(string); ok && sizePID != task.BaseTask.ProductInfo.SKU {
+	if vid, ok := task.BaseTask.ProductInfo.SiteSpecificInfo["VID"].(string); ok && vid != task.BaseTask.ProductInfo.SKU {
 		sizeSelected = "true"
 		inseamSelected = "true"
-		pid = sizePID
+		pid = vid
 	}
 
 	data := url.Values{
@@ -132,7 +132,8 @@ func (task *Task) AddToCart() (bool, string) {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -154,7 +155,8 @@ func (task *Task) GetCheckoutInfo() (bool, string) {
 		Referer:            GetCheckoutReferer,
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -183,7 +185,8 @@ func (task *Task) PrepareCheckout() (bool, string) {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.SettingCartInfoFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.SettingCartInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -223,7 +226,8 @@ func (task *Task) ProceedToGuestCheckout() (bool, string) {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -278,7 +282,8 @@ func (task *Task) SubmitShippingDetails() (bool, string) {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -310,7 +315,8 @@ func (task *Task) UseOriginalAddress() (bool, string) {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -375,7 +381,8 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.SettingOrderInfoFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.SettingOrderInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -400,7 +407,8 @@ func (task *Task) SubmitOrder() (bool, string) {
 		Data:               []byte(data.Encode()),
 	})
 	if err != nil {
-		return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		log.Println(err.Error())
+		// return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
 
 	switch resp.StatusCode {

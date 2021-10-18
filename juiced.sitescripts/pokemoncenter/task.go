@@ -13,7 +13,6 @@ import (
 	"backend.juicedbot.io/juiced.encryption/cybersource"
 	"backend.juicedbot.io/juiced.infrastructure/entities"
 	"backend.juicedbot.io/juiced.infrastructure/enums"
-	u "backend.juicedbot.io/juiced.infrastructure/util"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 )
 
@@ -106,7 +105,7 @@ func (task *Task) GetMainFunctions() []entities.TaskFunction {
 		{
 			Function:         task.AddToCart,
 			StatusBegin:      enums.AddingToCart,
-			MsBetweenRetries: int(u.MS_TO_WAIT),
+			MsBetweenRetries: task.Input.DelayMS,
 		},
 	}
 	if task.PokemonCenterInput.TaskType == enums.TaskTypeGuest {

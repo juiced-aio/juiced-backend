@@ -8,6 +8,7 @@ const (
 	CloseEventType   EventType = "CLOSE_EVENT"
 	TaskEventType    EventType = "TASK_EVENT"
 	MonitorEventType EventType = "MONITOR_EVENT"
+	AccountEventType EventType = "ACCOUNT_EVENT"
 )
 
 // Event is any event that needs to be broadcasted
@@ -18,6 +19,7 @@ type Event struct {
 	AuthEvent    AuthEvent    `json:"authEvent"`
 	TaskEvent    TaskEvent    `json:"taskEvent"`
 	MonitorEvent MonitorEvent `json:"monitorEvent"`
+	AccountEvent AccountEvent `json:"accountEvent"`
 }
 
 // EventChannel is a channel that can accept an Event

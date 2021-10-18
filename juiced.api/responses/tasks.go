@@ -1,5 +1,7 @@
 package responses
 
+import "backend.juicedbot.io/juiced.infrastructure/entities"
+
 var CreateTaskParseErrorResponse = Response{StatusCode: 400, ErrorCode: 6000, Message: "Could not parse task: "}
 var CreateTaskEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 6001, Message: "One or more required fields were empty"}
 var CreateTaskInvalidProfileGroupErrorResponse = Response{StatusCode: 400, ErrorCode: 6002, Message: "Could not find profile group: "}
@@ -26,7 +28,15 @@ var StopTasksEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 6500
 var StopTasksParseErrorResponse = Response{StatusCode: 400, ErrorCode: 6501, Message: "Could not parse task IDs: "}
 var StopTasksStopErrorResponse = Response{StatusCode: 500, ErrorCode: 6502, Message: "Could not stop task(s): "}
 
+var UpdateTasksEmptyInputErrorResponse = Response{StatusCode: 400, ErrorCode: 6600, Message: "TaskIDs field was empty"}
+var UpdateTasksParseErrorResponse = Response{StatusCode: 400, ErrorCode: 6601, Message: "Could not parse task IDs: "}
+var UpdateTasksUpdateErrorResponse = Response{StatusCode: 500, ErrorCode: 6602, Message: "Could not update task(s): "}
+
 type TasksSuccessResponse struct {
 	SuccessTaskIDs []string `json:"successTaskIDs"`
 	FailureTaskIDs []string `json:"failureTaskIDs"`
+}
+
+type TasksResponse struct {
+	Data []entities.Task `json:"data"`
 }

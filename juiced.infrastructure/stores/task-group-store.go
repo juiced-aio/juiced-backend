@@ -13,8 +13,12 @@ import (
 	"backend.juicedbot.io/juiced.infrastructure/enums"
 	"backend.juicedbot.io/juiced.infrastructure/events"
 	u "backend.juicedbot.io/juiced.infrastructure/util"
+	"backend.juicedbot.io/juiced.sitescripts/boxlunch"
+	"backend.juicedbot.io/juiced.sitescripts/disney"
+	"backend.juicedbot.io/juiced.sitescripts/gamestop"
 	"backend.juicedbot.io/juiced.sitescripts/hottopic"
 	"backend.juicedbot.io/juiced.sitescripts/pokemoncenter"
+	"backend.juicedbot.io/juiced.sitescripts/shopify"
 	"backend.juicedbot.io/juiced.sitescripts/util"
 	"github.com/google/uuid"
 )
@@ -38,8 +42,9 @@ func InitTaskGroupStore() error {
 	for _, taskGroup := range taskGroups {
 		taskGroup := taskGroup
 		taskGroupPtr := &taskGroup
-		skip := false
+		validMonitors := []*entities.BaseMonitor{}
 		for _, monitor := range taskGroupPtr.Monitors {
+			monitor.Running = false
 			monitor.Status = enums.MonitorIdle
 			monitor.TaskGroup = taskGroupPtr
 
@@ -52,18 +57,28 @@ func InitTaskGroupStore() error {
 
 			var retailerMonitor entities.Monitor
 			switch taskGroup.Retailer {
+			case enums.BoxLunch:
+				retailerMonitor, err = boxlunch.CreateMonitor(monitor.MonitorInput, monitor)
+			case enums.Disney:
+				retailerMonitor, err = disney.CreateMonitor(monitor.MonitorInput, monitor)
+			case enums.GameStop:
+				retailerMonitor, err = gamestop.CreateMonitor(monitor.MonitorInput, monitor)
 			case enums.HotTopic:
 				retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 			case enums.PokemonCenter:
 				retailerMonitor, err = pokemoncenter.CreateMonitor(monitor.MonitorInput, monitor)
+			case enums.Shopify:
+				retailerMonitor, err = shopify.CreateMonitor(monitor.MonitorInput, monitor)
 			}
-			if err != nil {
-				skip = true
+			if err == nil {
+				monitor.Monitor = &retailerMonitor
+				validMonitors = append(validMonitors, monitor)
 			}
-			monitor.Monitor = &retailerMonitor
 		}
 
-		if !skip {
+		taskGroupPtr.Monitors = validMonitors
+
+		if len(taskGroupPtr.Monitors) > 0 {
 			taskGroupPtr.Tasks = GetTasks(taskGroupPtr.TaskIDs)
 			for _, task := range taskGroupPtr.Tasks {
 				task.Task.TaskGroup = taskGroupPtr
@@ -141,10 +156,18 @@ func CreateTaskGroup(taskGroup entities.TaskGroup) (*entities.TaskGroup, error) 
 
 		var retailerMonitor entities.Monitor
 		switch taskGroup.Retailer {
+		case enums.BoxLunch:
+			retailerMonitor, err = boxlunch.CreateMonitor(monitor.MonitorInput, monitor)
+		case enums.Disney:
+			retailerMonitor, err = disney.CreateMonitor(monitor.MonitorInput, monitor)
+		case enums.GameStop:
+			retailerMonitor, err = gamestop.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.HotTopic:
 			retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(monitor.MonitorInput, monitor)
+		case enums.Shopify:
+			retailerMonitor, err = shopify.CreateMonitor(monitor.MonitorInput, monitor)
 
 		}
 		if err != nil {
@@ -169,8 +192,140 @@ func UpdateTaskGroup(groupID string, newTaskGroup entities.TaskGroup) (*entities
 	}
 
 	taskGroup.Name = newTaskGroup.Name
+	monitorsRunning := false
+	foundMonitorIDs := []string{}
+	for _, newMonitor := range newTaskGroup.Monitors {
+		found := false
+		for _, monitor := range taskGroup.Monitors {
+			if monitor.Running {
+				monitorsRunning = true
+			}
+			if newMonitor.MonitorID == monitor.MonitorID {
+				foundMonitorIDs = append(foundMonitorIDs, monitor.MonitorID)
+				// Clear the monitor's ProductInfos if there's a new monitor input (e.g. new SKU)
+				if newMonitor.MonitorInput.Input != monitor.MonitorInput.Input {
+					monitor.ProductInfos = []entities.ProductInfo{}
+				}
 
-	// TODO
+				if newMonitor.MonitorInput.DelayMS <= 0 {
+					newMonitor.MonitorInput.DelayMS = 2000
+				}
+				if newMonitor.MonitorInput.MaxPrice <= 0 {
+					newMonitor.MonitorInput.MaxPrice = -1
+				}
+
+				// Remove any out-of-price-range ProductInfos if there's a new max price
+				if newMonitor.MonitorInput.MaxPrice != monitor.MonitorInput.MaxPrice {
+					newProductInfos := []entities.ProductInfo{}
+					for _, productInfo := range monitor.ProductInfos {
+						if newMonitor.MonitorInput.MaxPrice == -1 || int(productInfo.Price) <= newMonitor.MonitorInput.MaxPrice {
+							newProductInfos = append(newProductInfos, productInfo)
+						}
+					}
+					monitor.ProductInfos = newProductInfos
+				}
+
+				// Update the ProxyGroup, Proxy, Client, and Scraper if there's a new ProxyGroupID
+				proxyGroupID := monitor.MonitorInput.ProxyGroupID
+				monitor.MonitorInput = newMonitor.MonitorInput
+				if newMonitor.MonitorInput.ProxyGroupID != proxyGroupID {
+					proxyGroup, err := GetProxyGroup(newMonitor.MonitorInput.ProxyGroupID)
+					if err == nil {
+						monitor.ProxyGroup = proxyGroup
+					} else {
+						monitor.ProxyGroup = nil
+					}
+
+					monitor.Proxy = nil // Will automatically update on next monitor request
+
+					monitorClient, err := util.CreateClient()
+					if err != nil {
+						panic("could not create HTTP client")
+					}
+					monitor.Client = &monitorClient
+					monitorScraper := cloudflare.Init(monitorClient, u.HAWK_KEY, false)
+					monitor.Scraper = &monitorScraper
+				}
+				found = true
+				break
+			}
+		}
+
+		// If this is a new monitor, add it
+		if !found {
+			newMonitorID := uuid.New().String()
+
+			var proxyGroupPtr *entities.ProxyGroup
+
+			if newMonitor.MonitorInput.ProxyGroupID != "" {
+				proxyGroupPtr, _ = GetProxyGroup(newMonitor.MonitorInput.ProxyGroupID)
+			}
+
+			newBaseMonitor := &entities.BaseMonitor{
+				MonitorID:    newMonitorID,
+				MonitorInput: newMonitor.MonitorInput,
+				Status:       enums.MonitorIdle,
+				TaskGroup:    taskGroup,
+				ProxyGroup:   proxyGroupPtr,
+			}
+
+			var newRetailerMonitor entities.Monitor
+			switch newTaskGroup.Retailer {
+			case enums.BoxLunch:
+				newRetailerMonitor, err = boxlunch.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
+			case enums.Disney:
+				newRetailerMonitor, err = disney.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
+			case enums.GameStop:
+				newRetailerMonitor, err = gamestop.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
+			case enums.HotTopic:
+				newRetailerMonitor, err = hottopic.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
+			case enums.PokemonCenter:
+				newRetailerMonitor, err = pokemoncenter.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
+			case enums.Shopify:
+				newRetailerMonitor, err = shopify.CreateMonitor(newBaseMonitor.MonitorInput, newBaseMonitor)
+
+			}
+
+			if err == nil {
+				newBaseMonitor.Monitor = &newRetailerMonitor
+				taskGroup.Monitors = append(taskGroup.Monitors, newBaseMonitor)
+				foundMonitorIDs = append(foundMonitorIDs, newBaseMonitor.MonitorID)
+
+				// If the other monitors are running, start this one as well
+				if monitorsRunning {
+					go RunMonitor(newBaseMonitor)
+				}
+			}
+		}
+	}
+
+	// Kill any monitors that no longer exist
+	for _, monitor := range taskGroup.Monitors {
+		found := false
+		for _, foundMonitorID := range foundMonitorIDs {
+			if foundMonitorID == monitor.MonitorID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			monitor.StopFlag = true
+			monitor.Status = enums.MonitorIdle
+			monitor.Running = false
+			monitor.ProductInfos = []entities.ProductInfo{}
+
+			monitor.Proxy = nil
+			monitor.Client = nil
+			monitor.Scraper = nil
+			monitorsWithoutThisOne := []*entities.BaseMonitor{}
+			for _, monitor_ := range taskGroup.Monitors {
+				if monitor_.MonitorID != monitor.MonitorID {
+					monitorsWithoutThisOne = append(monitorsWithoutThisOne, monitor_)
+				}
+			}
+			taskGroup.Monitors = monitorsWithoutThisOne
+		}
+	}
 
 	return taskGroup, database.UpdateTaskGroup(groupID, *taskGroup)
 }
@@ -219,10 +374,18 @@ func CloneTaskGroup(groupID string) (*entities.TaskGroup, error) {
 
 		var retailerMonitor entities.Monitor
 		switch newTaskGroup.Retailer {
+		case enums.BoxLunch:
+			retailerMonitor, err = boxlunch.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
+		case enums.Disney:
+			retailerMonitor, err = disney.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
+		case enums.GameStop:
+			retailerMonitor, err = gamestop.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 		case enums.HotTopic:
-			retailerMonitor, err = hottopic.CreateMonitor(monitor.MonitorInput, monitor)
+			retailerMonitor, err = hottopic.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 		case enums.PokemonCenter:
 			retailerMonitor, err = pokemoncenter.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
+		case enums.Shopify:
+			retailerMonitor, err = shopify.CreateMonitor(newMonitor.MonitorInput, &newMonitor)
 
 		}
 		if err == nil {

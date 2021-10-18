@@ -155,3 +155,48 @@ func StopTaskGroups(c *fiber.Ctx) error {
 
 	return c.Status(200).JSON(response)
 }
+
+func UpdateTaskGroups(c *fiber.Ctx) error {
+	var input requests.UpdateTaskGroupsRequest
+	var err error
+
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.UpdateTaskGroupsParseErrorResponse, err)
+	}
+
+	if len(input.TaskGroupIDs) == 0 {
+		return responses.ReturnResponse(c, responses.UpdateTaskGroupsEmptyInputErrorResponse, nil)
+	}
+
+	response := responses.TaskGroupsResponse{}
+	for _, taskGroupID := range input.TaskGroupIDs {
+		oldTaskGroup, err_ := stores.GetTaskGroup(taskGroupID)
+		newTaskGroup := *oldTaskGroup
+		if err_ == nil {
+			if input.UpdateName {
+				newTaskGroup.Name = input.Name
+			}
+			if input.UpdateMonitors {
+				newTaskGroup.Monitors = input.Monitors
+			}
+			taskGroup, err_ := stores.UpdateTaskGroup(taskGroupID, newTaskGroup)
+			if err_ == nil {
+				response.Data = append(response.Data, *taskGroup)
+			} else {
+				if err == nil {
+					err = err_
+				}
+			}
+		} else {
+			if err == nil {
+				err = err_
+			}
+		}
+	}
+
+	if len(response.Data) == 0 {
+		return responses.ReturnResponse(c, responses.UpdateTaskGroupsUpdateErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(response)
+}
