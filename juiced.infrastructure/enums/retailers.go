@@ -51,6 +51,14 @@ var validRetailers = []Retailer{
 	MattelCreations,
 }
 
+type UnsupportedRetailerError struct {
+	Retailer string
+}
+
+func (e *UnsupportedRetailerError) Error() string {
+	return fmt.Sprintf("unsupported retailer: %s", e.Retailer)
+}
+
 type InvalidRetailerError struct {
 	Retailer string
 }

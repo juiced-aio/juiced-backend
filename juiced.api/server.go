@@ -37,6 +37,7 @@ func StartServer() {
 	accounts.Get("/", controller.GetAccounts)
 	accounts.Post("/", controller.CreateAccount)
 	accounts.Post("/delete", controller.DeleteAccounts)
+	accounts.Post("/login", controller.LogIntoAccounts)
 	accounts.Post("/:id", controller.UpdateAccount)
 
 	proxies := v1.Group("/proxy")

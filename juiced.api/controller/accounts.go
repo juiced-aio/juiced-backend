@@ -83,3 +83,43 @@ func DeleteAccounts(c *fiber.Ctx) error {
 
 	return c.Status(200).JSON(response)
 }
+
+func LogIntoAccounts(c *fiber.Ctx) error {
+	var input requests.AccountsRequest
+	var err error
+
+	if err = c.BodyParser(&input); err != nil {
+		return responses.ReturnResponse(c, responses.LogIntoAccountsParseErrorResponse, err)
+	}
+
+	if len(input.AccountIDs) == 0 {
+		return responses.ReturnResponse(c, responses.LogIntoAccountsEmptyInputErrorResponse, nil)
+	}
+
+	response := responses.AccountsSuccessResponse{}
+	for _, accountID := range input.AccountIDs {
+		account, err_ := stores.GetAccount(accountID)
+		if err_ == nil {
+			err_ = stores.AccountLogin(account)
+			if err_ == nil {
+				response.SuccessAccountIDs = append(response.SuccessAccountIDs, accountID)
+			} else {
+				if err == nil {
+					err = err_
+				}
+				response.FailureAccountIDs = append(response.FailureAccountIDs, accountID)
+			}
+		} else {
+			if err == nil {
+				err = err_
+			}
+			response.FailureAccountIDs = append(response.FailureAccountIDs, accountID)
+		}
+	}
+
+	if len(response.SuccessAccountIDs) == 0 {
+		return responses.ReturnResponse(c, responses.LogIntoAccountsLogInErrorResponse, err)
+	}
+
+	return c.Status(200).JSON(response)
+}

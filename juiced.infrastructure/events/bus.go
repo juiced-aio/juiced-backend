@@ -136,6 +136,29 @@ func (eb *EventBus) PublishTaskEvent(taskStatus enums.TaskStatus, statusPercenta
 	eb.RM.RUnlock()
 }
 
+// PublishAccountEvent publishes an AccountEvent
+func (eb *EventBus) PublishAccountEvent(accountStatus enums.AccountStatus, eventType enums.AccountEventType, data interface{}, accountID string) {
+	eb.RM.RLock()
+	// Will panic if any channel is closed
+	go func(event Event, channels []EventChannel) {
+		defer func() {
+			recover()
+		}()
+		for _, ch := range channels {
+			ch <- event
+		}
+	}(Event{
+		EventType: AccountEventType,
+		AccountEvent: AccountEvent{
+			Status:    accountStatus,
+			EventType: eventType,
+			Data:      data,
+			AccountID: accountID,
+		},
+	}, eb.Subscribers)
+	eb.RM.RUnlock()
+}
+
 var eventBus *EventBus
 
 // InitEventBus initializes the singleton instance of the EventBus
