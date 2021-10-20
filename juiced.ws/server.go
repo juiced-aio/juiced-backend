@@ -93,10 +93,32 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var eventsFromLastSecond []events.Event
+
 // ManageEvents manages the events for the EventBus
 func ManageEvents(eventBus *events.EventBus) {
 	channel := make(chan events.Event)
 	eventBus.Subscribe(channel)
+
+	go func() {
+		for {
+			for _, event := range eventsFromLastSecond {
+				if event.EventType == events.CloseEventType {
+					os.Exit(0)
+				}
+			}
+			if len(eventsFromLastSecond) > 0 {
+				for client, connected := range clients {
+					if connected {
+						client.WriteJSON(eventsFromLastSecond)
+					}
+				}
+			}
+			eventsFromLastSecond = []events.Event{}
+			time.Sleep(1 * time.Second)
+		}
+	}()
+
 	for {
 		event := <-channel
 		// log.Println("Event received: " + event.EventType)
@@ -106,13 +128,6 @@ func ManageEvents(eventBus *events.EventBus) {
 		// if event.EventType == events.TaskEventType {
 		// 	log.Println("Event info: " + string(event.TaskEvent.EventType) + ", " + string(event.TaskEvent.Status))
 		// }
-		for client, connected := range clients {
-			if connected {
-				client.WriteJSON(event)
-			}
-		}
-		if event.EventType == events.CloseEventType {
-			os.Exit(0)
-		}
+		eventsFromLastSecond = append(eventsFromLastSecond, event)
 	}
 }

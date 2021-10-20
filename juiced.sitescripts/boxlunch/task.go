@@ -133,6 +133,9 @@ func (task *Task) AddToCart() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 	}
 
@@ -156,6 +159,9 @@ func (task *Task) GetCheckoutInfo() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
 	}
 
@@ -186,6 +192,9 @@ func (task *Task) PrepareCheckout() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingCartInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingCartInfoFailure, err.Error())
 	}
 
@@ -227,6 +236,9 @@ func (task *Task) ProceedToGuestCheckout() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
 	}
 
@@ -283,6 +295,9 @@ func (task *Task) SubmitShippingDetails() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
 	}
 
@@ -316,6 +331,9 @@ func (task *Task) UseOriginalAddress() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
 	}
 
@@ -382,6 +400,9 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingOrderInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingOrderInfoFailure, err.Error())
 	}
 
@@ -408,6 +429,9 @@ func (task *Task) SubmitOrder() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
 

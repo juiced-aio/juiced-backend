@@ -14,12 +14,12 @@ const (
 // Event is any event that needs to be broadcasted
 type Event struct {
 	EventType    EventType    `json:"eventType"`
-	ConnectEvent ConnectEvent `json:"connectEvent"`
-	CloseEvent   CloseEvent   `json:"closeEvent"`
-	AuthEvent    AuthEvent    `json:"authEvent"`
-	TaskEvent    TaskEvent    `json:"taskEvent"`
-	MonitorEvent MonitorEvent `json:"monitorEvent"`
-	AccountEvent AccountEvent `json:"accountEvent"`
+	ConnectEvent ConnectEvent `json:"connectEvent,omitempty"`
+	CloseEvent   CloseEvent   `json:"closeEvent,omitempty"`
+	AuthEvent    AuthEvent    `json:"authEvent,omitempty"`
+	TaskEvent    TaskEvent    `json:"taskEvent,omitempty"`
+	MonitorEvent MonitorEvent `json:"monitorEvent,omitempty"`
+	AccountEvent AccountEvent `json:"accountEvent,omitempty"`
 }
 
 // EventChannel is a channel that can accept an Event

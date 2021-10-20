@@ -404,7 +404,7 @@ func RunRetailerTask(task *entities.BaseTask) {
 			log.Println(r)
 			log.Println(string(debug.Stack()))
 			task.StopFlag = true
-			task.PublishEvent(enums.TaskFail, 0, fmt.Sprintf(enums.TaskFailed, r))
+			task.PublishEvent(fmt.Sprintf(enums.TaskFailed, r), 0, enums.TaskFail)
 		}
 		task.Running = false
 		CheckForTaskGroupStop(task.Task.TaskGroupID)

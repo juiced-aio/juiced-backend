@@ -192,6 +192,9 @@ func (task *Task) Login() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 
@@ -227,6 +230,9 @@ func (task *Task) Login() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 	apiKey1 := resp.Header.Get("api-key")
@@ -288,6 +294,9 @@ func (task *Task) Login() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 	apiKey2 := resp.Header.Get("api-key")
@@ -382,6 +391,9 @@ func (task *Task) Login() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 
@@ -420,6 +432,9 @@ func (task *Task) LoginGuest() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
 	}
 
@@ -479,6 +494,9 @@ func (task *Task) AddToCart() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 	}
 
@@ -522,6 +540,9 @@ func (task *Task) GetCartInfo() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
 	}
 
@@ -568,6 +589,9 @@ func (task *Task) ValidateCheckout() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingCartInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingCartInfoFailure, err.Error())
 	}
 
@@ -630,6 +654,9 @@ func (task *Task) SubmitShippingDetails() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
 	}
 
@@ -670,6 +697,9 @@ func (task *Task) EstablishAppSession() (bool, string) {
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.GettingBillingInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.GettingBillingInfoFailure, err.Error())
 	}
 
@@ -715,6 +745,9 @@ func (task *Task) GetPaysheetAE() (bool, string) {
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
 	}
 
@@ -771,6 +804,9 @@ func (task *Task) GetCardToken() (bool, string) {
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.GettingOrderInfoFailure, err.Error())
 	}
 
@@ -869,6 +905,9 @@ func (task *Task) SubmitOrder() (bool, string) {
 	})
 	if err != nil {
 		fmt.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
 
