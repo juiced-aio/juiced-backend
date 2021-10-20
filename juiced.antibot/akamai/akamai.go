@@ -377,6 +377,12 @@ func HandleAkamaiTask(task *entities.BaseTask, referer, baseEndpoint, akamaiEndp
 		return fmt.Errorf("bad sensor: %s", resp.Status)
 	}
 
+	for _, cookie := range task.Client.Jar.Cookies(baseURL) {
+		if cookie.Name == "_abck" {
+			abckCookie = cookie.Value
+		}
+	}
+
 	if strings.Contains(baseURL.Host, "gamestop") {
 		if len(abckCookie) > 488 {
 			return nil

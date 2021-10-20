@@ -125,6 +125,9 @@ func (task *Task) Login() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 	switch resp.StatusCode {
@@ -178,6 +181,9 @@ func (task *Task) Login() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 
@@ -207,6 +213,9 @@ func (task *Task) Login() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.LoginFailure, err.Error())
 	}
 
@@ -214,7 +223,7 @@ func (task *Task) Login() (bool, string) {
 	case 200:
 		return true, enums.LoginSuccess
 
-	case 403:
+	case 429:
 		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
 		if err != nil {
 			return false, fmt.Sprintf(enums.LoginFailure, err.Error())
@@ -246,6 +255,9 @@ func (task *Task) LoginGuest() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingUpFailure, err.Error())
 	}
 
@@ -314,6 +326,9 @@ func (task *Task) AddToCart() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
 	}
 
@@ -344,7 +359,7 @@ func (task *Task) AddToCart() (bool, string) {
 			return true, enums.AddingToCartSuccess
 		}
 
-	case 403:
+	case 429:
 		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
 		if err != nil {
 			return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
@@ -377,7 +392,10 @@ func (task *Task) GetCartInfo() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
-		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
+		}
+		// return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
@@ -403,7 +421,7 @@ func (task *Task) GetCartInfo() (bool, string) {
 		}
 		return false, fmt.Sprintf(enums.GettingCartInfoFailure, EmptyCSRFValuesError)
 
-	case 403:
+	case 429:
 		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
 		if err != nil {
 			return false, fmt.Sprintf(enums.GettingCartInfoFailure, err.Error())
@@ -456,14 +474,17 @@ func (task *Task) SubmitShippingDetails() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
-		// return false, fmt.Sprintf(enums.AddingToCartFailure, err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
+		}
+		// return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
 	}
 
 	switch resp.StatusCode {
 	case 200:
 		return true, enums.SettingShippingInfoSuccess
 
-	case 403:
+	case 429:
 		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
 		if err != nil {
 			return false, fmt.Sprintf(enums.SettingShippingInfoFailure, err.Error())
@@ -543,6 +564,9 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	})
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
 	}
 
@@ -550,7 +574,7 @@ func (task *Task) SubmitPaymentDetails() (bool, string) {
 	case 200:
 		return true, enums.SettingBillingInfoSuccess
 
-	case 403:
+	case 429:
 		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
 		if err != nil {
 			return false, fmt.Sprintf(enums.SettingBillingInfoFailure, err.Error())
@@ -615,6 +639,9 @@ func (task *Task) SubmitOrder() (bool, string) {
 	// }
 	if err != nil {
 		log.Println(err.Error())
+		if resp == nil {
+			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
+		}
 		// return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
 	}
 
@@ -632,7 +659,7 @@ func (task *Task) SubmitOrder() (bool, string) {
 			return true, enums.CheckingOutSuccess
 		}
 
-	case 403:
+	case 429:
 		err = akamai.HandleAkamaiTask(task.BaseTask, BaseEndpoint+"/", BaseEndpoint, AkamaiEndpoint, BaseURL)
 		if err != nil {
 			return false, fmt.Sprintf(enums.CheckingOutFailure, err.Error())
